@@ -3,6 +3,7 @@ import { describe, expect, mock, test } from "bun:test";
 import {
 	renderBounce,
 	renderBounces,
+	renderDeleteBounce,
 	type BouncesCliContext,
 } from "../src/commands/bounces";
 
@@ -115,6 +116,28 @@ describe("bounce CLI actions", () => {
 			meta: { reason: "550 mailbox unavailable" },
 			subscriber_id: 663,
 			campaign: { id: 1, name: "Test campaign" },
+		});
+	});
+
+	test("deletes a bounce through the shared operation", async () => {
+		const deleteById = mock(async () => ({ data: true }));
+		const cliContext = {
+			client: { bounce: { deleteById } } as unknown as Pick<
+				ListmonkClient,
+				"bounce"
+			>,
+			output: output(),
+		} satisfies BouncesCliContext;
+
+		await renderDeleteBounce(cliContext, { id: 9 });
+
+		expect(deleteById).toHaveBeenCalledWith({ path: { id: 9 } });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Bounce deleted: 9",
+		);
+		expect(cliContext.output.json).toHaveBeenCalledWith({
+			id: 9,
+			deleted: true,
 		});
 	});
 });

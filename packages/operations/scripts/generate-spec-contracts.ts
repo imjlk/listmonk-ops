@@ -176,6 +176,7 @@ import type {
 	AbTestDeleteOutput,
 	AbTestDeployWinnerOutput,
 	BounceCollectionOutput,
+	BounceDeleteOutput,
 	BounceIdInput,
 	BounceListInput,
 	BounceRecord,
@@ -340,6 +341,9 @@ const contracts = {
 	),
 	bounceListInputContract: contractSchema(typia.json.schema<BounceListInput>()),
 	bounceIdInputContract: contractSchema(typia.json.schema<BounceIdInput>()),
+	bounceDeleteOutputContract: contractSchema(
+		typia.json.schema<BounceDeleteOutput>(),
+	),
 	campaignLifecycleInputContract: contractSchema(
 		typia.json.schema<CampaignLifecycleInput>(),
 	),

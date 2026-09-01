@@ -2838,6 +2838,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/bounces.ts#deleteBounceOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesDeleteOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesDeleteOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesDeleteOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/bounces.ts#invokeDeleteBounceOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/bounces.ts#deleteBounce:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesDeleteOperationSpec:variable",
+        "executorNode": "packages/operations/src/bounces.ts#deleteBounce:function",
+        "invokerNode": "packages/operations/src/bounces.ts#invokeDeleteBounceOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/bounces.ts#deleteBounceOperation:variable"
+      },
+      "operationId": "bounces.delete"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function"

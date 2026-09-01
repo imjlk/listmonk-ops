@@ -1472,6 +1472,20 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
+## Delete bounce (`bounces.delete`)
+
+Contract maturity: `experimental`; effects: `delete:bounce`; confirmation: `required`; retry: `reconcile`.
+
+Use when: A bounce record must be removed from Listmonk's history.
+
+Avoid when: The record is still needed for deliverability forensics or an audit trail.
+
+Prerequisites: `bounces.get`
+
+Verify with: `bounces.list`
+
+Retry guidance: Verify the record is gone with bounces.list before repeating; Listmonk acknowledges an already-deleted ID with success.
+
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 
 Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.

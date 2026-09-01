@@ -150,4 +150,46 @@ describe("Bounces CLI and MCP parity", () => {
 		});
 		utils.assertError(mcpFailure);
 	});
+
+	test("enforces destructive confirmation and reports the acknowledged delete", async () => {
+		// Listmonk acknowledges a single-bounce delete of a missing ID with
+		// the same success, so a far-out id exercises the full confirmed
+		// path on both adapters without mutating a real record.
+		const targetId = 9_000_002;
+
+		const blockedCliDeletion = runCliBouncesCommand([
+			"delete",
+			"--id",
+			String(targetId),
+		]);
+		expect(blockedCliDeletion.exitCode).not.toBe(0);
+		expect(`${blockedCliDeletion.stdout}${blockedCliDeletion.stderr}`).toContain(
+			"requires explicit confirmation",
+		);
+
+		const blockedMcpDeletion = await client.callTool(
+			"listmonk_delete_bounce",
+			{ id: targetId },
+		);
+		utils.assertError(blockedMcpDeletion, "requires explicit confirmation");
+
+		const cliDeletion = parseCliJson<{ id: number; deleted: boolean }>(
+			runCliBouncesCommand(["delete", "--id", String(targetId), "--confirm"]),
+			"delete",
+		);
+		expect(cliDeletion).toEqual({ id: targetId, deleted: true });
+
+		const mcpDeletion = await client.callTool("listmonk_delete_bounce", {
+			id: targetId,
+			confirm: true,
+		});
+		utils.assertSuccess(
+			mcpDeletion,
+			"Failed to delete the bounce through MCP",
+		);
+		expect(mcpDeletion.structuredContent).toEqual({
+			id: targetId,
+			deleted: true,
+		});
+	});
 });

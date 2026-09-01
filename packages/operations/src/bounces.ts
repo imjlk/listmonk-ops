@@ -1,5 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	bindBouncesDeleteOperationSpec,
 	bindBouncesGetOperationSpec,
 	bindBouncesListOperationSpec,
 } from "./specs";
@@ -12,9 +13,11 @@ import {
 	parseOperationOutput,
 } from "./operation";
 import {
+	deleteResourceSafety,
 	jsonResourceValue,
 	normalizeResourceList,
 	readResourceSafety,
+	requireAcknowledgement,
 	ResourceResponseError,
 	resourceIdSchema,
 	unwrapResourceResponse,
@@ -76,6 +79,11 @@ const bounceListOutputSchema = z.object({
 
 const bounceIdInputSchema = z.object({
 	id: resourceIdSchema,
+});
+
+const bounceDeleteOutputSchema = z.object({
+	id: z.number().int().positive(),
+	deleted: z.boolean(),
 });
 
 export type BounceRecord = z.output<typeof bounceRecordSchema>;
@@ -150,6 +158,21 @@ export async function getBounce(
 	return asBounceRecord(normalizeBounceRecordPayload(data, input.id));
 }
 
+/**
+ * Listmonk acknowledges a single-bounce delete with a bare boolean and
+ * answers an already-deleted ID with the same success, so the output
+ * reports the acknowledgement. The confirmation that a record is really
+ * gone comes from a follow-up bounces.list read.
+ */
+export async function deleteBounce(
+	{ client }: BounceOperationContext,
+	input: z.output<typeof bounceIdInputSchema>,
+): Promise<z.output<typeof bounceDeleteOutputSchema>> {
+	const response = await client.bounce.deleteById({ path: { id: input.id } });
+	requireAcknowledgement(response, "Failed to delete bounce");
+	return { id: input.id, deleted: true };
+}
+
 export const listBouncesOperation = defineOperation({
 	id: "bounces.list",
 	title: "List bounces",
@@ -173,6 +196,21 @@ export const getBounceOperation = defineOperation({
 	mcp: { name: "listmonk_get_bounce", legacySuccessText: jsonResourceValue },
 	spec: bindBouncesGetOperationSpec(),
 	execute: getBounce,
+});
+
+export const deleteBounceOperation = defineOperation({
+	id: "bounces.delete",
+	title: "Delete bounce",
+	description: "Delete a recorded bounce event by its numeric ID",
+	inputSchema: bounceIdInputSchema,
+	outputSchema: bounceDeleteOutputSchema,
+	safety: deleteResourceSafety,
+	mcp: {
+		name: "listmonk_delete_bounce",
+		legacySuccessText: "Bounce deleted successfully",
+	},
+	spec: bindBouncesDeleteOperationSpec(),
+	execute: deleteBounce,
 });
 
 export async function invokeListBouncesOperation(
@@ -217,9 +255,31 @@ export async function invokeGetBounceOperation(
 	);
 }
 
+export async function invokeDeleteBounceOperation(
+	context: BounceOperationContext,
+	input: unknown,
+): Promise<z.output<typeof bounceDeleteOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		deleteBounceOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof bounceDeleteOutputSchema>;
+	try {
+		output = await deleteBounce(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(deleteBounceOperation.id, error);
+	}
+	return parseOperationOutput(
+		deleteBounceOperation.id,
+		deleteBounceOperation.outputSchema,
+		output,
+	);
+}
+
 export const bouncesOperations = [
 	listBouncesOperation,
 	getBounceOperation,
+	deleteBounceOperation,
 ] as const;
 
 export const bouncesOperationCatalog = defineOperationCatalog({
@@ -261,6 +321,11 @@ export async function invokeBouncesOperationByMcpName(
 			return {
 				operation: getBounceOperation,
 				output: await invokeGetBounceOperation(context, input),
+			};
+		case deleteBounceOperation.mcp.name:
+			return {
+				operation: deleteBounceOperation,
+				output: await invokeDeleteBounceOperation(context, input),
 			};
 		default:
 			return undefined;

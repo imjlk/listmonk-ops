@@ -1,5 +1,6 @@
 import {
 	bounceCollectionOutputContract,
+	bounceDeleteOutputContract,
 	bounceIdInputContract,
 	bounceListInputContract,
 	bounceRecordContract,
@@ -116,4 +117,64 @@ export function bindBouncesListOperationSpec(): typeof bouncesListOperationSpec 
 
 export function bindBouncesGetOperationSpec(): typeof bouncesGetOperationSpec {
 	return bouncesGetOperationSpec;
+}
+
+/**
+ * Listmonk acknowledges a single-bounce delete with a bare boolean and
+ * answers a missing ID with the same success, so a retry after an
+ * ambiguous result is a documented no-op rather than a hazard. The
+ * acknowledgement proves the request was accepted, not that a record
+ * existed; verify the surviving set with bounces.list.
+ */
+export const bouncesDeleteOperationSpec = defineOperationSpec({
+	id: "bounces.delete",
+	resource: "bounce",
+	verb: "delete",
+	title: "Delete bounce",
+	description: "Delete a recorded bounce event by its numeric ID",
+	contract: {
+		input: bounceIdInputContract,
+		output: bounceDeleteOutputContract,
+	},
+	effects: [{ kind: "delete", resource: "bounce", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
+	retry: {
+		kind: "reconcile",
+		reconcileWith: "bounces.list",
+		idempotent: true,
+		reason:
+			"Deleting an already-deleted bounce is a no-op acknowledgement; verify the surviving set with bounces.list after an ambiguous result.",
+	},
+	agent: {
+		useWhen: ["A bounce record must be removed from Listmonk's history."],
+		avoidWhen: [
+			"The record is still needed for deliverability forensics or an audit trail.",
+		],
+		prerequisites: ["bounces.get"],
+		verifyWith: ["bounces.list"],
+		related: ["bounces.get", "bounces.list"],
+		retryGuidance:
+			"Verify the record is gone with bounces.list before repeating; Listmonk acknowledges an already-deleted ID with success.",
+	},
+	projection: {
+		mcpName: "listmonk_delete_bounce",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesDeleteOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesDeleteOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/bounces.ts#deleteBounceOperation:variable",
+			invokerNode:
+				"packages/operations/src/bounces.ts#invokeDeleteBounceOperation:function",
+			executorNode: "packages/operations/src/bounces.ts#deleteBounce:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.16.0",
+});
+
+export function bindBouncesDeleteOperationSpec(): typeof bouncesDeleteOperationSpec {
+	return bouncesDeleteOperationSpec;
 }

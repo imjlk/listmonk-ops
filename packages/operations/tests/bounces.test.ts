@@ -6,6 +6,7 @@ import {
 	getBounce,
 	getBouncesOperationByMcpName,
 	invokeBouncesOperationByMcpName,
+	invokeDeleteBounceOperation,
 	invokeGetBounceOperation,
 	invokeListBouncesOperation,
 } from "../src/bounces";
@@ -37,22 +38,31 @@ const bounceRecord = {
 };
 
 describe("shared bounce operations", () => {
-	test("exposes a read-only registry with safety metadata", () => {
-		expect(bouncesOperations).toHaveLength(2);
+	test("exposes a registry with per-operation safety metadata", () => {
+		expect(bouncesOperations).toHaveLength(3);
 		for (const operation of bouncesOperations) {
 			expect(operation.inputJsonSchema.type).toBe("object");
 			expect(operation.outputJsonSchema.type).toBe("object");
-			expect(operation.safety).toEqual({
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			});
 		}
+		expect(bouncesOperations[0]?.safety).toEqual({
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		});
+		expect(bouncesOperations[2]?.safety).toEqual({
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+			openWorldHint: true,
+		});
 		expect(bouncesOperationCatalog.id).toBe("bounces");
 		expect(
 			getBouncesOperationByMcpName("listmonk_get_bounce"),
 		).toBe(bouncesOperations[1]);
+		expect(getBouncesOperationByMcpName("listmonk_delete_bounce")).toBe(
+			bouncesOperations[2],
+		);
 		expect(getBouncesOperationByMcpName("listmonk_unknown_bounce")).toBe(
 			undefined,
 		);
@@ -205,6 +215,33 @@ describe("shared bounce operations", () => {
 		expect(error).toBeInstanceOf(OperationExecutionError);
 		expect(error).toHaveProperty("operationId", "bounces.list");
 		expect((error as Error).message).toContain("invalid API credentials");
+	});
+
+	test("deletes a bounce and reports the documented no-op acknowledgement", async () => {
+		const deleteById = mock(async () => ({ data: true }));
+
+		await expect(
+			invokeDeleteBounceOperation(
+				bounceContext({
+					deleteById: deleteById as BounceClient["bounce"]["deleteById"],
+				}),
+				{ id: "12" },
+			),
+		).resolves.toEqual({ id: 12, deleted: true });
+		expect(deleteById).toHaveBeenCalledWith({ path: { id: 12 } });
+	});
+
+	test("rejects a negative delete acknowledgement", async () => {
+		const deleteById = mock(async () => ({ data: false }));
+
+		await expect(
+			invokeDeleteBounceOperation(
+				bounceContext({
+					deleteById: deleteById as BounceClient["bounce"]["deleteById"],
+				}),
+				{ id: 12 },
+			),
+		).rejects.toThrow("negative acknowledgement");
 	});
 
 	test("dispatches MCP names through the named operations", async () => {

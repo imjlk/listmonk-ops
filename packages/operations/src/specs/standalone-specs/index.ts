@@ -41,6 +41,7 @@ import {
 import {
 	bouncesListOperationSpec,
 	bouncesGetOperationSpec,
+	bouncesDeleteOperationSpec,
 } from "./bounces-specs";
 import {
 	opsSegmentDriftOperationSpec,
@@ -113,6 +114,7 @@ export const standaloneOperationSpecs = [
 	abTestExportAssignmentOperationSpec,
 	bouncesListOperationSpec,
 	bouncesGetOperationSpec,
+	bouncesDeleteOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */

@@ -56,3 +56,8 @@ export type BounceIdInput = {
 	/** Positive Listmonk bounce ID. */
 	id: ResourceId;
 };
+
+export interface BounceDeleteOutput {
+	id: ResourceId;
+	deleted: boolean;
+}
