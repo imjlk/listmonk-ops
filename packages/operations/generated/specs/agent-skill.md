@@ -1486,6 +1486,20 @@ Verify with: `bounces.list`
 
 Retry guidance: Verify the record is gone with bounces.list before repeating; Listmonk acknowledges an already-deleted ID with success.
 
+## Prune bounce records (`bounces.prune`)
+
+Contract maturity: `experimental`; effects: `maintenance:prune:destructive`; confirmation: `required`; retry: `safe`.
+
+Use when: Bounce history must be cleaned up after review, one bounded previewed batch at a time.
+
+Avoid when: Bounce records are still needed for deliverability forensics or an audit trail.
+
+Prerequisites: `bounces.list`
+
+Verify with: `bounces.list`
+
+Retry guidance: Run dry_run first, then echo the reported bounce_ids with dry_run false; repeating that exact request deletes nothing new. Acknowledgements are not existence proofs — verify the surviving set with bounces.list.
+
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 
 Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.

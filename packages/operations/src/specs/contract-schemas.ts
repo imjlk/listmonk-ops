@@ -31,6 +31,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	bounceListInputContract: NormalizedContractSchema;
 	bounceIdInputContract: NormalizedContractSchema;
 	bounceDeleteOutputContract: NormalizedContractSchema;
+	bouncePruneInputContract: NormalizedContractSchema;
+	bouncePruneOutputContract: NormalizedContractSchema;
 	campaignLifecycleInputContract: NormalizedContractSchema;
 	campaignLifecycleOutputContract: NormalizedContractSchema;
 	campaignPreflightInputContract: NormalizedContractSchema;
@@ -222,6 +224,8 @@ export const bounceCollectionOutputContract =
 export const bounceListInputContract = contracts.bounceListInputContract;
 export const bounceIdInputContract = contracts.bounceIdInputContract;
 export const bounceDeleteOutputContract = contracts.bounceDeleteOutputContract;
+export const bouncePruneInputContract = contracts.bouncePruneInputContract;
+export const bouncePruneOutputContract = contracts.bouncePruneOutputContract;
 export const campaignLifecycleInputContract =
 	contracts.campaignLifecycleInputContract;
 export const campaignLifecycleOutputContract =

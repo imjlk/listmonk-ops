@@ -1224,6 +1224,15 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				action: "packages/operations/src/bounces.ts#deleteBounce:function",
 				openapi: openapiBounceDeleteByIdMethod,
 			},
+			{
+				label: "prune",
+				cliHandler: "handlePruneBouncesCommand",
+				cliRender: "renderPruneBounces",
+				invoker:
+					"packages/operations/src/bounces.ts#invokePruneBouncesOperation:function",
+				action: "packages/operations/src/bounces.ts#pruneBounces:function",
+				openapi: openapiBounceDeleteByIdMethod,
+			},
 		],
 	}),
 ];

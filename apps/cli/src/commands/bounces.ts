@@ -4,6 +4,7 @@ import {
 	invokeDeleteBounceOperation,
 	invokeGetBounceOperation,
 	invokeListBouncesOperation,
+	invokePruneBouncesOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
@@ -69,6 +70,32 @@ export async function renderDeleteBounce(
 	context.output.json(result);
 }
 
+export async function renderPruneBounces(
+	context: BouncesCliContext,
+	input: {
+		page?: number;
+		per_page?: number;
+		campaign_id?: number;
+		source?: string;
+		order_by?: "email" | "campaign_name" | "source" | "created_at";
+		order?: "asc" | "desc";
+		dry_run: boolean;
+		bounce_ids?: number[];
+	},
+): Promise<void> {
+	const result = await invokePruneBouncesOperation(context, input);
+	if (result.dry_run) {
+		context.output.info(
+			`Dry run: ${result.bounce_ids.length} of ${result.total} bounce records selected (page ${result.page}, per page ${result.per_page})`,
+		);
+	} else {
+		context.output.success(
+			`Pruned ${result.acknowledged} bounce record(s) by echoed id`,
+		);
+	}
+	context.output.json(result);
+}
+
 type ListBouncesCommandFlags = {
 	page?: number;
 	"per-page"?: number;
@@ -129,6 +156,46 @@ export async function handleDeleteBounceCommand({
 	}
 }
 
+type PruneBouncesCommandFlags = {
+	page?: number;
+	"per-page"?: number;
+	"campaign-id"?: number;
+	source?: string;
+	"order-by"?: "email" | "campaign_name" | "source" | "created_at";
+	order?: "asc" | "desc";
+	"dry-run"?: boolean;
+	"bounce-ids"?: string;
+};
+
+export async function handlePruneBouncesCommand({
+	flags,
+	...args
+}: HandlerArgs<PruneBouncesCommandFlags>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		const bounceIds = flags["bounce-ids"]
+			?.split(",")
+			.map((value) => value.trim())
+			.filter((value) => value.length > 0)
+			.map(Number);
+		await renderPruneBounces(
+			{ client, output: getOutput() },
+			{
+				page: flags.page,
+				per_page: flags["per-page"],
+				campaign_id: flags["campaign-id"],
+				source: flags.source,
+				order_by: flags["order-by"],
+				order: flags.order,
+				dry_run: flags["dry-run"] ?? true,
+				bounce_ids: bounceIds,
+			},
+		);
+	} catch (error) {
+		throw createBouncesCommandError("Failed to prune bounces", error);
+	}
+}
+
 export default defineGroup({
 	name: "bounces",
 	description: "Inspect recorded bounce events",
@@ -183,6 +250,43 @@ export default defineGroup({
 				}),
 			},
 			handler: handleDeleteBounceCommand,
+		}),
+		defineCommand({
+			name: "prune",
+			operationId: "bounces.prune",
+			description: "Preview or delete a bounded selection of bounce records",
+			options: {
+				page: option(z.coerce.number().int().positive().optional(), {
+					description: "Selection window page (dry run)",
+				}),
+				"per-page": option(
+					z.coerce.number().int().positive().max(100).optional(),
+					{ description: "Selection window size, at most 100 (dry run)" },
+				),
+				"campaign-id": option(z.coerce.number().int().positive().optional(), {
+					description: "Filter bounces by campaign ID (dry run)",
+				}),
+				source: option(z.string().trim().min(1).optional(), {
+					description: "Filter by bounce source (dry run)",
+				}),
+				"order-by": option(
+					z
+						.enum(["email", "campaign_name", "source", "created_at"])
+						.optional(),
+					{ description: "Sort field applied by Listmonk (dry run)" },
+				),
+				order: option(z.enum(["asc", "desc"]).optional(), {
+					description: "Sort direction (dry run)",
+				}),
+				"dry-run": option(z.coerce.boolean().default(true), {
+					description: "Preview instead of deleting (defaults to true)",
+				}),
+				"bounce-ids": option(z.string().trim().min(1).optional(), {
+					description:
+						"Comma-separated bounce ids echoed from a dry run; required with --no-dry-run",
+				}),
+			},
+			handler: handlePruneBouncesCommand,
 		}),
 	],
 });

@@ -14,12 +14,12 @@ function request(
 }
 
 describe("bounce operation adapter", () => {
-	test("publishes the shared read and delete tools beside the legacy bulk tool", () => {
+	test("publishes the shared bounce tool family", () => {
 		expect(bouncesTools.map((tool) => tool.name)).toEqual([
 			"listmonk_get_bounces",
 			"listmonk_get_bounce",
 			"listmonk_delete_bounce",
-			"listmonk_delete_bounces",
+			"listmonk_prune_bounces",
 		]);
 		const listTool = bouncesTools.find(
 			(tool) => tool.name === "listmonk_get_bounces",
@@ -135,26 +135,67 @@ describe("bounce operation adapter", () => {
 		expect(rejected.isError).toBe(true);
 	});
 
-	test("keeps the legacy bulk delete tool dispatchable", async () => {
-		const deleteById = mock(async () => ({ data: true }));
-		const deleteBulk = mock(async () => ({ data: true }));
+	test("previews a destructive prune through the shared dry run", async () => {
+		const bounceRecord = { id: 5, type: "hard", source: "api" };
 		const client = {
 			bounce: {
-				deleteById,
-				delete: deleteBulk,
+				list: async () => ({
+					data: {
+						results: [bounceRecord, { ...bounceRecord, id: 6 }],
+						total: 2,
+						per_page: 100,
+						page: 1,
+					},
+				}),
 			},
 		} as unknown as ListmonkClient;
 
-		const bulk = await handleBouncesTools(
-			request("listmonk_delete_bounces", { ids: ["1", "2"] }),
+		const preview = await handleBouncesTools(
+			request("listmonk_prune_bounces", {}),
 			client,
 		);
-		expect(bulk.isError).toBeFalsy();
-		expect(bulk.content[0]?.text).toContain("Bounces deleted successfully");
-		expect(deleteBulk).toHaveBeenCalledWith({ query: { id: "1,2" } });
+		expect(preview.isError).toBeFalsy();
+		expect(preview.structuredContent).toMatchObject({
+			dry_run: true,
+			bounce_ids: [5, 6],
+			total: 2,
+		});
+	});
+
+	test("deletes exactly the echoed prune set through per-id requests", async () => {
+		const deleteById = mock(async () => ({ data: true }));
+		const client = {
+			bounce: {
+				deleteById,
+			},
+		} as unknown as ListmonkClient;
+
+		const pruned = await handleBouncesTools(
+			request("listmonk_prune_bounces", {
+				dry_run: false,
+				bounce_ids: [6, 5, 5],
+				confirm: true,
+			}),
+			client,
+		);
+		expect(pruned.isError).toBeFalsy();
+		expect(pruned.structuredContent).toEqual({
+			dry_run: false,
+			bounce_ids: [5, 6],
+			acknowledged: 2,
+		});
+		expect(deleteById).toHaveBeenCalledTimes(2);
+		expect(deleteById).toHaveBeenCalledWith({ path: { id: 5 } });
+		expect(deleteById).toHaveBeenCalledWith({ path: { id: 6 } });
+
+		const withoutEcho = await handleBouncesTools(
+			request("listmonk_prune_bounces", { dry_run: false }),
+			client,
+		);
+		expect(withoutEcho.isError).toBe(true);
 
 		const unknown = await handleBouncesTools(
-			request("listmonk_unknown_bounce"),
+			request("listmonk_delete_bounces"),
 			client,
 		);
 		expect(unknown.isError).toBe(true);

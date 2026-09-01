@@ -134,6 +134,91 @@ describe("Bounces CLI and MCP parity", () => {
 		utils.assertError(mcpFailure, "order_by");
 	});
 
+	test("previews and echoes a prune through both adapters", async () => {
+		// The destructive branch deletes far-out ids whose per-id
+		// acknowledgement is the documented no-op, so the parity path runs
+		// on any stack state without destroying real records.
+		const echoedIds = [9_100_001, 9_100_002];
+
+		// Like the hygiene preview, a destructive-capable operation needs
+		// explicit confirmation even for its dry run.
+		const cliPreview = parseCliJson<{
+			dry_run: boolean;
+			bounce_ids: number[];
+		}>(
+			runCliBouncesCommand([
+				"--format",
+				"json",
+				"prune",
+				"--per-page",
+				"5",
+				"--confirm",
+			]),
+			"prune",
+		);
+		expect(cliPreview.dry_run).toBe(true);
+		expect(cliPreview.bounce_ids.length).toBeLessThanOrEqual(5);
+
+		const mcpPreview = utils.assertSuccess<{
+			dry_run: boolean;
+			bounce_ids: number[];
+		}>(
+			await client.callTool("listmonk_prune_bounces", {
+				per_page: 5,
+				confirm: true,
+			}),
+			"Failed to preview the prune through MCP",
+		);
+		expect(mcpPreview.dry_run).toBe(true);
+		expect(mcpPreview.bounce_ids).toEqual(cliPreview.bounce_ids);
+
+		const cliPruned = parseCliJson<{
+			dry_run: boolean;
+			bounce_ids: number[];
+			acknowledged: number;
+		}>(
+			runCliBouncesCommand([
+				"--format",
+				"json",
+				"prune",
+				"--no-dry-run",
+				"--bounce-ids",
+				echoedIds.join(","),
+				"--confirm",
+			]),
+			"prune destructive",
+		);
+		expect(cliPruned).toEqual({
+			dry_run: false,
+			bounce_ids: echoedIds,
+			acknowledged: echoedIds.length,
+		});
+
+		const mcpPruned = utils.assertSuccess<{
+			dry_run: boolean;
+			bounce_ids: number[];
+			acknowledged: number;
+		}>(
+			await client.callTool("listmonk_prune_bounces", {
+				dry_run: false,
+				bounce_ids: echoedIds,
+				confirm: true,
+			}),
+			"Failed to prune through MCP",
+		);
+		expect(mcpPruned).toEqual({
+			dry_run: false,
+			bounce_ids: echoedIds,
+			acknowledged: echoedIds.length,
+		});
+
+		const withoutEcho = await client.callTool("listmonk_prune_bounces", {
+			dry_run: false,
+			confirm: true,
+		});
+		utils.assertError(withoutEcho, "bounce_ids");
+	});
+
 	test("surfaces a missing bounce through both adapters", async () => {
 		// Bounce ids are dense but unbounded; a far-out id is safely absent
 		// on every local stack state.
