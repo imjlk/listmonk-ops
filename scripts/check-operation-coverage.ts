@@ -85,6 +85,17 @@ export const operationCoverageContracts: readonly OperationCoverageContract[] = 
 			"packages/operations/src/media.ts#invokeMediaOperationByMcpName:function",
 	},
 	{
+		family: "dashboard",
+		registry:
+			"packages/operations/src/dashboard.ts#dashboardOperations:variable",
+		testAnchor:
+			"scripts/shared-operation-coverage.ts#assertDashboardOperationsPublished:function",
+		mcpHandler:
+			"packages/mcp/src/handlers/dashboard.ts#handleDashboardTools:function",
+		dispatcher:
+			"packages/operations/src/dashboard.ts#invokeDashboardOperationByMcpName:function",
+	},
+	{
 		family: "bounces",
 		registry: "packages/operations/src/bounces.ts#bouncesOperations:variable",
 		testAnchor:

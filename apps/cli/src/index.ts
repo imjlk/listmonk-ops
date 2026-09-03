@@ -10,8 +10,9 @@ import packageJson from "../package.json" with { type: "json" };
 
 import abtestCommand from "./commands/abtest";
 import bouncesCommand from "./commands/bounces";
-import campaignsCommand from "./commands/campaigns";
 import capabilitiesCommand from "./commands/capabilities";
+import campaignsCommand from "./commands/campaigns";
+import dashboardCommand from "./commands/dashboard";
 import deliverabilityCommand from "./commands/deliverability";
 import examplesCommand from "./commands/examples";
 import listsCommand from "./commands/lists";
@@ -46,6 +47,7 @@ const subCommands = {
 	prime: primeCommand,
 	examples: examplesCommand,
 	bounces: bouncesCommand,
+	dashboard: dashboardCommand,
 	campaigns: campaignsCommand,
 	lists: listsCommand,
 	media: mediaCommand,

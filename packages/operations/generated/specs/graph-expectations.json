@@ -2244,6 +2244,60 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/dashboard.ts#getDashboardCountsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#bindDashboardCountsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#bindDashboardCountsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#dashboardCountsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/dashboard.ts#invokeGetDashboardCountsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/dashboard.ts#readDashboardCounts:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#bindDashboardCountsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#dashboardCountsOperationSpec:variable",
+        "executorNode": "packages/operations/src/dashboard.ts#readDashboardCounts:function",
+        "invokerNode": "packages/operations/src/dashboard.ts#invokeGetDashboardCountsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/dashboard.ts#getDashboardCountsOperation:variable"
+      },
+      "operationId": "dashboard.counts"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/dashboard.ts#getDashboardChartsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#bindDashboardChartsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#bindDashboardChartsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#dashboardChartsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/dashboard.ts#invokeGetDashboardChartsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/dashboard.ts#readDashboardCharts:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#bindDashboardChartsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#dashboardChartsOperationSpec:variable",
+        "executorNode": "packages/operations/src/dashboard.ts#readDashboardCharts:function",
+        "invokerNode": "packages/operations/src/dashboard.ts#invokeGetDashboardChartsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/dashboard.ts#getDashboardChartsOperation:variable"
+      },
+      "operationId": "dashboard.charts"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaDeleteOperationSpec:function"

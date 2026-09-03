@@ -36,6 +36,8 @@ export type OperationSpecVerb =
 	| "deploy-winner"
 	| "stats"
 	| "analytics"
+	| "counts"
+	| "charts"
 	| "status"
 	| "doctor"
 	| "quota"

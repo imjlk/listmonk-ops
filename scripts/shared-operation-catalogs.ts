@@ -6,6 +6,7 @@ import { webhookOperationCatalog } from "../packages/automation/src/webhook-oper
 import {
 	bouncesOperationCatalog,
 	campaignOperationCatalog,
+	dashboardOperationCatalog,
 	discoveryOperationCatalog,
 	listOperationCatalog,
 	mediaOperationCatalog,
@@ -29,6 +30,7 @@ export const sharedOperationCatalogs: readonly OperationCatalog[] = [
 	templateOperationCatalog,
 	mediaOperationCatalog,
 	bouncesOperationCatalog,
+	dashboardOperationCatalog,
 	transactionalOperationCatalog,
 	opsOperationCatalog,
 	abTestOperationCatalog,

@@ -1005,6 +1005,30 @@ Read view, click, link, or bounce analytics for a bounded set of campaigns over 
 - Retry: `safe`
 - Stability: `stable` since `0.16.0`
 
+## `dashboard.counts`
+
+Read aggregate subscriber, list, campaign, and message counters from the Listmonk dashboard.
+
+- Resource / verb: `dashboard.counts`
+- MCP tool: `listmonk_get_dashboard_counts`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:dashboard`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
+## `dashboard.charts`
+
+Read the daily campaign-view and link-click series shown on the Listmonk dashboard.
+
+- Resource / verb: `dashboard.charts`
+- MCP tool: `listmonk_get_dashboard_charts`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:dashboard`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
 ## `media.delete`
 
 Delete an uploaded media file from Listmonk

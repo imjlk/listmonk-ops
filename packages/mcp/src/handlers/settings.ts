@@ -44,27 +44,6 @@ export const settingsTools: MCPTool[] = [
 		},
 	},
 	{
-		name: "listmonk_get_dashboard_counts",
-		description: "Get dashboard aggregate counts",
-		inputSchema: {
-			type: "object",
-			properties: {},
-		},
-	},
-	{
-		name: "listmonk_get_dashboard_charts",
-		description: "Get dashboard chart data",
-		inputSchema: {
-			type: "object",
-			properties: {
-				type: {
-					type: "string",
-					description: "Optional chart type filter",
-				},
-			},
-		},
-	},
-	{
 		name: "listmonk_test_smtp",
 		description: "Test SMTP settings payload before applying changes",
 		inputSchema: {
@@ -129,18 +108,6 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 			case "listmonk_get_server_config": {
 				const response = await client.system.getConfig();
 				return handleDataResponse(response, "Failed to fetch server config");
-			}
-
-			case "listmonk_get_dashboard_counts": {
-				const response = await client.dashboard.getCounts();
-				return handleDataResponse(response, "Failed to fetch dashboard counts");
-			}
-
-			case "listmonk_get_dashboard_charts": {
-				const response = await client.dashboard.getCharts(
-					args.type ? { query: { type: String(args.type) } } : undefined,
-				);
-				return handleDataResponse(response, "Failed to fetch dashboard charts");
 			}
 
 			case "listmonk_test_smtp": {

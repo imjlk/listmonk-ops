@@ -50,6 +50,20 @@ export const bounceResource = defineOperationResourceSpec({
 	terminalStates: ["deleted"],
 });
 
+/**
+ * Dashboard aggregates are computed views over subscriber, list, campaign,
+ * and message state. They carry no lifecycle of their own.
+ */
+export const dashboardResource = defineOperationResourceSpec({
+	id: "dashboard",
+	title: "Dashboard aggregate",
+	states: ["current"],
+	transitions: {
+		current: [],
+	},
+	terminalStates: [],
+});
+
 export const audienceResource = defineOperationResourceSpec({
 	id: "audience",
 	title: "Resolved audience",
