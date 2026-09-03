@@ -11509,13 +11509,16 @@
           "description": "Subscriber aggregate counters from the dashboard totals.",
           "properties": {
             "blocklisted": {
-              "description": "Observed as null when Listmonk has not computed the breakdown.",
+              "description": "Observed as null when Listmonk has not computed the breakdown; the\nSDK and upstream spec type the computed breakdown as an object, so\nboth shapes are accepted.",
               "oneOf": [
                 {
                   "type": "null"
                 },
                 {
                   "type": "number"
+                },
+                {
+                  "$ref": "#/components/schemas/Recordstringunknown"
                 }
               ]
             },
@@ -11533,6 +11536,10 @@
           "additionalProperties": {
             "type": "number"
           },
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
           "type": "object"
         }
       }

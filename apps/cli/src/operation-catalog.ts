@@ -1,8 +1,8 @@
 import {
 	bouncesOperationCatalog,
 	campaignOperationCatalog,
-	dashboardOperationCatalog,
 	composeOperationCatalogs,
+	dashboardOperationCatalog,
 	discoveryOperationCatalog,
 	listOperationCatalog,
 	listOperationCatalogSummaries,

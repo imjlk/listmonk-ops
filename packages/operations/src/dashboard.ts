@@ -25,7 +25,12 @@ const dashboardCountsInputSchema = z.object({});
 
 const dashboardSubscriberCountsSchema = z.looseObject({
 	total: z.number().optional(),
-	blocklisted: z.number().nullable().optional(),
+	// Observed as null until computed; the SDK and upstream spec type the
+	// computed breakdown as an object, so accept both shapes.
+	blocklisted: z
+		.union([z.number(), z.record(z.string(), z.unknown())])
+		.nullable()
+		.optional(),
 	orphans: z.number().optional(),
 });
 
@@ -83,7 +88,10 @@ export async function readDashboardCounts(
 
 /**
  * Read the daily campaign-view and link-click series shown on the
- * Listmonk dashboard. Each series carries `{count, date}` buckets.
+ * Listmonk dashboard. Each series carries `{count, date}` buckets. The
+ * observed 6.2 endpoint ignores a series filter in practice (both
+ * series are always returned), so the legacy hand-rolled tool's unused
+ * `type` argument is deliberately not part of the contract.
  */
 export async function readDashboardCharts(
 	{ client }: DashboardOperationContext,

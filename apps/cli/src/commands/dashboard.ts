@@ -30,7 +30,7 @@ export async function renderDashboardCounts(
 ): Promise<void> {
 	const counts = await invokeGetDashboardCountsOperation(context, {});
 	context.output.success(
-		`Dashboard: ${counts.subscribers?.total ?? 0} subscribers, ${counts.lists?.total ?? 0} lists, ${counts.campaigns?.total ?? 0} campaigns`,
+		`Dashboard: ${counts.subscribers?.total ?? 0} subscribers, ${counts.lists?.total ?? 0} lists, ${counts.campaigns?.total ?? 0} campaigns, ${counts.messages ?? 0} messages`,
 	);
 	context.output.json(counts);
 }
@@ -49,7 +49,7 @@ export async function renderDashboardCharts(
 
 export async function handleDashboardCountsCommand({
 	...args
-}: HandlerArgs<Record<string, never>>): Promise<void> {
+}: HandlerArgs<Record<string, unknown>>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
 		await renderDashboardCounts({ client, output: getOutput() });
@@ -60,7 +60,7 @@ export async function handleDashboardCountsCommand({
 
 export async function handleDashboardChartsCommand({
 	...args
-}: HandlerArgs<Record<string, never>>): Promise<void> {
+}: HandlerArgs<Record<string, unknown>>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
 		await renderDashboardCharts({ client, output: getOutput() });

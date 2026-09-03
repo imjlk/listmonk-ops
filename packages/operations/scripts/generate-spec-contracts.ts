@@ -354,14 +354,14 @@ const contracts = {
 	bounceDeleteOutputContract: contractSchema(
 		typia.json.schema<BounceDeleteOutput>(),
 	),
+	bouncePruneInputContract: contractSchema(
+		typia.json.schema<BouncePruneInput>(),
+	),
 	dashboardCountsOutputContract: contractSchema(
 		typia.json.schema<DashboardCountsOutput>(),
 	),
 	dashboardChartsOutputContract: contractSchema(
 		typia.json.schema<DashboardChartsOutput>(),
-	),
-	bouncePruneInputContract: contractSchema(
-		typia.json.schema<BouncePruneInput>(),
 	),
 	bouncePruneOutputContract: contractSchema(
 		typia.json.schema<BouncePruneOutput>(),

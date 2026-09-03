@@ -31,9 +31,9 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	bounceListInputContract: NormalizedContractSchema;
 	bounceIdInputContract: NormalizedContractSchema;
 	bounceDeleteOutputContract: NormalizedContractSchema;
+	bouncePruneInputContract: NormalizedContractSchema;
 	dashboardCountsOutputContract: NormalizedContractSchema;
 	dashboardChartsOutputContract: NormalizedContractSchema;
-	bouncePruneInputContract: NormalizedContractSchema;
 	bouncePruneOutputContract: NormalizedContractSchema;
 	campaignLifecycleInputContract: NormalizedContractSchema;
 	campaignLifecycleOutputContract: NormalizedContractSchema;

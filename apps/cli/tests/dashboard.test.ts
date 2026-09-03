@@ -36,7 +36,7 @@ describe("dashboard CLI actions", () => {
 		await renderDashboardCounts(cliContext);
 
 		expect(cliContext.output.success).toHaveBeenCalledWith(
-			"Dashboard: 13 subscribers, 137 lists, 174 campaigns",
+			"Dashboard: 13 subscribers, 137 lists, 174 campaigns, 0 messages",
 		);
 		expect(cliContext.output.json).toHaveBeenCalledWith({
 			subscribers: { total: 13 },

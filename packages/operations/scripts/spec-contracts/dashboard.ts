@@ -1,8 +1,12 @@
 /** Subscriber aggregate counters from the dashboard totals. */
 export interface DashboardSubscriberCounts {
 	total?: number | undefined;
-	/** Observed as null when Listmonk has not computed the breakdown. */
-	blocklisted?: number | null | undefined;
+	/**
+	 * Observed as null when Listmonk has not computed the breakdown; the
+	 * SDK and upstream spec type the computed breakdown as an object, so
+	 * both shapes are accepted.
+	 */
+	blocklisted?: (number | Record<string, unknown> | null) | undefined;
 	orphans?: number | undefined;
 	/** Preserve fields added by newer Listmonk releases. */
 	[key: string]: unknown;
