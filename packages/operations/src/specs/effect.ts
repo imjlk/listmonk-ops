@@ -12,6 +12,7 @@ export type OperationResourceKind =
 	| "sequence"
 	| "spec"
 	| "playbook"
+	| "dashboard"
 	| "control"
 	| "operation"
 	| "webhook"

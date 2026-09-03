@@ -1164,6 +1164,34 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
+## Read dashboard counts (`dashboard.counts`)
+
+Contract maturity: `stable`; effects: `read:dashboard`; confirmation: `never`; retry: `safe`.
+
+Use when: An installation-level overview of subscribers, lists, campaigns, or messages is needed.
+
+Avoid when: Per-campaign engagement detail is required — prefer campaigns.analytics.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## Read dashboard charts (`dashboard.charts`)
+
+Contract maturity: `stable`; effects: `read:dashboard`; confirmation: `never`; retry: `safe`.
+
+Use when: Recent view/click engagement trends must be summarized without per-campaign detail.
+
+Avoid when: Per-campaign attribution is required — prefer campaigns.analytics.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
 ## Delete media file (`media.delete`)
 
 Contract maturity: `stable`; effects: `delete:media`; confirmation: `required`; retry: `reconcile`.

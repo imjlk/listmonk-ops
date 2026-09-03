@@ -1,6 +1,7 @@
 import {
 	bouncesOperationCatalog,
 	campaignOperationCatalog,
+	dashboardOperationCatalog,
 	composeOperationCatalogs,
 	discoveryOperationCatalog,
 	listOperationCatalog,
@@ -26,6 +27,7 @@ export const cliOperationCatalog = composeOperationCatalogs([
 	templateOperationCatalog,
 	mediaOperationCatalog,
 	bouncesOperationCatalog,
+	dashboardOperationCatalog,
 	transactionalOperationCatalog,
 	opsOperationCatalog,
 	abTestOperationCatalog,

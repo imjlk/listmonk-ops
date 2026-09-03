@@ -8,6 +8,7 @@ import {
 import {
 	bouncesOperationCatalog,
 	campaignOperationCatalog,
+	dashboardOperationCatalog,
 	composeOperationCatalogs,
 	discoveryOperationCatalog,
 	listOperationCatalog,
@@ -26,6 +27,7 @@ export const mcpOperationCatalog = composeOperationCatalogs([
 	templateOperationCatalog,
 	mediaOperationCatalog,
 	bouncesOperationCatalog,
+	dashboardOperationCatalog,
 	transactionalOperationCatalog,
 	opsOperationCatalog,
 	abTestOperationCatalog,

@@ -25,6 +25,7 @@ import {
 	assertUniqueToolNames,
 	handleAbTestTools,
 	handleBouncesTools,
+	handleDashboardTools,
 	handleCampaignsTools,
 	handleDiscoveryTools,
 	handleOperationCatalogTools,
@@ -551,6 +552,8 @@ export class ListmonkMCPServer {
 					url: this.baseUrl,
 					auth: "token",
 				});
+			} else if (toolNameSets.dashboard.has(name)) {
+				result = await handleDashboardTools(operationRequest, this.client);
 			} else if (toolNameSets.media.has(name)) {
 				result = await handleMediaTools(operationRequest, this.client, {
 					baseUrl: this.baseUrl,

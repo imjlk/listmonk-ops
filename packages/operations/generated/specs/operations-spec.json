@@ -29623,6 +29623,331 @@
     {
       "agent": {
         "avoidWhen": [
+          "Per-campaign engagement detail is required — prefer campaigns.analytics."
+        ],
+        "prerequisites": [],
+        "related": [
+          "dashboard.charts",
+          "ops.digest.daily"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "An installation-level overview of subscribers, lists, campaigns, or messages is needed."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "DashboardCampaignCounts": {
+                "additionalProperties": {},
+                "description": "Campaign aggregate counters from the dashboard totals.",
+                "properties": {
+                  "by_status": {
+                    "$ref": "#/components/schemas/Recordstringnumber",
+                    "description": "Campaign counts keyed by status label (e.g. draft, finished)."
+                  },
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "DashboardCountsOutput": {
+                "additionalProperties": {},
+                "properties": {
+                  "campaigns": {
+                    "$ref": "#/components/schemas/DashboardCampaignCounts"
+                  },
+                  "lists": {
+                    "$ref": "#/components/schemas/DashboardListCounts"
+                  },
+                  "messages": {
+                    "description": "Transactional message count observed as a bare number.",
+                    "type": "number"
+                  },
+                  "subscribers": {
+                    "$ref": "#/components/schemas/DashboardSubscriberCounts"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "DashboardListCounts": {
+                "additionalProperties": {},
+                "description": "List aggregate counters from the dashboard totals.",
+                "properties": {
+                  "optin_double": {
+                    "type": "number"
+                  },
+                  "optin_single": {
+                    "type": "number"
+                  },
+                  "private": {
+                    "type": "number"
+                  },
+                  "public": {
+                    "type": "number"
+                  },
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "DashboardSubscriberCounts": {
+                "additionalProperties": {},
+                "description": "Subscriber aggregate counters from the dashboard totals.",
+                "properties": {
+                  "blocklisted": {
+                    "description": "Observed as null when Listmonk has not computed the breakdown.",
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "orphans": {
+                    "type": "number"
+                  },
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringnumber": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "campaigns": {
+                "$ref": "#/components/schemas/DashboardCampaignCounts"
+              },
+              "lists": {
+                "$ref": "#/components/schemas/DashboardListCounts"
+              },
+              "messages": {
+                "description": "Transactional message count observed as a bare number.",
+                "type": "number"
+              },
+              "subscribers": {
+                "$ref": "#/components/schemas/DashboardSubscriberCounts"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Read aggregate subscriber, list, campaign, and message counters from the Listmonk dashboard.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "dashboard"
+        }
+      ],
+      "id": "dashboard.counts",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#bindDashboardCountsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#dashboardCountsOperationSpec:variable",
+          "executorNode": "packages/operations/src/dashboard.ts#readDashboardCounts:function",
+          "invokerNode": "packages/operations/src/dashboard.ts#invokeGetDashboardCountsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/dashboard.ts#getDashboardCountsOperation:variable"
+        },
+        "mcpName": "listmonk_get_dashboard_counts",
+        "openWorld": true
+      },
+      "resource": "dashboard",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads current aggregate counters."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Read dashboard counts",
+      "verb": "counts"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Per-campaign attribution is required — prefer campaigns.analytics."
+        ],
+        "prerequisites": [],
+        "related": [
+          "dashboard.counts",
+          "campaigns.analytics"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "Recent view/click engagement trends must be summarized without per-campaign detail."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "DashboardChartPoint": {
+                "additionalProperties": {},
+                "description": "One daily bucket of a dashboard chart series.",
+                "properties": {
+                  "count": {
+                    "type": "number"
+                  },
+                  "date": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "DashboardChartsOutput": {
+                "additionalProperties": {},
+                "properties": {
+                  "campaign_views": {
+                    "items": {
+                      "$ref": "#/components/schemas/DashboardChartPoint"
+                    },
+                    "type": "array"
+                  },
+                  "link_clicks": {
+                    "items": {
+                      "$ref": "#/components/schemas/DashboardChartPoint"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "campaign_views": {
+                "items": {
+                  "$ref": "#/components/schemas/DashboardChartPoint"
+                },
+                "type": "array"
+              },
+              "link_clicks": {
+                "items": {
+                  "$ref": "#/components/schemas/DashboardChartPoint"
+                },
+                "type": "array"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Read the daily campaign-view and link-click series shown on the Listmonk dashboard.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "dashboard"
+        }
+      ],
+      "id": "dashboard.charts",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#bindDashboardChartsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/dashboard-specs.ts#dashboardChartsOperationSpec:variable",
+          "executorNode": "packages/operations/src/dashboard.ts#readDashboardCharts:function",
+          "invokerNode": "packages/operations/src/dashboard.ts#invokeGetDashboardChartsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/dashboard.ts#getDashboardChartsOperation:variable"
+        },
+        "mcpName": "listmonk_get_dashboard_charts",
+        "openWorld": true
+      },
+      "resource": "dashboard",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads recorded daily series."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Read dashboard charts",
+      "verb": "charts"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The media file is referenced by a campaign or template."
         ],
         "prerequisites": [
@@ -40666,6 +40991,17 @@
         "recorded": [
           "deleted"
         ]
+      }
+    },
+    {
+      "id": "dashboard",
+      "states": [
+        "current"
+      ],
+      "terminalStates": [],
+      "title": "Dashboard aggregate",
+      "transitions": {
+        "current": []
       }
     },
     {

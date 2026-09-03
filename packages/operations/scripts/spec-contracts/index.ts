@@ -1,6 +1,7 @@
 export * from "./abtest";
 export * from "./bounces";
 export * from "./campaign";
+export * from "./dashboard";
 export * from "./discovery";
 export * from "./list";
 export * from "./media";

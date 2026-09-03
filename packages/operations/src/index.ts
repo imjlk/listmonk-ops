@@ -2,6 +2,7 @@ export * from "./campaign-analytics-date";
 export * from "./campaign-lifecycle";
 export * from "./campaign-test-bound";
 export * from "./campaigns";
+export * from "./dashboard";
 export * from "./bounces";
 export * from "./catalog";
 export * from "./execution-policy";

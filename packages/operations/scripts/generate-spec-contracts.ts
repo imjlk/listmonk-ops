@@ -19,6 +19,8 @@ import type {
 	ControlPrimeOutput,
 	ControlStatusInput,
 	ControlStatusOutput,
+	DashboardCountsOutput,
+	DashboardChartsOutput,
 	DeliverabilityDnsCheckOutput,
 	DeliverabilityDoctorOutput,
 	EmptyInput,
@@ -351,6 +353,12 @@ const contracts = {
 	bounceIdInputContract: contractSchema(typia.json.schema<BounceIdInput>()),
 	bounceDeleteOutputContract: contractSchema(
 		typia.json.schema<BounceDeleteOutput>(),
+	),
+	dashboardCountsOutputContract: contractSchema(
+		typia.json.schema<DashboardCountsOutput>(),
+	),
+	dashboardChartsOutputContract: contractSchema(
+		typia.json.schema<DashboardChartsOutput>(),
 	),
 	bouncePruneInputContract: contractSchema(
 		typia.json.schema<BouncePruneInput>(),

@@ -11382,6 +11382,185 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "dashboardChartsOutputContract": {
+    "components": {
+      "schemas": {
+        "DashboardChartPoint": {
+          "additionalProperties": {},
+          "description": "One daily bucket of a dashboard chart series.",
+          "properties": {
+            "count": {
+              "type": "number"
+            },
+            "date": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "DashboardChartsOutput": {
+          "additionalProperties": {},
+          "properties": {
+            "campaign_views": {
+              "items": {
+                "$ref": "#/components/schemas/DashboardChartPoint"
+              },
+              "type": "array"
+            },
+            "link_clicks": {
+              "items": {
+                "$ref": "#/components/schemas/DashboardChartPoint"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "campaign_views": {
+          "items": {
+            "$ref": "#/components/schemas/DashboardChartPoint"
+          },
+          "type": "array"
+        },
+        "link_clicks": {
+          "items": {
+            "$ref": "#/components/schemas/DashboardChartPoint"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "dashboardCountsOutputContract": {
+    "components": {
+      "schemas": {
+        "DashboardCampaignCounts": {
+          "additionalProperties": {},
+          "description": "Campaign aggregate counters from the dashboard totals.",
+          "properties": {
+            "by_status": {
+              "$ref": "#/components/schemas/Recordstringnumber",
+              "description": "Campaign counts keyed by status label (e.g. draft, finished)."
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "DashboardCountsOutput": {
+          "additionalProperties": {},
+          "properties": {
+            "campaigns": {
+              "$ref": "#/components/schemas/DashboardCampaignCounts"
+            },
+            "lists": {
+              "$ref": "#/components/schemas/DashboardListCounts"
+            },
+            "messages": {
+              "description": "Transactional message count observed as a bare number.",
+              "type": "number"
+            },
+            "subscribers": {
+              "$ref": "#/components/schemas/DashboardSubscriberCounts"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "DashboardListCounts": {
+          "additionalProperties": {},
+          "description": "List aggregate counters from the dashboard totals.",
+          "properties": {
+            "optin_double": {
+              "type": "number"
+            },
+            "optin_single": {
+              "type": "number"
+            },
+            "private": {
+              "type": "number"
+            },
+            "public": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "DashboardSubscriberCounts": {
+          "additionalProperties": {},
+          "description": "Subscriber aggregate counters from the dashboard totals.",
+          "properties": {
+            "blocklisted": {
+              "description": "Observed as null when Listmonk has not computed the breakdown.",
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "orphans": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "Recordstringnumber": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "campaigns": {
+          "$ref": "#/components/schemas/DashboardCampaignCounts"
+        },
+        "lists": {
+          "$ref": "#/components/schemas/DashboardListCounts"
+        },
+        "messages": {
+          "description": "Transactional message count observed as a bare number.",
+          "type": "number"
+        },
+        "subscribers": {
+          "$ref": "#/components/schemas/DashboardSubscriberCounts"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "deliverabilityDnsCheckOutputContract": {
     "components": {
       "schemas": {

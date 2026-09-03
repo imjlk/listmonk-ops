@@ -1,6 +1,7 @@
 export * from "./list-specs";
 export * from "./subscriber-specs";
 export * from "./campaign-specs";
+export * from "./dashboard-specs";
 export * from "./template-specs";
 export * from "./media-specs";
 export * from "./bounces-specs";
@@ -20,6 +21,10 @@ import {
 	subscribersRemoveFromListsOperationSpec,
 	subscribersUnblocklistOperationSpec,
 } from "./subscriber-specs";
+import {
+	dashboardCountsOperationSpec,
+	dashboardChartsOperationSpec,
+} from "./dashboard-specs";
 import {
 	campaignsCreateOperationSpec,
 	campaignsUpdateOperationSpec,
@@ -96,6 +101,8 @@ export const standaloneOperationSpecs = [
 	campaignsPreviewOperationSpec,
 	campaignsTestOperationSpec,
 	campaignsAnalyticsOperationSpec,
+	dashboardCountsOperationSpec,
+	dashboardChartsOperationSpec,
 	mediaDeleteOperationSpec,
 	mediaUploadOperationSpec,
 	opsSegmentDriftOperationSpec,

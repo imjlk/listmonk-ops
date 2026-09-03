@@ -261,6 +261,10 @@ const openapiMediaGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
 const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
+const openapiDashboardCountsMethod =
+	"packages/openapi/src/client/contracts.ts#DashboardOperations.getCounts:method";
+const openapiDashboardChartsMethod =
+	"packages/openapi/src/client/contracts.ts#DashboardOperations.getCharts:method";
 const openapiCampaignAnalyticsMethod =
 	"packages/openapi/src/client/contracts.ts#CampaignOperations.getAnalytics:method";
 const openapiCampaignPreviewMethod =
@@ -1210,6 +1214,49 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				action:
 					"packages/operations/src/media.ts#deleteMediaFile:function",
 				openapi: openapiMediaDeleteByIdMethod,
+			},
+		],
+	}),
+	...resourceOperationContracts({
+		resource: "dashboard",
+		cliModule:
+			"apps/cli/src/commands/dashboard.ts#apps/cli/src/commands/dashboard.ts:module",
+		cliTestModule:
+			"apps/cli/tests/dashboard.test.ts#apps/cli/tests/dashboard.test.ts:module",
+		mcpHandler:
+			"packages/mcp/src/handlers/dashboard.ts#handleDashboardTools:function",
+		dispatcher:
+			"packages/operations/src/dashboard.ts#invokeDashboardOperationByMcpName:function",
+		operationTestModule:
+			"packages/operations/tests/dashboard.test.ts#packages/operations/tests/dashboard.test.ts:module",
+		mcpTestModule:
+			"packages/mcp/tests/unit/dashboard.test.ts#packages/mcp/tests/unit/dashboard.test.ts:module",
+		testAnchor: {
+			invoker:
+				"packages/operations/src/dashboard.ts#invokeGetDashboardCountsOperation:function",
+			action:
+				"packages/operations/src/dashboard.ts#readDashboardCounts:function",
+		},
+		invokers: [
+			{
+				label: "counts",
+				cliHandler: "handleDashboardCountsCommand",
+				cliRender: "renderDashboardCounts",
+				invoker:
+					"packages/operations/src/dashboard.ts#invokeGetDashboardCountsOperation:function",
+				action:
+					"packages/operations/src/dashboard.ts#readDashboardCounts:function",
+				openapi: openapiDashboardCountsMethod,
+			},
+			{
+				label: "charts",
+				cliHandler: "handleDashboardChartsCommand",
+				cliRender: "renderDashboardCharts",
+				invoker:
+					"packages/operations/src/dashboard.ts#invokeGetDashboardChartsOperation:function",
+				action:
+					"packages/operations/src/dashboard.ts#readDashboardCharts:function",
+				openapi: openapiDashboardChartsMethod,
 			},
 		],
 	}),

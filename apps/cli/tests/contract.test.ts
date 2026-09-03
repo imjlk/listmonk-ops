@@ -223,7 +223,7 @@ describe("CLI contract", () => {
 		expect(describe.output).toContain('"confirmation": "required"');
 		expect(playbooks.output).toContain('"campaign.safe-start"');
 		expect(capabilities.output).toContain('"schema_version": "2.0.0"');
-		expect(capabilities.output).toContain('"described_operations": 111');
+		expect(capabilities.output).toContain('"described_operations": 113');
 		expect(capabilities.output).toContain('"migration_operations": 0');
 		expect(prime.output).toContain('"recommended_operations"');
 	});

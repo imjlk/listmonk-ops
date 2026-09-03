@@ -186,6 +186,16 @@ Transitions:
 - `recorded` → `deleted`
 - `deleted` → none
 
+## `dashboard` — Dashboard aggregate
+
+States: `current`.
+
+Terminal states: none.
+
+Transitions:
+
+- `current` → none
+
 ## `audience` — Resolved audience
 
 States: `current`, `drifted`, `suppressed`.
