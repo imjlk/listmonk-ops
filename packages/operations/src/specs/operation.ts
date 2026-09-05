@@ -40,6 +40,7 @@ export type OperationSpecVerb =
 	| "charts"
 	| "logs"
 	| "export"
+	| "about"
 	| "status"
 	| "doctor"
 	| "quota"

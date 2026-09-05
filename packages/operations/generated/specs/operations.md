@@ -1425,6 +1425,30 @@ Preview or delete a bounded selection of bounce records. Destructive runs echo t
 - Retry: `safe`
 - Stability: `stable` since `0.16.0`
 
+## `system.about`
+
+Read the running Listmonk version, build, Go runtime, and host summary without any credentials.
+
+- Resource / verb: `system.about`
+- MCP tool: `listmonk_get_about`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:system`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
+## `system.logs`
+
+Read the recent Listmonk server log lines as recorded by the running instance.
+
+- Resource / verb: `system.logs`
+- MCP tool: `listmonk_get_logs`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:system`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
 ## `user-roles.reconcile`
 
 Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles

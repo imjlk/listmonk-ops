@@ -40565,6 +40565,242 @@
     {
       "agent": {
         "avoidWhen": [
+          "Only reachability matters — prefer control.status."
+        ],
+        "prerequisites": [],
+        "related": [
+          "control.status",
+          "system.logs"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "The exact Listmonk version or build must be confirmed before a version-sensitive operation."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "SystemAboutOutput": {
+                "additionalProperties": {},
+                "description": "Build and runtime identity of the Listmonk server.",
+                "properties": {
+                  "build": {
+                    "type": "string"
+                  },
+                  "go_arch": {
+                    "type": "string"
+                  },
+                  "go_version": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "description": "Build and runtime identity of the Listmonk server.",
+            "properties": {
+              "build": {
+                "type": "string"
+              },
+              "go_arch": {
+                "type": "string"
+              },
+              "go_version": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Read the running Listmonk version, build, Go runtime, and host summary without any credentials.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "system"
+        }
+      ],
+      "id": "system.about",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemAboutOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#systemAboutOperationSpec:variable",
+          "executorNode": "packages/operations/src/system.ts#readSystemAbout:function",
+          "invokerNode": "packages/operations/src/system.ts#invokeReadSystemAboutOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/system.ts#readSystemAboutOperation:variable"
+        },
+        "mcpName": "listmonk_get_about",
+        "openWorld": true
+      },
+      "resource": "system",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the running build identity."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Read server build identity",
+      "verb": "about"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Import-session detail is enough — prefer subscribers.import.logs."
+        ],
+        "prerequisites": [],
+        "related": [
+          "system.about",
+          "subscribers.import.logs"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "Server-side startup, messenger, or importer behavior must be diagnosed from the instance's own log."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "SystemLogsOutput": {
+                "additionalProperties": false,
+                "description": "Recent server log lines, newest entries as observed.",
+                "properties": {
+                  "logs": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "logs"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "description": "Recent server log lines, newest entries as observed.",
+            "properties": {
+              "logs": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "logs"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Read the recent Listmonk server log lines as recorded by the running instance.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "system"
+        }
+      ],
+      "id": "system.logs",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemLogsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#systemLogsOperationSpec:variable",
+          "executorNode": "packages/operations/src/system.ts#readSystemLogs:function",
+          "invokerNode": "packages/operations/src/system.ts#invokeReadSystemLogsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/system.ts#readSystemLogsOperation:variable"
+        },
+        "mcpName": "listmonk_get_logs",
+        "openWorld": true
+      },
+      "resource": "system",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads recorded server log lines."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Read server logs",
+      "verb": "logs"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "A single role should be inspected without a full manifest.",
           "The protected Super Admin role is the intended target."
         ],
@@ -41955,6 +42191,17 @@
       ],
       "terminalStates": [],
       "title": "Dashboard aggregate",
+      "transitions": {
+        "current": []
+      }
+    },
+    {
+      "id": "system",
+      "states": [
+        "current"
+      ],
+      "terminalStates": [],
+      "title": "System runtime",
       "transitions": {
         "current": []
       }

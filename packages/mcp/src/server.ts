@@ -26,6 +26,7 @@ import {
 	handleAbTestTools,
 	handleBouncesTools,
 	handleDashboardTools,
+	handleSystemTools,
 	handleCampaignsTools,
 	handleDiscoveryTools,
 	handleOperationCatalogTools,
@@ -554,6 +555,8 @@ export class ListmonkMCPServer {
 				});
 			} else if (toolNameSets.dashboard.has(name)) {
 				result = await handleDashboardTools(operationRequest, this.client);
+			} else if (toolNameSets.system.has(name)) {
+				result = await handleSystemTools(operationRequest, this.client);
 			} else if (toolNameSets.media.has(name)) {
 				result = await handleMediaTools(operationRequest, this.client, {
 					baseUrl: this.baseUrl,

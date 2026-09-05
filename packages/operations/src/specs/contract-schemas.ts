@@ -40,6 +40,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberImportStopOutputContract: NormalizedContractSchema;
 	subscriberImportLogsOutputContract: NormalizedContractSchema;
 	subscriberExportInputContract: NormalizedContractSchema;
+	systemAboutOutputContract: NormalizedContractSchema;
+	systemLogsOutputContract: NormalizedContractSchema;
 	subscriberExportOutputContract: NormalizedContractSchema;
 	dashboardCountsOutputContract: NormalizedContractSchema;
 	dashboardChartsOutputContract: NormalizedContractSchema;
@@ -255,6 +257,8 @@ export const subscriberImportStopOutputContract =
 	contracts.subscriberImportStopOutputContract;
 export const subscriberImportLogsOutputContract =
 	contracts.subscriberImportLogsOutputContract;
+export const systemAboutOutputContract = contracts.systemAboutOutputContract;
+export const systemLogsOutputContract = contracts.systemLogsOutputContract;
 export const subscriberExportInputContract =
 	contracts.subscriberExportInputContract;
 export const subscriberExportOutputContract =

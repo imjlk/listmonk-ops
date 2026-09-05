@@ -36625,6 +36625,184 @@
         "input": {
           "components": {
             "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "SystemAboutOutput": {
+                "additionalProperties": {},
+                "description": "Build and runtime identity of the Listmonk server.",
+                "properties": {
+                  "build": {
+                    "type": "string"
+                  },
+                  "go_arch": {
+                    "type": "string"
+                  },
+                  "go_version": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "description": "Build and runtime identity of the Listmonk server.",
+            "properties": {
+              "build": {
+                "type": "string"
+              },
+              "go_arch": {
+                "type": "string"
+              },
+              "go_version": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "system"
+        }
+      ],
+      "id": "system.about",
+      "mcpName": "listmonk_get_about",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "system",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the running build identity."
+      },
+      "verb": "about"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "SystemLogsOutput": {
+                "additionalProperties": false,
+                "description": "Recent server log lines, newest entries as observed.",
+                "properties": {
+                  "logs": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "logs"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "description": "Recent server log lines, newest entries as observed.",
+            "properties": {
+              "logs": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "logs"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "system"
+        }
+      ],
+      "id": "system.logs",
+      "mcpName": "listmonk_get_logs",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "system",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads recorded server log lines."
+      },
+      "verb": "logs"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "ListmonkUserPermission": {
                 "oneOf": [
                   {

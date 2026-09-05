@@ -35332,6 +35332,166 @@
       "stability": "stable"
     },
     {
+      "id": "system.about",
+      "input": {
+        "components": {
+          "schemas": {
+            "EmptyInput": {
+              "additionalProperties": false,
+              "properties": {},
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {},
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "SystemAboutOutput": {
+              "additionalProperties": {},
+              "description": "Build and runtime identity of the Listmonk server.",
+              "properties": {
+                "build": {
+                  "type": "string"
+                },
+                "go_arch": {
+                  "type": "string"
+                },
+                "go_version": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": {},
+          "description": "Build and runtime identity of the Listmonk server.",
+          "properties": {
+            "build": {
+              "type": "string"
+            },
+            "go_arch": {
+              "type": "string"
+            },
+            "go_version": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the running build identity."
+      },
+      "since": "0.17.0",
+      "stability": "stable"
+    },
+    {
+      "id": "system.logs",
+      "input": {
+        "components": {
+          "schemas": {
+            "EmptyInput": {
+              "additionalProperties": false,
+              "properties": {},
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {},
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "SystemLogsOutput": {
+              "additionalProperties": false,
+              "description": "Recent server log lines, newest entries as observed.",
+              "properties": {
+                "logs": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "logs"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "description": "Recent server log lines, newest entries as observed.",
+          "properties": {
+            "logs": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "logs"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads recorded server log lines."
+      },
+      "since": "0.17.0",
+      "stability": "stable"
+    },
+    {
       "id": "user-roles.reconcile",
       "input": {
         "components": {

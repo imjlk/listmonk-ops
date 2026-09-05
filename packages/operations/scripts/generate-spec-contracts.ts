@@ -161,6 +161,8 @@ import type {
 	SubscriberImportSessionOutput,
 	SubscriberImportLogsOutput,
 	SubscriberExportInput,
+	SystemAboutOutput,
+	SystemLogsOutput,
 	SubscriberExportOutput,
 	SubscriberHygieneOutput,
 	TemplateRegistrySyncInput,
@@ -375,6 +377,12 @@ const contracts = {
 	),
 	subscriberImportStopOutputContract: contractSchema(
 		typia.json.schema<SubscriberImportSessionOutput>(),
+	),
+	systemAboutOutputContract: contractSchema(
+		typia.json.schema<SystemAboutOutput>(),
+	),
+	systemLogsOutputContract: contractSchema(
+		typia.json.schema<SystemLogsOutput>(),
 	),
 	subscriberExportInputContract: contractSchema(
 		typia.json.schema<SubscriberExportInput>(),
