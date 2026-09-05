@@ -13,6 +13,7 @@ import {
 	bindSubscribersImportStopOperationSpec,
 	bindSubscribersImportLogsOperationSpec,
 	bindSubscribersExportOperationSpec,
+	bindSubscribersSendOptinOperationSpec,
 	bindSubscribersUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
@@ -1021,6 +1022,32 @@ const subscriberExportInputSchema = z.object({
 	id: resourceIdSchema,
 });
 
+const subscriberSendOptinInputSchema = z.object({
+	id: resourceIdSchema,
+});
+
+const subscriberSendOptinOutputSchema = z.object({
+	id: z.number().int().positive(),
+	sent: z.boolean(),
+});
+
+/**
+ * Resend the double opt-in confirmation email. The observed 6.2
+ * endpoint acknowledges with a bare boolean; the shared contract
+ * echoes the subscriber id alongside it. Every run sends a real
+ * message, so the retry classification stays honestly unsafe.
+ */
+export async function sendSubscriberOptin(
+	{ client }: SubscriberOperationContext,
+	input: z.output<typeof subscriberSendOptinInputSchema>,
+): Promise<z.output<typeof subscriberSendOptinOutputSchema>> {
+	const response = await client.subscriber.sendOptin({
+		path: { id: input.id },
+	});
+	requireAcknowledgement(response, "Failed to send opt-in email");
+	return { id: input.id, sent: true };
+}
+
 const subscriberExportOutputSchema = z.looseObject({
 	profile: z.array(z.looseObject({})).optional(),
 	subscriptions: z.array(z.looseObject({})).optional(),
@@ -1108,6 +1135,50 @@ export const getSubscriberImportStatusOperation = defineOperation({
 	spec: bindSubscribersImportStatusOperationSpec(),
 	execute: readSubscriberImportStatus,
 });
+
+export const sendOptinOperation = defineOperation({
+	id: "subscribers.send-optin",
+	title: "Resend the double opt-in email",
+	description:
+		"Resend the double opt-in confirmation email to one subscriber. Every run sends a real message.",
+	inputSchema: subscriberSendOptinInputSchema,
+	outputSchema: subscriberSendOptinOutputSchema,
+	// A single-recipient real delivery: the transactional-send safety
+	// convention (not destructive, not idempotent — every run re-sends).
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: false,
+		openWorldHint: true,
+	},
+	mcp: {
+		name: "listmonk_send_optin",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSubscribersSendOptinOperationSpec(),
+	execute: sendSubscriberOptin,
+});
+
+export async function invokeSendOptinOperation(
+	context: SubscriberOperationContext,
+	input: unknown,
+): Promise<z.output<typeof subscriberSendOptinOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		sendOptinOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof subscriberSendOptinOutputSchema>;
+	try {
+		output = await sendSubscriberOptin(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(sendOptinOperation.id, error);
+	}
+	return parseOperationOutput(
+		sendOptinOperation.id,
+		sendOptinOperation.outputSchema,
+		output,
+	);
+}
 
 export const exportSubscriberOperation = defineOperation({
 	id: "subscribers.export",
@@ -1294,6 +1365,7 @@ export const subscriberOperations = [
 	stopSubscriberImportOperation,
 	getSubscriberImportLogsOperation,
 	exportSubscriberOperation,
+	sendOptinOperation,
 ] as const;
 
 export const subscriberOperationCatalog = defineOperationCatalog({
@@ -1375,6 +1447,11 @@ export async function invokeSubscriberOperationByMcpName(
 			return {
 				operation: getSubscriberImportStatusOperation,
 				output: await invokeGetSubscriberImportStatusOperation(context, input),
+			};
+		case sendOptinOperation.mcp.name:
+			return {
+				operation: sendOptinOperation,
+				output: await invokeSendOptinOperation(context, input),
 			};
 		case exportSubscriberOperation.mcp.name:
 			return {

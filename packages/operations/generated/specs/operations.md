@@ -1449,6 +1449,30 @@ Read the recent Listmonk server log lines as recorded by the running instance.
 - Retry: `safe`
 - Stability: `stable` since `0.17.0`
 
+## `campaigns.archive`
+
+Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.
+
+- Resource / verb: `campaign.archive`
+- MCP tool: `listmonk_archive_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:campaign`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
+## `subscribers.send-optin`
+
+Resend the double opt-in confirmation email to one subscriber. Every run sends a real message.
+
+- Resource / verb: `subscriber.send-optin`
+- MCP tool: `listmonk_send_optin`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `delivery:single:immediate`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `stable` since `0.17.0`
+
 ## `user-roles.reconcile`
 
 Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles

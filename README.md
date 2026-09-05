@@ -437,6 +437,7 @@ listmonk-cli campaigns preview --id 42
 listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
 listmonk-cli campaigns analytics --type views --from 2026-08-01 \
   --to 2026-08-31 --campaign-ids 42,43
+listmonk-cli campaigns archive --id 42 --archive=true
 
 listmonk-cli dashboard counts
 listmonk-cli dashboard charts
@@ -455,6 +456,8 @@ listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 listmonk-cli subscribers import --mode subscribe --lists 1 \
   --file ./subscribers.csv --confirm
 listmonk-cli subscribers export --id 7
+# Every run sends a real opt-in message.
+listmonk-cli subscribers send-optin --id 7
 listmonk-cli subscribers import-status
 listmonk-cli subscribers import-logs
 listmonk-cli subscribers import-stop
@@ -559,7 +562,7 @@ effect-derived safety, execution requirements, and `useWhen`/`avoidWhen`
 guidance. Status adds runtime identity and a live Listmonk health probe without
 returning credentials.
 
-All 121 public shared operations now include a `spec` descriptor. Specs define
+All 123 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -577,10 +580,12 @@ analytics operations (`campaigns.preview`, `campaigns.test`,
 lifecycle (`subscribers.import.start`, `subscribers.import.status`,
 `subscribers.import.stop`, `subscribers.import.logs`), the template
 preview read (`templates.preview`), the subscriber data-portability
-export (`subscribers.export`), and the system identity and diagnostics
-reads (`system.about`, `system.logs`) joined the accepted stable
-compatibility baseline after their observed Listmonk 6.2 response
-shapes were verified against the local stack. The runtime-operation
+export (`subscribers.export`), the system identity and diagnostics
+reads (`system.about`, `system.logs`), the campaign archive toggle
+(`campaigns.archive`), and the opt-in resend
+(`subscribers.send-optin`) joined the accepted stable compatibility
+baseline after their observed Listmonk 6.2 response shapes were
+verified against the local stack. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at the
 generated transport and handwritten adapter first; the product spec
@@ -862,11 +867,11 @@ Operations Spec artifacts are checked in under
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
-also verifies all 121 shared operations, the API boundary rule, the 0
-runtime bridges, the 121 stable compatibility baselines, and 368 direct
+also verifies all 123 shared operations, the API boundary rule, the 0
+runtime bridges, the 123 stable compatibility baselines, and 374 direct
 spec-to-runtime graph edges.
 
-All 121 shared operations now use standalone TypeScript contracts. There are
+All 123 shared operations now use standalone TypeScript contracts. There are
 no governed runtime-bridge inputs or snapshots to regenerate.
 
 The spec API is published from the existing operations package through the

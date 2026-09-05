@@ -31,6 +31,8 @@ import {
 	systemAboutOperationSpec,
 	systemLogsOperationSpec,
 } from "./system-specs";
+import { campaignsArchiveOperationSpec } from "./campaign-specs";
+import { subscribersSendOptinOperationSpec } from "./subscriber-specs";
 import {
 	dashboardCountsOperationSpec,
 	dashboardChartsOperationSpec,
@@ -149,6 +151,8 @@ export const standaloneOperationSpecs = [
 	bouncesPruneOperationSpec,
 	systemAboutOperationSpec,
 	systemLogsOperationSpec,
+	campaignsArchiveOperationSpec,
+	subscribersSendOptinOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */

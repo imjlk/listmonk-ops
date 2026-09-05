@@ -13,6 +13,7 @@ import {
 	invokeDeleteCampaignOperation,
 	invokeGetCampaignOperation,
 	invokeGetCampaignsOperation,
+	invokeArchiveCampaignOperation,
 	invokeGetCampaignAnalyticsOperation,
 	invokeGetCampaignStatsOperation,
 	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
@@ -243,6 +244,38 @@ type CampaignAnalyticsFacet = "views" | "clicks" | "links" | "bounces";
 const CAMPAIGN_ANALYTICS_DATE = new RegExp(
 	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
 );
+
+export async function renderArchiveCampaign(
+	context: CampaignsCliContext,
+	input: { id: number; archive: boolean },
+): Promise<void> {
+	const result = await invokeArchiveCampaignOperation(context, input);
+	context.output.success(
+		`Campaign ${input.id} archive ${input.archive ? "enabled" : "disabled"}`,
+	);
+	context.output.json(result);
+}
+
+export async function handleArchiveCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number; archive: boolean }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderArchiveCampaign(
+			{ client, output: getOutput() },
+			{
+				id: flags.id,
+				archive: flags.archive,
+			},
+		);
+	} catch (error) {
+		throw createCampaignCommandError(
+			"Failed to toggle campaign archive",
+			error,
+		);
+	}
+}
 
 export async function renderCampaignAnalytics(
 	context: CampaignsCliContext,
@@ -1013,6 +1046,21 @@ export default defineGroup({
 				),
 			},
 			handler: handleCloneCampaignCommand,
+		}),
+		defineCommand({
+			name: "archive",
+			operationId: "campaigns.archive",
+			description:
+				"Enable or disable the campaign's public archive page",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				archive: option(z.coerce.boolean(), {
+					description: "Archive page state (true to enable)",
+				}),
+			},
+			handler: handleArchiveCampaignCommand,
 		}),
 		defineCommand({
 			name: "analytics",

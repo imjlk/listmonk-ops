@@ -276,6 +276,46 @@ describe("Campaign and template preview CLI/MCP parity", () => {
 		expect(mcpAnalytics.results).toEqual(cliAnalytics.results);
 	});
 
+	test("toggles the campaign archive through both adapters", async () => {
+		const fixtureId = (await createDraftCampaignFixture()).id;
+
+		try {
+			// Restore OFF through the CLI, then verify ON through MCP.
+			const cliResult = parseCliJson<{ id?: number; archive?: boolean }>(
+				runCliCampaignCommand([
+					"--format",
+					"json",
+					"archive",
+					"--id",
+					String(fixtureId),
+					"--archive=true",
+				]),
+				"archive",
+			);
+			expect(cliResult).toMatchObject({ id: fixtureId, archive: true });
+
+			const mcpResult = utils.assertSuccess<{
+				id?: number;
+				archive?: boolean;
+			}>(
+				await client.callTool("listmonk_archive_campaign", {
+					id: fixtureId,
+					archive: false,
+				}),
+				"Failed to disable the archive through MCP",
+			);
+			expect(mcpResult).toMatchObject({ id: fixtureId, archive: false });
+
+			// Verify the final state through the campaign record itself.
+			const stored = await createTestClient().campaign.getById({
+				path: { id: fixtureId },
+			});
+			expect((stored.data as { archive?: boolean }).archive).toBe(false);
+		} finally {
+			await deleteCampaignFixture(fixtureId);
+		}
+	});
+
 	test("renders the same template preview through both adapters", async () => {
 		const cliPreview = parseCliJson<{ html?: string }>(
 			runCliTemplateCommand([

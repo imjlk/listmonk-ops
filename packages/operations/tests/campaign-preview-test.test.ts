@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	invokeArchiveCampaignOperation,
 	invokeGetCampaignAnalyticsOperation,
 	invokePreviewCampaignOperation,
 	invokeTestCampaignOperation,
@@ -209,5 +210,27 @@ describe("campaign analytics operation", () => {
 			}),
 		).rejects.toThrow();
 		expect(getAnalytics).not.toHaveBeenCalled();
+	});
+});
+
+describe("campaign archive operation", () => {
+	test("toggles the archive page and echoes the state", async () => {
+		const updateArchive = mock(async () => ({
+			data: { archive: true, archive_template_id: 0, archive_slug: "" },
+		}));
+
+		await expect(
+			invokeArchiveCampaignOperation(
+				campaignContext({
+					updateArchive:
+						updateArchive as unknown as CampaignClient["campaign"]["updateArchive"],
+				}),
+				{ id: 1, archive: true },
+			),
+		).resolves.toMatchObject({ id: 1, archive: true });
+		expect(updateArchive).toHaveBeenCalledWith({
+			path: { id: 1 },
+			body: { archive: true },
+		});
 	});
 });

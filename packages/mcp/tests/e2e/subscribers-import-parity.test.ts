@@ -145,6 +145,22 @@ describe("Subscriber import CLI and MCP parity", () => {
 		expect(mcpExport.subscriptions?.length).toBeDefined();
 	});
 
+	test("sends an opt-in email through the shared operation", async () => {
+		const listed = await createTestClient().subscriber.list({
+			query: { list_id: [1], page: 1, per_page: 1 },
+		});
+		const subscriberId = listed.data?.results?.[0]?.id;
+		if (!Number.isInteger(subscriberId)) {
+			throw new Error("No enabled subscriber in list 1 for the opt-in test");
+		}
+
+		const result = utils.assertSuccess<{ sent?: boolean }>(
+			await client.callTool("listmonk_send_optin", { id: subscriberId }),
+			"Failed to send the opt-in email through MCP",
+		);
+		expect(result.sent).toBe(true);
+	});
+
 	test("requires confirmation before starting a destructive import", async () => {
 		const blocked = runCliSubscribersCommand([
 			"import",

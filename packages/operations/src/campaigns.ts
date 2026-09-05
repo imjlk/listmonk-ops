@@ -7,6 +7,7 @@ import {
 	bindCampaignStartOperationSpec,
 	bindCampaignsCloneOperationSpec,
 	bindCampaignsAnalyticsOperationSpec,
+	bindCampaignsArchiveOperationSpec,
 	bindCampaignsPreviewOperationSpec,
 	bindCampaignsTestOperationSpec,
 	bindCampaignsCreateOperationSpec,
@@ -979,6 +980,48 @@ const campaignAnalyticsOutputSchema = z.object({
  * `{url, count}` aggregates; the shared contract normalizes only the
  * envelope and returns the rows as observed.
  */
+const campaignArchiveInputSchema = campaignIdInputSchema.extend({
+	archive: z.boolean(),
+});
+
+const campaignArchiveOutputSchema = z.looseObject({
+	id: z.number().int().positive(),
+	archive: z.boolean(),
+	archive_template_id: z.number().optional(),
+	archive_slug: z.string().optional(),
+});
+
+/**
+ * Toggle the campaign's public archive page. The observed 6.2 endpoint
+ * echoes the archive metadata rather than a bare boolean; the shared
+ * contract pins the id and echo flag and passes the rest through.
+ */
+export async function archiveCampaign(
+	{ client }: CampaignOperationContext,
+	input: z.output<typeof campaignArchiveInputSchema>,
+): Promise<z.output<typeof campaignArchiveOutputSchema>> {
+	const response = await client.campaign.updateArchive({
+		path: { id: input.id },
+		body: { archive: input.archive },
+	});
+	const metadata = unwrapResourceResponse(
+		response,
+		"Failed to toggle campaign archive",
+	) as unknown as
+		| { archive_template_id?: unknown; archive_slug?: unknown }
+		| undefined;
+	return {
+		id: input.id,
+		archive: input.archive,
+		...(typeof metadata?.archive_template_id === "number" && {
+			archive_template_id: metadata.archive_template_id,
+		}),
+		...(typeof metadata?.archive_slug === "string" && {
+			archive_slug: metadata.archive_slug,
+		}),
+	} as z.output<typeof campaignArchiveOutputSchema>;
+}
+
 export async function readCampaignAnalytics(
 	{ client }: CampaignOperationContext,
 	input: z.output<typeof campaignAnalyticsInputSchema>,
@@ -1793,6 +1836,43 @@ export async function invokeGetCampaignStatsOperation(
 	);
 }
 
+export const archiveCampaignOperation = defineOperation({
+	id: "campaigns.archive",
+	title: "Toggle the campaign archive page",
+	description:
+		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.",
+	inputSchema: campaignArchiveInputSchema,
+	outputSchema: campaignArchiveOutputSchema,
+	safety: updateResourceSafety,
+	mcp: {
+		name: "listmonk_archive_campaign",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindCampaignsArchiveOperationSpec(),
+	execute: archiveCampaign,
+});
+
+export async function invokeArchiveCampaignOperation(
+	context: CampaignOperationContext,
+	input: unknown,
+): Promise<z.output<typeof campaignArchiveOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		archiveCampaignOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof campaignArchiveOutputSchema>;
+	try {
+		output = await archiveCampaign(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(archiveCampaignOperation.id, error);
+	}
+	return parseOperationOutput(
+		archiveCampaignOperation.id,
+		archiveCampaignOperation.outputSchema,
+		output,
+	);
+}
+
 export const getCampaignAnalyticsOperation = defineOperation({
 	id: "campaigns.analytics",
 	title: "Read campaign analytics",
@@ -1864,6 +1944,7 @@ export const campaignOperations = [
 	previewCampaignOperation,
 	testCampaignOperation,
 	getCampaignAnalyticsOperation,
+	archiveCampaignOperation,
 ] as const;
 
 export const campaignOperationCatalog = defineOperationCatalog({
@@ -1945,6 +2026,11 @@ export async function invokeCampaignOperationByMcpName(
 			return {
 				operation: cloneCampaignOperation,
 				output: await invokeCloneCampaignOperation(context, input),
+			};
+		case archiveCampaignOperation.mcp.name:
+			return {
+				operation: archiveCampaignOperation,
+				output: await invokeArchiveCampaignOperation(context, input),
 			};
 		case getCampaignAnalyticsOperation.mcp.name:
 			return {
