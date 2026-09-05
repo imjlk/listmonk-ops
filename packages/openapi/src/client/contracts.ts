@@ -61,6 +61,13 @@ export interface TemplateOperations
 	setAsDefault(options: {
 		path: { id: number };
 	}): Promise<FlattenedResponse<unknown>>;
+	/**
+	 * Renders the stored template to HTML. The endpoint answers with the
+	 * rendered document rather than a JSON envelope.
+	 */
+	preview(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<string>>;
 }
 
 /** Listmonk user role, served by endpoints missing from the upstream OpenAPI document. */

@@ -30,6 +30,7 @@ import {
 	invokeUnblocklistSubscribersOperation,
 	invokeUpdateCampaignOperation,
 	invokeUpdateSubscriberOperation,
+	invokePreviewTemplateOperation,
 	invokeUpdateTemplateOperation,
 	MAX_TEMPLATE_MANIFEST_BYTES,
 	MAX_USER_ROLE_MANIFEST_BYTES,
@@ -487,8 +488,8 @@ describe("shared CRUD resource operations", () => {
 
 	test("exposes object-root registries with safety metadata", () => {
 		expect(campaignOperations).toHaveLength(14);
-		expect(subscriberOperations).toHaveLength(12);
-		expect(templateOperations).toHaveLength(7);
+		expect(subscriberOperations).toHaveLength(13);
+		expect(templateOperations).toHaveLength(8);
 		expect(mediaOperations).toHaveLength(4);
 		for (const operation of [
 			...campaignOperations,
@@ -1793,5 +1794,37 @@ describe("user role manifest reconciliation", () => {
 		expect(operation.mcp.name).toBe("listmonk_reconcile_user_role_manifest");
 		expect(operation.safety.destructiveHint).toBe(true);
 		expect(operation.safety.idempotentHint).toBe(true);
+	});
+});
+
+describe("template preview operation", () => {
+	test("renders the stored template through the shared operation", async () => {
+		const preview = mock(async () => ({
+			data: "<!doctype html><html><body>rendered</body></html>",
+		}));
+
+		await expect(
+			invokePreviewTemplateOperation(
+				templateContext({
+					preview: preview as unknown as TemplateClient["template"]["preview"],
+				}),
+				{ id: "1" },
+			),
+		).resolves.toEqual({
+			html: "<!doctype html><html><body>rendered</body></html>",
+		});
+		expect(preview).toHaveBeenCalledWith({ path: { id: 1 } });
+	});
+
+	test("rejects a preview response that is not rendered HTML", async () => {
+		const preview = mock(async () => ({ data: "" }));
+		await expect(
+			invokePreviewTemplateOperation(
+				templateContext({
+					preview: preview as unknown as TemplateClient["template"]["preview"],
+				}),
+				{ id: 1 },
+			),
+		).rejects.toThrow("did not return rendered HTML");
 	});
 });

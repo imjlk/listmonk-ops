@@ -13,6 +13,7 @@ import {
 	invokeGetTemplatesOperation,
 	invokeReconcileTemplateManifestOperation,
 	invokeSetDefaultTemplateOperation,
+	invokePreviewTemplateOperation,
 	invokeUpdateTemplateOperation,
 	MAX_TEMPLATE_MANIFEST_BYTES,
 	OperationExecutionError,
@@ -118,6 +119,34 @@ export async function renderDeleteTemplate(
 			: `Template already deleted: ${input.id}`,
 	);
 	context.output.json(result);
+}
+
+export async function renderPreviewTemplate(
+	context: TemplatesCliContext,
+	input: { id: number },
+): Promise<void> {
+	const preview = await invokePreviewTemplateOperation(context, input);
+	context.output.success(
+		`Template ${input.id} rendered preview (${preview.html.length} characters)`,
+	);
+	context.output.json(preview);
+}
+
+export async function handlePreviewTemplateCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderPreviewTemplate(
+			{ client, output: getOutput() },
+			{
+				id: flags.id,
+			},
+		);
+	} catch (error) {
+		throw createTemplateCommandError("Failed to preview template", error);
+	}
 }
 
 export async function renderSetDefaultTemplate(
@@ -419,6 +448,17 @@ export default defineGroup({
 				}),
 			},
 			handler: handleDeleteTemplateCommand,
+		}),
+		defineCommand({
+			name: "preview",
+			operationId: "templates.preview",
+			description: "Render the stored template to HTML without sending",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Template ID",
+				}),
+			},
+			handler: handlePreviewTemplateCommand,
 		}),
 		defineCommand({
 			name: "set-default",

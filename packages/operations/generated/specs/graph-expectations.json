@@ -1785,6 +1785,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/templates.ts#previewTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesPreviewOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesPreviewOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesPreviewOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokePreviewTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#previewTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesPreviewOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesPreviewOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#previewTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokePreviewTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#previewTemplateOperation:variable"
+      },
+      "operationId": "templates.preview"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/lists.ts#createListOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsCreateOperationSpec:function"
@@ -2105,6 +2132,33 @@
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#stopSubscriberImportOperation:variable"
       },
       "operationId": "subscribers.import.stop"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#getSubscriberImportLogsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportLogsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportLogsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportLogsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeGetSubscriberImportLogsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#readSubscriberImportLogs:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportLogsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportLogsOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#readSubscriberImportLogs:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeGetSubscriberImportLogsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#getSubscriberImportLogsOperation:variable"
+      },
+      "operationId": "subscribers.import.logs"
     },
     {
       "edges": [

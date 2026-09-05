@@ -261,6 +261,10 @@ const openapiMediaGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
 const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
+const openapiTemplatePreviewMethod =
+	"packages/openapi/src/client/contracts.ts#TemplateOperations.preview:method";
+const openapiImportLogsMethod =
+	"packages/openapi/src/client/contracts.ts#ImportOperations.logs:method";
 const openapiImportStartMethod =
 	"packages/openapi/src/client/contracts.ts#ImportOperations.start:method";
 const openapiImportGetMethod =
@@ -1126,6 +1130,16 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				openapi: openapiImportGetMethod,
 			},
 			{
+				label: "import logs",
+				cliHandler: "handleSubscriberImportLogsCommand",
+				cliRender: "renderSubscriberImportLogs",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeGetSubscriberImportLogsOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#readSubscriberImportLogs:function",
+				openapi: openapiImportLogsMethod,
+			},
+			{
 				label: "import stop",
 				cliHandler: "handleStopSubscriberImportCommand",
 				cliRender: "renderStopSubscriberImport",
@@ -1192,6 +1206,15 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 					"packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
 				action: "packages/operations/src/templates.ts#updateTemplate:function",
 				openapi: openapiUpdateMethod,
+			},
+			{
+				label: "preview",
+				cliHandler: "handlePreviewTemplateCommand",
+				cliRender: "renderPreviewTemplate",
+				invoker:
+					"packages/operations/src/templates.ts#invokePreviewTemplateOperation:function",
+				action: "packages/operations/src/templates.ts#previewTemplate:function",
+				openapi: openapiTemplatePreviewMethod,
 			},
 			{
 				label: "delete",

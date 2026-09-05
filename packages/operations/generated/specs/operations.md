@@ -800,6 +800,18 @@ Set a template as the Listmonk default
 - Retry: `safe`
 - Stability: `stable` since `0.9.0`
 
+## `templates.preview`
+
+Render the stored template to HTML exactly as campaign content would appear inside it, without sending anything.
+
+- Resource / verb: `template.preview`
+- MCP tool: `listmonk_preview_template`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:template`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
 ## `lists.create`
 
 Create a new subscriber list
@@ -941,6 +953,18 @@ Send the stop signal to the running subscriber importer and read the reset sessi
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:subscriber`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
+## `subscribers.import.logs`
+
+Read the raw importer log lines from the most recent subscriber-import session.
+
+- Resource / verb: `subscriber.logs`
+- MCP tool: `listmonk_get_subscriber_import_logs`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:subscriber`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
 - Stability: `stable` since `0.17.0`
 

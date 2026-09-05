@@ -926,6 +926,20 @@ Verify with: `templates.get`
 
 Retry guidance: Retry identical transient failures with bounded backoff, then verify with templates.get.
 
+## Preview template (`templates.preview`)
+
+Contract maturity: `stable`; effects: `read:template`; confirmation: `never`; retry: `safe`.
+
+Use when: A template's rendered output must be inspected, typically before promotion or a campaign send.
+
+Avoid when: A campaign's rendered body is what matters — prefer campaigns.preview.
+
+Prerequisites: `templates.get`
+
+Verify with: none
+
+Retry guidance: Retry transient render failures with bounded backoff.
+
 ## Create subscriber list (`lists.create`)
 
 Contract maturity: `stable`; effects: `write:list`; confirmation: `never`; retry: `conditional`.
@@ -1093,6 +1107,20 @@ Prerequisites: `subscribers.import.status`
 Verify with: `subscribers.import.status`
 
 Retry guidance: Repeat safely — an already-stopped importer answers with the same idle status.
+
+## Read subscriber import logs (`subscribers.import.logs`)
+
+Contract maturity: `stable`; effects: `read:subscriber`; confirmation: `never`; retry: `safe`.
+
+Use when: An import's raw log output must be inspected, typically after a finished or stopped session.
+
+Avoid when: Only progress counters are needed — prefer subscribers.import.status.
+
+Prerequisites: `subscribers.import.status`
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Create campaign (`campaigns.create`)
 

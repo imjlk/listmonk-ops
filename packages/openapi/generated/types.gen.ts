@@ -2820,19 +2820,7 @@ export type PreviewTemplateResponses = {
 export type PreviewTemplateResponse = PreviewTemplateResponses[keyof PreviewTemplateResponses];
 
 export type PreviewTemplateByIdData = {
-    /**
-     * template parameters
-     */
-    body: {
-        /**
-         * type of template
-         */
-        template_type?: string;
-        /**
-         * template body
-         */
-        body?: string;
-    };
+    body?: never;
     path: {
         /**
          * The id value of the template you want to get.

@@ -7,6 +7,7 @@ import {
 	bindTemplatesListOperationSpec,
 	bindTemplatesReconcileOperationSpec,
 	bindTemplatesSetDefaultOperationSpec,
+	bindTemplatesPreviewOperationSpec,
 	bindTemplatesUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
@@ -1117,6 +1118,71 @@ export async function invokeReconcileTemplateManifestOperation(
 	);
 }
 
+const templatePreviewInputSchema = z.object({
+	id: resourceIdSchema,
+});
+
+const templatePreviewOutputSchema = z.object({
+	html: z.string().min(1),
+});
+
+/**
+ * Render the stored template to HTML. The observed 6.2 endpoint answers
+ * with the rendered document — including the template's own chrome
+ * around a dummy campaign body — rather than a JSON envelope.
+ */
+export async function previewTemplate(
+	{ client }: TemplateOperationContext,
+	input: z.output<typeof templatePreviewInputSchema>,
+): Promise<z.output<typeof templatePreviewOutputSchema>> {
+	const response = await client.template.preview({ path: { id: input.id } });
+	const html = unwrapResourceResponse(
+		response,
+		"Failed to render template preview",
+	);
+	if (typeof html !== "string" || html.length === 0) {
+		throw new Error("Template preview did not return rendered HTML");
+	}
+	return { html };
+}
+
+export const previewTemplateOperation = defineOperation({
+	id: "templates.preview",
+	title: "Preview template",
+	description:
+		"Render the stored template to HTML exactly as campaign content would appear inside it, without sending anything.",
+	inputSchema: templatePreviewInputSchema,
+	outputSchema: templatePreviewOutputSchema,
+	safety: readResourceSafety,
+	mcp: {
+		name: "listmonk_preview_template",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindTemplatesPreviewOperationSpec(),
+	execute: previewTemplate,
+});
+
+export async function invokePreviewTemplateOperation(
+	context: TemplateOperationContext,
+	input: unknown,
+): Promise<z.output<typeof templatePreviewOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		previewTemplateOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof templatePreviewOutputSchema>;
+	try {
+		output = await previewTemplate(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(previewTemplateOperation.id, error);
+	}
+	return parseOperationOutput(
+		previewTemplateOperation.id,
+		previewTemplateOperation.outputSchema,
+		output,
+	);
+}
+
 export const templateOperations = [
 	getTemplatesOperation,
 	getTemplateOperation,
@@ -1125,6 +1191,7 @@ export const templateOperations = [
 	deleteTemplateOperation,
 	setDefaultTemplateOperation,
 	reconcileTemplateManifestOperation,
+	previewTemplateOperation,
 ] as const;
 
 export const templateOperationCatalog = defineOperationCatalog({
@@ -1181,6 +1248,11 @@ export async function invokeTemplateOperationByMcpName(
 			return {
 				operation: deleteTemplateOperation,
 				output: await invokeDeleteTemplateOperation(context, input),
+			};
+		case previewTemplateOperation.mcp.name:
+			return {
+				operation: previewTemplateOperation,
+				output: await invokePreviewTemplateOperation(context, input),
 			};
 		case setDefaultTemplateOperation.mcp.name:
 			return {

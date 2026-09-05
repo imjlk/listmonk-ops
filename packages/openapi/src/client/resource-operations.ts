@@ -34,6 +34,7 @@ import {
 	patchSubscriberById,
 	previewCampaignById,
 	previewCampaignTextById,
+	previewTemplateById,
 	setDefaultTemplateById,
 	subscriberSendOptinById,
 	testCampaignById,
@@ -337,6 +338,15 @@ export function createTemplateOperations(
 				...options,
 			});
 			return (await transformResponse(result)) as FlattenedResponse<unknown>;
+		},
+		async preview(options: { path: { id: number } }) {
+			const result = await previewTemplateById({
+				...sdkOptions,
+				...options,
+			});
+			return (await transformResponse(
+				result,
+			)) as FlattenedResponse<string>;
 		},
 	};
 }

@@ -68,6 +68,13 @@ export interface TemplateSetDefaultOutput {
 	set_default: true;
 }
 
+export type TemplatePreviewInput = ResourceIdInput;
+
+export interface TemplatePreviewOutput {
+	/** Fully rendered HTML preview of the stored template. */
+	html: NonEmptyString;
+}
+
 export interface TemplateListInput {
 	/** One-based result page. Omitted values use the shared operation default. */
 	page?: PositiveInteger | undefined;

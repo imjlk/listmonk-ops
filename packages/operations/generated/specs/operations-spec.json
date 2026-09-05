@@ -21389,6 +21389,140 @@
     {
       "agent": {
         "avoidWhen": [
+          "A campaign's rendered body is what matters — prefer campaigns.preview."
+        ],
+        "prerequisites": [
+          "templates.get"
+        ],
+        "related": [
+          "templates.get",
+          "campaigns.preview",
+          "ops.campaign.preflight"
+        ],
+        "retryGuidance": "Retry transient render failures with bounded backoff.",
+        "useWhen": [
+          "A template's rendered output must be inspected, typically before promotion or a campaign send."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "TemplatePreviewOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "html": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Fully rendered HTML preview of the stored template."
+                  }
+                },
+                "required": [
+                  "html"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "html": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Fully rendered HTML preview of the stored template."
+              }
+            },
+            "required": [
+              "html"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Render the stored template to HTML exactly as campaign content would appear inside it, without sending anything.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "template"
+        }
+      ],
+      "id": "templates.preview",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesPreviewOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesPreviewOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#previewTemplate:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokePreviewTemplateOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#previewTemplateOperation:variable"
+        },
+        "mcpName": "listmonk_preview_template",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only renders the stored template body."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Preview template",
+      "verb": "preview"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "An existing list should be updated instead."
         ],
         "prerequisites": [],
@@ -24386,6 +24520,117 @@
       "stability": "stable",
       "title": "Stop the subscriber import",
       "verb": "stop"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Only progress counters are needed — prefer subscribers.import.status."
+        ],
+        "prerequisites": [
+          "subscribers.import.status"
+        ],
+        "related": [
+          "subscribers.import.start",
+          "subscribers.import.status",
+          "subscribers.import.stop"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "An import's raw log output must be inspected, typically after a finished or stopped session."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "SubscriberImportLogsOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "logs": {
+                    "description": "Raw importer log lines; empty when no session has run.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "logs"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "logs": {
+                "description": "Raw importer log lines; empty when no session has run.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "logs"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Read the raw importer log lines from the most recent subscriber-import session.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "subscriber"
+        }
+      ],
+      "id": "subscribers.import.logs",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportLogsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportLogsOperationSpec:variable",
+          "executorNode": "packages/operations/src/subscribers.ts#readSubscriberImportLogs:function",
+          "invokerNode": "packages/operations/src/subscribers.ts#invokeGetSubscriberImportLogsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#getSubscriberImportLogsOperation:variable"
+        },
+        "mcpName": "listmonk_get_subscriber_import_logs",
+        "openWorld": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads recorded importer log lines."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Read subscriber import logs",
+      "verb": "logs"
     },
     {
       "agent": {

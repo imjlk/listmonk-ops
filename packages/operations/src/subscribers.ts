@@ -11,6 +11,7 @@ import {
 	bindSubscribersImportStartOperationSpec,
 	bindSubscribersImportStatusOperationSpec,
 	bindSubscribersImportStopOperationSpec,
+	bindSubscribersImportLogsOperationSpec,
 	bindSubscribersUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
@@ -1015,6 +1016,18 @@ export async function readSubscriberImportStatus({
 	) as SubscriberImportStatus;
 }
 
+/** Read the raw importer log lines from the most recent session. */
+export async function readSubscriberImportLogs({
+	client,
+}: SubscriberImportOperationContext): Promise<{ logs: string }> {
+	const response = await client.import.logs();
+	const logs = unwrapResourceResponse(
+		response,
+		"Failed to read subscriber import logs",
+	);
+	return { logs: typeof logs === "string" ? logs : "" };
+}
+
 export async function stopSubscriberImport({
 	client,
 }: SubscriberImportOperationContext): Promise<SubscriberImportStatus> {
@@ -1063,6 +1076,22 @@ export const getSubscriberImportStatusOperation = defineOperation({
 	},
 	spec: bindSubscribersImportStatusOperationSpec(),
 	execute: readSubscriberImportStatus,
+});
+
+export const getSubscriberImportLogsOperation = defineOperation({
+	id: "subscribers.import.logs",
+	title: "Read subscriber import logs",
+	description:
+		"Read the raw importer log lines from the most recent subscriber-import session.",
+	inputSchema: z.object({}),
+	outputSchema: z.object({ logs: z.string() }),
+	safety: readResourceSafety,
+	mcp: {
+		name: "listmonk_get_subscriber_import_logs",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSubscribersImportLogsOperationSpec(),
+	execute: readSubscriberImportLogs,
 });
 
 export const stopSubscriberImportOperation = defineOperation({
@@ -1134,6 +1163,30 @@ export async function invokeGetSubscriberImportStatusOperation(
 	);
 }
 
+export async function invokeGetSubscriberImportLogsOperation(
+	context: SubscriberImportOperationContext,
+	input: unknown,
+): Promise<{ logs: string }> {
+	const parsedInput = parseOperationInput(
+		getSubscriberImportLogsOperation.inputSchema,
+		input,
+	);
+	let output: { logs: string };
+	try {
+		output = await readSubscriberImportLogs(context);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			getSubscriberImportLogsOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		getSubscriberImportLogsOperation.id,
+		getSubscriberImportLogsOperation.outputSchema,
+		output,
+	);
+}
+
 export async function invokeStopSubscriberImportOperation(
 	context: SubscriberImportOperationContext,
 	input: unknown,
@@ -1171,6 +1224,7 @@ export const subscriberOperations = [
 	startSubscriberImportOperation,
 	getSubscriberImportStatusOperation,
 	stopSubscriberImportOperation,
+	getSubscriberImportLogsOperation,
 ] as const;
 
 export const subscriberOperationCatalog = defineOperationCatalog({
@@ -1252,6 +1306,11 @@ export async function invokeSubscriberOperationByMcpName(
 			return {
 				operation: getSubscriberImportStatusOperation,
 				output: await invokeGetSubscriberImportStatusOperation(context, input),
+			};
+		case getSubscriberImportLogsOperation.mcp.name:
+			return {
+				operation: getSubscriberImportLogsOperation,
+				output: await invokeGetSubscriberImportLogsOperation(context, input),
 			};
 		case stopSubscriberImportOperation.mcp.name:
 			return {

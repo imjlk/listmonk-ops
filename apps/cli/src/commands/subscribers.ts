@@ -13,6 +13,7 @@ import {
 	invokeStartSubscriberImportOperation,
 	invokeGetSubscriberImportStatusOperation,
 	invokeStopSubscriberImportOperation,
+	invokeGetSubscriberImportLogsOperation,
 	MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
 	invokeUpdateSubscriberOperation,
 	OperationExecutionError,
@@ -255,6 +256,30 @@ export async function renderSubscriberImportStatus(
 		`Subscriber import: ${status.status ?? "unknown"} (${status.imported ?? 0}/${status.total ?? 0})`,
 	);
 	context.output.json(status);
+}
+
+export async function renderSubscriberImportLogs(
+	context: SubscriberImportCliContext,
+): Promise<void> {
+	const result = await invokeGetSubscriberImportLogsOperation(context, {});
+	if (result.logs.length === 0) {
+		context.output.info("No subscriber import logs recorded");
+	}
+	context.output.json(result);
+}
+
+export async function handleSubscriberImportLogsCommand({
+	...args
+}: HandlerArgs<Record<string, unknown>>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderSubscriberImportLogs({ client, output: getOutput() });
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to read subscriber import logs",
+			error,
+		);
+	}
 }
 
 export async function renderStopSubscriberImport(
@@ -861,6 +886,13 @@ export default defineGroup({
 			description: "Read the subscriber import session status",
 			options: {},
 			handler: handleSubscriberImportStatusCommand,
+		}),
+		defineCommand({
+			name: "import-logs",
+			operationId: "subscribers.import.logs",
+			description: "Read the raw subscriber import session logs",
+			options: {},
+			handler: handleSubscriberImportLogsCommand,
 		}),
 		defineCommand({
 			name: "import-stop",
