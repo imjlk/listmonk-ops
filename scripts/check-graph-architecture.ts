@@ -261,6 +261,12 @@ const openapiMediaGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
 const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
+const openapiImportStartMethod =
+	"packages/openapi/src/client/contracts.ts#ImportOperations.start:method";
+const openapiImportGetMethod =
+	"packages/openapi/src/client/contracts.ts#ImportOperations.get:method";
+const openapiImportStopMethod =
+	"packages/openapi/src/client/contracts.ts#ImportOperations.stop:method";
 const openapiDashboardCountsMethod =
 	"packages/openapi/src/client/contracts.ts#DashboardOperations.getCounts:method";
 const openapiDashboardChartsMethod =
@@ -1034,19 +1040,19 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 		cliModule:
 			"apps/cli/src/commands/subscribers.ts#apps/cli/src/commands/subscribers.ts:module",
 		cliTestModule:
-			"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+			"apps/cli/tests/subscribers-import.test.ts#apps/cli/tests/subscribers-import.test.ts:module",
 		mcpHandler: "packages/mcp/src/handlers/subscribers.ts#handleSubscribersTools:function",
 		dispatcher:
 			"packages/operations/src/subscribers.ts#invokeSubscriberOperationByMcpName:function",
 		operationTestModule:
-			"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+			"packages/operations/tests/subscribers-import.test.ts#packages/operations/tests/subscribers-import.test.ts:module",
 		mcpTestModule:
 			"packages/mcp/tests/unit/resources.test.ts#packages/mcp/tests/unit/resources.test.ts:module",
 		testAnchor: {
 			invoker:
-				"packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
+				"packages/operations/src/subscribers.ts#invokeStartSubscriberImportOperation:function",
 			action:
-				"packages/operations/src/subscribers.ts#createSubscriber:function",
+				"packages/operations/src/subscribers.ts#startSubscriberImport:function",
 		},
 		invokers: [
 			{
@@ -1098,6 +1104,36 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				action:
 					"packages/operations/src/subscribers.ts#deleteSubscriber:function",
 				openapi: openapiDeleteMethod,
+			},
+			{
+				label: "import start",
+				cliHandler: "handleStartSubscriberImportCommand",
+				cliRender: "renderStartSubscriberImport",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeStartSubscriberImportOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#startSubscriberImport:function",
+				openapi: openapiImportStartMethod,
+			},
+			{
+				label: "import status",
+				cliHandler: "handleSubscriberImportStatusCommand",
+				cliRender: "renderSubscriberImportStatus",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeGetSubscriberImportStatusOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#readSubscriberImportStatus:function",
+				openapi: openapiImportGetMethod,
+			},
+			{
+				label: "import stop",
+				cliHandler: "handleStopSubscriberImportCommand",
+				cliRender: "renderStopSubscriberImport",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeStopSubscriberImportOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#stopSubscriberImport:function",
+				openapi: openapiImportStopMethod,
 			},
 		],
 	}),

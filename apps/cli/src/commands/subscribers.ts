@@ -10,6 +10,10 @@ import {
 	invokeGetSubscribersOperation,
 	invokeRemoveSubscribersFromListsOperation,
 	invokeUnblocklistSubscribersOperation,
+	invokeStartSubscriberImportOperation,
+	invokeGetSubscriberImportStatusOperation,
+	invokeStopSubscriberImportOperation,
+	MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
 	invokeUpdateSubscriberOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
@@ -26,7 +30,7 @@ import {
 	parseJson,
 	toErrorMessage,
 } from "../lib/command-utils";
-import { getListmonkClient } from "../lib/listmonk";
+import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
 
 type SubscribersOutput = Pick<
 	typeof OutputUtils,
@@ -218,6 +222,130 @@ export async function renderBlocklistSubscribers(
 	const result = await invokeBlocklistSubscribersOperation(context, input);
 	reportBulkResult(context, input, result, "blocklisted", "subscribers");
 	return result;
+}
+
+export interface SubscriberImportCliContext {
+	client: Pick<ListmonkClient, "import">;
+	output: Pick<typeof OutputUtils, "info" | "json" | "success">;
+}
+
+export async function renderStartSubscriberImport(
+	context: SubscriberImportCliContext,
+	input: {
+		mode: "subscribe" | "blocklist";
+		delim: string;
+		lists?: number[];
+		overwrite: boolean;
+		subscription_status?: "pending" | "confirmed" | "unsubscribed";
+		csv: string;
+	},
+): Promise<void> {
+	const status = await invokeStartSubscriberImportOperation(context, input);
+	context.output.success(
+		`Subscriber import started (${status.status ?? "importing"})`,
+	);
+	context.output.json(status);
+}
+
+export async function renderSubscriberImportStatus(
+	context: SubscriberImportCliContext,
+): Promise<void> {
+	const status = await invokeGetSubscriberImportStatusOperation(context, {});
+	context.output.info(
+		`Subscriber import: ${status.status ?? "unknown"} (${status.imported ?? 0}/${status.total ?? 0})`,
+	);
+	context.output.json(status);
+}
+
+export async function renderStopSubscriberImport(
+	context: SubscriberImportCliContext,
+): Promise<void> {
+	const status = await invokeStopSubscriberImportOperation(context, {});
+	context.output.success(
+		`Subscriber import stopped (${status.status ?? "none"})`,
+	);
+	context.output.json(status);
+}
+
+export async function handleStartSubscriberImportCommand({
+	flags,
+	...args
+}: HandlerArgs<{
+	mode: "subscribe" | "blocklist";
+	delim: string;
+	lists?: string;
+	overwrite?: boolean;
+	"subscription-status"?: "pending" | "confirmed" | "unsubscribed";
+	file: string;
+}>): Promise<void> {
+	try {
+		const session = await resolveListmonkSession(args, {
+			requireAuth: true,
+		});
+		if (!session.client) {
+			throw new Error("Listmonk client is not available");
+		}
+		const file = Bun.file(flags.file);
+		// Bun.file() does not throw when the path is missing — probe
+		// existence explicitly so a clear "not found" message surfaces.
+		if (!(await file.exists())) {
+			throw new Error(`File not found: ${flags.file}`);
+		}
+		// Bun.file exposes size lazily without reading the file, so reject
+		// oversized CSVs before pulling the bytes into memory.
+		if (file.size > MAX_SUBSCRIBER_IMPORT_CSV_BYTES) {
+			throw new Error(
+				`File ${flags.file} is ${file.size} bytes, which exceeds the ${MAX_SUBSCRIBER_IMPORT_CSV_BYTES}-byte subscriber import CSV cap`,
+			);
+		}
+		const csv = await file.text();
+		await renderStartSubscriberImport(
+			{ client: session.client, output: getOutput() },
+			{
+				mode: flags.mode,
+				delim: flags.delim,
+				lists: flags.lists
+					? parseCsvNumbersStrict(flags.lists, "list IDs")
+					: undefined,
+				overwrite: flags.overwrite ?? false,
+				subscription_status: flags["subscription-status"],
+				csv,
+			},
+		);
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to start subscriber import",
+			error,
+		);
+	}
+}
+
+export async function handleSubscriberImportStatusCommand({
+	...args
+}: HandlerArgs<Record<string, unknown>>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderSubscriberImportStatus({ client, output: getOutput() });
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to read subscriber import status",
+			error,
+		);
+	}
+}
+
+export async function handleStopSubscriberImportCommand({
+	...args
+}: HandlerArgs<Record<string, unknown>>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderStopSubscriberImport({ client, output: getOutput() });
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to stop subscriber import",
+			error,
+		);
+	}
 }
 
 export async function renderUnblocklistSubscribers(
@@ -697,6 +825,49 @@ export default defineGroup({
 				}),
 			},
 			handler: handleUnblocklistSubscribersCommand,
+		}),
+		defineCommand({
+			name: "import",
+			operationId: "subscribers.import.start",
+			description: "Start an asynchronous subscriber CSV import",
+			options: {
+				mode: option(z.enum(["subscribe", "blocklist"]), {
+					description: "Whether rows subscribe or join the blocklist",
+				}),
+				delim: option(z.string().min(1).max(1).default(","), {
+					description: "CSV column delimiter (single character)",
+				}),
+				lists: option(z.string().trim().min(1).optional(), {
+					description:
+						"Comma-separated target list ids (required for subscribe mode)",
+				}),
+				overwrite: option(z.coerce.boolean().default(false), {
+					description: "Overwrite existing subscriber attributes",
+				}),
+				"subscription-status": option(
+					z.enum(["pending", "confirmed", "unsubscribed"]).optional(),
+					{ description: "Subscription status applied to imported rows" },
+				),
+				file: option(z.string().trim().min(1), {
+					description: "Path to the CSV file (first row must be a header)",
+					fileType: "path",
+				}),
+			},
+			handler: handleStartSubscriberImportCommand,
+		}),
+		defineCommand({
+			name: "import-status",
+			operationId: "subscribers.import.status",
+			description: "Read the subscriber import session status",
+			options: {},
+			handler: handleSubscriberImportStatusCommand,
+		}),
+		defineCommand({
+			name: "import-stop",
+			operationId: "subscribers.import.stop",
+			description: "Stop the running subscriber import",
+			options: {},
+			handler: handleStopSubscriberImportCommand,
 		}),
 	],
 });

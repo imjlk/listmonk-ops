@@ -155,6 +155,8 @@ import type {
 	DeliverabilityGuardInput,
 	DeliverabilityGuardOutput,
 	SubscriberHygieneInput,
+	SubscriberImportStartInput,
+	SubscriberImportSessionOutput,
 	SubscriberHygieneOutput,
 	TemplateRegistrySyncInput,
 	TemplateRegistrySyncOutput,
@@ -356,6 +358,18 @@ const contracts = {
 	),
 	bouncePruneInputContract: contractSchema(
 		typia.json.schema<BouncePruneInput>(),
+	),
+	subscriberImportStartInputContract: contractSchema(
+		typia.json.schema<SubscriberImportStartInput>(),
+	),
+	subscriberImportStartOutputContract: contractSchema(
+		typia.json.schema<SubscriberImportSessionOutput>(),
+	),
+	subscriberImportStatusOutputContract: contractSchema(
+		typia.json.schema<SubscriberImportSessionOutput>(),
+	),
+	subscriberImportStopOutputContract: contractSchema(
+		typia.json.schema<SubscriberImportSessionOutput>(),
 	),
 	dashboardCountsOutputContract: contractSchema(
 		typia.json.schema<DashboardCountsOutput>(),

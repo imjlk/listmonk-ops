@@ -1,5 +1,10 @@
 import { defineOperationSpec } from "../operation";
 import {
+	subscriberImportStartInputContract,
+	subscriberImportStartOutputContract,
+	subscriberImportStatusOutputContract,
+	subscriberImportStopOutputContract,
+	emptyInputContract,
 	subscriberCreateInputContract,
 	subscriberCreateOutputContract,
 	subscriberUpdateInputContract,
@@ -330,6 +335,178 @@ export function bindSubscribersAddToListsOperationSpec(): typeof subscribersAddT
 
 export function bindSubscribersRemoveFromListsOperationSpec(): typeof subscribersRemoveFromListsOperationSpec {
 	return subscribersRemoveFromListsOperationSpec;
+}
+
+export const subscribersImportStartOperationSpec = defineOperationSpec({
+	id: "subscribers.import.start",
+	resource: "subscriber",
+	verb: "start",
+	title: "Start a subscriber CSV import",
+	description:
+		"Upload a CSV and start an asynchronous subscriber import. The importer upserts rows by email, so a repeated identical import converges; poll subscribers.import.status for progress.",
+	contract: {
+		input: subscriberImportStartInputContract,
+		output: subscriberImportStartOutputContract,
+	},
+	effects: [{ kind: "write", resource: "subscriber", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
+	retry: {
+		kind: "conditional",
+		cases: [
+			{
+				when: "the identical CSV is re-imported",
+				semantics: {
+					kind: "safe",
+					reason:
+						"Listmonk upserts imported rows by email, so repeating an identical CSV converges on the same subscribers; blocklist mode is likewise idempotent per email.",
+				},
+			},
+			{
+				when: "the CSV changed between attempts",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"A different CSV under the same intent imports different rows with no key to correlate the attempts.",
+				},
+			},
+		],
+		reason: "Retry safety depends on the CSV being unchanged between attempts.",
+	},
+	agent: {
+		useWhen: ["A batch of subscribers must be imported from CSV."],
+		avoidWhen: ["A single subscriber suffices — prefer subscribers.create."],
+		prerequisites: ["lists.list"],
+		verifyWith: ["subscribers.import.status"],
+		related: ["subscribers.import.status", "subscribers.import.stop"],
+		retryGuidance:
+			"Re-issue the identical CSV only after checking subscribers.import.status; the importer upserts by email so a repeat converges.",
+	},
+	projection: {
+		mcpName: "listmonk_start_subscriber_import",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportStartOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStartOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#startSubscriberImportOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeStartSubscriberImportOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#startSubscriberImport:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export const subscribersImportStatusOperationSpec = defineOperationSpec({
+	id: "subscribers.import.status",
+	resource: "subscriber",
+	verb: "status",
+	title: "Read subscriber import status",
+	description:
+		"Read the current asynchronous subscriber-import session status, including progress counters.",
+	contract: {
+		input: emptyInputContract,
+		output: subscriberImportStatusOutputContract,
+	},
+	effects: [{ kind: "read", resource: "subscriber" }],
+	policy: {
+		confirmation: "never",
+		audit: "optional",
+		dryRun: false,
+	},
+	retry: {
+		kind: "safe",
+		reason: "The operation only reads the current import session state.",
+	},
+	agent: {
+		useWhen: ["An import's progress or completion must be checked."],
+		avoidWhen: ["No import session has been started."],
+		prerequisites: ["subscribers.import.start"],
+		verifyWith: [],
+		related: ["subscribers.import.start", "subscribers.import.stop"],
+		retryGuidance: "Retry transient read failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_get_subscriber_import_status",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportStatusOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStatusOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#getSubscriberImportStatusOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeGetSubscriberImportStatusOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#readSubscriberImportStatus:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export const subscribersImportStopOperationSpec = defineOperationSpec({
+	id: "subscribers.import.stop",
+	resource: "subscriber",
+	verb: "stop",
+	title: "Stop the subscriber import",
+	description:
+		"Send the stop signal to the running subscriber importer and read the reset session status.",
+	contract: {
+		input: emptyInputContract,
+		output: subscriberImportStopOutputContract,
+	},
+	effects: [{ kind: "write", resource: "subscriber", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason:
+			"The stop signal resets the session; repeating it against an idle importer returns the same reset status.",
+	},
+	agent: {
+		useWhen: ["A running import must be cancelled."],
+		avoidWhen: ["No import session is running."],
+		prerequisites: ["subscribers.import.status"],
+		verifyWith: ["subscribers.import.status"],
+		related: ["subscribers.import.start"],
+		retryGuidance:
+			"Repeat safely — an already-stopped importer answers with the same idle status.",
+	},
+	projection: {
+		mcpName: "listmonk_stop_subscriber_import",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportStopOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStopOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#stopSubscriberImportOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeStopSubscriberImportOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#stopSubscriberImport:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export function bindSubscribersImportStartOperationSpec(): typeof subscribersImportStartOperationSpec {
+	return subscribersImportStartOperationSpec;
+}
+
+export function bindSubscribersImportStatusOperationSpec(): typeof subscribersImportStatusOperationSpec {
+	return subscribersImportStatusOperationSpec;
+}
+
+export function bindSubscribersImportStopOperationSpec(): typeof subscribersImportStopOperationSpec {
+	return subscribersImportStopOperationSpec;
 }
 
 export function bindSubscribersUnblocklistOperationSpec(): typeof subscribersUnblocklistOperationSpec {

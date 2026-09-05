@@ -1,4 +1,5 @@
 import type { tags } from "typia";
+import type { MAX_SUBSCRIBER_IMPORT_LISTS } from "../../src/subscriber-import-bound";
 import type {
 	ResourceId,
 	NonNegativeInteger,
@@ -246,3 +247,55 @@ export interface SubscriberHygieneOutput {
 	}>;
 	errors: string[];
 }
+
+export type SubscriberImportMode = "subscribe" | "blocklist";
+
+/** One CSV column delimiter character for a subscriber import. */
+export type SubscriberImportDelimiter = string & tags.MinLength<1> &
+	tags.MaxLength<1>;
+
+/**
+ * Raw CSV text; the executable schema enforces the shared 1 MiB UTF-8
+ * byte cap (measured on the wire payload, not code units).
+ */
+export type SubscriberImportCsv = NonEmptyString;
+
+export type SubscriberImportStartInput = {
+	/** Whether rows subscribe to the target lists or add to the blocklist. */
+	mode: SubscriberImportMode;
+	/** CSV column delimiter (a single character). */
+	delim: SubscriberImportDelimiter;
+	/**
+	 * Target list ids for a subscribe-mode import (at most 20); required
+	 * when mode is subscribe and unused by blocklist mode.
+	 */
+	lists?:
+		| (readonly ResourceId[] &
+				tags.MinItems<1> &
+				tags.MaxItems<typeof MAX_SUBSCRIBER_IMPORT_LISTS>)
+		| undefined;
+	/** Whether the import overwrites existing subscriber attributes. */
+	overwrite: boolean;
+	/** Optional subscription status applied to imported rows. */
+	subscription_status?:
+		| ("pending" | "confirmed" | "unsubscribed")
+		| undefined;
+	/** Raw CSV text; the first row must be a header naming the columns. */
+	csv: SubscriberImportCsv;
+};
+
+export interface SubscriberImportStatus {
+	/** Source file name reported by the importer. */
+	name?: string | undefined;
+	/** Rows detected in the uploaded CSV. */
+	total?: number | undefined;
+	/** Rows successfully imported so far. */
+	imported?: number | undefined;
+	/** Observed lifecycle states: none, importing, stopping, finished. */
+	status?: string | undefined;
+	/** Preserve fields added by newer Listmonk releases. */
+	[key: string]: unknown;
+}
+
+/** Session state shared by the start, status, and stop outputs. */
+export type SubscriberImportSessionOutput = SubscriberImportStatus;

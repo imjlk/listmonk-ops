@@ -487,7 +487,7 @@ describe("shared CRUD resource operations", () => {
 
 	test("exposes object-root registries with safety metadata", () => {
 		expect(campaignOperations).toHaveLength(14);
-		expect(subscriberOperations).toHaveLength(9);
+		expect(subscriberOperations).toHaveLength(12);
 		expect(templateOperations).toHaveLength(7);
 		expect(mediaOperations).toHaveLength(4);
 		for (const operation of [

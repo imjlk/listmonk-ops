@@ -20673,6 +20673,307 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "subscriberImportStartInputContract": {
+    "components": {
+      "schemas": {
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberImportDelimiter": {
+          "description": "One CSV column delimiter character for a subscriber import.",
+          "maxLength": 1,
+          "minLength": 1,
+          "type": "string"
+        },
+        "SubscriberImportMode": {
+          "oneOf": [
+            {
+              "const": "blocklist"
+            },
+            {
+              "const": "subscribe"
+            }
+          ]
+        },
+        "SubscriberImportStartInput": {
+          "additionalProperties": false,
+          "properties": {
+            "csv": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Raw CSV text; the first row must be a header naming the columns."
+            },
+            "delim": {
+              "$ref": "#/components/schemas/SubscriberImportDelimiter",
+              "description": "CSV column delimiter (a single character)."
+            },
+            "lists": {
+              "description": "Target list ids for a subscribe-mode import (at most 20); required\nwhen mode is subscribe and unused by blocklist mode.",
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "type": "array"
+            },
+            "mode": {
+              "$ref": "#/components/schemas/SubscriberImportMode",
+              "description": "Whether rows subscribe to the target lists or add to the blocklist."
+            },
+            "overwrite": {
+              "description": "Whether the import overwrites existing subscriber attributes.",
+              "type": "boolean"
+            },
+            "subscription_status": {
+              "description": "Optional subscription status applied to imported rows.",
+              "oneOf": [
+                {
+                  "const": "confirmed"
+                },
+                {
+                  "const": "pending"
+                },
+                {
+                  "const": "unsubscribed"
+                }
+              ]
+            }
+          },
+          "required": [
+            "mode",
+            "delim",
+            "overwrite",
+            "csv"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "csv": {
+          "$ref": "#/components/schemas/NonEmptyString",
+          "description": "Raw CSV text; the first row must be a header naming the columns."
+        },
+        "delim": {
+          "$ref": "#/components/schemas/SubscriberImportDelimiter",
+          "description": "CSV column delimiter (a single character)."
+        },
+        "lists": {
+          "description": "Target list ids for a subscribe-mode import (at most 20); required\nwhen mode is subscribe and unused by blocklist mode.",
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "type": "array"
+        },
+        "mode": {
+          "$ref": "#/components/schemas/SubscriberImportMode",
+          "description": "Whether rows subscribe to the target lists or add to the blocklist."
+        },
+        "overwrite": {
+          "description": "Whether the import overwrites existing subscriber attributes.",
+          "type": "boolean"
+        },
+        "subscription_status": {
+          "description": "Optional subscription status applied to imported rows.",
+          "oneOf": [
+            {
+              "const": "confirmed"
+            },
+            {
+              "const": "pending"
+            },
+            {
+              "const": "unsubscribed"
+            }
+          ]
+        }
+      },
+      "required": [
+        "mode",
+        "delim",
+        "overwrite",
+        "csv"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberImportStartOutputContract": {
+    "components": {
+      "schemas": {
+        "SubscriberImportStatus": {
+          "additionalProperties": {},
+          "properties": {
+            "imported": {
+              "description": "Rows successfully imported so far.",
+              "type": "number"
+            },
+            "name": {
+              "description": "Source file name reported by the importer.",
+              "type": "string"
+            },
+            "status": {
+              "description": "Observed lifecycle states: none, importing, stopping, finished.",
+              "type": "string"
+            },
+            "total": {
+              "description": "Rows detected in the uploaded CSV.",
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "imported": {
+          "description": "Rows successfully imported so far.",
+          "type": "number"
+        },
+        "name": {
+          "description": "Source file name reported by the importer.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Observed lifecycle states: none, importing, stopping, finished.",
+          "type": "string"
+        },
+        "total": {
+          "description": "Rows detected in the uploaded CSV.",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberImportStatusOutputContract": {
+    "components": {
+      "schemas": {
+        "SubscriberImportStatus": {
+          "additionalProperties": {},
+          "properties": {
+            "imported": {
+              "description": "Rows successfully imported so far.",
+              "type": "number"
+            },
+            "name": {
+              "description": "Source file name reported by the importer.",
+              "type": "string"
+            },
+            "status": {
+              "description": "Observed lifecycle states: none, importing, stopping, finished.",
+              "type": "string"
+            },
+            "total": {
+              "description": "Rows detected in the uploaded CSV.",
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "imported": {
+          "description": "Rows successfully imported so far.",
+          "type": "number"
+        },
+        "name": {
+          "description": "Source file name reported by the importer.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Observed lifecycle states: none, importing, stopping, finished.",
+          "type": "string"
+        },
+        "total": {
+          "description": "Rows detected in the uploaded CSV.",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberImportStopOutputContract": {
+    "components": {
+      "schemas": {
+        "SubscriberImportStatus": {
+          "additionalProperties": {},
+          "properties": {
+            "imported": {
+              "description": "Rows successfully imported so far.",
+              "type": "number"
+            },
+            "name": {
+              "description": "Source file name reported by the importer.",
+              "type": "string"
+            },
+            "status": {
+              "description": "Observed lifecycle states: none, importing, stopping, finished.",
+              "type": "string"
+            },
+            "total": {
+              "description": "Rows detected in the uploaded CSV.",
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "imported": {
+          "description": "Rows successfully imported so far.",
+          "type": "number"
+        },
+        "name": {
+          "description": "Source file name reported by the importer.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Observed lifecycle states: none, importing, stopping, finished.",
+          "type": "string"
+        },
+        "total": {
+          "description": "Rows detected in the uploaded CSV.",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "subscriberListCollectionOutputContract": {
     "components": {
       "schemas": {
