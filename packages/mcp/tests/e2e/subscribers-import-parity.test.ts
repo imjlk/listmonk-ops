@@ -28,6 +28,24 @@ function resolveCliE2eCredential(
 	return config.apiToken || config.password;
 }
 
+function parseCliJson<T>(result: CliResult, operation: string): T {
+	const diagnosticOutput = [result.stdout, result.stderr]
+		.filter(Boolean)
+		.join("\n");
+	if (result.exitCode !== 0) {
+		throw new Error(
+			`CLI subscribers ${operation} failed with exit ${result.exitCode}: ${diagnosticOutput}`,
+		);
+	}
+	const jsonStart = result.stdout.indexOf("{");
+	if (jsonStart < 0) {
+		throw new Error(
+			`CLI subscribers ${operation} did not return a JSON result: ${diagnosticOutput}`,
+		);
+	}
+	return JSON.parse(result.stdout.slice(jsonStart)) as T;
+}
+
 function runCliSubscribersCommand(args: string[]): CliResult {
 	const result = Bun.spawnSync(["bun", CLI_ENTRY, "subscribers", ...args], {
 		cwd: CLI_DIRECTORY,
@@ -86,6 +104,46 @@ async function deleteImportedSubscriber(email: string): Promise<void> {
 
 describe("Subscriber import CLI and MCP parity", () => {
 	const { client, utils } = createMCPTestSuite();
+
+	test("reads the same subscriber export through both adapters", async () => {
+		// Reuse the existing enabled subscriber of list 1 found by the
+		// import test; the export bundle is deterministic for a subscriber
+		// with no concurrent activity between the two calls.
+		const listed = await createTestClient().subscriber.list({
+			query: { list_id: [1], page: 1, per_page: 1 },
+		});
+		const subscriberId = listed.data?.results?.[0]?.id;
+		if (!Number.isInteger(subscriberId)) {
+			throw new Error("No enabled subscriber in list 1 for the export");
+		}
+
+		const cliExport = parseCliJson<{
+			profile?: { id?: number }[];
+		}>(
+			runCliSubscribersCommand([
+				"--format",
+				"json",
+				"export",
+				"--id",
+				String(subscriberId),
+			]),
+			"export",
+		);
+		expect(cliExport.profile?.[0]?.id).toBe(subscriberId);
+
+		const mcpExport = utils.assertSuccess<{
+			profile?: { id?: number }[];
+			subscriptions?: unknown[];
+		}>(
+			await client.callTool("listmonk_export_subscriber", {
+				id: subscriberId,
+			}),
+			"Failed to export the subscriber through MCP",
+		);
+		expect(mcpExport.profile?.[0]?.id).toBe(subscriberId);
+		expect(mcpExport.profile?.length).toBe(cliExport.profile?.length);
+		expect(mcpExport.subscriptions?.length).toBeDefined();
+	});
 
 	test("requires confirmation before starting a destructive import", async () => {
 		const blocked = runCliSubscribersCommand([

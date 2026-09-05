@@ -21873,6 +21873,152 @@
         "input": {
           "components": {
             "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "SubscriberExportOutput": {
+                "additionalProperties": {},
+                "properties": {
+                  "campaign_views": {
+                    "description": "Campaign view records attributed to the subscriber.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "link_clicks": {
+                    "description": "Link click records attributed to the subscriber.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "profile": {
+                    "description": "Subscriber profile records returned by the export.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "subscriptions": {
+                    "description": "List subscription history records.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "campaign_views": {
+                "description": "Campaign view records attributed to the subscriber.",
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "link_clicks": {
+                "description": "Link click records attributed to the subscriber.",
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "profile": {
+                "description": "Subscriber profile records returned by the export.",
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "subscriptions": {
+                "description": "List subscription history records.",
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "subscriber"
+        }
+      ],
+      "id": "subscribers.export",
+      "mcpName": "listmonk_export_subscriber",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the subscriber's recorded data."
+      },
+      "verb": "export"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "CampaignCreateInput": {
                 "additionalProperties": false,
                 "properties": {

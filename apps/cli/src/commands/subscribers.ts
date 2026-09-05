@@ -14,6 +14,7 @@ import {
 	invokeGetSubscriberImportStatusOperation,
 	invokeStopSubscriberImportOperation,
 	invokeGetSubscriberImportLogsOperation,
+	invokeExportSubscriberOperation,
 	MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
 	invokeUpdateSubscriberOperation,
 	OperationExecutionError,
@@ -256,6 +257,37 @@ export async function renderSubscriberImportStatus(
 		`Subscriber import: ${status.status ?? "unknown"} (${status.imported ?? 0}/${status.total ?? 0})`,
 	);
 	context.output.json(status);
+}
+
+export async function renderExportSubscriber(
+	context: SubscribersCliContext,
+	input: { id: number },
+): Promise<void> {
+	const exportBundle = await invokeExportSubscriberOperation(context, input);
+	context.output.success(
+		`Subscriber ${input.id} export: ${exportBundle.profile?.length ?? 0} profile record(s)`,
+	);
+	context.output.json(exportBundle);
+}
+
+export async function handleExportSubscriberCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderExportSubscriber(
+			{ client, output: getOutput() },
+			{
+				id: flags.id,
+			},
+		);
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to export subscriber data",
+			error,
+		);
+	}
 }
 
 export async function renderSubscriberImportLogs(
@@ -850,6 +882,18 @@ export default defineGroup({
 				}),
 			},
 			handler: handleUnblocklistSubscribersCommand,
+		}),
+		defineCommand({
+			name: "export",
+			operationId: "subscribers.export",
+			description:
+				"Read the complete data-portability export for a subscriber",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Subscriber ID",
+				}),
+			},
+			handler: handleExportSubscriberCommand,
 		}),
 		defineCommand({
 			name: "import",

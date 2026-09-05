@@ -5,6 +5,8 @@ import {
 	subscriberImportStatusOutputContract,
 	subscriberImportStopOutputContract,
 	subscriberImportLogsOutputContract,
+	subscriberExportInputContract,
+	subscriberExportOutputContract,
 	emptyInputContract,
 	subscriberCreateInputContract,
 	subscriberCreateOutputContract,
@@ -567,6 +569,69 @@ export const subscribersImportLogsOperationSpec = defineOperationSpec({
 
 export function bindSubscribersImportLogsOperationSpec(): typeof subscribersImportLogsOperationSpec {
 	return subscribersImportLogsOperationSpec;
+}
+
+/**
+ * The full data-portability bundle for one subscriber. It is a
+ * comprehensive PII read — profile, subscriptions, and engagement
+ * history — so agent guidance points at subscribers.get for everything
+ * short of an explicit export request.
+ */
+export const subscribersExportOperationSpec = defineOperationSpec({
+	id: "subscribers.export",
+	resource: "subscriber",
+	verb: "export",
+	title: "Export subscriber data",
+	description:
+		"Read the complete data-portability export for one subscriber: profile, list subscriptions, campaign views, and link clicks.",
+	contract: {
+		input: subscriberExportInputContract,
+		output: subscriberExportOutputContract,
+	},
+	effects: [{ kind: "read", resource: "subscriber" }],
+	policy: {
+		confirmation: "never",
+		audit: "optional",
+		dryRun: false,
+	},
+	retry: {
+		kind: "safe",
+		reason: "The operation only reads the subscriber's recorded data.",
+	},
+	agent: {
+		useWhen: [
+			"A subscriber explicitly requested their data export and the complete bundle is required.",
+		],
+		avoidWhen: [
+			"Only the profile is needed — prefer subscribers.get; the export carries the full engagement history.",
+		],
+		prerequisites: ["subscribers.get"],
+		verifyWith: [],
+		related: ["subscribers.get", "subscribers.list"],
+		retryGuidance: "Retry transient read failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_export_subscriber",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersExportOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersExportOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#exportSubscriberOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeExportSubscriberOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#exportSubscriber:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export function bindSubscribersExportOperationSpec(): typeof subscribersExportOperationSpec {
+	return subscribersExportOperationSpec;
 }
 
 export function bindSubscribersUnblocklistOperationSpec(): typeof subscribersUnblocklistOperationSpec {

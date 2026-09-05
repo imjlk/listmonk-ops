@@ -2163,6 +2163,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/subscribers.ts#exportSubscriberOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersExportOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersExportOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersExportOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeExportSubscriberOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#exportSubscriber:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersExportOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersExportOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#exportSubscriber:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeExportSubscriberOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#exportSubscriberOperation:variable"
+      },
+      "operationId": "subscribers.export"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/campaigns.ts#createCampaignOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCreateOperationSpec:function"

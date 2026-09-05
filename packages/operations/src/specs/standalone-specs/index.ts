@@ -24,6 +24,7 @@ import {
 	subscribersImportStatusOperationSpec,
 	subscribersImportStopOperationSpec,
 	subscribersImportLogsOperationSpec,
+	subscribersExportOperationSpec,
 } from "./subscriber-specs";
 import {
 	dashboardCountsOperationSpec,
@@ -103,6 +104,7 @@ export const standaloneOperationSpecs = [
 	subscribersImportStatusOperationSpec,
 	subscribersImportStopOperationSpec,
 	subscribersImportLogsOperationSpec,
+	subscribersExportOperationSpec,
 	campaignsCreateOperationSpec,
 	campaignsUpdateOperationSpec,
 	campaignsDeleteOperationSpec,

@@ -24635,6 +24635,183 @@
     {
       "agent": {
         "avoidWhen": [
+          "Only the profile is needed — prefer subscribers.get; the export carries the full engagement history."
+        ],
+        "prerequisites": [
+          "subscribers.get"
+        ],
+        "related": [
+          "subscribers.get",
+          "subscribers.list"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "A subscriber explicitly requested their data export and the complete bundle is required."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "SubscriberExportOutput": {
+                "additionalProperties": {},
+                "properties": {
+                  "campaign_views": {
+                    "description": "Campaign view records attributed to the subscriber.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "link_clicks": {
+                    "description": "Link click records attributed to the subscriber.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "profile": {
+                    "description": "Subscriber profile records returned by the export.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "subscriptions": {
+                    "description": "List subscription history records.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "campaign_views": {
+                "description": "Campaign view records attributed to the subscriber.",
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "link_clicks": {
+                "description": "Link click records attributed to the subscriber.",
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "profile": {
+                "description": "Subscriber profile records returned by the export.",
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "subscriptions": {
+                "description": "List subscription history records.",
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Read the complete data-portability export for one subscriber: profile, list subscriptions, campaign views, and link clicks.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "subscriber"
+        }
+      ],
+      "id": "subscribers.export",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersExportOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersExportOperationSpec:variable",
+          "executorNode": "packages/operations/src/subscribers.ts#exportSubscriber:function",
+          "invokerNode": "packages/operations/src/subscribers.ts#invokeExportSubscriberOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#exportSubscriberOperation:variable"
+        },
+        "mcpName": "listmonk_export_subscriber",
+        "openWorld": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the subscriber's recorded data."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Export subscriber data",
+      "verb": "export"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "An existing campaign should be cloned or updated instead."
         ],
         "prerequisites": [],

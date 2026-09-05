@@ -261,6 +261,8 @@ const openapiMediaGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
 const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
+const openapiSubscriberExportMethod =
+	"packages/openapi/src/client/contracts.ts#SubscriberOperations.export:method";
 const openapiTemplatePreviewMethod =
 	"packages/openapi/src/client/contracts.ts#TemplateOperations.preview:method";
 const openapiImportLogsMethod =
@@ -1108,6 +1110,16 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				action:
 					"packages/operations/src/subscribers.ts#deleteSubscriber:function",
 				openapi: openapiDeleteMethod,
+			},
+			{
+				label: "export",
+				cliHandler: "handleExportSubscriberCommand",
+				cliRender: "renderExportSubscriber",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeExportSubscriberOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#exportSubscriber:function",
+				openapi: openapiSubscriberExportMethod,
 			},
 			{
 				label: "import start",

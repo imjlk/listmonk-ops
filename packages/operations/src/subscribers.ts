@@ -12,6 +12,7 @@ import {
 	bindSubscribersImportStatusOperationSpec,
 	bindSubscribersImportStopOperationSpec,
 	bindSubscribersImportLogsOperationSpec,
+	bindSubscribersExportOperationSpec,
 	bindSubscribersUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
@@ -1016,6 +1017,36 @@ export async function readSubscriberImportStatus({
 	) as SubscriberImportStatus;
 }
 
+const subscriberExportInputSchema = z.object({
+	id: resourceIdSchema,
+});
+
+const subscriberExportOutputSchema = z.looseObject({
+	profile: z.array(z.looseObject({})).optional(),
+	subscriptions: z.array(z.looseObject({})).optional(),
+	campaign_views: z.array(z.looseObject({})).optional(),
+	link_clicks: z.array(z.looseObject({})).optional(),
+});
+
+export type SubscriberExport = z.output<typeof subscriberExportOutputSchema>;
+
+/**
+ * Read the complete data-portability export for one subscriber. The
+ * observed 6.2 endpoint answers with the raw export document (profile,
+ * subscriptions, campaign_views, link_clicks) rather than a JSON data
+ * envelope; the sections are returned as observed.
+ */
+export async function exportSubscriber(
+	{ client }: SubscriberOperationContext,
+	input: z.output<typeof subscriberExportInputSchema>,
+): Promise<SubscriberExport> {
+	const response = await client.subscriber.export({ path: { id: input.id } });
+	return unwrapResourceResponse(
+		response,
+		"Failed to export subscriber data",
+	) as SubscriberExport;
+}
+
 /** Read the raw importer log lines from the most recent session. */
 export async function readSubscriberImportLogs({
 	client,
@@ -1077,6 +1108,43 @@ export const getSubscriberImportStatusOperation = defineOperation({
 	spec: bindSubscribersImportStatusOperationSpec(),
 	execute: readSubscriberImportStatus,
 });
+
+export const exportSubscriberOperation = defineOperation({
+	id: "subscribers.export",
+	title: "Export subscriber data",
+	description:
+		"Read the complete data-portability export for one subscriber: profile, list subscriptions, campaign views, and link clicks.",
+	inputSchema: subscriberExportInputSchema,
+	outputSchema: subscriberExportOutputSchema,
+	safety: readResourceSafety,
+	mcp: {
+		name: "listmonk_export_subscriber",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSubscribersExportOperationSpec(),
+	execute: exportSubscriber,
+});
+
+export async function invokeExportSubscriberOperation(
+	context: SubscriberOperationContext,
+	input: unknown,
+): Promise<SubscriberExport> {
+	const parsedInput = parseOperationInput(
+		exportSubscriberOperation.inputSchema,
+		input,
+	);
+	let output: SubscriberExport;
+	try {
+		output = await exportSubscriber(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(exportSubscriberOperation.id, error);
+	}
+	return parseOperationOutput(
+		exportSubscriberOperation.id,
+		exportSubscriberOperation.outputSchema,
+		output,
+	);
+}
 
 export const getSubscriberImportLogsOperation = defineOperation({
 	id: "subscribers.import.logs",
@@ -1225,6 +1293,7 @@ export const subscriberOperations = [
 	getSubscriberImportStatusOperation,
 	stopSubscriberImportOperation,
 	getSubscriberImportLogsOperation,
+	exportSubscriberOperation,
 ] as const;
 
 export const subscriberOperationCatalog = defineOperationCatalog({
@@ -1306,6 +1375,11 @@ export async function invokeSubscriberOperationByMcpName(
 			return {
 				operation: getSubscriberImportStatusOperation,
 				output: await invokeGetSubscriberImportStatusOperation(context, input),
+			};
+		case exportSubscriberOperation.mcp.name:
+			return {
+				operation: exportSubscriberOperation,
+				output: await invokeExportSubscriberOperation(context, input),
 			};
 		case getSubscriberImportLogsOperation.mcp.name:
 			return {

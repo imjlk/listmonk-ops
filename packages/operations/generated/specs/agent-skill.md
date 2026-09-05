@@ -1122,6 +1122,20 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
+## Export subscriber data (`subscribers.export`)
+
+Contract maturity: `stable`; effects: `read:subscriber`; confirmation: `never`; retry: `safe`.
+
+Use when: A subscriber explicitly requested their data export and the complete bundle is required.
+
+Avoid when: Only the profile is needed — prefer subscribers.get; the export carries the full engagement history.
+
+Prerequisites: `subscribers.get`
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
 ## Create campaign (`campaigns.create`)
 
 Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `conditional`.
