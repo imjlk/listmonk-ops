@@ -1022,9 +1022,7 @@ const subscriberExportInputSchema = z.object({
 	id: resourceIdSchema,
 });
 
-const subscriberSendOptinInputSchema = z.object({
-	id: resourceIdSchema,
-});
+const subscriberSendOptinInputSchema = subscriberIdInputSchema;
 
 const subscriberSendOptinOutputSchema = z.object({
 	id: z.number().int().positive(),

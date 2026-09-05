@@ -980,48 +980,6 @@ const campaignAnalyticsOutputSchema = z.object({
  * `{url, count}` aggregates; the shared contract normalizes only the
  * envelope and returns the rows as observed.
  */
-const campaignArchiveInputSchema = campaignIdInputSchema.extend({
-	archive: z.boolean(),
-});
-
-const campaignArchiveOutputSchema = z.looseObject({
-	id: z.number().int().positive(),
-	archive: z.boolean(),
-	archive_template_id: z.number().optional(),
-	archive_slug: z.string().optional(),
-});
-
-/**
- * Toggle the campaign's public archive page. The observed 6.2 endpoint
- * echoes the archive metadata rather than a bare boolean; the shared
- * contract pins the id and echo flag and passes the rest through.
- */
-export async function archiveCampaign(
-	{ client }: CampaignOperationContext,
-	input: z.output<typeof campaignArchiveInputSchema>,
-): Promise<z.output<typeof campaignArchiveOutputSchema>> {
-	const response = await client.campaign.updateArchive({
-		path: { id: input.id },
-		body: { archive: input.archive },
-	});
-	const metadata = unwrapResourceResponse(
-		response,
-		"Failed to toggle campaign archive",
-	) as unknown as
-		| { archive_template_id?: unknown; archive_slug?: unknown }
-		| undefined;
-	return {
-		id: input.id,
-		archive: input.archive,
-		...(typeof metadata?.archive_template_id === "number" && {
-			archive_template_id: metadata.archive_template_id,
-		}),
-		...(typeof metadata?.archive_slug === "string" && {
-			archive_slug: metadata.archive_slug,
-		}),
-	} as z.output<typeof campaignArchiveOutputSchema>;
-}
-
 export async function readCampaignAnalytics(
 	{ client }: CampaignOperationContext,
 	input: z.output<typeof campaignAnalyticsInputSchema>,
@@ -1834,6 +1792,63 @@ export async function invokeGetCampaignStatsOperation(
 		getCampaignStatsOperation.outputSchema,
 		output,
 	);
+}
+
+const campaignArchiveInputSchema = campaignIdInputSchema.extend({
+	archive: z.boolean(),
+});
+
+const campaignArchiveOutputSchema = z.looseObject({
+	id: z.number().int().positive(),
+	archive: z.boolean(),
+	archive_template_id: z.number().optional(),
+	archive_slug: z.string().optional(),
+});
+
+/**
+ * Toggle the campaign's public archive page. The observed 6.2 endpoint
+ * echoes the archive metadata rather than a bare boolean; the shared
+ * contract reports the server-echoed archive flag when present and
+ * falls back to the requested value for a bare acknowledgement. A
+ * negative acknowledgement fails closed.
+ */
+export async function archiveCampaign(
+	{ client }: CampaignOperationContext,
+	input: z.output<typeof campaignArchiveInputSchema>,
+): Promise<z.output<typeof campaignArchiveOutputSchema>> {
+	const response = await client.campaign.updateArchive({
+		path: { id: input.id },
+		body: { archive: input.archive },
+	});
+	const metadata = unwrapResourceResponse(
+		response,
+		"Failed to toggle campaign archive",
+	) as unknown as
+		| boolean
+		| {
+				archive?: unknown;
+				archive_template_id?: unknown;
+				archive_slug?: unknown;
+		  }
+		| undefined;
+	if (metadata === false) {
+		throw new Error(
+			"Failed to toggle campaign archive: Listmonk returned a negative acknowledgement",
+		);
+	}
+	const record =
+		typeof metadata === "object" && metadata !== null ? metadata : undefined;
+	return {
+		id: input.id,
+		archive:
+			typeof record?.archive === "boolean" ? record.archive : input.archive,
+		...(typeof record?.archive_template_id === "number" && {
+			archive_template_id: record.archive_template_id,
+		}),
+		...(typeof record?.archive_slug === "string" && {
+			archive_slug: record.archive_slug,
+		}),
+	} as z.output<typeof campaignArchiveOutputSchema>;
 }
 
 export const archiveCampaignOperation = defineOperation({

@@ -37029,7 +37029,7 @@
         {
           "audience": "single",
           "kind": "delivery",
-          "resource": "campaign",
+          "resource": "message",
           "timing": "immediate"
         }
       ],

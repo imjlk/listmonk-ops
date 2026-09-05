@@ -579,68 +579,6 @@ export function bindSubscribersImportLogsOperationSpec(): typeof subscribersImpo
  * history — so agent guidance points at subscribers.get for everything
  * short of an explicit export request.
  */
-export const subscribersSendOptinOperationSpec = defineOperationSpec({
-	id: "subscribers.send-optin",
-	resource: "subscriber",
-	verb: "send-optin",
-	title: "Resend the double opt-in email",
-	description:
-		"Resend the double opt-in confirmation email to one subscriber. Every run sends a real message.",
-	contract: {
-		input: subscriberSendOptinInputContract,
-		output: subscriberSendOptinOutputContract,
-	},
-	effects: [
-		{
-			kind: "delivery",
-			resource: "campaign",
-			audience: "single",
-			timing: "immediate",
-		},
-	],
-	policy: { confirmation: "never", audit: "required", dryRun: false },
-	retry: {
-		kind: "unsafe",
-		reason:
-			"Every run dispatches a fresh opt-in message; Listmonk offers no idempotency key for the resend. A single, explicitly chosen recipient keeps the transactional-send convention of no destructive confirmation.",
-	},
-	agent: {
-		useWhen: [
-			"A subscriber requested the double opt-in confirmation email again.",
-		],
-		avoidWhen: [
-			"The subscriber never consented — an opt-in email is still a delivery.",
-		],
-		prerequisites: ["subscribers.get"],
-		verifyWith: [],
-		related: ["subscribers.get", "transactional.send"],
-		retryGuidance:
-			"Do not blindly repeat: each confirmed request re-sends the message. Verify the inbox before retrying.",
-	},
-	projection: {
-		mcpName: "listmonk_send_optin",
-		openWorld: true,
-		graph: {
-			descriptorNode:
-				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersSendOptinOperationSpec:variable",
-			bindingNode:
-				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersSendOptinOperationSpec:function",
-			runtimeDefinitionNode:
-				"packages/operations/src/subscribers.ts#sendOptinOperation:variable",
-			invokerNode:
-				"packages/operations/src/subscribers.ts#invokeSendOptinOperation:function",
-			executorNode:
-				"packages/operations/src/subscribers.ts#sendSubscriberOptin:function",
-		},
-	},
-	stability: "stable",
-	since: "0.17.0",
-});
-
-export function bindSubscribersSendOptinOperationSpec(): typeof subscribersSendOptinOperationSpec {
-	return subscribersSendOptinOperationSpec;
-}
-
 export const subscribersExportOperationSpec = defineOperationSpec({
 	id: "subscribers.export",
 	resource: "subscriber",
@@ -696,6 +634,68 @@ export const subscribersExportOperationSpec = defineOperationSpec({
 
 export function bindSubscribersExportOperationSpec(): typeof subscribersExportOperationSpec {
 	return subscribersExportOperationSpec;
+}
+
+export const subscribersSendOptinOperationSpec = defineOperationSpec({
+	id: "subscribers.send-optin",
+	resource: "subscriber",
+	verb: "send-optin",
+	title: "Resend the double opt-in email",
+	description:
+		"Resend the double opt-in confirmation email to one subscriber. Every run sends a real message.",
+	contract: {
+		input: subscriberSendOptinInputContract,
+		output: subscriberSendOptinOutputContract,
+	},
+	effects: [
+		{
+			kind: "delivery",
+			resource: "message",
+			audience: "single",
+			timing: "immediate",
+		},
+	],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "unsafe",
+		reason:
+			"Every run dispatches a fresh opt-in message; Listmonk offers no idempotency key for the resend. A single, explicitly chosen recipient keeps the transactional-send convention of no destructive confirmation.",
+	},
+	agent: {
+		useWhen: [
+			"A subscriber requested the double opt-in confirmation email again.",
+		],
+		avoidWhen: [
+			"The subscriber never consented — an opt-in email is still a delivery.",
+		],
+		prerequisites: ["subscribers.get"],
+		verifyWith: [],
+		related: ["subscribers.get", "transactional.send"],
+		retryGuidance:
+			"Do not blindly repeat: each confirmed request re-sends the message. Verify the inbox before retrying.",
+	},
+	projection: {
+		mcpName: "listmonk_send_optin",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersSendOptinOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersSendOptinOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#sendOptinOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeSendOptinOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#sendSubscriberOptin:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export function bindSubscribersSendOptinOperationSpec(): typeof subscribersSendOptinOperationSpec {
+	return subscribersSendOptinOperationSpec;
 }
 
 export function bindSubscribersUnblocklistOperationSpec(): typeof subscribersUnblocklistOperationSpec {

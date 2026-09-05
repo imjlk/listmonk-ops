@@ -251,7 +251,7 @@ export async function renderArchiveCampaign(
 ): Promise<void> {
 	const result = await invokeArchiveCampaignOperation(context, input);
 	context.output.success(
-		`Campaign ${input.id} archive ${input.archive ? "enabled" : "disabled"}`,
+		`Campaign ${result.id} archive ${result.archive ? "enabled" : "disabled"}`,
 	);
 	context.output.json(result);
 }
