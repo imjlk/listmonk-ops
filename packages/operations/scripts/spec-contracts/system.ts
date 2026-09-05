@@ -1,5 +1,3 @@
-import type { NonEmptyString } from "./primitives";
-
 /** Build and runtime identity of the Listmonk server. */
 export interface SystemAboutOutput {
 	version?: string | undefined;

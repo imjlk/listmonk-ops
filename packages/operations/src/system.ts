@@ -14,6 +14,7 @@ import {
 import {
 	jsonResourceValue,
 	readResourceSafety,
+	ResourceResponseError,
 	unwrapResourceResponse,
 } from "./resource-helpers";
 
@@ -59,7 +60,18 @@ export async function readSystemLogs({
 }: SystemOperationContext): Promise<SystemLogs> {
 	const response = await client.system.getLogs();
 	const lines = unwrapResourceResponse(response, "Failed to read server logs");
-	return { logs: Array.isArray(lines) ? (lines as string[]) : [] };
+	// A silent empty coercion here would hide a shape change on the
+	// endpoint; fail closed on unexpected payloads instead.
+	if (
+		!Array.isArray(lines) ||
+		lines.some((line) => typeof line !== "string")
+	) {
+		throw new ResourceResponseError(
+			"Failed to read server logs: unexpected payload shape",
+			{ status: response.response?.status },
+		);
+	}
+	return { logs: lines };
 }
 
 export const readSystemAboutOperation = defineOperation({
@@ -98,10 +110,7 @@ export async function invokeReadSystemAboutOperation(
 	context: SystemOperationContext,
 	input: unknown,
 ): Promise<SystemAbout> {
-	const parsedInput = parseOperationInput(
-		readSystemAboutOperation.inputSchema,
-		input,
-	);
+	parseOperationInput(readSystemAboutOperation.inputSchema, input);
 	let output: SystemAbout;
 	try {
 		output = await readSystemAbout(context);
@@ -119,10 +128,7 @@ export async function invokeReadSystemLogsOperation(
 	context: SystemOperationContext,
 	input: unknown,
 ): Promise<SystemLogs> {
-	const parsedInput = parseOperationInput(
-		readSystemLogsOperation.inputSchema,
-		input,
-	);
+	parseOperationInput(readSystemLogsOperation.inputSchema, input);
 	let output: SystemLogs;
 	try {
 		output = await readSystemLogs(context);

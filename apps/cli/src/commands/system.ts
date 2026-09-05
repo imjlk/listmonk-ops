@@ -5,8 +5,8 @@ import {
 	invokeReadSystemLogsOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
-import { getOutput } from "../lib/output";
 import { z } from "zod";
+import { getOutput } from "../lib/output";
 import {
 	defineCommand,
 	defineGroup,
@@ -46,9 +46,10 @@ export async function renderSystemLogs(
 	input: { lines?: number },
 ): Promise<void> {
 	const logs = await invokeReadSystemLogsOperation(context, {});
-	const selected = logs.logs.slice(
-		input.lines !== undefined ? -input.lines : undefined,
-	);
+	// lines is schema-validated positive; -0 would slice(0) and return
+	// everything, so guard explicitly for the undefined case only.
+	const selected =
+		input.lines === undefined ? logs.logs : logs.logs.slice(-input.lines);
 	if (selected.length === 0) {
 		context.output.info("No server logs recorded");
 	}
@@ -105,7 +106,7 @@ export default defineGroup({
 			description: "Read recent Listmonk server log lines",
 			options: {
 				lines: option(z.coerce.number().int().positive().optional(), {
-					description: "Show only the most recent N lines",
+					description: "Show only the most recent N lines (must be >= 1)",
 				}),
 			},
 			handler: handleSystemLogsCommand,
