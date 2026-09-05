@@ -908,6 +908,42 @@ Remove a batch of subscribers from the blocklist. Processes subscribers in chunk
 - Retry: `safe`
 - Stability: `stable` since `0.9.0`
 
+## `subscribers.import.start`
+
+Upload a CSV and start an asynchronous subscriber import. The importer upserts rows by email, so a repeated identical import converges; poll subscribers.import.status for progress.
+
+- Resource / verb: `subscriber.start`
+- MCP tool: `listmonk_start_subscriber_import`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:subscriber`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `conditional`
+- Stability: `stable` since `0.17.0`
+
+## `subscribers.import.status`
+
+Read the current asynchronous subscriber-import session status, including progress counters.
+
+- Resource / verb: `subscriber.status`
+- MCP tool: `listmonk_get_subscriber_import_status`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:subscriber`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
+## `subscribers.import.stop`
+
+Send the stop signal to the running subscriber importer and read the reset session status.
+
+- Resource / verb: `subscriber.stop`
+- MCP tool: `listmonk_stop_subscriber_import`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:subscriber`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
 ## `campaigns.create`
 
 Create a campaign in Listmonk

@@ -1052,6 +1052,48 @@ Verify with: `subscribers.get`
 
 Retry guidance: Retry identical transient failures with bounded backoff.
 
+## Start a subscriber CSV import (`subscribers.import.start`)
+
+Contract maturity: `stable`; effects: `write:subscriber`; confirmation: `required`; retry: `conditional`.
+
+Use when: A batch of subscribers must be imported from CSV.
+
+Avoid when: A single subscriber suffices — prefer subscribers.create.
+
+Prerequisites: `lists.list`
+
+Verify with: `subscribers.import.status`
+
+Retry guidance: Re-issue the identical CSV only after checking subscribers.import.status; the importer upserts by email so a repeat converges.
+
+## Read subscriber import status (`subscribers.import.status`)
+
+Contract maturity: `stable`; effects: `read:subscriber`; confirmation: `never`; retry: `safe`.
+
+Use when: An import's progress or completion must be checked.
+
+Avoid when: No import session has been started.
+
+Prerequisites: `subscribers.import.start`
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## Stop the subscriber import (`subscribers.import.stop`)
+
+Contract maturity: `stable`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
+
+Use when: A running import must be cancelled.
+
+Avoid when: No import session is running.
+
+Prerequisites: `subscribers.import.status`
+
+Verify with: `subscribers.import.status`
+
+Retry guidance: Repeat safely — an already-stopped importer answers with the same idle status.
+
 ## Create campaign (`campaigns.create`)
 
 Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `conditional`.

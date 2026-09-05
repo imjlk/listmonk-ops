@@ -20,6 +20,9 @@ import {
 	subscribersAddToListsOperationSpec,
 	subscribersRemoveFromListsOperationSpec,
 	subscribersUnblocklistOperationSpec,
+	subscribersImportStartOperationSpec,
+	subscribersImportStatusOperationSpec,
+	subscribersImportStopOperationSpec,
 } from "./subscriber-specs";
 import {
 	dashboardCountsOperationSpec,
@@ -93,6 +96,9 @@ export const standaloneOperationSpecs = [
 	subscribersAddToListsOperationSpec,
 	subscribersRemoveFromListsOperationSpec,
 	subscribersUnblocklistOperationSpec,
+	subscribersImportStartOperationSpec,
+	subscribersImportStatusOperationSpec,
+	subscribersImportStopOperationSpec,
 	campaignsCreateOperationSpec,
 	campaignsUpdateOperationSpec,
 	campaignsDeleteOperationSpec,

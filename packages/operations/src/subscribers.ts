@@ -8,6 +8,9 @@ import {
 	bindSubscribersListOperationSpec,
 	bindSubscribersRemoveFromListsOperationSpec,
 	bindSubscribersUnblocklistOperationSpec,
+	bindSubscribersImportStartOperationSpec,
+	bindSubscribersImportStatusOperationSpec,
+	bindSubscribersImportStopOperationSpec,
 	bindSubscribersUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
@@ -40,6 +43,11 @@ export { isResourceMissingError } from "./resource-helpers";
 
 export interface SubscriberOperationContext {
 	client: Pick<ListmonkClient, "subscriber">;
+}
+
+/** Context for the asynchronous subscriber-import lifecycle. */
+export interface SubscriberImportOperationContext {
+	client: Pick<ListmonkClient, "import">;
 }
 
 const subscriberStatusSchema = z.enum(["enabled", "disabled", "blocklisted"]);
@@ -919,6 +927,215 @@ export async function invokeUnblocklistSubscribersOperation(
 	);
 }
 
+/** Bound on the raw CSV payload accepted for one import (1 MiB). */
+export const MAX_SUBSCRIBER_IMPORT_CSV_BYTES = 1024 * 1024;
+
+/** Bound on target lists for one subscribe-mode import. */
+export const MAX_SUBSCRIBER_IMPORT_LISTS = 20;
+
+const subscriberImportStartInputSchema = z.object({
+	mode: z.enum(["subscribe", "blocklist"]),
+	delim: z.string().min(1).max(1),
+	lists: z
+		.array(resourceIdSchema)
+		.min(1)
+		.max(MAX_SUBSCRIBER_IMPORT_LISTS),
+	overwrite: z.boolean(),
+	subscription_status: z
+		.enum(["pending", "confirmed", "unsubscribed"])
+		.optional(),
+	csv: z.string().min(1).max(MAX_SUBSCRIBER_IMPORT_CSV_BYTES),
+});
+
+const subscriberImportStatusSchema = z.looseObject({
+	name: z.string().optional(),
+	total: z.number().optional(),
+	imported: z.number().optional(),
+	status: z.string().optional(),
+});
+
+export type SubscriberImportStatus = z.output<typeof subscriberImportStatusSchema>;
+
+/**
+ * Upload the CSV and start the asynchronous import. The observed 6.2
+ * endpoint takes a multipart form whose `params` field carries the JSON
+ * options and whose `file` field carries the CSV; the wrapper builds
+ * that form. The importer upserts rows by email, so repeating an
+ * identical CSV converges — poll subscribers.import.status for progress.
+ */
+export async function startSubscriberImport(
+	{ client }: SubscriberImportOperationContext,
+	input: z.output<typeof subscriberImportStartInputSchema>,
+): Promise<SubscriberImportStatus> {
+	const response = await client.import.start({
+		mode: input.mode,
+		delim: input.delim,
+		lists: input.lists,
+		overwrite: input.overwrite,
+		...(input.subscription_status !== undefined && {
+			subscription_status: input.subscription_status,
+		}),
+		file: new File([input.csv], "import.csv", { type: "text/csv" }),
+	});
+	return unwrapResourceResponse(
+		response,
+		"Failed to start subscriber import",
+	) as SubscriberImportStatus;
+}
+
+export async function readSubscriberImportStatus({
+	client,
+}: SubscriberImportOperationContext): Promise<SubscriberImportStatus> {
+	const response = await client.import.get();
+	return unwrapResourceResponse(
+		response,
+		"Failed to read subscriber import status",
+	) as SubscriberImportStatus;
+}
+
+export async function stopSubscriberImport({
+	client,
+}: SubscriberImportOperationContext): Promise<SubscriberImportStatus> {
+	const response = await client.import.stop();
+	return unwrapResourceResponse(
+		response,
+		"Failed to stop subscriber import",
+	) as SubscriberImportStatus;
+}
+
+export const startSubscriberImportOperation = defineOperation({
+	id: "subscribers.import.start",
+	title: "Start a subscriber CSV import",
+	description:
+		"Upload a CSV and start an asynchronous subscriber import. The importer upserts rows by email, so a repeated identical import converges; poll subscribers.import.status for progress.",
+	inputSchema: subscriberImportStartInputSchema,
+	outputSchema: subscriberImportStatusSchema,
+	// The importer upserts by email so an identical repeat converges, but
+	// the hint stays conservative: most retries will not be provably
+	// identical to the first attempt.
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: false,
+		openWorldHint: true,
+	},
+	mcp: {
+		name: "listmonk_start_subscriber_import",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSubscribersImportStartOperationSpec(),
+	execute: startSubscriberImport,
+});
+
+export const getSubscriberImportStatusOperation = defineOperation({
+	id: "subscribers.import.status",
+	title: "Read subscriber import status",
+	description:
+		"Read the current asynchronous subscriber-import session status, including progress counters.",
+	inputSchema: z.object({}),
+	outputSchema: subscriberImportStatusSchema,
+	safety: readResourceSafety,
+	mcp: {
+		name: "listmonk_get_subscriber_import_status",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSubscribersImportStatusOperationSpec(),
+	execute: readSubscriberImportStatus,
+});
+
+export const stopSubscriberImportOperation = defineOperation({
+	id: "subscribers.import.stop",
+	title: "Stop the subscriber import",
+	description:
+		"Send the stop signal to the running subscriber importer and read the reset session status.",
+	inputSchema: z.object({}),
+	outputSchema: subscriberImportStatusSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
+	mcp: {
+		name: "listmonk_stop_subscriber_import",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSubscribersImportStopOperationSpec(),
+	execute: stopSubscriberImport,
+});
+
+export async function invokeStartSubscriberImportOperation(
+	context: SubscriberImportOperationContext,
+	input: unknown,
+): Promise<SubscriberImportStatus> {
+	const parsedInput = parseOperationInput(
+		startSubscriberImportOperation.inputSchema,
+		input,
+	);
+	let output: SubscriberImportStatus;
+	try {
+		output = await startSubscriberImport(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			startSubscriberImportOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		startSubscriberImportOperation.id,
+		startSubscriberImportOperation.outputSchema,
+		output,
+	);
+}
+
+export async function invokeGetSubscriberImportStatusOperation(
+	context: SubscriberImportOperationContext,
+	input: unknown,
+): Promise<SubscriberImportStatus> {
+	const parsedInput = parseOperationInput(
+		getSubscriberImportStatusOperation.inputSchema,
+		input,
+	);
+	let output: SubscriberImportStatus;
+	try {
+		output = await readSubscriberImportStatus(context);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			getSubscriberImportStatusOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		getSubscriberImportStatusOperation.id,
+		getSubscriberImportStatusOperation.outputSchema,
+		output,
+	);
+}
+
+export async function invokeStopSubscriberImportOperation(
+	context: SubscriberImportOperationContext,
+	input: unknown,
+): Promise<SubscriberImportStatus> {
+	const parsedInput = parseOperationInput(
+		stopSubscriberImportOperation.inputSchema,
+		input,
+	);
+	let output: SubscriberImportStatus;
+	try {
+		output = await stopSubscriberImport(context);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			stopSubscriberImportOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		stopSubscriberImportOperation.id,
+		stopSubscriberImportOperation.outputSchema,
+		output,
+	);
+}
+
 export const subscriberOperations = [
 	getSubscribersOperation,
 	getSubscriberOperation,
@@ -929,6 +1146,9 @@ export const subscriberOperations = [
 	removeSubscribersFromListsOperation,
 	blocklistSubscribersOperation,
 	unblocklistSubscribersOperation,
+	startSubscriberImportOperation,
+	getSubscriberImportStatusOperation,
+	stopSubscriberImportOperation,
 ] as const;
 
 export const subscriberOperationCatalog = defineOperationCatalog({
@@ -956,7 +1176,7 @@ export interface SubscriberOperationInvocation {
 }
 
 export async function invokeSubscriberOperationByMcpName(
-	context: SubscriberOperationContext,
+	context: SubscriberOperationContext & SubscriberImportOperationContext,
 	name: string,
 	input: unknown,
 ): Promise<SubscriberOperationInvocation | undefined> {
@@ -1000,6 +1220,21 @@ export async function invokeSubscriberOperationByMcpName(
 			return {
 				operation: blocklistSubscribersOperation,
 				output: await invokeBlocklistSubscribersOperation(context, input),
+			};
+		case startSubscriberImportOperation.mcp.name:
+			return {
+				operation: startSubscriberImportOperation,
+				output: await invokeStartSubscriberImportOperation(context, input),
+			};
+		case getSubscriberImportStatusOperation.mcp.name:
+			return {
+				operation: getSubscriberImportStatusOperation,
+				output: await invokeGetSubscriberImportStatusOperation(context, input),
+			};
+		case stopSubscriberImportOperation.mcp.name:
+			return {
+				operation: stopSubscriberImportOperation,
+				output: await invokeStopSubscriberImportOperation(context, input),
 			};
 		case unblocklistSubscribersOperation.mcp.name:
 			return {

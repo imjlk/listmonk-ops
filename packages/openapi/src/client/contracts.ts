@@ -212,10 +212,6 @@ export interface MediaOperations {
 	}): Promise<FlattenedResponse<t.MediaFileObject>>;
 }
 
-interface BaseGetOperation<T> {
-	get(): Promise<FlattenedResponse<T>>;
-}
-
 export interface BounceListOptions {
 	campaign_id?: number;
 	page?: number;
@@ -250,7 +246,8 @@ export type CampaignTestParams = Omit<t.TestCampaignByIdData, "url"> & {
 	};
 };
 
-interface ImportOperations extends BaseGetOperation<t.ImportStatus> {
+export interface ImportOperations {
+	get(): Promise<FlattenedResponse<t.ImportStatus>>;
 	stop(): Promise<FlattenedResponse<t.ImportStatus>>;
 	logs(): Promise<FlattenedResponse<string>>;
 	start(params: ImportStartParams): Promise<FlattenedResponse<t.ImportStatus>>;

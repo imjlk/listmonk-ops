@@ -2028,6 +2028,87 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/subscribers.ts#startSubscriberImportOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStartOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStartOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportStartOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeStartSubscriberImportOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#startSubscriberImport:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStartOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportStartOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#startSubscriberImport:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeStartSubscriberImportOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#startSubscriberImportOperation:variable"
+      },
+      "operationId": "subscribers.import.start"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#getSubscriberImportStatusOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStatusOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStatusOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportStatusOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeGetSubscriberImportStatusOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#readSubscriberImportStatus:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStatusOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportStatusOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#readSubscriberImportStatus:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeGetSubscriberImportStatusOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#getSubscriberImportStatusOperation:variable"
+      },
+      "operationId": "subscribers.import.status"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#stopSubscriberImportOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStopOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStopOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportStopOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeStopSubscriberImportOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#stopSubscriberImport:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportStopOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportStopOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#stopSubscriberImport:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeStopSubscriberImportOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#stopSubscriberImportOperation:variable"
+      },
+      "operationId": "subscribers.import.stop"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/campaigns.ts#createCampaignOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCreateOperationSpec:function"

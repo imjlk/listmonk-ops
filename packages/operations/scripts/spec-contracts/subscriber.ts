@@ -246,3 +246,43 @@ export interface SubscriberHygieneOutput {
 	}>;
 	errors: string[];
 }
+
+export type SubscriberImportMode = "subscribe" | "blocklist";
+
+/** One CSV column delimiter character for a subscriber import. */
+export type SubscriberImportDelimiter = string & tags.MinLength<1> &
+	tags.MaxLength<1>;
+
+export type SubscriberImportStartInput = {
+	/** Whether rows subscribe to the target lists or add to the blocklist. */
+	mode: SubscriberImportMode;
+	/** CSV column delimiter (a single character). */
+	delim: SubscriberImportDelimiter;
+	/** Target list ids for a subscribe-mode import (1 to 20). */
+	lists: readonly ResourceId[] & tags.MinItems<1> & tags.MaxItems<20>;
+	/** Whether the import overwrites existing subscriber attributes. */
+	overwrite: boolean;
+	/** Optional subscription status applied to imported rows. */
+	subscription_status?:
+		| ("pending" | "confirmed" | "unsubscribed")
+		| undefined;
+	/** Raw CSV text; the first row must be a header naming the columns. */
+	csv: NonEmptyString & tags.MaxLength<1048576>;
+};
+
+export interface SubscriberImportStatus {
+	/** Source file name reported by the importer. */
+	name?: string | undefined;
+	/** Rows detected in the uploaded CSV. */
+	total?: number | undefined;
+	/** Rows successfully imported so far. */
+	imported?: number | undefined;
+	/** Observed lifecycle states: none, importing, stopping, finished. */
+	status?: string | undefined;
+	/** Preserve fields added by newer Listmonk releases. */
+	[key: string]: unknown;
+}
+
+export type SubscriberImportStartOutput = SubscriberImportStatus;
+export type SubscriberImportStatusOutput = SubscriberImportStatus;
+export type SubscriberImportStopOutput = SubscriberImportStatus;
