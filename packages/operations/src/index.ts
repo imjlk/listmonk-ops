@@ -1,5 +1,6 @@
 export * from "./campaign-analytics-date";
 export * from "./campaign-lifecycle";
+export * from "./subscriber-import-bound";
 export * from "./campaign-test-bound";
 export * from "./campaigns";
 export * from "./dashboard";

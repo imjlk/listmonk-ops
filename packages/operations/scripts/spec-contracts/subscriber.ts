@@ -1,4 +1,5 @@
 import type { tags } from "typia";
+import type { MAX_SUBSCRIBER_IMPORT_LISTS } from "../../src/subscriber-import-bound";
 import type {
 	ResourceId,
 	NonNegativeInteger,
@@ -253,13 +254,26 @@ export type SubscriberImportMode = "subscribe" | "blocklist";
 export type SubscriberImportDelimiter = string & tags.MinLength<1> &
 	tags.MaxLength<1>;
 
+/**
+ * Raw CSV text; the executable schema enforces the shared 1 MiB UTF-8
+ * byte cap (measured on the wire payload, not code units).
+ */
+export type SubscriberImportCsv = NonEmptyString;
+
 export type SubscriberImportStartInput = {
 	/** Whether rows subscribe to the target lists or add to the blocklist. */
 	mode: SubscriberImportMode;
 	/** CSV column delimiter (a single character). */
 	delim: SubscriberImportDelimiter;
-	/** Target list ids for a subscribe-mode import (1 to 20). */
-	lists: readonly ResourceId[] & tags.MinItems<1> & tags.MaxItems<20>;
+	/**
+	 * Target list ids for a subscribe-mode import (at most 20); required
+	 * when mode is subscribe and unused by blocklist mode.
+	 */
+	lists?:
+		| (readonly ResourceId[] &
+				tags.MinItems<1> &
+				tags.MaxItems<typeof MAX_SUBSCRIBER_IMPORT_LISTS>)
+		| undefined;
 	/** Whether the import overwrites existing subscriber attributes. */
 	overwrite: boolean;
 	/** Optional subscription status applied to imported rows. */
@@ -267,7 +281,7 @@ export type SubscriberImportStartInput = {
 		| ("pending" | "confirmed" | "unsubscribed")
 		| undefined;
 	/** Raw CSV text; the first row must be a header naming the columns. */
-	csv: NonEmptyString & tags.MaxLength<1048576>;
+	csv: SubscriberImportCsv;
 };
 
 export interface SubscriberImportStatus {
@@ -283,6 +297,5 @@ export interface SubscriberImportStatus {
 	[key: string]: unknown;
 }
 
-export type SubscriberImportStartOutput = SubscriberImportStatus;
-export type SubscriberImportStatusOutput = SubscriberImportStatus;
-export type SubscriberImportStopOutput = SubscriberImportStatus;
+/** Session state shared by the start, status, and stop outputs. */
+export type SubscriberImportSessionOutput = SubscriberImportStatus;

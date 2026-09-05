@@ -13,6 +13,7 @@ import {
 	invokeStartSubscriberImportOperation,
 	invokeGetSubscriberImportStatusOperation,
 	invokeStopSubscriberImportOperation,
+	MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
 	invokeUpdateSubscriberOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
@@ -233,7 +234,7 @@ export async function renderStartSubscriberImport(
 	input: {
 		mode: "subscribe" | "blocklist";
 		delim: string;
-		lists: number[];
+		lists?: number[];
 		overwrite: boolean;
 		subscription_status?: "pending" | "confirmed" | "unsubscribed";
 		csv: string;
@@ -272,7 +273,7 @@ export async function handleStartSubscriberImportCommand({
 }: HandlerArgs<{
 	mode: "subscribe" | "blocklist";
 	delim: string;
-	lists: string;
+	lists?: string;
 	overwrite?: boolean;
 	"subscription-status"?: "pending" | "confirmed" | "unsubscribed";
 	file: string;
@@ -284,13 +285,28 @@ export async function handleStartSubscriberImportCommand({
 		if (!session.client) {
 			throw new Error("Listmonk client is not available");
 		}
-		const csv = await Bun.file(flags.file).text();
+		const file = Bun.file(flags.file);
+		// Bun.file() does not throw when the path is missing — probe
+		// existence explicitly so a clear "not found" message surfaces.
+		if (!(await file.exists())) {
+			throw new Error(`File not found: ${flags.file}`);
+		}
+		// Bun.file exposes size lazily without reading the file, so reject
+		// oversized CSVs before pulling the bytes into memory.
+		if (file.size > MAX_SUBSCRIBER_IMPORT_CSV_BYTES) {
+			throw new Error(
+				`File ${flags.file} is ${file.size} bytes, which exceeds the ${MAX_SUBSCRIBER_IMPORT_CSV_BYTES}-byte subscriber import CSV cap`,
+			);
+		}
+		const csv = await file.text();
 		await renderStartSubscriberImport(
 			{ client: session.client, output: getOutput() },
 			{
 				mode: flags.mode,
 				delim: flags.delim,
-				lists: parseCsvNumbersStrict(flags.lists, "list IDs"),
+				lists: flags.lists
+					? parseCsvNumbersStrict(flags.lists, "list IDs")
+					: undefined,
 				overwrite: flags.overwrite ?? false,
 				subscription_status: flags["subscription-status"],
 				csv,
@@ -821,8 +837,9 @@ export default defineGroup({
 				delim: option(z.string().min(1).max(1).default(","), {
 					description: "CSV column delimiter (single character)",
 				}),
-				lists: option(z.string().trim().min(1), {
-					description: "Comma-separated target list ids",
+				lists: option(z.string().trim().min(1).optional(), {
+					description:
+						"Comma-separated target list ids (required for subscribe mode)",
 				}),
 				overwrite: option(z.coerce.boolean().default(false), {
 					description: "Overwrite existing subscriber attributes",

@@ -23885,6 +23885,10 @@
         "input": {
           "components": {
             "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
               "ResourceId": {
                 "maximum": 9007199254740991,
                 "minimum": 1,
@@ -23910,17 +23914,15 @@
                 "additionalProperties": false,
                 "properties": {
                   "csv": {
-                    "description": "Raw CSV text; the first row must be a header naming the columns.",
-                    "maxLength": 1048576,
-                    "minLength": 1,
-                    "type": "string"
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Raw CSV text; the first row must be a header naming the columns."
                   },
                   "delim": {
                     "$ref": "#/components/schemas/SubscriberImportDelimiter",
                     "description": "CSV column delimiter (a single character)."
                   },
                   "lists": {
-                    "description": "Target list ids for a subscribe-mode import (1 to 20).",
+                    "description": "Target list ids for a subscribe-mode import (at most 20); required\nwhen mode is subscribe and unused by blocklist mode.",
                     "items": {
                       "$ref": "#/components/schemas/ResourceId"
                     },
@@ -23954,7 +23956,6 @@
                 "required": [
                   "mode",
                   "delim",
-                  "lists",
                   "overwrite",
                   "csv"
                 ],
@@ -23967,17 +23968,15 @@
             "additionalProperties": false,
             "properties": {
               "csv": {
-                "description": "Raw CSV text; the first row must be a header naming the columns.",
-                "maxLength": 1048576,
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Raw CSV text; the first row must be a header naming the columns."
               },
               "delim": {
                 "$ref": "#/components/schemas/SubscriberImportDelimiter",
                 "description": "CSV column delimiter (a single character)."
               },
               "lists": {
-                "description": "Target list ids for a subscribe-mode import (1 to 20).",
+                "description": "Target list ids for a subscribe-mode import (at most 20); required\nwhen mode is subscribe and unused by blocklist mode.",
                 "items": {
                   "$ref": "#/components/schemas/ResourceId"
                 },
@@ -24011,7 +24010,6 @@
             "required": [
               "mode",
               "delim",
-              "lists",
               "overwrite",
               "csv"
             ],

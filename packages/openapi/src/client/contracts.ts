@@ -224,7 +224,12 @@ export interface BounceListOptions {
 export type ImportStartParams = {
 	mode: "subscribe" | "blocklist";
 	delim: string;
-	lists: number[];
+	/**
+	 * Target list ids; only meaningful for subscribe-mode imports, so the
+	 * boundary keeps the field optional and the shared operation enforces
+	 * its presence per mode.
+	 */
+	lists?: number[];
 	overwrite: boolean;
 	subscription_status?: string;
 	file: File | Blob;

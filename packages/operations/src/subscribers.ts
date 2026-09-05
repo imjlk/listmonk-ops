@@ -15,6 +15,10 @@ import {
 } from "./specs";
 import { z } from "zod";
 import {
+	MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
+	MAX_SUBSCRIBER_IMPORT_LISTS,
+} from "./subscriber-import-bound";
+import {
 	createResourceSafety,
 	deleteResourceSafety,
 	deliverySuppressionSafety,
@@ -927,25 +931,43 @@ export async function invokeUnblocklistSubscribersOperation(
 	);
 }
 
-/** Bound on the raw CSV payload accepted for one import (1 MiB). */
-export const MAX_SUBSCRIBER_IMPORT_CSV_BYTES = 1024 * 1024;
-
-/** Bound on target lists for one subscribe-mode import. */
-export const MAX_SUBSCRIBER_IMPORT_LISTS = 20;
-
-const subscriberImportStartInputSchema = z.object({
-	mode: z.enum(["subscribe", "blocklist"]),
-	delim: z.string().min(1).max(1),
-	lists: z
-		.array(resourceIdSchema)
-		.min(1)
-		.max(MAX_SUBSCRIBER_IMPORT_LISTS),
-	overwrite: z.boolean(),
-	subscription_status: z
-		.enum(["pending", "confirmed", "unsubscribed"])
-		.optional(),
-	csv: z.string().min(1).max(MAX_SUBSCRIBER_IMPORT_CSV_BYTES),
-});
+const subscriberImportStartInputSchema = z
+	.object({
+		mode: z.enum(["subscribe", "blocklist"]),
+		delim: z.string().min(1).max(1),
+		// Target lists only carry meaning for subscribe-mode imports.
+		lists: z
+			.array(resourceIdSchema)
+			.max(MAX_SUBSCRIBER_IMPORT_LISTS)
+			.optional(),
+		overwrite: z.boolean(),
+		subscription_status: z
+			.enum(["pending", "confirmed", "unsubscribed"])
+			.optional(),
+		// Validate the UTF-8 byte length, not UTF-16 code units, so the
+		// cap bounds the wire payload the multipart File will carry.
+		csv: z
+			.string()
+			.min(1)
+			.refine(
+				(value) =>
+					new TextEncoder().encode(value).byteLength <=
+					MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
+				{
+					message: `CSV payload must be at most ${MAX_SUBSCRIBER_IMPORT_CSV_BYTES} bytes`,
+				},
+			),
+	})
+	.superRefine((value, ctx) => {
+		if (value.mode === "subscribe" && (value.lists?.length ?? 0) < 1) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["lists"],
+				message:
+					"At least one list is required for subscribe-mode imports",
+			});
+		}
+	});
 
 const subscriberImportStatusSchema = z.looseObject({
 	name: z.string().optional(),
@@ -970,7 +992,7 @@ export async function startSubscriberImport(
 	const response = await client.import.start({
 		mode: input.mode,
 		delim: input.delim,
-		lists: input.lists,
+		...(input.lists !== undefined && { lists: input.lists }),
 		overwrite: input.overwrite,
 		...(input.subscription_status !== undefined && {
 			subscription_status: input.subscription_status,
