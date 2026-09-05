@@ -261,6 +261,10 @@ const openapiMediaGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
 const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
+const openapiSystemAboutMethod =
+	"packages/openapi/src/client/contracts.ts#SystemOperations.getAbout:method";
+const openapiSystemLogsMethod =
+	"packages/openapi/src/client/contracts.ts#SystemOperations.getLogs:method";
 const openapiSubscriberExportMethod =
 	"packages/openapi/src/client/contracts.ts#SubscriberOperations.export:method";
 const openapiTemplatePreviewMethod =
@@ -1038,6 +1042,49 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 					"packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
 				action: "packages/operations/src/campaigns.ts#deleteCampaign:function",
 				openapi: openapiDeleteMethod,
+			},
+		],
+	}),
+	...resourceOperationContracts({
+		resource: "system",
+		cliModule:
+			"apps/cli/src/commands/system.ts#apps/cli/src/commands/system.ts:module",
+		cliTestModule:
+			"apps/cli/tests/system.test.ts#apps/cli/tests/system.test.ts:module",
+		mcpHandler:
+			"packages/mcp/src/handlers/system.ts#handleSystemTools:function",
+		dispatcher:
+			"packages/operations/src/system.ts#invokeSystemOperationByMcpName:function",
+		operationTestModule:
+			"packages/operations/tests/system.test.ts#packages/operations/tests/system.test.ts:module",
+		mcpTestModule:
+			"packages/mcp/tests/unit/system.test.ts#packages/mcp/tests/unit/system.test.ts:module",
+		testAnchor: {
+			invoker:
+				"packages/operations/src/system.ts#invokeReadSystemAboutOperation:function",
+			action:
+				"packages/operations/src/system.ts#readSystemAbout:function",
+		},
+		invokers: [
+			{
+				label: "about",
+				cliHandler: "handleSystemAboutCommand",
+				cliRender: "renderSystemAbout",
+				invoker:
+					"packages/operations/src/system.ts#invokeReadSystemAboutOperation:function",
+				action:
+					"packages/operations/src/system.ts#readSystemAbout:function",
+				openapi: openapiSystemAboutMethod,
+			},
+			{
+				label: "logs",
+				cliHandler: "handleSystemLogsCommand",
+				cliRender: "renderSystemLogs",
+				invoker:
+					"packages/operations/src/system.ts#invokeReadSystemLogsOperation:function",
+				action:
+					"packages/operations/src/system.ts#readSystemLogs:function",
+				openapi: openapiSystemLogsMethod,
 			},
 		],
 	}),

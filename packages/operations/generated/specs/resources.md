@@ -196,6 +196,16 @@ Transitions:
 
 - `current` → none
 
+## `system` — System runtime
+
+States: `current`.
+
+Terminal states: none.
+
+Transitions:
+
+- `current` → none
+
 ## `audience` — Resolved audience
 
 States: `current`, `drifted`, `suppressed`.

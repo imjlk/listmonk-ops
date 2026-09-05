@@ -39,6 +39,10 @@ export const mediaResource = defineOperationResourceSpec({
  * inbound provider event. They never transition on their own; deletion by
  * an operator is the only exit.
  */
+/**
+ * Server runtime identity and diagnostics. Stateless observations with
+ * no lifecycle of their own.
+ */
 export const bounceResource = defineOperationResourceSpec({
 	id: "bounce",
 	title: "Bounce record",
@@ -48,6 +52,16 @@ export const bounceResource = defineOperationResourceSpec({
 		deleted: [],
 	},
 	terminalStates: ["deleted"],
+});
+
+export const systemResource = defineOperationResourceSpec({
+	id: "system",
+	title: "System runtime",
+	states: ["current"],
+	transitions: {
+		current: [],
+	},
+	terminalStates: [],
 });
 
 /**

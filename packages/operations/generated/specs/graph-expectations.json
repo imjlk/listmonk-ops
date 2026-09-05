@@ -3189,6 +3189,60 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/system.ts#readSystemAboutOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemAboutOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemAboutOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/system-specs.ts#systemAboutOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/system.ts#invokeReadSystemAboutOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/system.ts#readSystemAbout:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemAboutOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#systemAboutOperationSpec:variable",
+        "executorNode": "packages/operations/src/system.ts#readSystemAbout:function",
+        "invokerNode": "packages/operations/src/system.ts#invokeReadSystemAboutOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/system.ts#readSystemAboutOperation:variable"
+      },
+      "operationId": "system.about"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/system.ts#readSystemLogsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemLogsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemLogsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/system-specs.ts#systemLogsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/system.ts#invokeReadSystemLogsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/system.ts#readSystemLogs:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemLogsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#systemLogsOperationSpec:variable",
+        "executorNode": "packages/operations/src/system.ts#readSystemLogs:function",
+        "invokerNode": "packages/operations/src/system.ts#invokeReadSystemLogsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/system.ts#readSystemLogsOperation:variable"
+      },
+      "operationId": "system.logs"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function"

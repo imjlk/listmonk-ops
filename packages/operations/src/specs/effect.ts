@@ -13,6 +13,7 @@ export type OperationResourceKind =
 	| "spec"
 	| "playbook"
 	| "dashboard"
+	| "system"
 	| "control"
 	| "operation"
 	| "webhook"

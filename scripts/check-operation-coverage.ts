@@ -96,6 +96,16 @@ export const operationCoverageContracts: readonly OperationCoverageContract[] = 
 			"packages/operations/src/dashboard.ts#invokeDashboardOperationByMcpName:function",
 	},
 	{
+		family: "system",
+		registry: "packages/operations/src/system.ts#systemOperations:variable",
+		testAnchor:
+			"scripts/shared-operation-coverage.ts#assertSystemOperationsPublished:function",
+		mcpHandler:
+			"packages/mcp/src/handlers/system.ts#handleSystemTools:function",
+		dispatcher:
+			"packages/operations/src/system.ts#invokeSystemOperationByMcpName:function",
+	},
+	{
 		family: "bounces",
 		registry: "packages/operations/src/bounces.ts#bouncesOperations:variable",
 		testAnchor:

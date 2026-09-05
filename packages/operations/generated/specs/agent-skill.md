@@ -1654,6 +1654,34 @@ Verify with: `bounces.list`
 
 Retry guidance: Run dry_run first, then echo the reported bounce_ids with dry_run false; repeating that exact request deletes nothing new. Acknowledgements are not existence proofs — verify the surviving set with bounces.list.
 
+## Read server build identity (`system.about`)
+
+Contract maturity: `stable`; effects: `read:system`; confirmation: `never`; retry: `safe`.
+
+Use when: The exact Listmonk version or build must be confirmed before a version-sensitive operation.
+
+Avoid when: Only reachability matters — prefer control.status.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## Read server logs (`system.logs`)
+
+Contract maturity: `stable`; effects: `read:system`; confirmation: `never`; retry: `safe`.
+
+Use when: Server-side startup, messenger, or importer behavior must be diagnosed from the instance's own log.
+
+Avoid when: Import-session detail is enough — prefer subscribers.import.logs.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 
 Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.

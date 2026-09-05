@@ -1,6 +1,7 @@
 import { abTestOperations } from "../packages/abtest/src/operations";
 import { bouncesTools } from "../packages/mcp/src/handlers/bounces";
 import { dashboardTools } from "../packages/mcp/src/handlers/dashboard";
+import { systemTools } from "../packages/mcp/src/handlers/system";
 import { abtestTools } from "../packages/mcp/src/handlers/abtest";
 import { campaignsTools } from "../packages/mcp/src/handlers/campaigns";
 import { discoveryTools } from "../packages/mcp/src/handlers/discovery";
@@ -28,6 +29,7 @@ import { listOperations } from "../packages/operations/src/lists";
 import { mediaOperations } from "../packages/operations/src/media";
 import { bouncesOperations } from "../packages/operations/src/bounces";
 import { dashboardOperations } from "../packages/operations/src/dashboard";
+import { systemOperations } from "../packages/operations/src/system";
 import { subscriberOperations } from "../packages/operations/src/subscribers";
 import { templateOperations } from "../packages/operations/src/templates";
 import { transactionalOperations } from "../packages/operations/src/transactional";
@@ -39,6 +41,7 @@ export type SharedOperation =
 	| (typeof abTestOperations)[number]
 	| (typeof bouncesOperations)[number]
 	| (typeof dashboardOperations)[number]
+	| (typeof systemOperations)[number]
 	| (typeof campaignOperations)[number]
 	| (typeof discoveryOperations)[number]
 	| (typeof listOperations)[number]
@@ -204,6 +207,10 @@ export function assertDashboardOperationsPublished(): void {
 		dashboardOperations,
 		dashboardTools,
 	);
+}
+
+export function assertSystemOperationsPublished(): void {
+	assertOperationFamilyPublished("system", systemOperations, systemTools);
 }
 
 export function assertTransactionalOperationsPublished(): void {

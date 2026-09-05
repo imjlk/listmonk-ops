@@ -58,14 +58,6 @@ export const settingsTools: MCPTool[] = [
 		},
 	},
 	{
-		name: "listmonk_get_logs",
-		description: "Get Listmonk application logs",
-		inputSchema: {
-			type: "object",
-			properties: {},
-		},
-	},
-	{
 		name: "listmonk_reload_app",
 		description: "Reload Listmonk app configuration without restart",
 		inputSchema: {
@@ -120,11 +112,6 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 				});
 
 				return handleDataResponse(response, "Failed to test SMTP settings");
-			}
-
-			case "listmonk_get_logs": {
-				const response = await client.system.getLogs();
-				return handleDataResponse(response, "Failed to fetch logs");
 			}
 
 			case "listmonk_reload_app": {

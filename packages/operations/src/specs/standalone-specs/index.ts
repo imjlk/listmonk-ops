@@ -1,5 +1,6 @@
 export * from "./list-specs";
 export * from "./subscriber-specs";
+export * from "./system-specs";
 export * from "./campaign-specs";
 export * from "./dashboard-specs";
 export * from "./template-specs";
@@ -26,6 +27,10 @@ import {
 	subscribersImportLogsOperationSpec,
 	subscribersExportOperationSpec,
 } from "./subscriber-specs";
+import {
+	systemAboutOperationSpec,
+	systemLogsOperationSpec,
+} from "./system-specs";
 import {
 	dashboardCountsOperationSpec,
 	dashboardChartsOperationSpec,
@@ -142,6 +147,8 @@ export const standaloneOperationSpecs = [
 	bouncesGetOperationSpec,
 	bouncesDeleteOperationSpec,
 	bouncesPruneOperationSpec,
+	systemAboutOperationSpec,
+	systemLogsOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */
