@@ -20673,6 +20673,41 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "subscriberImportLogsOutputContract": {
+    "components": {
+      "schemas": {
+        "SubscriberImportLogsOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "logs": {
+              "description": "Raw importer log lines; empty when no session has run.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "logs"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "logs": {
+          "description": "Raw importer log lines; empty when no session has run.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logs"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "subscriberImportStartInputContract": {
     "components": {
       "schemas": {
@@ -22458,6 +22493,85 @@
         "schema_version",
         "dry_run",
         "results"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templatePreviewInputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceIdInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Positive Listmonk resource ID."
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templatePreviewOutputContract": {
+    "components": {
+      "schemas": {
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "TemplatePreviewOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "html": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Fully rendered HTML preview of the stored template."
+            }
+          },
+          "required": [
+            "html"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "html": {
+          "$ref": "#/components/schemas/NonEmptyString",
+          "description": "Fully rendered HTML preview of the stored template."
+        }
+      },
+      "required": [
+        "html"
       ],
       "type": "object"
     },

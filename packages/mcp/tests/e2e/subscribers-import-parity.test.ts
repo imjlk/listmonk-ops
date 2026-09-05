@@ -154,6 +154,22 @@ describe("Subscriber import CLI and MCP parity", () => {
 				"Failed to stop the idle import through MCP",
 			);
 			expect(stopped.status).toBe("none");
+
+			// The raw importer logs read identically through both adapters.
+			const cliLogs = runCliSubscribersCommand([
+				"--format",
+				"json",
+				"import-logs",
+			]);
+			expect(cliLogs.exitCode).toBe(0);
+			const mcpLogs = utils.assertSuccess<{ logs?: string }>(
+				await client.callTool("listmonk_get_subscriber_import_logs"),
+				"Failed to read import logs through MCP",
+			);
+			const cliStart = cliLogs.stdout.indexOf("{");
+			expect(JSON.parse(cliLogs.stdout.slice(cliStart)).logs).toBe(
+				mcpLogs.logs,
+			);
 		} finally {
 			await rm(tempDir, { recursive: true, force: true });
 			await deleteImportedSubscriber(email);

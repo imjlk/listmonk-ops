@@ -18378,6 +18378,99 @@
       "stability": "stable"
     },
     {
+      "id": "templates.preview",
+      "input": {
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceIdInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "TemplatePreviewOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "html": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Fully rendered HTML preview of the stored template."
+                }
+              },
+              "required": [
+                "html"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "html": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Fully rendered HTML preview of the stored template."
+            }
+          },
+          "required": [
+            "html"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only renders the stored template body."
+      },
+      "since": "0.17.0",
+      "stability": "stable"
+    },
+    {
       "id": "lists.create",
       "input": {
         "components": {
@@ -20868,6 +20961,76 @@
       "retry": {
         "kind": "safe",
         "reason": "The stop signal resets the session; repeating it against an idle importer returns the same reset status."
+      },
+      "since": "0.17.0",
+      "stability": "stable"
+    },
+    {
+      "id": "subscribers.import.logs",
+      "input": {
+        "components": {
+          "schemas": {
+            "EmptyInput": {
+              "additionalProperties": false,
+              "properties": {},
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {},
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "SubscriberImportLogsOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "logs": {
+                  "description": "Raw importer log lines; empty when no session has run.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "logs"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "logs": {
+              "description": "Raw importer log lines; empty when no session has run.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "logs"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads recorded importer log lines."
       },
       "since": "0.17.0",
       "stability": "stable"

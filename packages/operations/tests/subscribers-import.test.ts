@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	invokeGetSubscriberImportLogsOperation,
 	invokeGetSubscriberImportStatusOperation,
 	invokeStartSubscriberImportOperation,
 	invokeStopSubscriberImportOperation,
@@ -121,5 +122,37 @@ describe("subscriber import operations", () => {
 		).catch((failure: unknown) => failure);
 		expect(error).toBeInstanceOf(OperationExecutionError);
 		expect(error).toHaveProperty("operationId", "subscribers.import.status");
+	});
+});
+
+describe("subscriber import logs", () => {
+	test("reads raw log lines through the shared operation", async () => {
+		const logs = mock(async () => ({
+			data: "2026/09/05 importer.go:193: processing 'import.csv'\n",
+		}));
+
+		await expect(
+			invokeGetSubscriberImportLogsOperation(
+				importContext({
+					logs: logs as unknown as ImportClient["import"]["logs"],
+				}),
+				{},
+			),
+		).resolves.toEqual({
+			logs: "2026/09/05 importer.go:193: processing 'import.csv'\n",
+		});
+		expect(logs).toHaveBeenCalledTimes(1);
+	});
+
+	test("rejects a response without data through the error contract", async () => {
+		const logs = mock(async () => ({ data: undefined }));
+		await expect(
+			invokeGetSubscriberImportLogsOperation(
+				importContext({
+					logs: logs as unknown as ImportClient["import"]["logs"],
+				}),
+				{},
+			),
+		).rejects.toThrow("Failed to read subscriber import logs");
 	});
 });

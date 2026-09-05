@@ -299,3 +299,8 @@ export interface SubscriberImportStatus {
 
 /** Session state shared by the start, status, and stop outputs. */
 export type SubscriberImportSessionOutput = SubscriberImportStatus;
+
+export interface SubscriberImportLogsOutput {
+	/** Raw importer log lines; empty when no session has run. */
+	logs: string;
+}

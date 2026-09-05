@@ -22,6 +22,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	templateUpdateInputContract: NormalizedContractSchema;
 	templateDeleteOutputContract: NormalizedContractSchema;
 	templateSetDefaultOutputContract: NormalizedContractSchema;
+	templatePreviewInputContract: NormalizedContractSchema;
+	templatePreviewOutputContract: NormalizedContractSchema;
 	templateListInputContract: NormalizedContractSchema;
 	templateCollectionOutputContract: NormalizedContractSchema;
 	mediaRecordContract: NormalizedContractSchema;
@@ -36,6 +38,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberImportStartOutputContract: NormalizedContractSchema;
 	subscriberImportStatusOutputContract: NormalizedContractSchema;
 	subscriberImportStopOutputContract: NormalizedContractSchema;
+	subscriberImportLogsOutputContract: NormalizedContractSchema;
 	dashboardCountsOutputContract: NormalizedContractSchema;
 	dashboardChartsOutputContract: NormalizedContractSchema;
 	bouncePruneOutputContract: NormalizedContractSchema;
@@ -224,6 +227,10 @@ export const templateDeleteOutputContract =
 	contracts.templateDeleteOutputContract;
 export const templateSetDefaultOutputContract =
 	contracts.templateSetDefaultOutputContract;
+export const templatePreviewInputContract =
+	contracts.templatePreviewInputContract;
+export const templatePreviewOutputContract =
+	contracts.templatePreviewOutputContract;
 export const templateListInputContract = contracts.templateListInputContract;
 export const templateCollectionOutputContract =
 	contracts.templateCollectionOutputContract;
@@ -244,6 +251,8 @@ export const subscriberImportStatusOutputContract =
 	contracts.subscriberImportStatusOutputContract;
 export const subscriberImportStopOutputContract =
 	contracts.subscriberImportStopOutputContract;
+export const subscriberImportLogsOutputContract =
+	contracts.subscriberImportLogsOutputContract;
 export const dashboardCountsOutputContract =
 	contracts.dashboardCountsOutputContract;
 export const dashboardChartsOutputContract =

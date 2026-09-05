@@ -38,6 +38,7 @@ export type OperationSpecVerb =
 	| "analytics"
 	| "counts"
 	| "charts"
+	| "logs"
 	| "status"
 	| "doctor"
 	| "quota"

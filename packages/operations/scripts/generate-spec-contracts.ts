@@ -81,6 +81,8 @@ import type {
 	TemplateListInput,
 	TemplateRecord,
 	TemplateSetDefaultOutput,
+	TemplatePreviewInput,
+	TemplatePreviewOutput,
 	TemplateUpdateInput,
 	TransactionalSendInput,
 	TransactionalSendOutput,
@@ -157,6 +159,7 @@ import type {
 	SubscriberHygieneInput,
 	SubscriberImportStartInput,
 	SubscriberImportSessionOutput,
+	SubscriberImportLogsOutput,
 	SubscriberHygieneOutput,
 	TemplateRegistrySyncInput,
 	TemplateRegistrySyncOutput,
@@ -370,6 +373,15 @@ const contracts = {
 	),
 	subscriberImportStopOutputContract: contractSchema(
 		typia.json.schema<SubscriberImportSessionOutput>(),
+	),
+	subscriberImportLogsOutputContract: contractSchema(
+		typia.json.schema<SubscriberImportLogsOutput>(),
+	),
+	templatePreviewInputContract: contractSchema(
+		typia.json.schema<TemplatePreviewInput>(),
+	),
+	templatePreviewOutputContract: contractSchema(
+		typia.json.schema<TemplatePreviewOutput>(),
 	),
 	dashboardCountsOutputContract: contractSchema(
 		typia.json.schema<DashboardCountsOutput>(),

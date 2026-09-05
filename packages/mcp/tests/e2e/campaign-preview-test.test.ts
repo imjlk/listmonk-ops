@@ -31,6 +31,27 @@ function resolveCliE2eCredential(
 	return config.apiToken || config.password;
 }
 
+function runCliTemplateCommand(args: string[]): CliResult {
+	const result = Bun.spawnSync(["bun", CLI_ENTRY, "templates", ...args], {
+		cwd: CLI_DIRECTORY,
+		env: {
+			...process.env,
+			BUN_FORCE_COLOR: "0",
+			LISTMONK_API_URL: TEST_CONFIG.baseUrl,
+			LISTMONK_USERNAME: TEST_CONFIG.username,
+			LISTMONK_API_TOKEN: resolveCliE2eCredential(TEST_CONFIG),
+		},
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+
+	return {
+		exitCode: result.exitCode,
+		stdout: result.stdout.toString().trim(),
+		stderr: result.stderr.toString().trim(),
+	};
+}
+
 function runCliCampaignCommand(args: string[]): CliResult {
 	const result = Bun.spawnSync(["bun", CLI_ENTRY, "campaigns", ...args], {
 		cwd: CLI_DIRECTORY,
@@ -118,7 +139,7 @@ async function deleteCampaignFixture(id: number): Promise<void> {
 	}
 }
 
-describe("Campaign preview and test CLI/MCP parity", () => {
+describe("Campaign and template preview CLI/MCP parity", () => {
 	const { client, utils } = createMCPTestSuite();
 
 	test("renders the same preview through both adapters", async () => {
@@ -253,6 +274,26 @@ describe("Campaign preview and test CLI/MCP parity", () => {
 		);
 		expect(mcpAnalytics.type).toBe("views");
 		expect(mcpAnalytics.results).toEqual(cliAnalytics.results);
+	});
+
+	test("renders the same template preview through both adapters", async () => {
+		const cliPreview = parseCliJson<{ html?: string }>(
+			runCliTemplateCommand([
+				"--format",
+				"json",
+				"preview",
+				"--id",
+				"1",
+			]),
+			"template preview",
+		);
+		expect(cliPreview.html).toBeTruthy();
+
+		const mcpPreview = utils.assertSuccess<{ html?: string }>(
+			await client.callTool("listmonk_preview_template", { id: 1 }),
+			"Failed to preview the template through MCP",
+		);
+		expect(mcpPreview.html).toBe(cliPreview.html);
 	});
 
 	test("rejects unknown recipients identically on both adapters", async () => {

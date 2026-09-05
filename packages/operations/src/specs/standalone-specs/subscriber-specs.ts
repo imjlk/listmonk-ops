@@ -4,6 +4,7 @@ import {
 	subscriberImportStartOutputContract,
 	subscriberImportStatusOutputContract,
 	subscriberImportStopOutputContract,
+	subscriberImportLogsOutputContract,
 	emptyInputContract,
 	subscriberCreateInputContract,
 	subscriberCreateOutputContract,
@@ -507,6 +508,65 @@ export function bindSubscribersImportStatusOperationSpec(): typeof subscribersIm
 
 export function bindSubscribersImportStopOperationSpec(): typeof subscribersImportStopOperationSpec {
 	return subscribersImportStopOperationSpec;
+}
+
+export const subscribersImportLogsOperationSpec = defineOperationSpec({
+	id: "subscribers.import.logs",
+	resource: "subscriber",
+	verb: "logs",
+	title: "Read subscriber import logs",
+	description:
+		"Read the raw importer log lines from the most recent subscriber-import session.",
+	contract: {
+		input: emptyInputContract,
+		output: subscriberImportLogsOutputContract,
+	},
+	effects: [{ kind: "read", resource: "subscriber" }],
+	policy: {
+		confirmation: "never",
+		audit: "optional",
+		dryRun: false,
+	},
+	retry: {
+		kind: "safe",
+		reason: "The operation only reads recorded importer log lines.",
+	},
+	agent: {
+		useWhen: [
+			"An import's raw log output must be inspected, typically after a finished or stopped session.",
+		],
+		avoidWhen: ["Only progress counters are needed — prefer subscribers.import.status."],
+		prerequisites: ["subscribers.import.status"],
+		verifyWith: [],
+		related: [
+			"subscribers.import.start",
+			"subscribers.import.status",
+			"subscribers.import.stop",
+		],
+		retryGuidance: "Retry transient read failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_get_subscriber_import_logs",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersImportLogsOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersImportLogsOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#getSubscriberImportLogsOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeGetSubscriberImportLogsOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#readSubscriberImportLogs:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export function bindSubscribersImportLogsOperationSpec(): typeof subscribersImportLogsOperationSpec {
+	return subscribersImportLogsOperationSpec;
 }
 
 export function bindSubscribersUnblocklistOperationSpec(): typeof subscribersUnblocklistOperationSpec {

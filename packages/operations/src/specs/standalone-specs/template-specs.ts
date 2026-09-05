@@ -1,5 +1,7 @@
 import { defineOperationSpec } from "../operation";
 import {
+	templatePreviewInputContract,
+	templatePreviewOutputContract,
 	resourceIdInputContract,
 	templateSetDefaultOutputContract,
 	templateCreateInputContract,
@@ -310,6 +312,61 @@ export function bindTemplatesUpdateOperationSpec(): typeof templatesUpdateOperat
 
 export function bindTemplatesDeleteOperationSpec(): typeof templatesDeleteOperationSpec {
 	return templatesDeleteOperationSpec;
+}
+
+export const templatesPreviewOperationSpec = defineOperationSpec({
+	id: "templates.preview",
+	resource: "template",
+	verb: "preview",
+	title: "Preview template",
+	description:
+		"Render the stored template to HTML exactly as campaign content would appear inside it, without sending anything.",
+	contract: {
+		input: templatePreviewInputContract,
+		output: templatePreviewOutputContract,
+	},
+	effects: [{ kind: "read", resource: "template" }],
+	policy: {
+		confirmation: "never",
+		audit: "optional",
+		dryRun: false,
+	},
+	retry: {
+		kind: "safe",
+		reason: "The operation only renders the stored template body.",
+	},
+	agent: {
+		useWhen: [
+			"A template's rendered output must be inspected, typically before promotion or a campaign send.",
+		],
+		avoidWhen: ["A campaign's rendered body is what matters — prefer campaigns.preview."],
+		prerequisites: ["templates.get"],
+		verifyWith: [],
+		related: ["templates.get", "campaigns.preview", "ops.campaign.preflight"],
+		retryGuidance: "Retry transient render failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_preview_template",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/template-specs.ts#templatesPreviewOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesPreviewOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/templates.ts#previewTemplateOperation:variable",
+			invokerNode:
+				"packages/operations/src/templates.ts#invokePreviewTemplateOperation:function",
+			executorNode:
+				"packages/operations/src/templates.ts#previewTemplate:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export function bindTemplatesPreviewOperationSpec(): typeof templatesPreviewOperationSpec {
+	return templatesPreviewOperationSpec;
 }
 
 export function bindTemplatesSetDefaultOperationSpec(): typeof templatesSetDefaultOperationSpec {

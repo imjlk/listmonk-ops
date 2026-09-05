@@ -23,6 +23,7 @@ import {
 	subscribersImportStartOperationSpec,
 	subscribersImportStatusOperationSpec,
 	subscribersImportStopOperationSpec,
+	subscribersImportLogsOperationSpec,
 } from "./subscriber-specs";
 import {
 	dashboardCountsOperationSpec,
@@ -44,6 +45,7 @@ import {
 	templatesDeleteOperationSpec,
 	templatesSetDefaultOperationSpec,
 	templatesReconcileOperationSpec,
+	templatesPreviewOperationSpec,
 } from "./template-specs";
 import {
 	mediaDeleteOperationSpec,
@@ -87,6 +89,7 @@ export const standaloneOperationSpecs = [
 	templatesUpdateOperationSpec,
 	templatesDeleteOperationSpec,
 	templatesSetDefaultOperationSpec,
+	templatesPreviewOperationSpec,
 	listsCreateOperationSpec,
 	listsUpdateOperationSpec,
 	listsDeleteOperationSpec,
@@ -99,6 +102,7 @@ export const standaloneOperationSpecs = [
 	subscribersImportStartOperationSpec,
 	subscribersImportStatusOperationSpec,
 	subscribersImportStopOperationSpec,
+	subscribersImportLogsOperationSpec,
 	campaignsCreateOperationSpec,
 	campaignsUpdateOperationSpec,
 	campaignsDeleteOperationSpec,
