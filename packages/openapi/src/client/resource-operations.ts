@@ -33,8 +33,8 @@ import {
 	manageSubscriberListsByQuery,
 	patchSubscriberById,
 	previewCampaignById,
-	previewTemplateById,
 	previewCampaignTextById,
+	previewTemplateById,
 	setDefaultTemplateById,
 	subscriberSendOptinById,
 	testCampaignById,
@@ -340,12 +340,9 @@ export function createTemplateOperations(
 			return (await transformResponse(result)) as FlattenedResponse<unknown>;
 		},
 		async preview(options: { path: { id: number } }) {
-			// The generated type models a request body the observed GET
-			// endpoint does not require; send an empty one.
 			const result = await previewTemplateById({
 				...sdkOptions,
-				path: options.path,
-				body: {},
+				...options,
 			});
 			return (await transformResponse(
 				result,

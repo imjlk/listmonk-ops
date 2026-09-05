@@ -1953,20 +1953,6 @@ paths:
       operationId: previewTemplateById
       tags:
         - Templates
-      requestBody:
-        description: template parameters
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                template_type:
-                  description: type of template
-                  type: string
-                body:
-                  description: template body
-                  type: string
       parameters:
         - in: path
           name: id

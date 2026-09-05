@@ -545,15 +545,7 @@ export const previewTemplate = <ThrowOnError extends boolean = false>(options: O
 /**
  * renders the HTML preview of a template.
  */
-export const previewTemplateById = <ThrowOnError extends boolean = false>(options: Options<PreviewTemplateByIdData, ThrowOnError>) => (options.client ?? client).get<PreviewTemplateByIdResponses, unknown, ThrowOnError>({
-    ...urlSearchParamsBodySerializer,
-    url: '/templates/{id}/preview',
-    ...options,
-    headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        ...options.headers
-    }
-});
+export const previewTemplateById = <ThrowOnError extends boolean = false>(options: Options<PreviewTemplateByIdData, ThrowOnError>) => (options.client ?? client).get<PreviewTemplateByIdResponses, unknown, ThrowOnError>({ url: '/templates/{id}/preview', ...options });
 
 /**
  * sets the specified template as the default template.

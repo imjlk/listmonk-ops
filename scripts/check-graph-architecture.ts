@@ -1140,16 +1140,6 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				openapi: openapiImportLogsMethod,
 			},
 			{
-				label: "import logs",
-				cliHandler: "handleSubscriberImportLogsCommand",
-				cliRender: "renderSubscriberImportLogs",
-				invoker:
-					"packages/operations/src/subscribers.ts#invokeGetSubscriberImportLogsOperation:function",
-				action:
-					"packages/operations/src/subscribers.ts#readSubscriberImportLogs:function",
-				openapi: openapiImportLogsMethod,
-			},
-			{
 				label: "import stop",
 				cliHandler: "handleStopSubscriberImportCommand",
 				cliRender: "renderStopSubscriberImport",
