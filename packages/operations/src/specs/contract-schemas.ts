@@ -41,6 +41,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberImportLogsOutputContract: NormalizedContractSchema;
 	subscriberExportInputContract: NormalizedContractSchema;
 	subscriberExportOutputContract: NormalizedContractSchema;
+	subscriberSendOptinInputContract: NormalizedContractSchema;
+	subscriberSendOptinOutputContract: NormalizedContractSchema;
 	systemAboutOutputContract: NormalizedContractSchema;
 	systemLogsOutputContract: NormalizedContractSchema;
 	dashboardCountsOutputContract: NormalizedContractSchema;
@@ -160,6 +162,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	campaignCloneInputContract: NormalizedContractSchema;
 	campaignCloneOutputContract: NormalizedContractSchema;
 	campaignAnalyticsInputContract: NormalizedContractSchema;
+	campaignArchiveInputContract: NormalizedContractSchema;
+	campaignArchiveOutputContract: NormalizedContractSchema;
 	campaignAnalyticsOutputContract: NormalizedContractSchema;
 	campaignPreviewInputContract: NormalizedContractSchema;
 	campaignPreviewOutputContract: NormalizedContractSchema;
@@ -257,6 +261,10 @@ export const subscriberImportStopOutputContract =
 	contracts.subscriberImportStopOutputContract;
 export const subscriberImportLogsOutputContract =
 	contracts.subscriberImportLogsOutputContract;
+export const subscriberSendOptinInputContract =
+	contracts.subscriberSendOptinInputContract;
+export const subscriberSendOptinOutputContract =
+	contracts.subscriberSendOptinOutputContract;
 export const systemAboutOutputContract = contracts.systemAboutOutputContract;
 export const systemLogsOutputContract = contracts.systemLogsOutputContract;
 export const subscriberExportInputContract =
@@ -454,6 +462,10 @@ export const mediaDeleteInputContract = contracts.mediaDeleteInputContract;
 export const mediaDeleteOutputContract = contracts.mediaDeleteOutputContract;
 export const campaignCloneOutputContract =
 	contracts.campaignCloneOutputContract;
+export const campaignArchiveInputContract =
+	contracts.campaignArchiveInputContract;
+export const campaignArchiveOutputContract =
+	contracts.campaignArchiveOutputContract;
 export const campaignAnalyticsInputContract =
 	contracts.campaignAnalyticsInputContract;
 export const campaignAnalyticsOutputContract =

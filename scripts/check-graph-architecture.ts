@@ -261,6 +261,10 @@ const openapiMediaGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
 const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
+const openapiCampaignArchiveMethod =
+	"packages/openapi/src/client/contracts.ts#CampaignOperations.updateArchive:method";
+const openapiSubscriberOptinMethod =
+	"packages/openapi/src/client/contracts.ts#SubscriberOperations.sendOptin:method";
 const openapiSystemAboutMethod =
 	"packages/openapi/src/client/contracts.ts#SystemOperations.getAbout:method";
 const openapiSystemLogsMethod =
@@ -977,6 +981,16 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				openapi: openapiListMethod,
 			},
 			{
+				label: "archive",
+				cliHandler: "handleArchiveCampaignCommand",
+				cliRender: "renderArchiveCampaign",
+				invoker:
+					"packages/operations/src/campaigns.ts#invokeArchiveCampaignOperation:function",
+				action:
+					"packages/operations/src/campaigns.ts#archiveCampaign:function",
+				openapi: openapiCampaignArchiveMethod,
+			},
+			{
 				label: "analytics",
 				cliHandler: "handleCampaignAnalyticsCommand",
 				cliRender: "renderCampaignAnalytics",
@@ -1157,6 +1171,16 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				action:
 					"packages/operations/src/subscribers.ts#deleteSubscriber:function",
 				openapi: openapiDeleteMethod,
+			},
+			{
+				label: "send-optin",
+				cliHandler: "handleSendOptinCommand",
+				cliRender: "renderSendOptin",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeSendOptinOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#sendSubscriberOptin:function",
+				openapi: openapiSubscriberOptinMethod,
 			},
 			{
 				label: "export",

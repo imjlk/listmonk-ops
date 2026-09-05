@@ -293,6 +293,23 @@ export interface CampaignCloneOutput {
 export type CampaignAnalyticsDate = NonEmptyString &
 	tags.Pattern<typeof CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE>;
 
+export type CampaignArchiveInput = ResourceIdInput & {
+	/** Whether the campaign's public archive page is enabled. */
+	archive: boolean;
+};
+
+export interface CampaignArchiveOutput {
+	id: ResourceId;
+	/** Echoed archive-enabled state. */
+	archive: boolean;
+	/** Archive template id as reported by Listmonk (0 when unset). */
+	archive_template_id?: number | undefined;
+	/** Archive slug as reported by Listmonk (empty when unset). */
+	archive_slug?: string | undefined;
+	/** Preserve fields added by newer Listmonk releases. */
+	[key: string]: unknown;
+}
+
 export type CampaignAnalyticsType =
 	| "views"
 	| "clicks"

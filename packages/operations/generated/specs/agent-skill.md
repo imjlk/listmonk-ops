@@ -1682,6 +1682,34 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
+## Toggle the campaign archive page (`campaigns.archive`)
+
+Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
+
+Use when: A finished campaign's public archive page must be published or withdrawn.
+
+Avoid when: The campaign is not finished — archive pages apply to sent campaigns.
+
+Prerequisites: `campaigns.get`
+
+Verify with: `campaigns.get`
+
+Retry guidance: Repeat safely; verify the archive flag through campaigns.get after an ambiguous result.
+
+## Resend the double opt-in email (`subscribers.send-optin`)
+
+Contract maturity: `stable`; effects: `delivery:single:immediate`; confirmation: `never`; retry: `unsafe`.
+
+Use when: A subscriber requested the double opt-in confirmation email again.
+
+Avoid when: The subscriber never consented — an opt-in email is still a delivery.
+
+Prerequisites: `subscribers.get`
+
+Verify with: none
+
+Retry guidance: Do not blindly repeat: each confirmed request re-sends the message. Verify the inbox before retrying.
+
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 
 Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.

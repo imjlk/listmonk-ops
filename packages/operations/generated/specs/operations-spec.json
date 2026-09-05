@@ -40801,6 +40801,319 @@
     {
       "agent": {
         "avoidWhen": [
+          "The campaign is not finished — archive pages apply to sent campaigns."
+        ],
+        "prerequisites": [
+          "campaigns.get"
+        ],
+        "related": [
+          "campaigns.get",
+          "campaigns.update"
+        ],
+        "retryGuidance": "Repeat safely; verify the archive flag through campaigns.get after an ambiguous result.",
+        "useWhen": [
+          "A finished campaign's public archive page must be published or withdrawn."
+        ],
+        "verifyWith": [
+          "campaigns.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignArchiveInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "archive": {
+                    "description": "Whether the campaign's public archive page is enabled.",
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id",
+                  "archive"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "archive": {
+                "description": "Whether the campaign's public archive page is enabled.",
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id",
+              "archive"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignArchiveOutput": {
+                "additionalProperties": {},
+                "properties": {
+                  "archive": {
+                    "description": "Echoed archive-enabled state.",
+                    "type": "boolean"
+                  },
+                  "archive_slug": {
+                    "description": "Archive slug as reported by Listmonk (empty when unset).",
+                    "type": "string"
+                  },
+                  "archive_template_id": {
+                    "description": "Archive template id as reported by Listmonk (0 when unset).",
+                    "type": "number"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "archive"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "archive": {
+                "description": "Echoed archive-enabled state.",
+                "type": "boolean"
+              },
+              "archive_slug": {
+                "description": "Archive slug as reported by Listmonk (empty when unset).",
+                "type": "string"
+              },
+              "archive_template_id": {
+                "description": "Archive template id as reported by Listmonk (0 when unset).",
+                "type": "number"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "archive"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        }
+      ],
+      "id": "campaigns.archive",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsArchiveOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsArchiveOperationSpec:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#archiveCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokeArchiveCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#archiveCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_archive_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "The toggle is idempotent and reversible: repeating the same archive value converges on the same state, and the observed endpoint acknowledges even unknown campaign ids."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Toggle the campaign archive page",
+      "verb": "archive"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The subscriber never consented — an opt-in email is still a delivery."
+        ],
+        "prerequisites": [
+          "subscribers.get"
+        ],
+        "related": [
+          "subscribers.get",
+          "transactional.send"
+        ],
+        "retryGuidance": "Do not blindly repeat: each confirmed request re-sends the message. Verify the inbox before retrying.",
+        "useWhen": [
+          "A subscriber requested the double opt-in confirmation email again."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberSendOptinOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "sent": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "sent"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "sent": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "sent"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Resend the double opt-in confirmation email to one subscriber. Every run sends a real message.",
+      "effects": [
+        {
+          "audience": "single",
+          "kind": "delivery",
+          "resource": "message",
+          "timing": "immediate"
+        }
+      ],
+      "id": "subscribers.send-optin",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersSendOptinOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersSendOptinOperationSpec:variable",
+          "executorNode": "packages/operations/src/subscribers.ts#sendSubscriberOptin:function",
+          "invokerNode": "packages/operations/src/subscribers.ts#invokeSendOptinOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#sendOptinOperation:variable"
+        },
+        "mcpName": "listmonk_send_optin",
+        "openWorld": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "Every run dispatches a fresh opt-in message; Listmonk offers no idempotency key for the resend. A single, explicitly chosen recipient keeps the transactional-send convention of no destructive confirmation."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Resend the double opt-in email",
+      "verb": "send-optin"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "A single role should be inspected without a full manifest.",
           "The protected Super Admin role is the intended target."
         ],

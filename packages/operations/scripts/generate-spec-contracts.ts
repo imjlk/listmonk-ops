@@ -134,6 +134,8 @@ import type {
 	CampaignCreateInput,
 	CampaignCreateOutput,
 	CampaignAnalyticsInput,
+	CampaignArchiveInput,
+	CampaignArchiveOutput,
 	CampaignAnalyticsOutput,
 	CampaignPreviewInput,
 	CampaignPreviewOutput,
@@ -157,6 +159,8 @@ import type {
 	DeliverabilityGuardInput,
 	DeliverabilityGuardOutput,
 	SubscriberHygieneInput,
+	SubscriberSendOptinInput,
+	SubscriberSendOptinOutput,
 	SubscriberImportStartInput,
 	SubscriberImportSessionOutput,
 	SubscriberImportLogsOutput,
@@ -377,6 +381,12 @@ const contracts = {
 	),
 	subscriberImportStopOutputContract: contractSchema(
 		typia.json.schema<SubscriberImportSessionOutput>(),
+	),
+	subscriberSendOptinInputContract: contractSchema(
+		typia.json.schema<SubscriberSendOptinInput>(),
+	),
+	subscriberSendOptinOutputContract: contractSchema(
+		typia.json.schema<SubscriberSendOptinOutput>(),
 	),
 	systemAboutOutputContract: contractSchema(
 		typia.json.schema<SystemAboutOutput>(),
@@ -737,6 +747,12 @@ const contracts = {
 	),
 	campaignCloneOutputContract: contractSchema(
 		typia.json.schema<CampaignCloneOutput>(),
+	),
+	campaignArchiveInputContract: contractSchema(
+		typia.json.schema<CampaignArchiveInput>(),
+	),
+	campaignArchiveOutputContract: contractSchema(
+		typia.json.schema<CampaignArchiveOutput>(),
 	),
 	campaignAnalyticsInputContract: contractSchema(
 		typia.json.schema<CampaignAnalyticsInput>(),

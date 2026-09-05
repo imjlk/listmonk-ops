@@ -3243,6 +3243,60 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/campaigns.ts#archiveCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsArchiveOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsArchiveOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsArchiveOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeArchiveCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#archiveCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsArchiveOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsArchiveOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#archiveCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeArchiveCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#archiveCampaignOperation:variable"
+      },
+      "operationId": "campaigns.archive"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#sendOptinOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersSendOptinOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersSendOptinOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersSendOptinOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeSendOptinOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#sendSubscriberOptin:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersSendOptinOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersSendOptinOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#sendSubscriberOptin:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeSendOptinOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#sendOptinOperation:variable"
+      },
+      "operationId": "subscribers.send-optin"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function"

@@ -4257,6 +4257,120 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "campaignArchiveInputContract": {
+    "components": {
+      "schemas": {
+        "CampaignArchiveInput": {
+          "additionalProperties": false,
+          "properties": {
+            "archive": {
+              "description": "Whether the campaign's public archive page is enabled.",
+              "type": "boolean"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            }
+          },
+          "required": [
+            "id",
+            "archive"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "archive": {
+          "description": "Whether the campaign's public archive page is enabled.",
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Positive Listmonk resource ID."
+        }
+      },
+      "required": [
+        "id",
+        "archive"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "campaignArchiveOutputContract": {
+    "components": {
+      "schemas": {
+        "CampaignArchiveOutput": {
+          "additionalProperties": {},
+          "properties": {
+            "archive": {
+              "description": "Echoed archive-enabled state.",
+              "type": "boolean"
+            },
+            "archive_slug": {
+              "description": "Archive slug as reported by Listmonk (empty when unset).",
+              "type": "string"
+            },
+            "archive_template_id": {
+              "description": "Archive template id as reported by Listmonk (0 when unset).",
+              "type": "number"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "id",
+            "archive"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "archive": {
+          "description": "Echoed archive-enabled state.",
+          "type": "boolean"
+        },
+        "archive_slug": {
+          "description": "Archive slug as reported by Listmonk (empty when unset).",
+          "type": "string"
+        },
+        "archive_template_id": {
+          "description": "Archive template id as reported by Listmonk (0 when unset).",
+          "type": "number"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "id",
+        "archive"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "campaignCloneInputContract": {
     "components": {
       "schemas": {
@@ -21566,6 +21680,92 @@
         }
       },
       "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberSendOptinInputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceIdInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Positive Listmonk resource ID."
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberSendOptinOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberSendOptinOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "sent": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id",
+            "sent"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "sent": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "sent"
+      ],
       "type": "object"
     },
     "source": "typescript",

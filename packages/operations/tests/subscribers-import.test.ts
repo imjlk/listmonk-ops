@@ -10,6 +10,7 @@ function subscriberContext(
 import { describe, expect, mock, test } from "bun:test";
 import {
 	invokeExportSubscriberOperation,
+	invokeSendOptinOperation,
 	invokeGetSubscriberImportLogsOperation,
 	invokeGetSubscriberImportStatusOperation,
 	invokeStartSubscriberImportOperation,
@@ -206,5 +207,29 @@ describe("subscriber export", () => {
 		).catch((failure: unknown) => failure);
 		expect(error).toBeInstanceOf(OperationExecutionError);
 		expect(error).toHaveProperty("operationId", "subscribers.export");
+	});
+});
+
+describe("subscriber opt-in resend", () => {
+	test("sends the opt-in email through the shared operation", async () => {
+		const sendOptin = mock(async () => ({ data: true }));
+
+		await expect(
+			invokeSendOptinOperation(
+				{ client: { subscriber: { sendOptin } } as unknown as SubscriberClient },
+				{ id: "663" },
+			),
+		).resolves.toEqual({ id: 663, sent: true });
+		expect(sendOptin).toHaveBeenCalledWith({ path: { id: 663 } });
+	});
+
+	test("rejects a negative acknowledgement", async () => {
+		const sendOptin = mock(async () => ({ data: false }));
+		await expect(
+			invokeSendOptinOperation(
+				{ client: { subscriber: { sendOptin } } as unknown as SubscriberClient },
+				{ id: 663 },
+			),
+		).rejects.toThrow("negative acknowledgement");
 	});
 });

@@ -1,5 +1,7 @@
 import { defineOperationSpec } from "../operation";
 import {
+	campaignArchiveInputContract,
+	campaignArchiveOutputContract,
 	campaignAnalyticsInputContract,
 	campaignAnalyticsOutputContract,
 	campaignPreviewInputContract,
@@ -293,6 +295,59 @@ export const campaignsCloneOperationSpec = defineOperationSpec({
 	stability: "stable",
 	since: "0.9.0",
 });
+
+export const campaignsArchiveOperationSpec = defineOperationSpec({
+	id: "campaigns.archive",
+	resource: "campaign",
+	verb: "archive",
+	title: "Toggle the campaign archive page",
+	description:
+		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.",
+	contract: {
+		input: campaignArchiveInputContract,
+		output: campaignArchiveOutputContract,
+	},
+	effects: [{ kind: "write", resource: "campaign", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason:
+			"The toggle is idempotent and reversible: repeating the same archive value converges on the same state, and the observed endpoint acknowledges even unknown campaign ids.",
+	},
+	agent: {
+		useWhen: [
+			"A finished campaign's public archive page must be published or withdrawn.",
+		],
+		avoidWhen: ["The campaign is not finished — archive pages apply to sent campaigns."],
+		prerequisites: ["campaigns.get"],
+		verifyWith: ["campaigns.get"],
+		related: ["campaigns.get", "campaigns.update"],
+		retryGuidance:
+			"Repeat safely; verify the archive flag through campaigns.get after an ambiguous result.",
+	},
+	projection: {
+		mcpName: "listmonk_archive_campaign",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsArchiveOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsArchiveOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/campaigns.ts#archiveCampaignOperation:variable",
+			invokerNode:
+				"packages/operations/src/campaigns.ts#invokeArchiveCampaignOperation:function",
+			executorNode:
+				"packages/operations/src/campaigns.ts#archiveCampaign:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export function bindCampaignsArchiveOperationSpec(): typeof campaignsArchiveOperationSpec {
+	return campaignsArchiveOperationSpec;
+}
 
 export const campaignsAnalyticsOperationSpec = defineOperationSpec({
 	id: "campaigns.analytics",

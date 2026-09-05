@@ -15,6 +15,7 @@ import {
 	invokeStopSubscriberImportOperation,
 	invokeGetSubscriberImportLogsOperation,
 	invokeExportSubscriberOperation,
+	invokeSendOptinOperation,
 	MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
 	invokeUpdateSubscriberOperation,
 	OperationExecutionError,
@@ -257,6 +258,32 @@ export async function renderSubscriberImportStatus(
 		`Subscriber import: ${status.status ?? "unknown"} (${status.imported ?? 0}/${status.total ?? 0})`,
 	);
 	context.output.json(status);
+}
+
+export async function renderSendOptin(
+	context: SubscribersCliContext,
+	input: { id: number },
+): Promise<void> {
+	const result = await invokeSendOptinOperation(context, input);
+	context.output.success(`Opt-in email sent to subscriber ${input.id}`);
+	context.output.json(result);
+}
+
+export async function handleSendOptinCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderSendOptin(
+			{ client, output: getOutput() },
+			{
+				id: flags.id,
+			},
+		);
+	} catch (error) {
+		throw createSubscriberCommandError("Failed to send opt-in email", error);
+	}
 }
 
 export async function renderExportSubscriber(
@@ -882,6 +909,17 @@ export default defineGroup({
 				}),
 			},
 			handler: handleUnblocklistSubscribersCommand,
+		}),
+		defineCommand({
+			name: "send-optin",
+			operationId: "subscribers.send-optin",
+			description: "Resend the double opt-in confirmation email",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Subscriber ID",
+				}),
+			},
+			handler: handleSendOptinCommand,
 		}),
 		defineCommand({
 			name: "export",

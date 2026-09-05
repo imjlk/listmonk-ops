@@ -300,6 +300,13 @@ export interface SubscriberImportStatus {
 /** Session state shared by the start, status, and stop outputs. */
 export type SubscriberImportSessionOutput = SubscriberImportStatus;
 
+export type SubscriberSendOptinInput = ResourceIdInput;
+
+export interface SubscriberSendOptinOutput {
+	id: ResourceId;
+	sent: boolean;
+}
+
 export type SubscriberExportInput = ResourceIdInput;
 
 export interface SubscriberExportOutput {
