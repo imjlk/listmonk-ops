@@ -160,6 +160,8 @@ import type {
 	SubscriberImportStartInput,
 	SubscriberImportSessionOutput,
 	SubscriberImportLogsOutput,
+	SubscriberExportInput,
+	SubscriberExportOutput,
 	SubscriberHygieneOutput,
 	TemplateRegistrySyncInput,
 	TemplateRegistrySyncOutput,
@@ -373,6 +375,12 @@ const contracts = {
 	),
 	subscriberImportStopOutputContract: contractSchema(
 		typia.json.schema<SubscriberImportSessionOutput>(),
+	),
+	subscriberExportInputContract: contractSchema(
+		typia.json.schema<SubscriberExportInput>(),
+	),
+	subscriberExportOutputContract: contractSchema(
+		typia.json.schema<SubscriberExportOutput>(),
 	),
 	subscriberImportLogsOutputContract: contractSchema(
 		typia.json.schema<SubscriberImportLogsOutput>(),

@@ -968,6 +968,18 @@ Read the raw importer log lines from the most recent subscriber-import session.
 - Retry: `safe`
 - Stability: `stable` since `0.17.0`
 
+## `subscribers.export`
+
+Read the complete data-portability export for one subscriber: profile, list subscriptions, campaign views, and link clicks.
+
+- Resource / verb: `subscriber.export`
+- MCP tool: `listmonk_export_subscriber`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:subscriber`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
 ## `campaigns.create`
 
 Create a campaign in Listmonk

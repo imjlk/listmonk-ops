@@ -300,6 +300,21 @@ export interface SubscriberImportStatus {
 /** Session state shared by the start, status, and stop outputs. */
 export type SubscriberImportSessionOutput = SubscriberImportStatus;
 
+export type SubscriberExportInput = ResourceIdInput;
+
+export interface SubscriberExportOutput {
+	/** Subscriber profile records returned by the export. */
+	profile?: Record<string, unknown>[] | undefined;
+	/** List subscription history records. */
+	subscriptions?: Record<string, unknown>[] | undefined;
+	/** Campaign view records attributed to the subscriber. */
+	campaign_views?: Record<string, unknown>[] | undefined;
+	/** Link click records attributed to the subscriber. */
+	link_clicks?: Record<string, unknown>[] | undefined;
+	/** Preserve sections added by newer Listmonk releases. */
+	[key: string]: unknown;
+}
+
 export interface SubscriberImportLogsOutput {
 	/** Raw importer log lines; empty when no session has run. */
 	logs: string;

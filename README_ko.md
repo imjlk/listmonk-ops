@@ -451,6 +451,7 @@ listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 # CSV를 비동기로 임포트하고 진행 상황을 확인하며 필요하면 취소합니다.
 listmonk-cli subscribers import --mode subscribe --lists 1 \
   --file ./subscribers.csv --confirm
+listmonk-cli subscribers export --id 7
 listmonk-cli subscribers import-status
 listmonk-cli subscribers import-logs
 listmonk-cli subscribers import-stop
@@ -553,7 +554,7 @@ Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제�
 자격 증명을 노출하지 않으면서 런타임 정보와 실제 Listmonk health probe
 결과를 함께 제공합니다.
 
-118개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+119개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -568,8 +569,9 @@ Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 오퍼레이션(`campaigns.preview`, `campaigns.test`, `campaigns.analytics`),
 대시보드 집계 읽기(`dashboard.counts`, `dashboard.charts`), 구독자 임포트
 라이프사이클(`subscribers.import.start`, `subscribers.import.status`,
-`subscribers.import.stop`, `subscribers.import.logs`)과 템플릿 프리뷰
-읽기(`templates.preview`)는 관찰된 Listmonk 6.2 응답 형태를 로컬 스택으로
+`subscribers.import.stop`, `subscribers.import.logs`), 템플릿 프리뷰
+읽기(`templates.preview`), 구독자 데이터 이동성 내보내기
+(`subscribers.export`)는 관찰된 Listmonk 6.2 응답 형태를 로컬 스택으로
 검증한 뒤 stable 호환성 baseline에 승인되었습니다. runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
@@ -807,11 +809,11 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 118개 전체, API 경계 규칙, 0개 governed runtime bridge,
-stable compatibility baseline(118개)과 spec-to-runtime 직접 graph edge
-359개를 검증합니다.
+Operation 119개 전체, API 경계 규칙, 0개 governed runtime bridge,
+stable compatibility baseline(119개)과 spec-to-runtime 직접 graph edge
+362개를 검증합니다.
 
-118개 shared Operation은 모두 독립적인 TypeScript 계약을 사용합니다. 다시
+119개 shared Operation은 모두 독립적인 TypeScript 계약을 사용합니다. 다시
 생성해야 할 governed runtime-bridge 입력이나 snapshot은 없습니다.
 
 Spec API는 별도 npm 패키지가 아니라 기존 operations 패키지의

@@ -1,6 +1,15 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+
+type SubscriberClient = Pick<ListmonkClient, "subscriber">;
+
+function subscriberContext(
+	exportFn: SubscriberClient["subscriber"]["export"],
+): { client: SubscriberClient } {
+	return { client: { subscriber: { export: exportFn } } as SubscriberClient };
+}
 import { describe, expect, mock, test } from "bun:test";
 import {
+	invokeExportSubscriberOperation,
 	invokeGetSubscriberImportLogsOperation,
 	invokeGetSubscriberImportStatusOperation,
 	invokeStartSubscriberImportOperation,
@@ -154,5 +163,48 @@ describe("subscriber import logs", () => {
 				{},
 			),
 		).rejects.toThrow("Failed to read subscriber import logs");
+	});
+});
+
+describe("subscriber export", () => {
+	test("reads the data-portability bundle through the shared operation", async () => {
+		const exportFn = mock(async () => ({
+			data: {
+				profile: [{ id: 663, email: "reader@example.com" }],
+				subscriptions: [{ name: "Private list" }],
+				campaign_views: [],
+				link_clicks: [],
+			},
+		}));
+
+		await expect(
+			invokeExportSubscriberOperation(
+				subscriberContext(
+					exportFn as unknown as SubscriberClient["subscriber"]["export"],
+				),
+				{ id: "663" },
+			),
+		).resolves.toEqual({
+			profile: [{ id: 663, email: "reader@example.com" }],
+			subscriptions: [{ name: "Private list" }],
+			campaign_views: [],
+			link_clicks: [],
+		});
+		expect(exportFn).toHaveBeenCalledWith({ path: { id: 663 } });
+	});
+
+	test("surfaces transport failures through the operation error contract", async () => {
+		const exportFn = mock(async () => ({
+			error: "not found",
+			response: { status: 500 },
+		}));
+		const error = await invokeExportSubscriberOperation(
+			subscriberContext(
+				exportFn as unknown as SubscriberClient["subscriber"]["export"],
+			),
+			{ id: 1 },
+		).catch((failure: unknown) => failure);
+		expect(error).toBeInstanceOf(OperationExecutionError);
+		expect(error).toHaveProperty("operationId", "subscribers.export");
 	});
 });
