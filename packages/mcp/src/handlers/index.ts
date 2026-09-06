@@ -6,6 +6,10 @@ import { campaignsTools, handleCampaignsTools } from "./campaigns.js";
 import { dashboardTools, handleDashboardTools } from "./dashboard.js";
 import { systemTools, handleSystemTools } from "./system.js";
 import {
+	sharedSettingsTools,
+	handleSettingsSharedTools,
+} from "./settings-shared.js";
+import {
 	handleOperationCatalogTools,
 	operationCatalogTools,
 } from "./catalog.js";
@@ -30,6 +34,7 @@ export * from "./bounces.js";
 export * from "./campaigns.js";
 export * from "./dashboard.js";
 export * from "./system.js";
+
 export * from "./catalog.js";
 export * from "./discovery.js";
 export * from "./lists.js";
@@ -54,6 +59,7 @@ export const allTools: readonly MCPTool[] = [
 	...mediaTools,
 	...dashboardTools,
 	...systemTools,
+	...sharedSettingsTools,
 	...opsTools,
 	...providerTools,
 	...bouncesTools,
@@ -79,6 +85,7 @@ export const toolNameSets = {
 	media: createToolNameSet(mediaTools),
 	dashboard: createToolNameSet(dashboardTools),
 	system: createToolNameSet(systemTools),
+	sharedSettings: createToolNameSet(sharedSettingsTools),
 	ops: createToolNameSet(opsTools),
 	providers: createToolNameSet(providerTools),
 	settings: createToolNameSet(settingsTools),
@@ -105,6 +112,7 @@ export const toolRegistrations: readonly ToolRegistration[] = [
 	{ tools: mediaTools, handler: handleMediaTools },
 	{ tools: dashboardTools, handler: handleDashboardTools },
 	{ tools: systemTools, handler: handleSystemTools },
+	{ tools: sharedSettingsTools, handler: handleSettingsSharedTools },
 	{ tools: opsTools, handler: handleOpsTools },
 	{ tools: providerTools, handler: handleProviderTools },
 	{ tools: bouncesTools, handler: handleBouncesTools },
@@ -135,3 +143,5 @@ export function assertUniqueToolNames(
 		);
 	}
 }
+
+export { handleSettingsSharedTools };

@@ -265,6 +265,8 @@ const openapiCampaignArchiveMethod =
 	"packages/openapi/src/client/contracts.ts#CampaignOperations.updateArchive:method";
 const openapiSubscriberOptinMethod =
 	"packages/openapi/src/client/contracts.ts#SubscriberOperations.sendOptin:method";
+const openapiSettingsGetMethod =
+	"packages/openapi/src/client/contracts.ts#SettingsOperations.get:method";
 const openapiSystemAboutMethod =
 	"packages/openapi/src/client/contracts.ts#SystemOperations.getAbout:method";
 const openapiSystemLogsMethod =
@@ -1056,6 +1058,38 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 					"packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
 				action: "packages/operations/src/campaigns.ts#deleteCampaign:function",
 				openapi: openapiDeleteMethod,
+			},
+		],
+	}),
+	...resourceOperationContracts({
+		resource: "settings",
+		cliModule:
+			"apps/cli/src/commands/settings.ts#apps/cli/src/commands/settings.ts:module",
+		cliTestModule:
+			"apps/cli/tests/settings.test.ts#apps/cli/tests/settings.test.ts:module",
+		mcpHandler:
+			"packages/mcp/src/handlers/settings-shared.ts#handleSettingsSharedTools:function",
+		dispatcher:
+			"packages/operations/src/settings.ts#invokeSettingsOperationByMcpName:function",
+		operationTestModule:
+			"packages/operations/tests/settings.test.ts#packages/operations/tests/settings.test.ts:module",
+		mcpTestModule:
+			"packages/mcp/tests/unit/settings.test.ts#packages/mcp/tests/unit/settings.test.ts:module",
+		testAnchor: {
+			invoker:
+				"packages/operations/src/settings.ts#invokeGetSettingsOperation:function",
+			action: "packages/operations/src/settings.ts#readSettings:function",
+		},
+		invokers: [
+			{
+				label: "get",
+				cliHandler: "handleGetSettingsCommand",
+				cliRender: "renderSettings",
+				invoker:
+					"packages/operations/src/settings.ts#invokeGetSettingsOperation:function",
+				action:
+					"packages/operations/src/settings.ts#readSettings:function",
+				openapi: openapiSettingsGetMethod,
 			},
 		],
 	}),

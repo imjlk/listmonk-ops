@@ -1,6 +1,7 @@
 export * from "./list-specs";
 export * from "./subscriber-specs";
 export * from "./system-specs";
+export * from "./settings-specs";
 export * from "./campaign-specs";
 export * from "./dashboard-specs";
 export * from "./template-specs";
@@ -31,6 +32,7 @@ import {
 	systemAboutOperationSpec,
 	systemLogsOperationSpec,
 } from "./system-specs";
+import { settingsGetOperationSpec } from "./settings-specs";
 import { campaignsArchiveOperationSpec } from "./campaign-specs";
 import { subscribersSendOptinOperationSpec } from "./subscriber-specs";
 import {
@@ -153,6 +155,7 @@ export const standaloneOperationSpecs = [
 	systemLogsOperationSpec,
 	campaignsArchiveOperationSpec,
 	subscribersSendOptinOperationSpec,
+	settingsGetOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */

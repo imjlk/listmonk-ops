@@ -213,13 +213,14 @@ describe("email operations specification", () => {
 			"system.logs",
 			"campaigns.archive",
 			"subscribers.send-optin",
+			"settings.get",
 		]);
 	});
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(123);
-		expect(new Set(operationIds).size).toBe(123);
+		expect(operationIds).toHaveLength(124);
+		expect(new Set(operationIds).size).toBe(124);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -229,7 +230,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(123);
+		).toHaveLength(124);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(

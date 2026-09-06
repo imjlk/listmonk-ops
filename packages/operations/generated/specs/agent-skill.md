@@ -1710,6 +1710,20 @@ Verify with: none
 
 Retry guidance: Do not blindly repeat: each confirmed request re-sends the message. Verify the inbox before retrying.
 
+## Read installation settings (redacted) (`settings.get`)
+
+Contract maturity: `stable`; effects: `read:settings`; confirmation: `never`; retry: `safe`.
+
+Use when: Delivery, privacy, upload, or security configuration must be inspected; credentials never are — they are redacted before the result leaves the executor.
+
+Avoid when: The unredacted document is required — no shared surface exposes it.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 
 Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.

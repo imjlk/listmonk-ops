@@ -35720,6 +35720,80 @@
       "stability": "stable"
     },
     {
+      "id": "settings.get",
+      "input": {
+        "components": {
+          "schemas": {
+            "EmptyInput": {
+              "additionalProperties": false,
+              "properties": {},
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {},
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "Recordstringunknown": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "SettingsGetOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "settings": {
+                  "$ref": "#/components/schemas/Recordstringunknown",
+                  "description": "Installation settings with credential-bearing fields recursively\nreplaced by \"[redacted]\" (passwords, secrets, API keys, tokens)."
+                }
+              },
+              "required": [
+                "settings"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "settings": {
+              "$ref": "#/components/schemas/Recordstringunknown",
+              "description": "Installation settings with credential-bearing fields recursively\nreplaced by \"[redacted]\" (passwords, secrets, API keys, tokens)."
+            }
+          },
+          "required": [
+            "settings"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current settings document."
+      },
+      "since": "0.17.0",
+      "stability": "stable"
+    },
+    {
       "id": "user-roles.reconcile",
       "input": {
         "components": {

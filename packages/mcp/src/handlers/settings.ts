@@ -14,14 +14,6 @@ export const settingsTools: MCPTool[] = [
 		},
 	},
 	{
-		name: "listmonk_get_settings",
-		description: "Get all settings from Listmonk",
-		inputSchema: {
-			type: "object",
-			properties: {},
-		},
-	},
-	{
 		name: "listmonk_update_settings",
 		description: "Update Listmonk settings",
 		inputSchema: {
@@ -78,11 +70,6 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 			case "listmonk_health_check": {
 				const response = await client.getHealthCheck();
 				return handleDataResponse(response, "Health check failed");
-			}
-
-			case "listmonk_get_settings": {
-				const response = await client.settings.get();
-				return handleDataResponse(response, "Failed to fetch settings");
 			}
 
 			case "listmonk_update_settings": {

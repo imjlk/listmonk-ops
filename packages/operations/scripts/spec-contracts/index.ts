@@ -9,6 +9,7 @@ export * from "./ops";
 export * from "./primitives";
 export * from "./provider";
 export * from "./sequence";
+export * from "./settings";
 export * from "./subscriber";
 export * from "./system";
 export * from "./template";

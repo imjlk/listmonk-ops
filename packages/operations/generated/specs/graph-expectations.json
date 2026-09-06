@@ -3297,6 +3297,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/settings.ts#getSettingsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/settings-specs.ts#bindSettingsGetOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/settings-specs.ts#bindSettingsGetOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/settings-specs.ts#settingsGetOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/settings.ts#invokeGetSettingsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/settings.ts#readSettings:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/settings-specs.ts#bindSettingsGetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/settings-specs.ts#settingsGetOperationSpec:variable",
+        "executorNode": "packages/operations/src/settings.ts#readSettings:function",
+        "invokerNode": "packages/operations/src/settings.ts#invokeGetSettingsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/settings.ts#getSettingsOperation:variable"
+      },
+      "operationId": "settings.get"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function"
