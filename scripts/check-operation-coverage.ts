@@ -106,6 +106,17 @@ export const operationCoverageContracts: readonly OperationCoverageContract[] = 
 			"packages/operations/src/system.ts#invokeSystemOperationByMcpName:function",
 	},
 	{
+		family: "settings",
+		registry:
+			"packages/operations/src/settings.ts#settingsOperations:variable",
+		testAnchor:
+			"scripts/shared-operation-coverage.ts#assertSettingsOperationsPublished:function",
+		mcpHandler:
+			"packages/mcp/src/handlers/settings-shared.ts#handleSharedSettingsTools:function",
+		dispatcher:
+			"packages/operations/src/settings.ts#invokeSettingsOperationByMcpName:function",
+	},
+	{
 		family: "bounces",
 		registry: "packages/operations/src/bounces.ts#bouncesOperations:variable",
 		testAnchor:

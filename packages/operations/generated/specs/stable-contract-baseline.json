@@ -37052,6 +37052,89 @@
         "input": {
           "components": {
             "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "SettingsGetOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "settings": {
+                    "$ref": "#/components/schemas/Recordstringunknown",
+                    "description": "Installation settings with credential-bearing fields recursively\nreplaced by \"[redacted]\" (passwords, secrets, API keys, tokens)."
+                  }
+                },
+                "required": [
+                  "settings"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "settings": {
+                "$ref": "#/components/schemas/Recordstringunknown",
+                "description": "Installation settings with credential-bearing fields recursively\nreplaced by \"[redacted]\" (passwords, secrets, API keys, tokens)."
+              }
+            },
+            "required": [
+              "settings"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "settings"
+        }
+      ],
+      "id": "settings.get",
+      "mcpName": "listmonk_get_settings",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "settings",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current settings document."
+      },
+      "verb": "get"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "ListmonkUserPermission": {
                 "oneOf": [
                   {

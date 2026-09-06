@@ -1473,6 +1473,18 @@ Resend the double opt-in confirmation email to one subscriber. Every run sends a
 - Retry: `unsafe`
 - Stability: `stable` since `0.17.0`
 
+## `settings.get`
+
+Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens) recursively replaced by [redacted].
+
+- Resource / verb: `settings.get`
+- MCP tool: `listmonk_get_settings`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:settings`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
 ## `user-roles.reconcile`
 
 Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles

@@ -41114,6 +41114,118 @@
     {
       "agent": {
         "avoidWhen": [
+          "The unredacted document is required — no shared surface exposes it."
+        ],
+        "prerequisites": [],
+        "related": [
+          "system.about",
+          "providers.status"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "Delivery, privacy, upload, or security configuration must be inspected; credentials never are — they are redacted before the result leaves the executor."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "SettingsGetOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "settings": {
+                    "$ref": "#/components/schemas/Recordstringunknown",
+                    "description": "Installation settings with credential-bearing fields recursively\nreplaced by \"[redacted]\" (passwords, secrets, API keys, tokens)."
+                  }
+                },
+                "required": [
+                  "settings"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "settings": {
+                "$ref": "#/components/schemas/Recordstringunknown",
+                "description": "Installation settings with credential-bearing fields recursively\nreplaced by \"[redacted]\" (passwords, secrets, API keys, tokens)."
+              }
+            },
+            "required": [
+              "settings"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens) recursively replaced by [redacted].",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "settings"
+        }
+      ],
+      "id": "settings.get",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/settings-specs.ts#bindSettingsGetOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/settings-specs.ts#settingsGetOperationSpec:variable",
+          "executorNode": "packages/operations/src/settings.ts#readSettings:function",
+          "invokerNode": "packages/operations/src/settings.ts#invokeGetSettingsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/settings.ts#getSettingsOperation:variable"
+        },
+        "mcpName": "listmonk_get_settings",
+        "openWorld": true
+      },
+      "resource": "settings",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current settings document."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Read installation settings (redacted)",
+      "verb": "get"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "A single role should be inspected without a full manifest.",
           "The protected Super Admin role is the intended target."
         ],
@@ -42515,6 +42627,17 @@
       ],
       "terminalStates": [],
       "title": "System runtime",
+      "transitions": {
+        "current": []
+      }
+    },
+    {
+      "id": "settings",
+      "states": [
+        "current"
+      ],
+      "terminalStates": [],
+      "title": "Installation settings",
       "transitions": {
         "current": []
       }

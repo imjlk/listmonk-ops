@@ -19118,6 +19118,45 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "settingsGetOutputContract": {
+    "components": {
+      "schemas": {
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "SettingsGetOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "settings": {
+              "$ref": "#/components/schemas/Recordstringunknown",
+              "description": "Installation settings with credential-bearing fields recursively\nreplaced by \"[redacted]\" (passwords, secrets, API keys, tokens)."
+            }
+          },
+          "required": [
+            "settings"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "settings": {
+          "$ref": "#/components/schemas/Recordstringunknown",
+          "description": "Installation settings with credential-bearing fields recursively\nreplaced by \"[redacted]\" (passwords, secrets, API keys, tokens)."
+        }
+      },
+      "required": [
+        "settings"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "specDescribeInputContract": {
     "components": {
       "schemas": {

@@ -78,6 +78,20 @@ export const dashboardResource = defineOperationResourceSpec({
 	terminalStates: [],
 });
 
+/**
+ * Installation settings. The shared read returns the document with
+ * credential-bearing fields recursively redacted.
+ */
+export const settingsResource = defineOperationResourceSpec({
+	id: "settings",
+	title: "Installation settings",
+	states: ["current"],
+	transitions: {
+		current: [],
+	},
+	terminalStates: [],
+});
+
 export const audienceResource = defineOperationResourceSpec({
 	id: "audience",
 	title: "Resolved audience",

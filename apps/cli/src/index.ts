@@ -25,6 +25,7 @@ import providersCommand from "./commands/providers";
 import specsCommand from "./commands/specs";
 import statusCommand from "./commands/status";
 import sequencesCommand from "./commands/sequences";
+import settingsCommand from "./commands/settings";
 import subscribersCommand from "./commands/subscribers";
 import systemCommand from "./commands/system";
 import templatesCommand from "./commands/templates";
@@ -42,6 +43,7 @@ const entry = define({
 const subCommands = {
 	status: statusCommand,
 	system: systemCommand,
+	settings: settingsCommand,
 	providers: providersCommand,
 	deliverability: deliverabilityCommand,
 	sequences: sequencesCommand,

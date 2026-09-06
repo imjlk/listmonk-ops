@@ -43,6 +43,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberExportOutputContract: NormalizedContractSchema;
 	subscriberSendOptinInputContract: NormalizedContractSchema;
 	subscriberSendOptinOutputContract: NormalizedContractSchema;
+	settingsGetOutputContract: NormalizedContractSchema;
 	systemAboutOutputContract: NormalizedContractSchema;
 	systemLogsOutputContract: NormalizedContractSchema;
 	dashboardCountsOutputContract: NormalizedContractSchema;
@@ -265,6 +266,7 @@ export const subscriberSendOptinInputContract =
 	contracts.subscriberSendOptinInputContract;
 export const subscriberSendOptinOutputContract =
 	contracts.subscriberSendOptinOutputContract;
+export const settingsGetOutputContract = contracts.settingsGetOutputContract;
 export const systemAboutOutputContract = contracts.systemAboutOutputContract;
 export const systemLogsOutputContract = contracts.systemLogsOutputContract;
 export const subscriberExportInputContract =

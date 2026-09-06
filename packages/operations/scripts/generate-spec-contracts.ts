@@ -165,6 +165,7 @@ import type {
 	SubscriberImportSessionOutput,
 	SubscriberImportLogsOutput,
 	SubscriberExportInput,
+	SettingsGetOutput,
 	SystemAboutOutput,
 	SystemLogsOutput,
 	SubscriberExportOutput,
@@ -387,6 +388,9 @@ const contracts = {
 	),
 	subscriberSendOptinOutputContract: contractSchema(
 		typia.json.schema<SubscriberSendOptinOutput>(),
+	),
+	settingsGetOutputContract: contractSchema(
+		typia.json.schema<SettingsGetOutput>(),
 	),
 	systemAboutOutputContract: contractSchema(
 		typia.json.schema<SystemAboutOutput>(),

@@ -206,6 +206,16 @@ Transitions:
 
 - `current` → none
 
+## `settings` — Installation settings
+
+States: `current`.
+
+Terminal states: none.
+
+Transitions:
+
+- `current` → none
+
 ## `audience` — Resolved audience
 
 States: `current`, `drifted`, `suppressed`.

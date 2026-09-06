@@ -11,6 +11,7 @@ import {
 	listOperationCatalog,
 	mediaOperationCatalog,
 	type OperationCatalog,
+	settingsOperationCatalog,
 	subscriberOperationCatalog,
 	systemOperationCatalog,
 	templateOperationCatalog,
@@ -41,4 +42,5 @@ export const sharedOperationCatalogs: readonly OperationCatalog[] = [
 	sequenceOperationCatalog,
 	providerOperationCatalog,
 	userRoleOperationCatalog,
+	settingsOperationCatalog,
 ];

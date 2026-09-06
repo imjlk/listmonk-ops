@@ -7,6 +7,7 @@ import {
 	listOperationCatalog,
 	listOperationCatalogSummaries,
 	mediaOperationCatalog,
+	settingsOperationCatalog,
 	subscriberOperationCatalog,
 	systemOperationCatalog,
 	templateOperationCatalog,
@@ -38,6 +39,7 @@ export const cliOperationCatalog = composeOperationCatalogs([
 	sequenceOperationCatalog,
 	providerOperationCatalog,
 	userRoleOperationCatalog,
+	settingsOperationCatalog,
 ]);
 
 export function listCliOperationCatalogSummaries(
