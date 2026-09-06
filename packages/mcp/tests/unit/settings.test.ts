@@ -1,7 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, test } from "bun:test";
 import {
-	handleSettingsSharedTools,
+	handleSharedSettingsTools,
 	sharedSettingsTools,
 } from "../../src/handlers/settings-shared";
 import type { CallToolRequest } from "../../src/types/mcp";
@@ -39,7 +39,7 @@ describe("settings shared adapter", () => {
 			},
 		} as unknown as ListmonkClient;
 
-		const result = await handleSettingsSharedTools(
+		const result = await handleSharedSettingsTools(
 			request("listmonk_get_settings"),
 			client,
 		);

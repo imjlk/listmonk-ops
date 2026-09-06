@@ -112,7 +112,7 @@ export const operationCoverageContracts: readonly OperationCoverageContract[] = 
 		testAnchor:
 			"scripts/shared-operation-coverage.ts#assertSettingsOperationsPublished:function",
 		mcpHandler:
-			"packages/mcp/src/handlers/settings-shared.ts#handleSettingsSharedTools:function",
+			"packages/mcp/src/handlers/settings-shared.ts#handleSharedSettingsTools:function",
 		dispatcher:
 			"packages/operations/src/settings.ts#invokeSettingsOperationByMcpName:function",
 	},

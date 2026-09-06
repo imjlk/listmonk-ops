@@ -21,6 +21,8 @@ describe("settings credential redaction", () => {
 		const document = {
 			"app.from_email": "listmonk <noreply@example.com>",
 			"upload.s3.aws_access_key_id": "AKIAEXAMPLE",
+			"bounce.forwardemail_key": "FE.secret",
+			"bounce.postmark_username": "postmark-server-token",
 			"upload.s3.aws_secret_access_key": "secret-value",
 			"bounce.sendgrid_key": "SG.xxxx",
 			smtp: [
@@ -49,6 +51,12 @@ describe("settings credential redaction", () => {
 			SETTINGS_REDACTED_VALUE,
 		);
 		expect(redacted["bounce.sendgrid_key"]).toBe(SETTINGS_REDACTED_VALUE);
+		expect(redacted["bounce.forwardemail_key"]).toBe(
+			SETTINGS_REDACTED_VALUE,
+		);
+		expect(redacted["bounce.postmark_username"]).toBe(
+			SETTINGS_REDACTED_VALUE,
+		);
 		expect(
 			(redacted.smtp as { password?: unknown }[])[0]?.password,
 		).toBe(SETTINGS_REDACTED_VALUE);
@@ -68,6 +76,15 @@ describe("settings credential redaction", () => {
 		expect(captcha.key).toBe(SETTINGS_REDACTED_VALUE);
 		// The redaction must not mutate the source document.
 		expect(document.smtp?.[0]?.password).toBe("hunter2");
+	});
+
+	test("cannot be poisoned through a __proto__ key", () => {
+		const redacted = redactSettingsCredentials({
+			__proto__: { polluted: true },
+			safe: 1,
+		}) as Record<string, unknown>;
+		expect(redacted.safe).toBe(1);
+		expect(({} as Record<string, unknown>).polluted).toBeUndefined();
 	});
 
 	test("passes scalars and empty structures through", () => {

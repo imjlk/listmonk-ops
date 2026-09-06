@@ -56,8 +56,12 @@ const CREDENTIAL_SUBSTRINGS = [
 	"api_key",
 	"access_key",
 	"sendgrid_key",
+	"forwardemail_key",
 	"private_key",
 	"token",
+	// Postmark's server token is used as a webhook basic-auth credential
+	// even though its field is only username-shaped.
+	"postmark_username",
 ] as const;
 
 function isCredentialFieldName(name: string): boolean {
@@ -77,11 +81,18 @@ export function redactSettingsCredentials(value: unknown): unknown {
 	}
 	if (value !== null && typeof value === "object") {
 		const source = value as Record<string, unknown>;
-		const result: Record<string, unknown> = {};
+		const result: Record<string, unknown> = Object.create(null);
 		for (const [key, entry] of Object.entries(source)) {
-			result[key] = isCredentialFieldName(key)
-				? SETTINGS_REDACTED_VALUE
-				: redactSettingsCredentials(entry);
+			// Assign through defineProperty so a hostile "__proto__" key
+			// cannot poison the result object's prototype.
+			Object.defineProperty(result, key, {
+				value: isCredentialFieldName(key)
+					? SETTINGS_REDACTED_VALUE
+					: redactSettingsCredentials(entry),
+				enumerable: true,
+				writable: true,
+				configurable: true,
+			});
 		}
 		return result;
 	}

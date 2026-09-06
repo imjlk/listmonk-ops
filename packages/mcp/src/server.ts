@@ -27,7 +27,7 @@ import {
 	handleBouncesTools,
 	handleDashboardTools,
 	handleSystemTools,
-	handleSettingsSharedTools,
+	handleSharedSettingsTools,
 	handleCampaignsTools,
 	handleDiscoveryTools,
 	handleOperationCatalogTools,
@@ -559,7 +559,7 @@ export class ListmonkMCPServer {
 			} else if (toolNameSets.system.has(name)) {
 				result = await handleSystemTools(operationRequest, this.client);
 			} else if (toolNameSets.sharedSettings.has(name)) {
-				result = await handleSettingsSharedTools(operationRequest, this.client);
+				result = await handleSharedSettingsTools(operationRequest, this.client);
 			} else if (toolNameSets.media.has(name)) {
 				result = await handleMediaTools(operationRequest, this.client, {
 					baseUrl: this.baseUrl,

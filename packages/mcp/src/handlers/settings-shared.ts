@@ -9,7 +9,7 @@ import { createOperationResult, toMcpTool } from "./operation-adapter.js";
 
 export const sharedSettingsTools: MCPTool[] = settingsOperations.map(toMcpTool);
 
-export async function handleSettingsSharedTools(
+export async function handleSharedSettingsTools(
 	request: CallToolRequest,
 	client: ListmonkClient,
 ): Promise<CallToolResult> {

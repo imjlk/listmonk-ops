@@ -7,7 +7,7 @@ import { dashboardTools, handleDashboardTools } from "./dashboard.js";
 import { systemTools, handleSystemTools } from "./system.js";
 import {
 	sharedSettingsTools,
-	handleSettingsSharedTools,
+	handleSharedSettingsTools,
 } from "./settings-shared.js";
 import {
 	handleOperationCatalogTools,
@@ -33,6 +33,7 @@ export * from "./abtest.js";
 export * from "./bounces.js";
 export * from "./campaigns.js";
 export * from "./dashboard.js";
+export * from "./settings-shared.js";
 export * from "./system.js";
 
 export * from "./catalog.js";
@@ -112,7 +113,7 @@ export const toolRegistrations: readonly ToolRegistration[] = [
 	{ tools: mediaTools, handler: handleMediaTools },
 	{ tools: dashboardTools, handler: handleDashboardTools },
 	{ tools: systemTools, handler: handleSystemTools },
-	{ tools: sharedSettingsTools, handler: handleSettingsSharedTools },
+	{ tools: sharedSettingsTools, handler: handleSharedSettingsTools },
 	{ tools: opsTools, handler: handleOpsTools },
 	{ tools: providerTools, handler: handleProviderTools },
 	{ tools: bouncesTools, handler: handleBouncesTools },
@@ -143,5 +144,3 @@ export function assertUniqueToolNames(
 		);
 	}
 }
-
-export { handleSettingsSharedTools };
