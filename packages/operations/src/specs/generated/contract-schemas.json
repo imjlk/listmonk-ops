@@ -13519,8 +13519,8 @@
           "additionalProperties": false,
           "properties": {
             "count": {
-              "description": "Subscribers deleted by this request (0 when the set was already empty).",
-              "type": "number"
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Subscribers deleted by this request (0 when the set was already empty)."
             },
             "type": {
               "$ref": "#/components/schemas/MaintenanceGcType"
@@ -13541,6 +13541,11 @@
               "const": "orphan"
             }
           ]
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
         }
       }
     },
@@ -13549,8 +13554,8 @@
       "additionalProperties": false,
       "properties": {
         "count": {
-          "description": "Subscribers deleted by this request (0 when the set was already empty).",
-          "type": "number"
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Subscribers deleted by this request (0 when the set was already empty)."
         },
         "type": {
           "$ref": "#/components/schemas/MaintenanceGcType"
@@ -13612,11 +13617,12 @@
           "additionalProperties": false,
           "properties": {
             "before_date": {
+              "description": "Echoed cutoff.",
               "type": "string"
             },
             "count": {
-              "description": "Unconfirmed subscriptions deleted by this request.",
-              "type": "number"
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Unconfirmed subscriptions deleted by this request."
             }
           },
           "required": [
@@ -13624,6 +13630,11 @@
             "count"
           ],
           "type": "object"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
         }
       }
     },
@@ -13632,11 +13643,12 @@
       "additionalProperties": false,
       "properties": {
         "before_date": {
+          "description": "Echoed cutoff.",
           "type": "string"
         },
         "count": {
-          "description": "Unconfirmed subscriptions deleted by this request.",
-          "type": "number"
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Unconfirmed subscriptions deleted by this request."
         }
       },
       "required": [

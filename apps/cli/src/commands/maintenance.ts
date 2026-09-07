@@ -3,6 +3,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeGcSubscribersOperation,
 	invokeGcUnconfirmedOperation,
+	MAINTENANCE_BEFORE_DATE_PATTERN_SOURCE,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
@@ -117,11 +118,7 @@ export default defineGroup({
 				"Delete every subscription unconfirmed before an RFC3339 cutoff",
 			options: {
 				"before-date": option(
-					z
-						.string()
-						.regex(
-							/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/,
-						),
+					z.string().regex(new RegExp(MAINTENANCE_BEFORE_DATE_PATTERN_SOURCE)),
 					{
 						description:
 							"RFC3339 cutoff (e.g. 2026-01-01T00:00:00Z); repeat requests report count 0",

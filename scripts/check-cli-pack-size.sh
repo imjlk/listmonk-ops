@@ -6,7 +6,7 @@ set -euo pipefail
 # while retaining the stricter compressed distribution budget below. Each
 # standalone contract migration adds a few KB of generated JSON.
 MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1840000}"
-MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-293000}"
+MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-295000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"
 

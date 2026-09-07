@@ -316,7 +316,6 @@ interface SystemOperations {
 	getLogs(): Promise<FlattenedResponse<string[]>>;
 	/** Reload app configuration without a restart; safe to repeat. */
 	reload(): Promise<FlattenedResponse<boolean>>;
-	reload(): Promise<FlattenedResponse<boolean>>;
 }
 
 export type List = t.List;

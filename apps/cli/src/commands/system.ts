@@ -2,8 +2,8 @@ import type { OutputUtils } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeReadSystemAboutOperation,
-	invokeReloadSystemOperation,
 	invokeReadSystemLogsOperation,
+	invokeReloadSystemOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
@@ -111,7 +111,7 @@ export async function handleSystemLogsCommand({
 
 export default defineGroup({
 	name: "system",
-	description: "Read Listmonk server identity and diagnostics",
+	description: "Read Listmonk server identity, diagnostics, and reload",
 	commands: [
 		defineCommand({
 			name: "about",

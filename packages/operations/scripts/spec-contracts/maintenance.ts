@@ -1,4 +1,5 @@
 import type { tags } from "typia";
+import type { NonNegativeInteger } from "./primitives";
 import type { MAINTENANCE_BEFORE_DATE_PATTERN_SOURCE } from "../../src/maintenance-before-date";
 /** RFC3339 cutoff bound shared with the executable schema. */
 export type MaintenanceBeforeDate = string &
@@ -14,7 +15,7 @@ export type MaintenanceGcSubscribersInput = {
 export interface MaintenanceGcSubscribersOutput {
 	type: MaintenanceGcType;
 	/** Subscribers deleted by this request (0 when the set was already empty). */
-	count: number;
+	count: NonNegativeInteger;
 }
 
 export type MaintenanceGcUnconfirmedInput = {
@@ -23,7 +24,8 @@ export type MaintenanceGcUnconfirmedInput = {
 };
 
 export interface MaintenanceGcUnconfirmedOutput {
+	/** Echoed cutoff. */
 	before_date: string;
 	/** Unconfirmed subscriptions deleted by this request. */
-	count: number;
+	count: NonNegativeInteger;
 }
