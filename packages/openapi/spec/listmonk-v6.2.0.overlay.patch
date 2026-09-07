@@ -124,6 +124,31 @@
        operationId: setDefaultTemplateById
        tags:
          - Templates
+@@ -2051,17 +2051,13 @@
+       operationId: deleteUnconfirmedSubscriptions
+       tags:
+         - Maintenance
+-      requestBody:
+-        required: true
+-        description: date parameter
+-        content:
+-          application/x-www-form-urlencoded:
+-            schema:
+-              type: object
+-              properties:
+-                before_date:
+-                  type: string
+-                  format: date
++      parameters:
++        - in: query
++          name: before_date
++          required: true
++          description: RFC3339 cutoff; subscriptions unconfirmed before this date are deleted
++          schema:
++            type: string
+       responses:
+         "200":
+           description: response
 @@ -2132,6 +2176,41 @@
  
  components:

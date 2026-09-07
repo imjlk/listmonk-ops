@@ -13467,6 +13467,199 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "maintenanceGcSubscribersInputContract": {
+    "components": {
+      "schemas": {
+        "MaintenanceGcSubscribersInput": {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "$ref": "#/components/schemas/MaintenanceGcType",
+              "description": "Which subscriber set the one-shot collection deletes."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "MaintenanceGcType": {
+          "oneOf": [
+            {
+              "const": "blocklisted"
+            },
+            {
+              "const": "orphan"
+            }
+          ]
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "$ref": "#/components/schemas/MaintenanceGcType",
+          "description": "Which subscriber set the one-shot collection deletes."
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "maintenanceGcSubscribersOutputContract": {
+    "components": {
+      "schemas": {
+        "MaintenanceGcSubscribersOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "count": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Subscribers deleted by this request (0 when the set was already empty)."
+            },
+            "type": {
+              "$ref": "#/components/schemas/MaintenanceGcType"
+            }
+          },
+          "required": [
+            "type",
+            "count"
+          ],
+          "type": "object"
+        },
+        "MaintenanceGcType": {
+          "oneOf": [
+            {
+              "const": "blocklisted"
+            },
+            {
+              "const": "orphan"
+            }
+          ]
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Subscribers deleted by this request (0 when the set was already empty)."
+        },
+        "type": {
+          "$ref": "#/components/schemas/MaintenanceGcType"
+        }
+      },
+      "required": [
+        "type",
+        "count"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "maintenanceGcUnconfirmedInputContract": {
+    "components": {
+      "schemas": {
+        "MaintenanceBeforeDate": {
+          "description": "RFC3339 cutoff bound shared with the executable schema.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "MaintenanceGcUnconfirmedInput": {
+          "additionalProperties": false,
+          "properties": {
+            "before_date": {
+              "$ref": "#/components/schemas/MaintenanceBeforeDate",
+              "description": "RFC3339 cutoff; subscriptions unconfirmed before this date are deleted."
+            }
+          },
+          "required": [
+            "before_date"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "before_date": {
+          "$ref": "#/components/schemas/MaintenanceBeforeDate",
+          "description": "RFC3339 cutoff; subscriptions unconfirmed before this date are deleted."
+        }
+      },
+      "required": [
+        "before_date"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "maintenanceGcUnconfirmedOutputContract": {
+    "components": {
+      "schemas": {
+        "MaintenanceGcUnconfirmedOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "before_date": {
+              "description": "Echoed cutoff.",
+              "type": "string"
+            },
+            "count": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Unconfirmed subscriptions deleted by this request."
+            }
+          },
+          "required": [
+            "before_date",
+            "count"
+          ],
+          "type": "object"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "before_date": {
+          "description": "Echoed cutoff.",
+          "type": "string"
+        },
+        "count": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Unconfirmed subscriptions deleted by this request."
+        }
+      },
+      "required": [
+        "before_date",
+        "count"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "mediaCollectionOutputContract": {
     "components": {
       "schemas": {
@@ -22324,6 +22517,41 @@
       },
       "required": [
         "logs"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "systemReloadOutputContract": {
+    "components": {
+      "schemas": {
+        "SystemReloadOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "reloaded": {
+              "description": "Whether Listmonk acknowledged the configuration reload.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "reloaded"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "reloaded": {
+          "description": "Whether Listmonk acknowledged the configuration reload.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "reloaded"
       ],
       "type": "object"
     },

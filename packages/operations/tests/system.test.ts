@@ -20,18 +20,32 @@ function systemContext(
 
 describe("shared system operations", () => {
 	test("exposes a read-only registry with safety metadata", () => {
-		expect(systemOperations).toHaveLength(2);
+		expect(systemOperations).toHaveLength(3);
 		expect(systemOperationCatalog.id).toBe("system");
 		for (const operation of systemOperations) {
-			expect(operation.safety).toEqual({
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			});
+			// The reload refreshes runtime configuration, so it is a
+			// repeatable non-read-only maintenance write.
+			if (operation.id === "system.reload") {
+				expect(operation.safety).toEqual({
+					readOnlyHint: false,
+					destructiveHint: false,
+					idempotentHint: true,
+					openWorldHint: true,
+				});
+			} else {
+				expect(operation.safety).toEqual({
+					readOnlyHint: true,
+					destructiveHint: false,
+					idempotentHint: true,
+					openWorldHint: true,
+				});
+			}
 		}
 		expect(getSystemOperationByMcpName("listmonk_get_logs")).toBe(
 			systemOperations[1],
+		);
+			expect(getSystemOperationByMcpName("listmonk_reload_app")).toBe(
+			systemOperations[2],
 		);
 		expect(getSystemOperationByMcpName("listmonk_unknown")).toBe(undefined);
 	});

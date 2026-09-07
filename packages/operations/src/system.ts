@@ -2,6 +2,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	bindSystemAboutOperationSpec,
 	bindSystemLogsOperationSpec,
+	bindSystemReloadOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
@@ -31,6 +32,10 @@ const systemAboutOutputSchema = z.looseObject({
 
 const systemLogsOutputSchema = z.object({
 	logs: z.array(z.string()),
+});
+
+const systemReloadOutputSchema = z.object({
+	reloaded: z.boolean(),
 });
 
 export type SystemAbout = z.output<typeof systemAboutOutputSchema>;
@@ -90,6 +95,66 @@ export const readSystemAboutOperation = defineOperation({
 	execute: readSystemAbout,
 });
 
+/**
+ * Reload the app configuration without a restart. The observed 6.2
+ * endpoint acknowledges with a bare boolean; the shared contract echoes
+ * it as `reloaded`.
+ */
+export async function reloadSystem({
+	client,
+}: SystemOperationContext): Promise<{ reloaded: boolean }> {
+	const response = await client.system.reload();
+	const acknowledged = unwrapResourceResponse(
+		response,
+		"Failed to reload app configuration",
+	);
+	if (acknowledged !== true) {
+		throw new Error(
+			"Failed to reload app configuration: Listmonk returned a negative acknowledgement",
+		);
+	}
+	return { reloaded: true };
+}
+
+export const reloadSystemOperation = defineOperation({
+	id: "system.reload",
+	title: "Reload app configuration",
+	description:
+		"Reload the Listmonk app configuration without a restart. Safe to repeat; settings mutations only take effect after a reload.",
+	inputSchema: z.object({}),
+	outputSchema: systemReloadOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
+	mcp: {
+		name: "listmonk_reload_app",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSystemReloadOperationSpec(),
+	execute: reloadSystem,
+});
+
+export async function invokeReloadSystemOperation(
+	context: SystemOperationContext,
+	input: unknown,
+): Promise<{ reloaded: boolean }> {
+	parseOperationInput(reloadSystemOperation.inputSchema, input);
+	let output: { reloaded: boolean };
+	try {
+		output = await reloadSystem(context);
+	} catch (error) {
+		throw normalizeOperationExecutionError(reloadSystemOperation.id, error);
+	}
+	return parseOperationOutput(
+		reloadSystemOperation.id,
+		reloadSystemOperation.outputSchema,
+		output,
+	);
+}
+
 export const readSystemLogsOperation = defineOperation({
 	id: "system.logs",
 	title: "Read server logs",
@@ -145,6 +210,7 @@ export async function invokeReadSystemLogsOperation(
 export const systemOperations = [
 	readSystemAboutOperation,
 	readSystemLogsOperation,
+	reloadSystemOperation,
 ] as const;
 
 export const systemOperationCatalog = defineOperationCatalog({
@@ -186,6 +252,11 @@ export async function invokeSystemOperationByMcpName(
 			return {
 				operation: readSystemLogsOperation,
 				output: await invokeReadSystemLogsOperation(context, input),
+			};
+		case reloadSystemOperation.mcp.name:
+			return {
+				operation: reloadSystemOperation,
+				output: await invokeReloadSystemOperation(context, input),
 			};
 		default:
 			return undefined;

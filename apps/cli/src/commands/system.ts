@@ -3,6 +3,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeReadSystemAboutOperation,
 	invokeReadSystemLogsOperation,
+	invokeReloadSystemOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
@@ -39,6 +40,25 @@ export async function renderSystemAbout(
 		`Listmonk ${about.version ?? "unknown"} build identity`,
 	);
 	context.output.json(about);
+}
+
+export async function renderSystemReload(
+	context: SystemCliContext,
+): Promise<void> {
+	const result = await invokeReloadSystemOperation(context, {});
+	context.output.success("Listmonk app configuration reloaded");
+	context.output.json(result);
+}
+
+export async function handleSystemReloadCommand({
+	...args
+}: HandlerArgs<Record<string, unknown>>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderSystemReload({ client, output: getOutput() });
+	} catch (error) {
+		throw createSystemCommandError("Failed to reload app configuration", error);
+	}
 }
 
 export async function renderSystemLogs(
@@ -91,7 +111,7 @@ export async function handleSystemLogsCommand({
 
 export default defineGroup({
 	name: "system",
-	description: "Read Listmonk server identity and diagnostics",
+	description: "Read Listmonk server identity, diagnostics, and reload",
 	commands: [
 		defineCommand({
 			name: "about",
@@ -110,6 +130,13 @@ export default defineGroup({
 				}),
 			},
 			handler: handleSystemLogsCommand,
+		}),
+		defineCommand({
+			name: "reload",
+			operationId: "system.reload",
+			description: "Reload app configuration without a restart",
+			options: {},
+			handler: handleSystemReloadCommand,
 		}),
 	],
 });

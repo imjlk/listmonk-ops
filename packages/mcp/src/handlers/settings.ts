@@ -49,14 +49,6 @@ export const settingsTools: MCPTool[] = [
 			required: ["settings"],
 		},
 	},
-	{
-		name: "listmonk_reload_app",
-		description: "Reload Listmonk app configuration without restart",
-		inputSchema: {
-			type: "object",
-			properties: {},
-		},
-	},
 ];
 
 export const handleSettingsTools: HandlerFunction = withErrorHandler(
@@ -99,11 +91,6 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 				});
 
 				return handleDataResponse(response, "Failed to test SMTP settings");
-			}
-
-			case "listmonk_reload_app": {
-				const response = await client.system.reload();
-				return handleDataResponse(response, "Failed to reload app");
 			}
 
 			default:

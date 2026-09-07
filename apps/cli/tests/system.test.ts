@@ -2,6 +2,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
 	renderSystemAbout,
+	renderSystemReload,
 	renderSystemLogs,
 	type SystemCliContext,
 } from "../src/commands/system";
@@ -38,6 +39,25 @@ describe("system CLI actions", () => {
 			version: "v6.2.0",
 			build: "v6.2.0 (ef0a7587)",
 		});
+	});
+
+	test("renders the reload acknowledgement", async () => {
+		const reload = mock(async () => ({ data: true }));
+		const cliContext = {
+			client: { system: { reload } } as unknown as Pick<
+				ListmonkClient,
+				"system"
+			>,
+			output: output(),
+		} satisfies SystemCliContext;
+
+		await import("../src/commands/system").then((m) =>
+			m.renderSystemReload(cliContext),
+		);
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Listmonk app configuration reloaded",
+		);
+		expect(cliContext.output.json).toHaveBeenCalledWith({ reloaded: true });
 	});
 
 	test("renders and tail-selects server logs", async () => {

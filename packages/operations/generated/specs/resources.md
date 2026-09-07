@@ -216,6 +216,16 @@ Transitions:
 
 - `current` → none
 
+## `maintenance` — Maintenance collection
+
+States: `current`.
+
+Terminal states: none.
+
+Transitions:
+
+- `current` → none
+
 ## `audience` — Resolved audience
 
 States: `current`, `drifted`, `suppressed`.

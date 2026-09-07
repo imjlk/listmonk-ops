@@ -265,6 +265,12 @@ const openapiCampaignArchiveMethod =
 	"packages/openapi/src/client/contracts.ts#CampaignOperations.updateArchive:method";
 const openapiSubscriberOptinMethod =
 	"packages/openapi/src/client/contracts.ts#SubscriberOperations.sendOptin:method";
+const openapiGcSubscribersMethod =
+	"packages/openapi/src/client/contracts.ts#MaintenanceOperations.gcSubscribers:method";
+const openapiGcUnconfirmedMethod =
+	"packages/openapi/src/client/contracts.ts#MaintenanceOperations.gcUnconfirmedSubscriptions:method";
+const openapiSystemReloadMethod =
+	"packages/openapi/src/client/contracts.ts#SystemOperations.reload:method";
 const openapiSettingsGetMethod =
 	"packages/openapi/src/client/contracts.ts#SettingsOperations.get:method";
 const openapiSystemAboutMethod =
@@ -1062,6 +1068,49 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 		],
 	}),
 	...resourceOperationContracts({
+		resource: "maintenance",
+		cliModule:
+			"apps/cli/src/commands/maintenance.ts#apps/cli/src/commands/maintenance.ts:module",
+		cliTestModule:
+			"apps/cli/tests/maintenance.test.ts#apps/cli/tests/maintenance.test.ts:module",
+		mcpHandler:
+			"packages/mcp/src/handlers/maintenance.ts#handleMaintenanceTools:function",
+		dispatcher:
+			"packages/operations/src/maintenance.ts#invokeMaintenanceOperationByMcpName:function",
+		operationTestModule:
+			"packages/operations/tests/maintenance.test.ts#packages/operations/tests/maintenance.test.ts:module",
+		mcpTestModule:
+			"packages/mcp/tests/unit/maintenance.test.ts#packages/mcp/tests/unit/maintenance.test.ts:module",
+		testAnchor: {
+			invoker:
+				"packages/operations/src/maintenance.ts#invokeGcSubscribersOperation:function",
+			action:
+				"packages/operations/src/maintenance.ts#gcSubscribers:function",
+		},
+		invokers: [
+			{
+				label: "gc-subscribers",
+				cliHandler: "handleGcSubscribersCommand",
+				cliRender: "renderGcSubscribers",
+				invoker:
+					"packages/operations/src/maintenance.ts#invokeGcSubscribersOperation:function",
+				action:
+					"packages/operations/src/maintenance.ts#gcSubscribers:function",
+				openapi: openapiGcSubscribersMethod,
+			},
+			{
+				label: "gc-unconfirmed",
+				cliHandler: "handleGcUnconfirmedCommand",
+				cliRender: "renderGcUnconfirmed",
+				invoker:
+					"packages/operations/src/maintenance.ts#invokeGcUnconfirmedOperation:function",
+				action:
+					"packages/operations/src/maintenance.ts#gcUnconfirmedSubscriptions:function",
+				openapi: openapiGcUnconfirmedMethod,
+			},
+		],
+	}),
+	...resourceOperationContracts({
 		resource: "settings",
 		cliModule:
 			"apps/cli/src/commands/settings.ts#apps/cli/src/commands/settings.ts:module",
@@ -1133,6 +1182,16 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				action:
 					"packages/operations/src/system.ts#readSystemLogs:function",
 				openapi: openapiSystemLogsMethod,
+			},
+			{
+				label: "reload",
+				cliHandler: "handleSystemReloadCommand",
+				cliRender: "renderSystemReload",
+				invoker:
+					"packages/operations/src/system.ts#invokeReloadSystemOperation:function",
+				action:
+					"packages/operations/src/system.ts#reloadSystem:function",
+				openapi: openapiSystemReloadMethod,
 			},
 		],
 	}),

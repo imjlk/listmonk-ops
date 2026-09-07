@@ -18,6 +18,7 @@ describe("system operation adapter", () => {
 		expect(systemTools.map((tool) => tool.name)).toEqual([
 			"listmonk_get_about",
 			"listmonk_get_logs",
+			"listmonk_reload_app",
 		]);
 		expect(systemTools[0]?.annotations).toMatchObject({
 			readOnlyHint: true,

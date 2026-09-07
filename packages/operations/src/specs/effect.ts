@@ -15,6 +15,7 @@ export type OperationResourceKind =
 	| "dashboard"
 	| "system"
 	| "settings"
+	| "maintenance"
 	| "control"
 	| "operation"
 	| "webhook"

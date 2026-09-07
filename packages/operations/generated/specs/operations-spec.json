@@ -40801,6 +40801,121 @@
     {
       "agent": {
         "avoidWhen": [
+          "No settings changed since the last reload."
+        ],
+        "prerequisites": [
+          "settings.get"
+        ],
+        "related": [
+          "settings.get",
+          "system.about"
+        ],
+        "retryGuidance": "Repeat safely; the reload is a refresh, not a mutation.",
+        "useWhen": [
+          "Settings were updated and must take effect without restarting the instance."
+        ],
+        "verifyWith": [
+          "system.about"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "SystemReloadOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "reloaded": {
+                    "description": "Whether Listmonk acknowledged the configuration reload.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "reloaded"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "reloaded": {
+                "description": "Whether Listmonk acknowledged the configuration reload.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "reloaded"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Reload the Listmonk app configuration without a restart. Safe to repeat; settings mutations only take effect after a reload.",
+      "effects": [
+        {
+          "action": "recover",
+          "destructive": false,
+          "kind": "maintenance",
+          "preview": false,
+          "resource": "system"
+        }
+      ],
+      "id": "system.reload",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemReloadOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#systemReloadOperationSpec:variable",
+          "executorNode": "packages/operations/src/system.ts#reloadSystem:function",
+          "invokerNode": "packages/operations/src/system.ts#invokeReloadSystemOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/system.ts#reloadSystemOperation:variable"
+        },
+        "mcpName": "listmonk_reload_app",
+        "openWorld": true
+      },
+      "resource": "system",
+      "retry": {
+        "kind": "safe",
+        "reason": "The reload is a repeatable configuration refresh; Listmonk acknowledges every attempt with the same success."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Reload app configuration",
+      "verb": "reload"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The campaign is not finished — archive pages apply to sent campaigns."
         ],
         "prerequisites": [
@@ -41222,6 +41337,321 @@
       "stability": "stable",
       "title": "Read installation settings (redacted)",
       "verb": "get"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Any subscriber in the set might still be wanted — the server offers no preview, so review subscribers.list first."
+        ],
+        "prerequisites": [
+          "subscribers.list"
+        ],
+        "related": [
+          "subscribers.list",
+          "ops.subscribers.hygiene"
+        ],
+        "retryGuidance": "Verify with subscribers.list before repeating; a repeat reports count 0 when the first run completed.",
+        "useWhen": [
+          "An operator has explicitly approved deleting every orphaned or blocklisted subscriber in one batch."
+        ],
+        "verifyWith": [
+          "subscribers.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "MaintenanceGcSubscribersInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "$ref": "#/components/schemas/MaintenanceGcType",
+                    "description": "Which subscriber set the one-shot collection deletes."
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              "MaintenanceGcType": {
+                "oneOf": [
+                  {
+                    "const": "blocklisted"
+                  },
+                  {
+                    "const": "orphan"
+                  }
+                ]
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "$ref": "#/components/schemas/MaintenanceGcType",
+                "description": "Which subscriber set the one-shot collection deletes."
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "MaintenanceGcSubscribersOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Subscribers deleted by this request (0 when the set was already empty)."
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/MaintenanceGcType"
+                  }
+                },
+                "required": [
+                  "type",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "MaintenanceGcType": {
+                "oneOf": [
+                  {
+                    "const": "blocklisted"
+                  },
+                  {
+                    "const": "orphan"
+                  }
+                ]
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "count": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Subscribers deleted by this request (0 when the set was already empty)."
+              },
+              "type": {
+                "$ref": "#/components/schemas/MaintenanceGcType"
+              }
+            },
+            "required": [
+              "type",
+              "count"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "One-shot deletion of every orphaned (listless) or blocklisted subscriber. The server offers no preview; one confirmed request deletes the full matching set.",
+      "effects": [
+        {
+          "action": "prune",
+          "destructive": true,
+          "kind": "maintenance",
+          "preview": false,
+          "resource": "subscriber"
+        }
+      ],
+      "id": "maintenance.gc-subscribers",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcSubscribersOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcSubscribersOperationSpec:variable",
+          "executorNode": "packages/operations/src/maintenance.ts#gcSubscribers:function",
+          "invokerNode": "packages/operations/src/maintenance.ts#invokeGcSubscribersOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/maintenance.ts#gcSubscribersOperation:variable"
+        },
+        "mcpName": "listmonk_gc_subscribers",
+        "openWorld": true
+      },
+      "resource": "maintenance",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "The first successful run empties the matching set, so a repeated identical request reports count 0; subscribers that newly match between runs are a different set, so verify with subscribers.list after an ambiguous result.",
+        "reconcileWith": "subscribers.list"
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Garbage-collect subscribers",
+      "verb": "gc-subscribers"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Double opt-in campaigns may legitimately have pending confirmations — choose the cutoff with that window in mind."
+        ],
+        "prerequisites": [
+          "subscribers.list"
+        ],
+        "related": [
+          "maintenance.gc-subscribers",
+          "subscribers.list"
+        ],
+        "retryGuidance": "Verify with subscribers.list before repeating; a repeat reports count 0 when the first run completed.",
+        "useWhen": [
+          "An operator has explicitly approved deleting every subscription unconfirmed before the cutoff."
+        ],
+        "verifyWith": [
+          "subscribers.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "MaintenanceBeforeDate": {
+                "description": "RFC3339 cutoff bound shared with the executable schema.",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+                "type": "string"
+              },
+              "MaintenanceGcUnconfirmedInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "before_date": {
+                    "$ref": "#/components/schemas/MaintenanceBeforeDate",
+                    "description": "RFC3339 cutoff; subscriptions unconfirmed before this date are deleted."
+                  }
+                },
+                "required": [
+                  "before_date"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "before_date": {
+                "$ref": "#/components/schemas/MaintenanceBeforeDate",
+                "description": "RFC3339 cutoff; subscriptions unconfirmed before this date are deleted."
+              }
+            },
+            "required": [
+              "before_date"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "MaintenanceGcUnconfirmedOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "before_date": {
+                    "description": "Echoed cutoff.",
+                    "type": "string"
+                  },
+                  "count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Unconfirmed subscriptions deleted by this request."
+                  }
+                },
+                "required": [
+                  "before_date",
+                  "count"
+                ],
+                "type": "object"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "before_date": {
+                "description": "Echoed cutoff.",
+                "type": "string"
+              },
+              "count": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Unconfirmed subscriptions deleted by this request."
+              }
+            },
+            "required": [
+              "before_date",
+              "count"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "One-shot deletion of every subscription still unconfirmed before an RFC3339 cutoff. The server offers no preview; one confirmed request deletes the full matching set.",
+      "effects": [
+        {
+          "action": "prune",
+          "destructive": true,
+          "kind": "maintenance",
+          "preview": false,
+          "resource": "subscriber"
+        }
+      ],
+      "id": "maintenance.gc-unconfirmed",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcUnconfirmedOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcUnconfirmedOperationSpec:variable",
+          "executorNode": "packages/operations/src/maintenance.ts#gcUnconfirmedSubscriptions:function",
+          "invokerNode": "packages/operations/src/maintenance.ts#invokeGcUnconfirmedOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/maintenance.ts#gcUnconfirmedOperation:variable"
+        },
+        "mcpName": "listmonk_gc_unconfirmed_subscriptions",
+        "openWorld": true
+      },
+      "resource": "maintenance",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "The first successful run empties the matching set for the echoed cutoff, so a repeated identical request reports count 0; verify with subscribers.list after an ambiguous result.",
+        "reconcileWith": "subscribers.list"
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Garbage-collect unconfirmed subscriptions",
+      "verb": "gc-unconfirmed"
     },
     {
       "agent": {
@@ -42638,6 +43068,17 @@
       ],
       "terminalStates": [],
       "title": "Installation settings",
+      "transitions": {
+        "current": []
+      }
+    },
+    {
+      "id": "maintenance",
+      "states": [
+        "current"
+      ],
+      "terminalStates": [],
+      "title": "Maintenance collection",
       "transitions": {
         "current": []
       }

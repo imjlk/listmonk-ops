@@ -2,6 +2,7 @@ import { abTestOperations } from "../packages/abtest/src/operations";
 import { bouncesTools } from "../packages/mcp/src/handlers/bounces";
 import { dashboardTools } from "../packages/mcp/src/handlers/dashboard";
 import { sharedSettingsTools } from "../packages/mcp/src/handlers/settings-shared";
+import { maintenanceTools } from "../packages/mcp/src/handlers/maintenance";
 import { systemTools } from "../packages/mcp/src/handlers/system";
 import { abtestTools } from "../packages/mcp/src/handlers/abtest";
 import { campaignsTools } from "../packages/mcp/src/handlers/campaigns";
@@ -32,6 +33,7 @@ import { bouncesOperations } from "../packages/operations/src/bounces";
 import { dashboardOperations } from "../packages/operations/src/dashboard";
 import { systemOperations } from "../packages/operations/src/system";
 import { settingsOperations } from "../packages/operations/src/settings";
+import { maintenanceOperations } from "../packages/operations/src/maintenance";
 import { subscriberOperations } from "../packages/operations/src/subscribers";
 import { templateOperations } from "../packages/operations/src/templates";
 import { transactionalOperations } from "../packages/operations/src/transactional";
@@ -45,6 +47,7 @@ export type SharedOperation =
 	| (typeof dashboardOperations)[number]
 	| (typeof systemOperations)[number]
 	| (typeof settingsOperations)[number]
+	| (typeof maintenanceOperations)[number]
 	| (typeof campaignOperations)[number]
 	| (typeof discoveryOperations)[number]
 	| (typeof listOperations)[number]
@@ -214,6 +217,14 @@ export function assertDashboardOperationsPublished(): void {
 
 export function assertSystemOperationsPublished(): void {
 	assertOperationFamilyPublished("system", systemOperations, systemTools);
+}
+
+export function assertMaintenanceOperationsPublished(): void {
+	assertOperationFamilyPublished(
+		"maintenance",
+		maintenanceOperations,
+		maintenanceTools,
+	);
 }
 
 export function assertSettingsOperationsPublished(): void {

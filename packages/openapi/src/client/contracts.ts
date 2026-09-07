@@ -265,6 +265,19 @@ export interface ImportOperations {
 	start(params: ImportStartParams): Promise<FlattenedResponse<t.ImportStatus>>;
 }
 
+/**
+ * Destructive maintenance garbage collection. Both endpoints delete the
+ * full matching set in one request; there is no server-side preview.
+ */
+export interface MaintenanceOperations {
+	gcSubscribers(options: {
+		path: { type: "orphan" | "blocklisted" };
+	}): Promise<FlattenedResponse<{ count?: number }>>;
+	gcUnconfirmedSubscriptions(options: {
+		query: { before_date: string };
+	}): Promise<FlattenedResponse<{ count?: number }>>;
+}
+
 export interface BounceOperations {
 	list(options?: BounceListOptions): Promise<ListResult<t.Bounce>>;
 	getById(options: { path: { id: number } }): Promise<CrudResult<t.Bounce>>;
@@ -301,6 +314,7 @@ interface SystemOperations {
 	getAbout(): Promise<FlattenedResponse<t.About>>;
 	getConfig(): Promise<FlattenedResponse<t.ServerConfig>>;
 	getLogs(): Promise<FlattenedResponse<string[]>>;
+	/** Reload app configuration without a restart; safe to repeat. */
 	reload(): Promise<FlattenedResponse<boolean>>;
 }
 
@@ -333,6 +347,7 @@ export interface EnhancedListmonkClient {
 	settings: SettingsOperations;
 	dashboard: DashboardOperations;
 	system: SystemOperations;
+	maintenance: MaintenanceOperations;
 }
 
 export type ListmonkClient = EnhancedListmonkClient;

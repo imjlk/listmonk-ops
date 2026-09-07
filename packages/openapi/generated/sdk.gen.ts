@@ -585,15 +585,7 @@ export const deleteCampaignAnalyticsByType = <ThrowOnError extends boolean = fal
 /**
  * garbage collects (deletes) orphaned or blocklisted subscribers.
  */
-export const deleteUnconfirmedSubscriptions = <ThrowOnError extends boolean = false>(options: Options<DeleteUnconfirmedSubscriptionsData, ThrowOnError>) => (options.client ?? client).delete<DeleteUnconfirmedSubscriptionsResponses, unknown, ThrowOnError>({
-    ...urlSearchParamsBodySerializer,
-    url: '/maintenance/subscriptions/unconfirmed',
-    ...options,
-    headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        ...options.headers
-    }
-});
+export const deleteUnconfirmedSubscriptions = <ThrowOnError extends boolean = false>(options: Options<DeleteUnconfirmedSubscriptionsData, ThrowOnError>) => (options.client ?? client).delete<DeleteUnconfirmedSubscriptionsResponses, unknown, ThrowOnError>({ url: '/maintenance/subscriptions/unconfirmed', ...options });
 
 /**
  * returns the list of public lists with minimal fields

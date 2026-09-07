@@ -4,6 +4,7 @@ export * from "./campaign";
 export * from "./dashboard";
 export * from "./discovery";
 export * from "./list";
+export * from "./maintenance";
 export * from "./media";
 export * from "./ops";
 export * from "./primitives";
