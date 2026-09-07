@@ -35,20 +35,6 @@ export const settingsTools: MCPTool[] = [
 			properties: {},
 		},
 	},
-	{
-		name: "listmonk_test_smtp",
-		description: "Test SMTP settings payload before applying changes",
-		inputSchema: {
-			type: "object",
-			properties: {
-				settings: {
-					type: "object",
-					description: "SMTP settings payload",
-				},
-			},
-			required: ["settings"],
-		},
-	},
 ];
 
 export const handleSettingsTools: HandlerFunction = withErrorHandler(
@@ -79,18 +65,6 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 			case "listmonk_get_server_config": {
 				const response = await client.system.getConfig();
 				return handleDataResponse(response, "Failed to fetch server config");
-			}
-
-			case "listmonk_test_smtp": {
-				if (!args.settings || typeof args.settings !== "object") {
-					return createErrorResult("settings object is required");
-				}
-
-				const response = await client.settings.testSmtp({
-					body: args.settings as Record<string, unknown>,
-				});
-
-				return handleDataResponse(response, "Failed to test SMTP settings");
 			}
 
 			default:

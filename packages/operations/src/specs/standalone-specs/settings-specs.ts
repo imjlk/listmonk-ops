@@ -1,6 +1,8 @@
 import {
 	emptyInputContract,
 	settingsGetOutputContract,
+	settingsTestSmtpInputContract,
+	settingsTestSmtpOutputContract,
 } from "../contract-schemas";
 import { defineOperationSpec } from "../operation";
 
@@ -62,6 +64,68 @@ export const settingsGetOperationSpec = defineOperationSpec({
 	stability: "stable",
 	since: "0.17.0",
 });
+
+export const settingsTestSmtpOperationSpec = defineOperationSpec({
+	id: "settings.test-smtp",
+	resource: "settings",
+	verb: "test-smtp",
+	title: "Send an SMTP configuration test message",
+	description:
+		"Deliver a real test message through one candidate SMTP server configuration to a single recipient, returning the server log lines captured around the attempt.",
+	contract: {
+		input: settingsTestSmtpInputContract,
+		output: settingsTestSmtpOutputContract,
+	},
+	effects: [
+		{
+			kind: "delivery",
+			resource: "message",
+			audience: "single",
+			timing: "immediate",
+		},
+	],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "unsafe",
+		reason:
+			"Every run delivers a real message to the recipient; there is no idempotency key for the test send. A single, explicitly chosen recipient keeps the transactional-send convention of no destructive confirmation.",
+	},
+	agent: {
+		useWhen: [
+			"A candidate SMTP configuration must be verified against a real server before being applied to settings.",
+		],
+		avoidWhen: [
+			"The already-configured pool only needs a health probe — prefer providers.status.",
+		],
+		prerequisites: ["settings.get"],
+		verifyWith: [],
+		related: ["settings.get", "providers.status", "deliverability.dns-check"],
+		retryGuidance:
+			"Do not blindly repeat: each request sends another message. Inspect the returned log lines before retrying.",
+	},
+	projection: {
+		mcpName: "listmonk_test_smtp",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/settings-specs.ts#settingsTestSmtpOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/settings-specs.ts#bindSettingsTestSmtpOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/settings.ts#testSmtpOperation:variable",
+			invokerNode:
+				"packages/operations/src/settings.ts#invokeTestSmtpOperation:function",
+			executorNode:
+				"packages/operations/src/settings.ts#sendSmtpTest:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export function bindSettingsTestSmtpOperationSpec(): typeof settingsTestSmtpOperationSpec {
+	return settingsTestSmtpOperationSpec;
+}
 
 export function bindSettingsGetOperationSpec(): typeof settingsGetOperationSpec {
 	return settingsGetOperationSpec;

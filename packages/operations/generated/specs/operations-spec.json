@@ -41656,6 +41656,278 @@
     {
       "agent": {
         "avoidWhen": [
+          "The already-configured pool only needs a health probe — prefer providers.status."
+        ],
+        "prerequisites": [
+          "settings.get"
+        ],
+        "related": [
+          "settings.get",
+          "providers.status",
+          "deliverability.dns-check"
+        ],
+        "retryGuidance": "Do not blindly repeat: each request sends another message. Inspect the returned log lines before retrying.",
+        "useWhen": [
+          "A candidate SMTP configuration must be verified against a real server before being applied to settings."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "Recordstringstring": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "SettingsTestSmtpInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "email": {
+                    "description": "Recipient of the real test message.",
+                    "format": "email",
+                    "maxLength": 254,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "server": {
+                    "$ref": "#/components/schemas/SettingsTestSmtpServer",
+                    "description": "SMTP server configuration under test."
+                  }
+                },
+                "required": [
+                  "email",
+                  "server"
+                ],
+                "type": "object"
+              },
+              "SettingsTestSmtpServer": {
+                "additionalProperties": {},
+                "description": "One SMTP server configuration under test. Passwords are accepted\nfor credential verification and are never persisted or logged.",
+                "properties": {
+                  "auth_protocol": {
+                    "description": "Auth protocol: none, plain, cram-md5, login.",
+                    "oneOf": [
+                      {
+                        "const": "cram-md5"
+                      },
+                      {
+                        "const": "login"
+                      },
+                      {
+                        "const": "none"
+                      },
+                      {
+                        "const": "plain"
+                      }
+                    ]
+                  },
+                  "email_headers": {
+                    "description": "Custom headers applied to test messages.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "hello_hostname": {
+                    "description": "Hello hostname announced to the server.",
+                    "type": "string"
+                  },
+                  "host": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "SMTP hostname."
+                  },
+                  "idle_timeout": {
+                    "description": "Idle connection timeout as a Go duration string.",
+                    "type": "string"
+                  },
+                  "max_conns": {
+                    "description": "Maximum concurrent connections the pool may open.",
+                    "minimum": 1,
+                    "type": "number"
+                  },
+                  "max_msg_retries": {
+                    "description": "Message delivery retry limit.",
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "msg_retry_delay": {
+                    "description": "Delay between retries as a Go duration string (e.g. \"1s\").",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Display name for the pool under test.",
+                    "type": "string"
+                  },
+                  "password": {
+                    "description": "Password for authenticated protocols; never persisted.",
+                    "type": "string"
+                  },
+                  "port": {
+                    "description": "SMTP port.",
+                    "maximum": 65535,
+                    "minimum": 1,
+                    "type": "number"
+                  },
+                  "tls_skip_verify": {
+                    "type": "boolean"
+                  },
+                  "tls_type": {
+                    "description": "TLS strategy.",
+                    "oneOf": [
+                      {
+                        "const": "SSL"
+                      },
+                      {
+                        "const": "STARTTLS"
+                      },
+                      {
+                        "const": "TLS"
+                      },
+                      {
+                        "const": "none"
+                      }
+                    ]
+                  },
+                  "username": {
+                    "description": "Username for authenticated protocols.",
+                    "type": "string"
+                  },
+                  "wait_timeout": {
+                    "description": "Pool wait timeout as a Go duration string.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "host",
+                  "port"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "email": {
+                "description": "Recipient of the real test message.",
+                "format": "email",
+                "maxLength": 254,
+                "minLength": 1,
+                "type": "string"
+              },
+              "server": {
+                "$ref": "#/components/schemas/SettingsTestSmtpServer",
+                "description": "SMTP server configuration under test."
+              }
+            },
+            "required": [
+              "email",
+              "server"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "SettingsTestSmtpOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "logs": {
+                    "description": "Server log-buffer lines captured around the test attempt.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "sent": {
+                    "description": "Whether the test message was accepted for delivery.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "sent",
+                  "logs"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "logs": {
+                "description": "Server log-buffer lines captured around the test attempt.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "sent": {
+                "description": "Whether the test message was accepted for delivery.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "sent",
+              "logs"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Deliver a real test message through one candidate SMTP server configuration to a single recipient, returning the server log lines captured around the attempt.",
+      "effects": [
+        {
+          "audience": "single",
+          "kind": "delivery",
+          "resource": "message",
+          "timing": "immediate"
+        }
+      ],
+      "id": "settings.test-smtp",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/settings-specs.ts#bindSettingsTestSmtpOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/settings-specs.ts#settingsTestSmtpOperationSpec:variable",
+          "executorNode": "packages/operations/src/settings.ts#sendSmtpTest:function",
+          "invokerNode": "packages/operations/src/settings.ts#invokeTestSmtpOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/settings.ts#testSmtpOperation:variable"
+        },
+        "mcpName": "listmonk_test_smtp",
+        "openWorld": true
+      },
+      "resource": "settings",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "Every run delivers a real message to the recipient; there is no idempotency key for the test send. A single, explicitly chosen recipient keeps the transactional-send convention of no destructive confirmation."
+      },
+      "since": "0.17.0",
+      "stability": "stable",
+      "title": "Send an SMTP configuration test message",
+      "verb": "test-smtp"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "A single role should be inspected without a full manifest.",
           "The protected Super Admin role is the intended target."
         ],

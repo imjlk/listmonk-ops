@@ -52,7 +52,7 @@ behavior to CLI and MCP with a 500-role and 1 MiB serialized-payload bound,
 default dry run, explicit confirmation, and body-free success and
 partial-failure summaries.
 
-All 127 public shared operations attach an
+All 128 public shared operations attach an
 `@listmonk-ops/operations/specs` descriptor. The operation definition validates
 runtime identity, safety hints, MCP metadata, and normalized input/output
 contracts against the declaration, while catalog summaries expose a detached
@@ -70,13 +70,13 @@ Listmonk OpenAPI transport
 ```
 
 All 116 contracts are authored as TypeScript types and projected with Typia,
-and all 127 are `stable`; the bounce family, the campaign preview, test-send,
+and all 128 are `stable`; the bounce family, the campaign preview, test-send,
 analytics, and archive operations, the dashboard aggregate reads, the
 subscriber import lifecycle, template preview, data-portability export,
 opt-in resend, the system identity and diagnostics reads, the
-credential-redacted settings read, the one-shot maintenance
-collections, and the configuration reload joined the accepted baseline
-after local-stack verification.
+credential-redacted settings read, the SMTP configuration test, the
+one-shot maintenance collections, and the configuration reload joined
+the accepted baseline after local-stack verification.
 The runtime-operation bridge infrastructure is now empty — all operations
 have standalone product-domain contracts. Ninety reviewed core operations
 are `stable`, including the first
@@ -125,9 +125,9 @@ agent-skill, graph, stable compatibility, and migration-exemption artifacts.
 Run `bun run specs:stable:accept` only after explicitly reviewing an intentional
 stable-contract change.
 
-The runtime-operation bridge infrastructure is now empty — all 127
+The runtime-operation bridge infrastructure is now empty — all 128
 operations have standalone product-domain contracts. The final root
-build loads all 127 runtime operations and validates them against their
+build loads all 128 runtime operations and validates them against their
 standalone TypeScript contracts.
 
 The main package exports a `discoveryOperationCatalog` with shared named

@@ -265,6 +265,8 @@ const openapiCampaignArchiveMethod =
 	"packages/openapi/src/client/contracts.ts#CampaignOperations.updateArchive:method";
 const openapiSubscriberOptinMethod =
 	"packages/openapi/src/client/contracts.ts#SubscriberOperations.sendOptin:method";
+const openapiSettingsTestSmtpMethod =
+	"packages/openapi/src/client/contracts.ts#SettingsOperations.testSmtp:method";
 const openapiGcSubscribersMethod =
 	"packages/openapi/src/client/contracts.ts#MaintenanceOperations.gcSubscribers:method";
 const openapiGcUnconfirmedMethod =
@@ -1130,6 +1132,15 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 			action: "packages/operations/src/settings.ts#readSettings:function",
 		},
 		invokers: [
+			{
+				label: "test-smtp",
+				cliHandler: "handleTestSmtpCommand",
+				cliRender: "renderTestSmtp",
+				invoker:
+					"packages/operations/src/settings.ts#invokeTestSmtpOperation:function",
+				action: "packages/operations/src/settings.ts#sendSmtpTest:function",
+				openapi: openapiSettingsTestSmtpMethod,
+			},
 			{
 				label: "get",
 				cliHandler: "handleGetSettingsCommand",

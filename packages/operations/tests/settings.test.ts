@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	invokeTestSmtpOperation,
 	redactSettingsCredentials,
 	SETTINGS_REDACTED_VALUE,
 	invokeGetSettingsOperation,
@@ -121,7 +122,7 @@ describe("settings get operation", () => {
 	});
 
 	test("registers the operation with read-only safety and dispatches by name", async () => {
-		expect(settingsOperations).toHaveLength(1);
+		expect(settingsOperations).toHaveLength(2);
 		expect(settingsOperations[0]?.safety).toEqual({
 			readOnlyHint: true,
 			destructiveHint: false,
@@ -142,5 +143,71 @@ describe("settings get operation", () => {
 		await expect(
 			invokeSettingsOperationByMcpName(context, "listmonk_unknown", {}),
 		).resolves.toBe(undefined);
+	});
+});
+
+describe("settings test-smtp operation", () => {
+	test("sends a real test message and returns the log lines", async () => {
+		const testSmtp = mock(async () => ({
+			data: ["line one", "line two"],
+		}));
+
+		await expect(
+			invokeTestSmtpOperation(
+				settingsContext({
+					testSmtp: testSmtp as unknown as SettingsClient["settings"]["testSmtp"],
+				}),
+				{
+					email: "Reader@example.com",
+					server: { host: "mailpit", port: 1025 },
+				},
+			),
+		).resolves.toEqual({ sent: true, logs: ["line one", "line two"] });
+
+		const body = (testSmtp.mock.calls[0]?.[0] as { body: Record<string, unknown> })
+			.body;
+		// The observed endpoint takes the server fields and the recipient
+		// flattened into one JSON body, with the email normalized.
+		expect(body).toMatchObject({
+			host: "mailpit",
+			port: 1025,
+			email: "Reader@example.com",
+		});
+	});
+
+	test("registers the send with create-class safety", () => {
+		const operation = settingsOperations[1];
+		expect(operation?.id).toBe("settings.test-smtp");
+		expect(operation?.safety).toEqual({
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		});
+	});
+
+	test("rejects a non-array log payload as a loud mismatch", async () => {
+		const testSmtp = mock(async () => ({ data: true }));
+		await expect(
+			invokeTestSmtpOperation(
+				settingsContext({
+					testSmtp: testSmtp as unknown as SettingsClient["settings"]["testSmtp"],
+				}),
+				{ email: "r@example.com", server: { host: "mailpit", port: 1025 } },
+			),
+		).rejects.toThrow("unexpected response payload");
+	});
+
+	test("rejects an invalid recipient before any request", async () => {
+		const testSmtp = mock(async () => ({ data: [] }));
+		await expect(
+			invokeTestSmtpOperation(
+				settingsContext({
+					testSmtp: testSmtp as unknown as SettingsClient["settings"]["testSmtp"],
+				}),
+				{ email: "not-an-email", server: { host: "mailpit", port: 1025 } },
+			),
+		).rejects.toThrow();
+		expect(testSmtp).not.toHaveBeenCalled();
 	});
 });

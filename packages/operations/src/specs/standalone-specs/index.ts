@@ -39,6 +39,7 @@ import {
 	maintenanceGcSubscribersOperationSpec,
 	maintenanceGcUnconfirmedOperationSpec,
 } from "./maintenance-specs";
+import { settingsTestSmtpOperationSpec } from "./settings-specs";
 import { campaignsArchiveOperationSpec } from "./campaign-specs";
 import { subscribersSendOptinOperationSpec } from "./subscriber-specs";
 import {
@@ -165,6 +166,7 @@ export const standaloneOperationSpecs = [
 	settingsGetOperationSpec,
 	maintenanceGcSubscribersOperationSpec,
 	maintenanceGcUnconfirmedOperationSpec,
+	settingsTestSmtpOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */

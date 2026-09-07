@@ -1521,6 +1521,18 @@ One-shot deletion of every subscription still unconfirmed before an RFC3339 cuto
 - Retry: `reconcile`
 - Stability: `stable` since `0.17.0`
 
+## `settings.test-smtp`
+
+Deliver a real test message through one candidate SMTP server configuration to a single recipient, returning the server log lines captured around the attempt.
+
+- Resource / verb: `settings.test-smtp`
+- MCP tool: `listmonk_test_smtp`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `delivery:single:immediate`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `stable` since `0.17.0`
+
 ## `user-roles.reconcile`
 
 Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles

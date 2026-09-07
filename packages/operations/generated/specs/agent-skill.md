@@ -1766,6 +1766,20 @@ Verify with: `subscribers.list`
 
 Retry guidance: Verify with subscribers.list before repeating; a repeat reports count 0 when the first run completed.
 
+## Send an SMTP configuration test message (`settings.test-smtp`)
+
+Contract maturity: `stable`; effects: `delivery:single:immediate`; confirmation: `never`; retry: `unsafe`.
+
+Use when: A candidate SMTP configuration must be verified against a real server before being applied to settings.
+
+Avoid when: The already-configured pool only needs a health probe — prefer providers.status.
+
+Prerequisites: `settings.get`
+
+Verify with: none
+
+Retry guidance: Do not blindly repeat: each request sends another message. Inspect the returned log lines before retrying.
+
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 
 Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.

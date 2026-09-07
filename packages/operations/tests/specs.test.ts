@@ -217,13 +217,14 @@ describe("email operations specification", () => {
 			"settings.get",
 			"maintenance.gc-subscribers",
 			"maintenance.gc-unconfirmed",
+			"settings.test-smtp",
 		]);
 	});
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(127);
-		expect(new Set(operationIds).size).toBe(127);
+		expect(operationIds).toHaveLength(128);
+		expect(new Set(operationIds).size).toBe(128);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -233,7 +234,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(127);
+		).toHaveLength(128);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
