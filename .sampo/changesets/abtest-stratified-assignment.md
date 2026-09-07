@@ -1,5 +1,0 @@
----
-npm/@listmonk-ops/abtest: minor
----
-
-Applied the recipient-domain stratification quota matrix to the actual A/B test recipient assignment, closing the documented follow-up. A new `assignStratifiedMembers()` helper buckets the resolved audience by provider stratum (with the small-stratum merge), computes the constrained quota matrix with canonically sorted stratum keys, and realizes each group's slice by ranking members within every stratum with the same deterministic SHA-256 digest ordering the unstratified manifest uses — so group totals still come from the largest-remainder manifest, the assignment stays reproducible under the persisted seed (crash-resume adoption re-derives identical slices), and the stored `AbTest.stratification` is the exact matrix that was applied. The stratified pass runs before any list mutation; when any resolved subscriber lacks an email or the quota solver fails, provisioning warns and falls back to the unstratified manifest assignment with an undefined stratification instead of provisioning a half-stratified audience.
