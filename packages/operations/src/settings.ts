@@ -12,8 +12,10 @@ import {
 	parseOperationOutput,
 } from "./operation";
 import {
+	createResourceSafety,
 	jsonResourceValue,
 	readResourceSafety,
+	ResourceResponseError,
 	unwrapResourceResponse,
 } from "./resource-helpers";
 
@@ -160,10 +162,10 @@ export async function invokeGetSettingsOperation(
 const SMTP_AUTH_PROTOCOLS = ["none", "plain", "cram-md5", "login"] as const;
 const SMTP_TLS_TYPES = ["none", "STARTTLS", "TLS", "SSL"] as const;
 
-const smtpServerSchema = z.looseObject({
+const smtpServerSchema = z.object({
 	name: z.string().optional(),
 	host: z.string().min(1),
-	port: z.number().positive(),
+	port: z.number().min(1).max(65535),
 	hello_hostname: z.string().optional(),
 	auth_protocol: z.enum(SMTP_AUTH_PROTOCOLS).optional(),
 	username: z.string().optional(),
@@ -180,8 +182,22 @@ const smtpServerSchema = z.looseObject({
 	email_headers: z.array(z.record(z.string(), z.string())).optional(),
 });
 
+// Lowercase only the domain (the case-insensitive part): RFC 5321
+// permits a case-sensitive local part, so blanket lowercasing could
+// misroute the test message on systems that honor it.
+const testRecipientEmailSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(254)
+	.pipe(z.email())
+	.transform((value) => {
+		const at = value.lastIndexOf("@");
+		return `${value.slice(0, at)}${value.slice(at).toLowerCase()}`;
+	});
+
 const testSmtpInputSchema = z.object({
-	email: z.string().trim().toLowerCase().min(1).max(254).pipe(z.email()),
+	email: testRecipientEmailSchema,
 	server: smtpServerSchema,
 });
 
@@ -212,9 +228,20 @@ export async function sendSmtpTest(
 		},
 	});
 	const logs = unwrapResourceResponse(response, "Failed to test SMTP settings");
+	// The generated client types the response as a bare boolean while the
+	// observed endpoint answers with the log-buffer lines; validate the
+	// observed shape explicitly so a mismatch fails loudly instead of
+	// degrading to an unqualified success with zero lines.
+	const parsedLogs = z.array(z.string()).safeParse(logs);
+	if (!parsedLogs.success) {
+		throw new ResourceResponseError(
+			"Failed to test SMTP settings: unexpected response payload",
+			{ status: response.response?.status },
+		);
+	}
 	return {
 		sent: true,
-		logs: Array.isArray(logs) ? (logs as string[]) : [],
+		logs: parsedLogs.data,
 	};
 }
 
@@ -225,12 +252,7 @@ export const testSmtpOperation = defineOperation({
 		"Deliver a real test message through one candidate SMTP server configuration to a single recipient, returning the server log lines captured around the attempt.",
 	inputSchema: testSmtpInputSchema,
 	outputSchema: testSmtpOutputSchema,
-	safety: {
-		readOnlyHint: false,
-		destructiveHint: false,
-		idempotentHint: false,
-		openWorldHint: true,
-	},
+	safety: createResourceSafety,
 	mcp: {
 		name: "listmonk_test_smtp",
 		legacySuccessText: jsonResourceValue,

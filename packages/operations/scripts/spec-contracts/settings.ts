@@ -9,7 +9,7 @@ export interface SettingsTestSmtpServer {
 	/** SMTP hostname. */
 	host: NonEmptyString;
 	/** SMTP port. */
-	port: number & tags.Minimum<1>;
+	port: number & tags.Minimum<1> & tags.Maximum<65535>;
 	/** Hello hostname announced to the server. */
 	hello_hostname?: string | undefined;
 	/** Auth protocol: none, plain, cram-md5, login. */

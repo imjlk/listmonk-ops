@@ -158,7 +158,7 @@ describe("settings test-smtp operation", () => {
 					testSmtp: testSmtp as unknown as SettingsClient["settings"]["testSmtp"],
 				}),
 				{
-					email: "Reader@Example.com",
+					email: "Reader@example.com",
 					server: { host: "mailpit", port: 1025 },
 				},
 			),
@@ -171,11 +171,11 @@ describe("settings test-smtp operation", () => {
 		expect(body).toMatchObject({
 			host: "mailpit",
 			port: 1025,
-			email: "reader@example.com",
+			email: "Reader@example.com",
 		});
 	});
 
-	test("registers the send with transactional-send safety", () => {
+	test("registers the send with create-class safety", () => {
 		const operation = settingsOperations[1];
 		expect(operation?.id).toBe("settings.test-smtp");
 		expect(operation?.safety).toEqual({
@@ -184,6 +184,18 @@ describe("settings test-smtp operation", () => {
 			idempotentHint: false,
 			openWorldHint: true,
 		});
+	});
+
+	test("rejects a non-array log payload as a loud mismatch", async () => {
+		const testSmtp = mock(async () => ({ data: true }));
+		await expect(
+			invokeTestSmtpOperation(
+				settingsContext({
+					testSmtp: testSmtp as unknown as SettingsClient["settings"]["testSmtp"],
+				}),
+				{ email: "r@example.com", server: { host: "mailpit", port: 1025 } },
+			),
+		).rejects.toThrow("unexpected response payload");
 	});
 
 	test("rejects an invalid recipient before any request", async () => {
