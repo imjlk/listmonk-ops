@@ -1,6 +1,8 @@
 import {
 	deleteBounceById,
 	deleteBounces,
+	deleteGcSubscribers,
+	deleteUnconfirmedSubscriptions,
 	getAboutInfo,
 	getBounceById,
 	getBounces,
@@ -95,6 +97,33 @@ export function createBounceOperations(
 		async deleteById(options: { path: { id: number } }) {
 			const result = await deleteBounceById({ ...sdkOptions, ...options });
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
+		},
+	};
+}
+
+export function createMaintenanceOperations(
+	sdkOptions: SdkOptions,
+): EnhancedListmonkClient["maintenance"] {
+	return {
+		async gcSubscribers(options: { path: { type: "orphan" | "blocklisted" } }) {
+			const result = await deleteGcSubscribers({
+				...sdkOptions,
+				path: options.path,
+			});
+			return (await transformResponse(result)) as FlattenedResponse<{
+				count?: number;
+			}>;
+		},
+		async gcUnconfirmedSubscriptions(options: {
+			query: { before_date: string };
+		}) {
+			const result = await deleteUnconfirmedSubscriptions({
+				...sdkOptions,
+				query: options.query,
+			});
+			return (await transformResponse(result)) as FlattenedResponse<{
+				count?: number;
+			}>;
 		},
 	};
 }

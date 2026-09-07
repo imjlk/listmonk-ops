@@ -21,6 +21,7 @@ import {
 	assertDashboardOperationsPublished,
 	assertSystemOperationsPublished,
 	assertSettingsOperationsPublished,
+	assertMaintenanceOperationsPublished,
 	assertCampaignOperationsPublished,
 	assertDiscoveryOperationsPublished,
 	assertOperationFamilyPublished,
@@ -74,8 +75,8 @@ const registeredServerTools = toolRegistrations.flatMap(
 
 describe("shared operation coverage", () => {
 	test("keeps CLI and MCP discovery catalogs in direct parity", () => {
-		expect(cliOperationCatalog.entries).toHaveLength(124);
-		expect(mcpOperationCatalog.entries).toHaveLength(124);
+		expect(cliOperationCatalog.entries).toHaveLength(127);
+		expect(mcpOperationCatalog.entries).toHaveLength(127);
 		expect(listCliOperationCatalogSummaries()).toEqual(
 			listMcpOperationCatalogSummaries(),
 		);
@@ -91,6 +92,7 @@ describe("shared operation coverage", () => {
 		assertDashboardOperationsPublished();
 		assertSystemOperationsPublished();
 		assertSettingsOperationsPublished();
+		assertMaintenanceOperationsPublished();
 		assertTransactionalOperationsPublished();
 		assertOpsOperationsPublished();
 		assertAbTestOperationsPublished();

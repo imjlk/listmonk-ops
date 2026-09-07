@@ -23,6 +23,7 @@ import type { FlattenedResponse } from "./response";
 import { transformResponse } from "./response";
 import {
 	createBounceOperations,
+	createMaintenanceOperations,
 	createDashboardOperations,
 	createImportOperations,
 	createSettingsOperations,
@@ -174,6 +175,7 @@ export function createListmonkClient(
 		media: createMediaOperations(sdkOptions),
 		import: createImportOperations(sdkOptions),
 		bounce: createBounceOperations(sdkOptions),
+		maintenance: createMaintenanceOperations(sdkOptions),
 		transactional: createTransactionalOperations(sdkOptions),
 		settings: createSettingsOperations(sdkOptions),
 		dashboard: createDashboardOperations(sdkOptions),

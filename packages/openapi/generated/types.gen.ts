@@ -2936,14 +2936,14 @@ export type DeleteCampaignAnalyticsByTypeResponses = {
 export type DeleteCampaignAnalyticsByTypeResponse = DeleteCampaignAnalyticsByTypeResponses[keyof DeleteCampaignAnalyticsByTypeResponses];
 
 export type DeleteUnconfirmedSubscriptionsData = {
-    /**
-     * date parameter
-     */
-    body: {
-        before_date?: string;
-    };
+    body?: never;
     path?: never;
-    query?: never;
+    query: {
+        /**
+         * RFC3339 cutoff; subscriptions unconfirmed before this date are deleted
+         */
+        before_date: string;
+    };
     url: '/maintenance/subscriptions/unconfirmed';
 };
 

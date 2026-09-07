@@ -144,6 +144,10 @@ import type {
 	CampaignUpdateInput,
 	CampaignDeleteInput,
 	CampaignDeleteOutput,
+	MaintenanceGcSubscribersInput,
+	MaintenanceGcSubscribersOutput,
+	MaintenanceGcUnconfirmedInput,
+	MaintenanceGcUnconfirmedOutput,
 	MediaUploadInput,
 	MediaUploadOutput,
 	MediaDeleteInput,
@@ -166,6 +170,7 @@ import type {
 	SubscriberImportLogsOutput,
 	SubscriberExportInput,
 	SettingsGetOutput,
+	SystemReloadOutput,
 	SystemAboutOutput,
 	SystemLogsOutput,
 	SubscriberExportOutput,
@@ -355,6 +360,18 @@ const contracts = {
 	templateCollectionOutputContract: contractSchema(
 		typia.json.schema<TemplateCollectionOutput>(),
 	),
+	maintenanceGcSubscribersInputContract: contractSchema(
+		typia.json.schema<MaintenanceGcSubscribersInput>(),
+	),
+	maintenanceGcSubscribersOutputContract: contractSchema(
+		typia.json.schema<MaintenanceGcSubscribersOutput>(),
+	),
+	maintenanceGcUnconfirmedInputContract: contractSchema(
+		typia.json.schema<MaintenanceGcUnconfirmedInput>(),
+	),
+	maintenanceGcUnconfirmedOutputContract: contractSchema(
+		typia.json.schema<MaintenanceGcUnconfirmedOutput>(),
+	),
 	mediaRecordContract: contractSchema(typia.json.schema<MediaRecord>()),
 	mediaCollectionOutputContract: contractSchema(
 		typia.json.schema<MediaCollectionOutput>(),
@@ -388,6 +405,9 @@ const contracts = {
 	),
 	subscriberSendOptinOutputContract: contractSchema(
 		typia.json.schema<SubscriberSendOptinOutput>(),
+	),
+	systemReloadOutputContract: contractSchema(
+		typia.json.schema<SystemReloadOutput>(),
 	),
 	settingsGetOutputContract: contractSchema(
 		typia.json.schema<SettingsGetOutput>(),

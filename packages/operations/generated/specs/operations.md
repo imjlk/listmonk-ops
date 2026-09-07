@@ -1449,6 +1449,18 @@ Read the recent Listmonk server log lines as recorded by the running instance.
 - Retry: `safe`
 - Stability: `stable` since `0.17.0`
 
+## `system.reload`
+
+Reload the Listmonk app configuration without a restart. Safe to repeat; settings mutations only take effect after a reload.
+
+- Resource / verb: `system.reload`
+- MCP tool: `listmonk_reload_app`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `maintenance:recover:recoverable`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
 ## `campaigns.archive`
 
 Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.
@@ -1483,6 +1495,30 @@ Read the Listmonk installation settings with every credential-bearing field (pas
 - Effects: `read:settings`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
+- Stability: `stable` since `0.17.0`
+
+## `maintenance.gc-subscribers`
+
+One-shot deletion of every orphaned (listless) or blocklisted subscriber. The server offers no preview; one confirmed request deletes the full matching set.
+
+- Resource / verb: `maintenance.gc-subscribers`
+- MCP tool: `listmonk_gc_subscribers`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `maintenance:prune:destructive`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `stable` since `0.17.0`
+
+## `maintenance.gc-unconfirmed`
+
+One-shot deletion of every subscription still unconfirmed before an RFC3339 cutoff. The server offers no preview; one confirmed request deletes the full matching set.
+
+- Resource / verb: `maintenance.gc-unconfirmed`
+- MCP tool: `listmonk_gc_unconfirmed_subscriptions`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `maintenance:prune:destructive`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
 - Stability: `stable` since `0.17.0`
 
 ## `user-roles.reconcile`

@@ -16,6 +16,7 @@ import dashboardCommand from "./commands/dashboard";
 import deliverabilityCommand from "./commands/deliverability";
 import examplesCommand from "./commands/examples";
 import listsCommand from "./commands/lists";
+import maintenanceCommand from "./commands/maintenance";
 import mediaCommand from "./commands/media";
 import opsCommand from "./commands/ops";
 import operationsCommand from "./commands/operations";
@@ -44,6 +45,7 @@ const subCommands = {
 	status: statusCommand,
 	system: systemCommand,
 	settings: settingsCommand,
+	maintenance: maintenanceCommand,
 	providers: providersCommand,
 	deliverability: deliverabilityCommand,
 	sequences: sequencesCommand,

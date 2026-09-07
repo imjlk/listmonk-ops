@@ -9,6 +9,7 @@ import {
 	sharedSettingsTools,
 	handleSharedSettingsTools,
 } from "./settings-shared.js";
+import { maintenanceTools, handleMaintenanceTools } from "./maintenance.js";
 import {
 	handleOperationCatalogTools,
 	operationCatalogTools,
@@ -34,6 +35,7 @@ export * from "./bounces.js";
 export * from "./campaigns.js";
 export * from "./dashboard.js";
 export * from "./settings-shared.js";
+export * from "./maintenance.js";
 export * from "./system.js";
 
 export * from "./catalog.js";
@@ -61,6 +63,7 @@ export const allTools: readonly MCPTool[] = [
 	...dashboardTools,
 	...systemTools,
 	...sharedSettingsTools,
+	...maintenanceTools,
 	...opsTools,
 	...providerTools,
 	...bouncesTools,
@@ -87,6 +90,7 @@ export const toolNameSets = {
 	dashboard: createToolNameSet(dashboardTools),
 	system: createToolNameSet(systemTools),
 	sharedSettings: createToolNameSet(sharedSettingsTools),
+	maintenance: createToolNameSet(maintenanceTools),
 	ops: createToolNameSet(opsTools),
 	providers: createToolNameSet(providerTools),
 	settings: createToolNameSet(settingsTools),
@@ -114,6 +118,7 @@ export const toolRegistrations: readonly ToolRegistration[] = [
 	{ tools: dashboardTools, handler: handleDashboardTools },
 	{ tools: systemTools, handler: handleSystemTools },
 	{ tools: sharedSettingsTools, handler: handleSharedSettingsTools },
+	{ tools: maintenanceTools, handler: handleMaintenanceTools },
 	{ tools: opsTools, handler: handleOpsTools },
 	{ tools: providerTools, handler: handleProviderTools },
 	{ tools: bouncesTools, handler: handleBouncesTools },

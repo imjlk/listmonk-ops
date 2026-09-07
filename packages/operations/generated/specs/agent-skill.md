@@ -1682,6 +1682,20 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
+## Reload app configuration (`system.reload`)
+
+Contract maturity: `stable`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `safe`.
+
+Use when: Settings were updated and must take effect without restarting the instance.
+
+Avoid when: No settings changed since the last reload.
+
+Prerequisites: `settings.get`
+
+Verify with: `system.about`
+
+Retry guidance: Repeat safely; the reload is a refresh, not a mutation.
+
 ## Toggle the campaign archive page (`campaigns.archive`)
 
 Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
@@ -1723,6 +1737,34 @@ Prerequisites: none
 Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
+
+## Garbage-collect subscribers (`maintenance.gc-subscribers`)
+
+Contract maturity: `stable`; effects: `maintenance:prune:destructive`; confirmation: `required`; retry: `reconcile`.
+
+Use when: An operator has explicitly approved deleting every orphaned or blocklisted subscriber in one batch.
+
+Avoid when: Any subscriber in the set might still be wanted — the server offers no preview, so review subscribers.list first.
+
+Prerequisites: `subscribers.list`
+
+Verify with: `subscribers.list`
+
+Retry guidance: Verify with subscribers.list before repeating; a repeat reports count 0 when the first run completed.
+
+## Garbage-collect unconfirmed subscriptions (`maintenance.gc-unconfirmed`)
+
+Contract maturity: `stable`; effects: `maintenance:prune:destructive`; confirmation: `required`; retry: `reconcile`.
+
+Use when: An operator has explicitly approved deleting every subscription unconfirmed before the cutoff.
+
+Avoid when: Double opt-in campaigns may legitimately have pending confirmations — choose the cutoff with that window in mind.
+
+Prerequisites: `subscribers.list`
+
+Verify with: `subscribers.list`
+
+Retry guidance: Verify with subscribers.list before repeating; a repeat reports count 0 when the first run completed.
 
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 

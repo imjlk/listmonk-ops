@@ -445,6 +445,11 @@ listmonk-cli system about
 listmonk-cli system logs --lines 50
 # Credentials are recursively replaced by [redacted].
 listmonk-cli settings get
+listmonk-cli system reload
+# One-shot destructive collection: no server-side preview exists.
+listmonk-cli maintenance gc-subscribers --type orphan --confirm
+listmonk-cli maintenance gc-unconfirmed \
+  --before-date 2026-01-01T00:00:00Z --confirm
 
 listmonk-cli subscribers create --email reader@example.com --name Reader
 listmonk-cli subscribers update --id 7 --status enabled
@@ -564,7 +569,7 @@ effect-derived safety, execution requirements, and `useWhen`/`avoidWhen`
 guidance. Status adds runtime identity and a live Listmonk health probe without
 returning credentials.
 
-All 124 public shared operations now include a `spec` descriptor. Specs define
+All 127 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -586,9 +591,11 @@ export (`subscribers.export`), the system identity and diagnostics
 reads (`system.about`, `system.logs`), the campaign archive toggle
 (`campaigns.archive`), the opt-in resend
 (`subscribers.send-optin`), and the credential-redacted settings read
-(`settings.get`) joined the accepted stable compatibility baseline
-after their observed Listmonk 6.2 response shapes were verified
-against the local stack. The runtime-operation
+(`settings.get`), the one-shot maintenance collections
+(`maintenance.gc-subscribers`, `maintenance.gc-unconfirmed`), and the
+configuration reload (`system.reload`) joined the accepted stable
+compatibility baseline after their observed Listmonk 6.2 response
+shapes were verified against the local stack. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at the
 generated transport and handwritten adapter first; the product spec
@@ -870,11 +877,11 @@ Operations Spec artifacts are checked in under
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
-also verifies all 124 shared operations, the API boundary rule, the 0
-runtime bridges, the 124 stable compatibility baselines, and 377 direct
+also verifies all 127 shared operations, the API boundary rule, the 0
+runtime bridges, the 127 stable compatibility baselines, and 386 direct
 spec-to-runtime graph edges.
 
-All 124 shared operations now use standalone TypeScript contracts. There are
+All 127 shared operations now use standalone TypeScript contracts. There are
 no governed runtime-bridge inputs or snapshots to regenerate.
 
 The spec API is published from the existing operations package through the

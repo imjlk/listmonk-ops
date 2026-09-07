@@ -1,5 +1,6 @@
 import {
 	emptyInputContract,
+	systemReloadOutputContract,
 	systemAboutOutputContract,
 	systemLogsOutputContract,
 } from "../contract-schemas";
@@ -114,6 +115,66 @@ export const systemLogsOperationSpec = defineOperationSpec({
 
 export function bindSystemAboutOperationSpec(): typeof systemAboutOperationSpec {
 	return systemAboutOperationSpec;
+}
+
+export const systemReloadOperationSpec = defineOperationSpec({
+	id: "system.reload",
+	resource: "system",
+	verb: "reload",
+	title: "Reload app configuration",
+	description:
+		"Reload the Listmonk app configuration without a restart. Safe to repeat; settings mutations only take effect after a reload.",
+	contract: {
+		input: emptyInputContract,
+		output: systemReloadOutputContract,
+	},
+	effects: [
+		{
+			kind: "maintenance",
+			resource: "system",
+			action: "recover",
+			destructive: false,
+			preview: false,
+		},
+	],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason:
+			"The reload is a repeatable configuration refresh; Listmonk acknowledges every attempt with the same success.",
+	},
+	agent: {
+		useWhen: [
+			"Settings were updated and must take effect without restarting the instance.",
+		],
+		avoidWhen: ["No settings changed since the last reload."],
+		prerequisites: ["settings.get"],
+		verifyWith: ["system.about"],
+		related: ["settings.get", "system.about"],
+		retryGuidance: "Repeat safely; the reload is a refresh, not a mutation.",
+	},
+	projection: {
+		mcpName: "listmonk_reload_app",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/system-specs.ts#systemReloadOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemReloadOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/system.ts#reloadSystemOperation:variable",
+			invokerNode:
+				"packages/operations/src/system.ts#invokeReloadSystemOperation:function",
+			executorNode:
+				"packages/operations/src/system.ts#reloadSystem:function",
+		},
+	},
+	stability: "stable",
+	since: "0.17.0",
+});
+
+export function bindSystemReloadOperationSpec(): typeof systemReloadOperationSpec {
+	return systemReloadOperationSpec;
 }
 
 export function bindSystemLogsOperationSpec(): typeof systemLogsOperationSpec {

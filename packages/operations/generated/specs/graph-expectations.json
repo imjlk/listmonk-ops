@@ -3243,6 +3243,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/system.ts#reloadSystemOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemReloadOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemReloadOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/system-specs.ts#systemReloadOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/system.ts#invokeReloadSystemOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/system.ts#reloadSystem:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#bindSystemReloadOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/system-specs.ts#systemReloadOperationSpec:variable",
+        "executorNode": "packages/operations/src/system.ts#reloadSystem:function",
+        "invokerNode": "packages/operations/src/system.ts#invokeReloadSystemOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/system.ts#reloadSystemOperation:variable"
+      },
+      "operationId": "system.reload"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/campaigns.ts#archiveCampaignOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsArchiveOperationSpec:function"
@@ -3320,6 +3347,60 @@
         "runtimeDefinitionNode": "packages/operations/src/settings.ts#getSettingsOperation:variable"
       },
       "operationId": "settings.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/maintenance.ts#gcSubscribersOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcSubscribersOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcSubscribersOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcSubscribersOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/maintenance.ts#invokeGcSubscribersOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/maintenance.ts#gcSubscribers:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcSubscribersOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcSubscribersOperationSpec:variable",
+        "executorNode": "packages/operations/src/maintenance.ts#gcSubscribers:function",
+        "invokerNode": "packages/operations/src/maintenance.ts#invokeGcSubscribersOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/maintenance.ts#gcSubscribersOperation:variable"
+      },
+      "operationId": "maintenance.gc-subscribers"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/maintenance.ts#gcUnconfirmedOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcUnconfirmedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcUnconfirmedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcUnconfirmedOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/maintenance.ts#invokeGcUnconfirmedOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/maintenance.ts#gcUnconfirmedSubscriptions:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcUnconfirmedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcUnconfirmedOperationSpec:variable",
+        "executorNode": "packages/operations/src/maintenance.ts#gcUnconfirmedSubscriptions:function",
+        "invokerNode": "packages/operations/src/maintenance.ts#invokeGcUnconfirmedOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/maintenance.ts#gcUnconfirmedOperation:variable"
+      },
+      "operationId": "maintenance.gc-unconfirmed"
     },
     {
       "edges": [

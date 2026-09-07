@@ -35492,6 +35492,76 @@
       "stability": "stable"
     },
     {
+      "id": "system.reload",
+      "input": {
+        "components": {
+          "schemas": {
+            "EmptyInput": {
+              "additionalProperties": false,
+              "properties": {},
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {},
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "SystemReloadOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "reloaded": {
+                  "description": "Whether Listmonk acknowledged the configuration reload.",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "reloaded"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "reloaded": {
+              "description": "Whether Listmonk acknowledged the configuration reload.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "reloaded"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The reload is a repeatable configuration refresh; Listmonk acknowledges every attempt with the same success."
+      },
+      "since": "0.17.0",
+      "stability": "stable"
+    },
+    {
       "id": "campaigns.archive",
       "input": {
         "components": {
@@ -35789,6 +35859,219 @@
       "retry": {
         "kind": "safe",
         "reason": "The operation only reads the current settings document."
+      },
+      "since": "0.17.0",
+      "stability": "stable"
+    },
+    {
+      "id": "maintenance.gc-subscribers",
+      "input": {
+        "components": {
+          "schemas": {
+            "MaintenanceGcSubscribersInput": {
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "$ref": "#/components/schemas/MaintenanceGcType",
+                  "description": "Which subscriber set the one-shot collection deletes."
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "type": "object"
+            },
+            "MaintenanceGcType": {
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "orphan"
+                }
+              ]
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "$ref": "#/components/schemas/MaintenanceGcType",
+              "description": "Which subscriber set the one-shot collection deletes."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "MaintenanceGcSubscribersOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "count": {
+                  "description": "Subscribers deleted by this request (0 when the set was already empty).",
+                  "type": "number"
+                },
+                "type": {
+                  "$ref": "#/components/schemas/MaintenanceGcType"
+                }
+              },
+              "required": [
+                "type",
+                "count"
+              ],
+              "type": "object"
+            },
+            "MaintenanceGcType": {
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "orphan"
+                }
+              ]
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "count": {
+              "description": "Subscribers deleted by this request (0 when the set was already empty).",
+              "type": "number"
+            },
+            "type": {
+              "$ref": "#/components/schemas/MaintenanceGcType"
+            }
+          },
+          "required": [
+            "type",
+            "count"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "The first successful run empties the matching set, so a repeated identical request reports count 0; subscribers that newly match between runs are a different set, so verify with subscribers.list after an ambiguous result.",
+        "reconcileWith": "subscribers.list"
+      },
+      "since": "0.17.0",
+      "stability": "stable"
+    },
+    {
+      "id": "maintenance.gc-unconfirmed",
+      "input": {
+        "components": {
+          "schemas": {
+            "MaintenanceBeforeDate": {
+              "description": "RFC3339 cutoff bound shared with the executable schema.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            "MaintenanceGcUnconfirmedInput": {
+              "additionalProperties": false,
+              "properties": {
+                "before_date": {
+                  "$ref": "#/components/schemas/MaintenanceBeforeDate",
+                  "description": "RFC3339 cutoff; subscriptions unconfirmed before this date are deleted."
+                }
+              },
+              "required": [
+                "before_date"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "before_date": {
+              "$ref": "#/components/schemas/MaintenanceBeforeDate",
+              "description": "RFC3339 cutoff; subscriptions unconfirmed before this date are deleted."
+            }
+          },
+          "required": [
+            "before_date"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "MaintenanceGcUnconfirmedOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "before_date": {
+                  "type": "string"
+                },
+                "count": {
+                  "description": "Unconfirmed subscriptions deleted by this request.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "before_date",
+                "count"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "before_date": {
+              "type": "string"
+            },
+            "count": {
+              "description": "Unconfirmed subscriptions deleted by this request.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "before_date",
+            "count"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "The first successful run empties the matching set for the echoed cutoff, so a repeated identical request reports count 0; verify with subscribers.list after an ambiguous result.",
+        "reconcileWith": "subscribers.list"
       },
       "since": "0.17.0",
       "stability": "stable"

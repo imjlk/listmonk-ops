@@ -12,6 +12,7 @@ import {
 	composeOperationCatalogs,
 	systemOperationCatalog,
 	discoveryOperationCatalog,
+	maintenanceOperationCatalog,
 	listOperationCatalog,
 	listOperationCatalogSummaries,
 	mediaOperationCatalog,
@@ -40,6 +41,7 @@ export const mcpOperationCatalog = composeOperationCatalogs([
 	providerOperationCatalog,
 	userRoleOperationCatalog,
 	settingsOperationCatalog,
+	maintenanceOperationCatalog,
 ]);
 
 export function listMcpOperationCatalogSummaries(

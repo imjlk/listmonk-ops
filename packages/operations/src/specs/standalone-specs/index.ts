@@ -5,6 +5,7 @@ export * from "./settings-specs";
 export * from "./campaign-specs";
 export * from "./dashboard-specs";
 export * from "./template-specs";
+export * from "./maintenance-specs";
 export * from "./media-specs";
 export * from "./bounces-specs";
 export * from "./ops-specs";
@@ -31,8 +32,13 @@ import {
 import {
 	systemAboutOperationSpec,
 	systemLogsOperationSpec,
+	systemReloadOperationSpec,
 } from "./system-specs";
 import { settingsGetOperationSpec } from "./settings-specs";
+import {
+	maintenanceGcSubscribersOperationSpec,
+	maintenanceGcUnconfirmedOperationSpec,
+} from "./maintenance-specs";
 import { campaignsArchiveOperationSpec } from "./campaign-specs";
 import { subscribersSendOptinOperationSpec } from "./subscriber-specs";
 import {
@@ -153,9 +159,12 @@ export const standaloneOperationSpecs = [
 	bouncesPruneOperationSpec,
 	systemAboutOperationSpec,
 	systemLogsOperationSpec,
+	systemReloadOperationSpec,
 	campaignsArchiveOperationSpec,
 	subscribersSendOptinOperationSpec,
 	settingsGetOperationSpec,
+	maintenanceGcSubscribersOperationSpec,
+	maintenanceGcUnconfirmedOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */

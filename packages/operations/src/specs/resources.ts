@@ -92,6 +92,20 @@ export const settingsResource = defineOperationResourceSpec({
 	terminalStates: [],
 });
 
+/**
+ * Destructive one-shot garbage collection. The server offers no
+ * preview; the shared operations gate on explicit confirmation.
+ */
+export const maintenanceResource = defineOperationResourceSpec({
+	id: "maintenance",
+	title: "Maintenance collection",
+	states: ["current"],
+	transitions: {
+		current: [],
+	},
+	terminalStates: [],
+});
+
 export const audienceResource = defineOperationResourceSpec({
 	id: "audience",
 	title: "Resolved audience",

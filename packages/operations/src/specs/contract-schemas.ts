@@ -27,6 +27,10 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	templateListInputContract: NormalizedContractSchema;
 	templateCollectionOutputContract: NormalizedContractSchema;
 	mediaRecordContract: NormalizedContractSchema;
+	maintenanceGcSubscribersInputContract: NormalizedContractSchema;
+	maintenanceGcSubscribersOutputContract: NormalizedContractSchema;
+	maintenanceGcUnconfirmedInputContract: NormalizedContractSchema;
+	maintenanceGcUnconfirmedOutputContract: NormalizedContractSchema;
 	mediaCollectionOutputContract: NormalizedContractSchema;
 	bounceRecordContract: NormalizedContractSchema;
 	bounceCollectionOutputContract: NormalizedContractSchema;
@@ -43,6 +47,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberExportOutputContract: NormalizedContractSchema;
 	subscriberSendOptinInputContract: NormalizedContractSchema;
 	subscriberSendOptinOutputContract: NormalizedContractSchema;
+	systemReloadOutputContract: NormalizedContractSchema;
 	settingsGetOutputContract: NormalizedContractSchema;
 	systemAboutOutputContract: NormalizedContractSchema;
 	systemLogsOutputContract: NormalizedContractSchema;
@@ -244,6 +249,14 @@ export const templateListInputContract = contracts.templateListInputContract;
 export const templateCollectionOutputContract =
 	contracts.templateCollectionOutputContract;
 export const mediaRecordContract = contracts.mediaRecordContract;
+export const maintenanceGcSubscribersInputContract =
+	contracts.maintenanceGcSubscribersInputContract;
+export const maintenanceGcSubscribersOutputContract =
+	contracts.maintenanceGcSubscribersOutputContract;
+export const maintenanceGcUnconfirmedInputContract =
+	contracts.maintenanceGcUnconfirmedInputContract;
+export const maintenanceGcUnconfirmedOutputContract =
+	contracts.maintenanceGcUnconfirmedOutputContract;
 export const mediaCollectionOutputContract =
 	contracts.mediaCollectionOutputContract;
 export const bounceRecordContract = contracts.bounceRecordContract;
@@ -266,6 +279,8 @@ export const subscriberSendOptinInputContract =
 	contracts.subscriberSendOptinInputContract;
 export const subscriberSendOptinOutputContract =
 	contracts.subscriberSendOptinOutputContract;
+export const systemReloadOutputContract =
+	contracts.systemReloadOutputContract;
 export const settingsGetOutputContract = contracts.settingsGetOutputContract;
 export const systemAboutOutputContract = contracts.systemAboutOutputContract;
 export const systemLogsOutputContract = contracts.systemLogsOutputContract;
