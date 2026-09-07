@@ -20,9 +20,14 @@ describe("settings shared adapter", () => {
 	test("publishes the redacted read tool", () => {
 		expect(sharedSettingsTools.map((tool) => tool.name)).toEqual([
 			"listmonk_get_settings",
+			"listmonk_test_smtp",
 		]);
 		expect(sharedSettingsTools[0]?.annotations).toMatchObject({
 			readOnlyHint: true,
+			destructiveHint: false,
+		});
+		expect(sharedSettingsTools[1]?.annotations).toMatchObject({
+			readOnlyHint: false,
 			destructiveHint: false,
 		});
 	});

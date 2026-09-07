@@ -170,6 +170,8 @@ import type {
 	SubscriberImportLogsOutput,
 	SubscriberExportInput,
 	SettingsGetOutput,
+	SettingsTestSmtpInput,
+	SettingsTestSmtpOutput,
 	SystemReloadOutput,
 	SystemAboutOutput,
 	SystemLogsOutput,
@@ -408,6 +410,12 @@ const contracts = {
 	),
 	systemReloadOutputContract: contractSchema(
 		typia.json.schema<SystemReloadOutput>(),
+	),
+	settingsTestSmtpInputContract: contractSchema(
+		typia.json.schema<SettingsTestSmtpInput>(),
+	),
+	settingsTestSmtpOutputContract: contractSchema(
+		typia.json.schema<SettingsTestSmtpOutput>(),
 	),
 	settingsGetOutputContract: contractSchema(
 		typia.json.schema<SettingsGetOutput>(),

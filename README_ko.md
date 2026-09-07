@@ -444,6 +444,9 @@ listmonk-cli system about
 listmonk-cli system logs --lines 50
 # 자격 증명은 재귀적으로 [redacted]로 치환됩니다.
 listmonk-cli settings get
+# 실행할 때마다 수신자에게 실제 메시지를 보냅니다.
+listmonk-cli settings test-smtp --email reader@example.com \
+  --host mailpit --port 1025
 listmonk-cli system reload
 # 일괄 파괴적 정리: 서버 측 미리보기가 없습니다.
 listmonk-cli maintenance gc-subscribers --type orphan --confirm
@@ -566,7 +569,7 @@ Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제�
 자격 증명을 노출하지 않으면서 런타임 정보와 실제 Listmonk health probe
 결과를 함께 제공합니다.
 
-127개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+128개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -585,8 +588,8 @@ Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 읽기(`templates.preview`), 구독자 데이터 이동성 내보내기
 (`subscribers.export`), 시스템 식별/진단 읽기(`system.about`,
 `system.logs`), 캠페인 아카이브 토글(`campaigns.archive`), 옵트인 재발송
-(`subscribers.send-optin`), 자격 증명 무권화 설정 읽기(`settings.get`),
-일괄 유지보수 정리(`maintenance.gc-subscribers`,
+(`subscribers.send-optin`), 자격 증명 무권화 설정 읽기(`settings.get`), SMTP 설정 테스트
+(`settings.test-smtp`), 일괄 유지보수 정리(`maintenance.gc-subscribers`,
 `maintenance.gc-unconfirmed`), 설정 다시 불러오기(`system.reload`)는
 관찰된 Listmonk 6.2 응답 형태를 로컬 스택으로 검증한 뒤 stable 호환성
 baseline에 승인되었습니다. runtime-operation bridge는 비어 있습니다.
@@ -826,11 +829,11 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 127개 전체, API 경계 규칙, 0개 governed runtime bridge,
-stable compatibility baseline(127개)과 spec-to-runtime 직접 graph edge
-386개를 검증합니다.
+Operation 128개 전체, API 경계 규칙, 0개 governed runtime bridge,
+stable compatibility baseline(128개)과 spec-to-runtime 직접 graph edge
+389개를 검증합니다.
 
-127개 shared Operation은 모두 독립적인 TypeScript 계약을 사용합니다. 다시
+128개 shared Operation은 모두 독립적인 TypeScript 계약을 사용합니다. 다시
 생성해야 할 governed runtime-bridge 입력이나 snapshot은 없습니다.
 
 Spec API는 별도 npm 패키지가 아니라 기존 operations 패키지의

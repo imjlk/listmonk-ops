@@ -1,5 +1,8 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { bindSettingsGetOperationSpec } from "./specs";
+import {
+	bindSettingsGetOperationSpec,
+	bindSettingsTestSmtpOperationSpec,
+} from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -154,7 +157,110 @@ export async function invokeGetSettingsOperation(
 	);
 }
 
-export const settingsOperations = [getSettingsOperation] as const;
+const SMTP_AUTH_PROTOCOLS = ["none", "plain", "cram-md5", "login"] as const;
+const SMTP_TLS_TYPES = ["none", "STARTTLS", "TLS", "SSL"] as const;
+
+const smtpServerSchema = z.looseObject({
+	name: z.string().optional(),
+	host: z.string().min(1),
+	port: z.number().positive(),
+	hello_hostname: z.string().optional(),
+	auth_protocol: z.enum(SMTP_AUTH_PROTOCOLS).optional(),
+	username: z.string().optional(),
+	// Accepted for credential verification only; never persisted or
+	// echoed by this operation and never written into the audit store.
+	password: z.string().optional(),
+	tls_type: z.enum(SMTP_TLS_TYPES).optional(),
+	tls_skip_verify: z.boolean().optional(),
+	max_conns: z.number().positive().optional(),
+	max_msg_retries: z.number().nonnegative().optional(),
+	msg_retry_delay: z.string().optional(),
+	idle_timeout: z.string().optional(),
+	wait_timeout: z.string().optional(),
+	email_headers: z.array(z.record(z.string(), z.string())).optional(),
+});
+
+const testSmtpInputSchema = z.object({
+	email: z.string().trim().toLowerCase().min(1).max(254).pipe(z.email()),
+	server: smtpServerSchema,
+});
+
+const testSmtpOutputSchema = z.object({
+	sent: z.boolean(),
+	logs: z.array(z.string()),
+});
+
+export type SettingsTestSmtpOutput = z.output<typeof testSmtpOutputSchema>;
+
+/**
+ * Deliver a real test message through one candidate SMTP server
+ * configuration. The observed 6.2 endpoint takes the server fields and
+ * the recipient `email` flattened into one JSON body and answers with
+ * the server log-buffer lines; the shared contract pins `sent` and
+ * passes the lines through. Every run sends a real message, so the
+ * retry classification stays honestly unsafe.
+ */
+export async function sendSmtpTest(
+	{ client }: SettingsOperationContext,
+	input: z.output<typeof testSmtpInputSchema>,
+): Promise<SettingsTestSmtpOutput> {
+	const { server, email } = input;
+	const response = await client.settings.testSmtp({
+		body: {
+			...server,
+			email,
+		},
+	});
+	const logs = unwrapResourceResponse(response, "Failed to test SMTP settings");
+	return {
+		sent: true,
+		logs: Array.isArray(logs) ? (logs as string[]) : [],
+	};
+}
+
+export const testSmtpOperation = defineOperation({
+	id: "settings.test-smtp",
+	title: "Send an SMTP configuration test message",
+	description:
+		"Deliver a real test message through one candidate SMTP server configuration to a single recipient, returning the server log lines captured around the attempt.",
+	inputSchema: testSmtpInputSchema,
+	outputSchema: testSmtpOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: false,
+		openWorldHint: true,
+	},
+	mcp: {
+		name: "listmonk_test_smtp",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSettingsTestSmtpOperationSpec(),
+	execute: sendSmtpTest,
+});
+
+export async function invokeTestSmtpOperation(
+	context: SettingsOperationContext,
+	input: unknown,
+): Promise<SettingsTestSmtpOutput> {
+	const parsedInput = parseOperationInput(testSmtpOperation.inputSchema, input);
+	let output: SettingsTestSmtpOutput;
+	try {
+		output = await sendSmtpTest(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(testSmtpOperation.id, error);
+	}
+	return parseOperationOutput(
+		testSmtpOperation.id,
+		testSmtpOperation.outputSchema,
+		output,
+	);
+}
+
+export const settingsOperations = [
+	getSettingsOperation,
+	testSmtpOperation,
+] as const;
 
 export const settingsOperationCatalog = defineOperationCatalog({
 	id: "settings",
@@ -190,6 +296,11 @@ export async function invokeSettingsOperationByMcpName(
 			return {
 				operation: getSettingsOperation,
 				output: await invokeGetSettingsOperation(context, input),
+			};
+		case testSmtpOperation.mcp.name:
+			return {
+				operation: testSmtpOperation,
+				output: await invokeTestSmtpOperation(context, input),
 			};
 		default:
 			return undefined;

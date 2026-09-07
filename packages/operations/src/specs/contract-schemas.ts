@@ -48,6 +48,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberSendOptinInputContract: NormalizedContractSchema;
 	subscriberSendOptinOutputContract: NormalizedContractSchema;
 	systemReloadOutputContract: NormalizedContractSchema;
+	settingsTestSmtpInputContract: NormalizedContractSchema;
+	settingsTestSmtpOutputContract: NormalizedContractSchema;
 	settingsGetOutputContract: NormalizedContractSchema;
 	systemAboutOutputContract: NormalizedContractSchema;
 	systemLogsOutputContract: NormalizedContractSchema;
@@ -279,6 +281,10 @@ export const subscriberSendOptinInputContract =
 	contracts.subscriberSendOptinInputContract;
 export const subscriberSendOptinOutputContract =
 	contracts.subscriberSendOptinOutputContract;
+export const settingsTestSmtpInputContract =
+	contracts.settingsTestSmtpInputContract;
+export const settingsTestSmtpOutputContract =
+	contracts.settingsTestSmtpOutputContract;
 export const systemReloadOutputContract =
 	contracts.systemReloadOutputContract;
 export const settingsGetOutputContract = contracts.settingsGetOutputContract;

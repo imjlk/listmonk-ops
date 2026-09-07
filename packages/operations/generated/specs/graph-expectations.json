@@ -3405,6 +3405,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/settings.ts#testSmtpOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/settings-specs.ts#bindSettingsTestSmtpOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/settings-specs.ts#bindSettingsTestSmtpOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/settings-specs.ts#settingsTestSmtpOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/settings.ts#invokeTestSmtpOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/settings.ts#sendSmtpTest:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/settings-specs.ts#bindSettingsTestSmtpOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/settings-specs.ts#settingsTestSmtpOperationSpec:variable",
+        "executorNode": "packages/operations/src/settings.ts#sendSmtpTest:function",
+        "invokerNode": "packages/operations/src/settings.ts#invokeTestSmtpOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/settings.ts#testSmtpOperation:variable"
+      },
+      "operationId": "settings.test-smtp"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function"
