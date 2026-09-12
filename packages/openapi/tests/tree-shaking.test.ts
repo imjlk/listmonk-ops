@@ -67,10 +67,10 @@ describe("OpenAPI consumer tree-shaking", () => {
 		`);
 		const urls = generatedEndpointUrls(bundle);
 
-		expect(urls).toHaveLength(45);
+		expect(urls).toHaveLength(46);
 		expect(urls).toContain("/lists");
 		expect(urls).not.toContain("/lang/{lang}");
-		expect(urls).not.toContain("/maintenance/analytics/{type}");
+		expect(urls).toContain("/maintenance/analytics/{type}");
 		expect(urls).not.toContain("/public/subscription");
 		expect(Buffer.byteLength(bundle)).toBeLessThan(30_000);
 	});

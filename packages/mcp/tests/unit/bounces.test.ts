@@ -20,6 +20,8 @@ describe("bounce operation adapter", () => {
 			"listmonk_get_bounce",
 			"listmonk_delete_bounce",
 			"listmonk_prune_bounces",
+			"listmonk_get_subscriber_bounces",
+			"listmonk_delete_subscriber_bounces",
 		]);
 		const listTool = bouncesTools.find(
 			(tool) => tool.name === "listmonk_get_bounces",

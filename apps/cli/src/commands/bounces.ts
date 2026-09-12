@@ -2,7 +2,9 @@ import type { OutputUtils } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeDeleteBounceOperation,
+	invokeDeleteSubscriberBouncesOperation,
 	invokeGetBounceOperation,
+	invokeGetSubscriberBouncesOperation,
 	invokeListBouncesOperation,
 	invokePruneBouncesOperation,
 	MAX_BOUNCE_PRUNE_IDS,
@@ -22,7 +24,7 @@ import { getListmonkClient } from "../lib/listmonk";
 type BouncesOutput = Pick<typeof OutputUtils, "info" | "json" | "success" | "table">;
 
 export interface BouncesCliContext {
-	client: Pick<ListmonkClient, "bounce">;
+	client: Pick<ListmonkClient, "bounce" | "subscriber">;
 	output: BouncesOutput;
 }
 
@@ -95,6 +97,67 @@ export async function renderPruneBounces(
 		);
 	}
 	context.output.json(result);
+}
+
+export async function renderSubscriberBounces(
+	context: BouncesCliContext,
+	input: { subscriber_id: number },
+): Promise<void> {
+	const result = await invokeGetSubscriberBouncesOperation(context, input);
+	if (result.results.length === 0) {
+		context.output.info(
+			`No bounces found for subscriber ${input.subscriber_id}`,
+		);
+		// An empty history is a documented normal result, so the envelope
+		// still reaches stdout in machine-readable output modes.
+		context.output.json(result);
+		return;
+	}
+	context.output.table(result.results as Record<string, unknown>[]);
+}
+
+export async function renderDeleteSubscriberBounces(
+	context: BouncesCliContext,
+	input: { subscriber_id: number },
+): Promise<void> {
+	const result = await invokeDeleteSubscriberBouncesOperation(context, input);
+	context.output.success(
+		`Deleted bounces for subscriber: ${input.subscriber_id}`,
+	);
+	context.output.json(result);
+}
+
+export async function handleGetSubscriberBouncesCommand({
+	flags,
+	...args
+}: HandlerArgs<{ "subscriber-id": number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderSubscriberBounces(
+			{ client, output: getOutput() },
+			{ subscriber_id: flags["subscriber-id"] },
+		);
+	} catch (error) {
+		throw createBouncesCommandError("Failed to get subscriber bounces", error);
+	}
+}
+
+export async function handleDeleteSubscriberBouncesCommand({
+	flags,
+	...args
+}: HandlerArgs<{ "subscriber-id": number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderDeleteSubscriberBounces(
+			{ client, output: getOutput() },
+			{ subscriber_id: flags["subscriber-id"] },
+		);
+	} catch (error) {
+		throw createBouncesCommandError(
+			"Failed to delete subscriber bounces",
+			error,
+		);
+	}
 }
 
 type ListBouncesCommandFlags = {
@@ -251,6 +314,29 @@ export default defineGroup({
 				}),
 			},
 			handler: handleDeleteBounceCommand,
+		}),
+		defineCommand({
+			name: "list-subscriber",
+			operationId: "subscribers.bounces.get",
+			description: "List the bounce records of one subscriber",
+			options: {
+				"subscriber-id": option(z.coerce.number().int().positive(), {
+					description: "Subscriber ID",
+				}),
+			},
+			handler: handleGetSubscriberBouncesCommand,
+		}),
+		defineCommand({
+			name: "delete-subscriber",
+			operationId: "subscribers.bounces.delete",
+			description:
+				"Delete every bounce record of one subscriber in one request",
+			options: {
+				"subscriber-id": option(z.coerce.number().int().positive(), {
+					description: "Subscriber ID",
+				}),
+			},
+			handler: handleDeleteSubscriberBouncesCommand,
 		}),
 		defineCommand({
 			name: "prune",

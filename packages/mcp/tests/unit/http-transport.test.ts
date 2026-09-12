@@ -105,7 +105,7 @@ describe("MCP HTTP transport boundary", () => {
 			Authorization: "Bearer http-test-secret",
 		});
 		expect(authorized.status).toBe(200);
-		expect((await authorized.json()).tools).toHaveLength(136);
+		expect((await authorized.json()).tools).toHaveLength(139);
 	});
 
 	test("serves a stateless MCP initialize request and closes the request server", async () => {

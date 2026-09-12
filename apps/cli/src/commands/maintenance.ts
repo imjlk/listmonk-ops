@@ -1,6 +1,7 @@
 import type { OutputUtils } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	invokeGcAnalyticsOperation,
 	invokeGcSubscribersOperation,
 	invokeGcUnconfirmedOperation,
 	MAINTENANCE_BEFORE_DATE_PATTERN_SOURCE,
@@ -52,6 +53,41 @@ export async function renderGcUnconfirmed(
 		`Garbage-collected ${result.count} unconfirmed subscription(s) before ${result.before_date}`,
 	);
 	context.output.json(result);
+}
+
+export async function renderGcAnalytics(
+	context: MaintenanceCliContext,
+	input: { type: "all" | "views" | "clicks"; before_date: string },
+): Promise<void> {
+	const result = await invokeGcAnalyticsOperation(context, input);
+	context.output.success(
+		`Garbage-collected ${result.type} analytics recorded before ${result.before_date}`,
+	);
+	context.output.json(result);
+}
+
+export async function handleGcAnalyticsCommand({
+	flags,
+	...args
+}: HandlerArgs<{
+	type: "all" | "views" | "clicks";
+	"before-date": string;
+}>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderGcAnalytics(
+			{ client, output: getOutput() },
+			{
+				type: flags.type,
+				before_date: flags["before-date"],
+			},
+		);
+	} catch (error) {
+		throw createMaintenanceCommandError(
+			"Failed to garbage-collect campaign analytics",
+			error,
+		);
+	}
 }
 
 export async function handleGcSubscribersCommand({
@@ -111,8 +147,27 @@ export default defineGroup({
 			},
 			handler: handleGcSubscribersCommand,
 		}),
-		defineCommand({
-			name: "gc-unconfirmed",
+			defineCommand({
+				name: "gc-analytics",
+				operationId: "maintenance.gc-analytics",
+				description:
+					"Delete campaign analytics (views and/or clicks) older than an RFC3339 cutoff, across every campaign",
+				options: {
+					type: option(z.enum(["all", "views", "clicks"]), {
+						description: "Analytics category the collection deletes",
+					}),
+					"before-date": option(
+						z.string().regex(new RegExp(MAINTENANCE_BEFORE_DATE_PATTERN_SOURCE)),
+						{
+							description:
+								"RFC3339 cutoff (e.g. 2026-01-01T00:00:00Z); the server reports only a boolean acknowledgement",
+						},
+					),
+				},
+				handler: handleGcAnalyticsCommand,
+			}),
+			defineCommand({
+				name: "gc-unconfirmed",
 			operationId: "maintenance.gc-unconfirmed",
 			description:
 				"Delete every subscription unconfirmed before an RFC3339 cutoff",

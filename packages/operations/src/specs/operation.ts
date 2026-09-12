@@ -44,6 +44,7 @@ export type OperationSpecVerb =
 	| "send-optin"
 	| "test-smtp"
 	| "gc-subscribers"
+	| "gc-analytics"
 	| "gc-unconfirmed"
 	| "reload"
 	| "about"

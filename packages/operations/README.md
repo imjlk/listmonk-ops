@@ -69,8 +69,9 @@ Listmonk OpenAPI transport
   -> operation spec (resource, effect, policy, retry, agent context)
 ```
 
-All 116 contracts are authored as TypeScript types and projected with Typia,
-and all 128 are `stable`; the bounce family, the campaign preview, test-send,
+All 131 contracts are authored as TypeScript types and projected with Typia,
+and all 131 are `stable`; the bounce family including the subscriber-scoped
+bounce history, the campaign preview, test-send,
 analytics, and archive operations, the dashboard aggregate reads, the
 subscriber import lifecycle, template preview, data-portability export,
 opt-in resend, the system identity and diagnostics reads, the

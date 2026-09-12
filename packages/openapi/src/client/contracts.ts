@@ -266,7 +266,7 @@ export interface ImportOperations {
 }
 
 /**
- * Destructive maintenance garbage collection. Both endpoints delete the
+ * Destructive maintenance garbage collection. Every endpoint deletes the
  * full matching set in one request; there is no server-side preview.
  */
 export interface MaintenanceOperations {
@@ -276,6 +276,10 @@ export interface MaintenanceOperations {
 	gcUnconfirmedSubscriptions(options: {
 		query: { before_date: string };
 	}): Promise<FlattenedResponse<{ count?: number }>>;
+	gcAnalytics(options: {
+		path: { type: "all" | "views" | "clicks" };
+		query: { before_date: string };
+	}): Promise<FlattenedResponse<boolean>>;
 }
 
 export interface BounceOperations {

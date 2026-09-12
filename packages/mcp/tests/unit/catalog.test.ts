@@ -187,10 +187,10 @@ describe("operation catalog MCP adapter", () => {
 			"auditRequired",
 			"dryRunSupported",
 		]);
-		expect(mcpOperationCatalog.entries).toHaveLength(128);
+		expect(mcpOperationCatalog.entries).toHaveLength(131);
 		expect(listMcpOperationCatalogSummaries("ops")).toHaveLength(9);
 		expect(listMcpOperationCatalogSummaries("media")).toHaveLength(4);
-		expect(listMcpOperationCatalogSummaries("bounces")).toHaveLength(4);
+		expect(listMcpOperationCatalogSummaries("bounces")).toHaveLength(6);
 		expect(
 			listMcpOperationCatalogSummaries("subscribers").find(
 				(operation) => operation.id === "subscribers.blocklist",

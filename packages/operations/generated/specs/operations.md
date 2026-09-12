@@ -1533,6 +1533,42 @@ Deliver a real test message through one candidate SMTP server configuration to a
 - Retry: `unsafe`
 - Stability: `stable` since `0.17.0`
 
+## `subscribers.bounces.get`
+
+List the bounce records Listmonk attributes to one subscriber. An unknown subscriber answers with an empty collection, not an error.
+
+- Resource / verb: `bounce.get`
+- MCP tool: `listmonk_get_subscriber_bounces`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:bounce`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.18.0`
+
+## `subscribers.bounces.delete`
+
+Delete every bounce record attributed to one subscriber in a single confirmed request.
+
+- Resource / verb: `bounce.delete`
+- MCP tool: `listmonk_delete_subscriber_bounces`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `delete:bounce`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `stable` since `0.18.0`
+
+## `maintenance.gc-analytics`
+
+One-shot deletion of campaign analytics (views and/or link clicks) recorded before an RFC3339 cutoff, across every campaign. The server offers no preview and reports no count.
+
+- Resource / verb: `maintenance.gc-analytics`
+- MCP tool: `listmonk_gc_analytics`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `maintenance:prune:destructive`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `stable` since `0.18.0`
+
 ## `user-roles.reconcile`
 
 Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles

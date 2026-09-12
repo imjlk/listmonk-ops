@@ -2046,23 +2046,20 @@ paths:
       operationId: deleteCampaignAnalyticsByType
       tags:
         - Maintenance
-      requestBody:
-        description: date parameter
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                before_date:
-                  type: string
-                  format: date
       parameters:
-        - in: path
-          name: type
-          description: type of GC collected subscribers
+        - in: query
+          name: before_date
+          required: true
+          description: RFC3339 cutoff; analytics recorded before this timestamp are deleted
           schema:
             type: string
+            format: date-time
+        - in: path
+          name: type
+          description: analytics category to garbage collect
+          schema:
+            type: string
+            enum: [all, views, clicks]
           required: true
       responses:
         "200":

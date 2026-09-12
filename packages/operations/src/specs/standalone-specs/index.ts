@@ -38,6 +38,7 @@ import { settingsGetOperationSpec } from "./settings-specs";
 import {
 	maintenanceGcSubscribersOperationSpec,
 	maintenanceGcUnconfirmedOperationSpec,
+	maintenanceGcAnalyticsOperationSpec,
 } from "./maintenance-specs";
 import { settingsTestSmtpOperationSpec } from "./settings-specs";
 import { campaignsArchiveOperationSpec } from "./campaign-specs";
@@ -73,6 +74,8 @@ import {
 	bouncesGetOperationSpec,
 	bouncesDeleteOperationSpec,
 	bouncesPruneOperationSpec,
+	subscribersBouncesGetOperationSpec,
+	subscribersBouncesDeleteOperationSpec,
 } from "./bounces-specs";
 import {
 	opsSegmentDriftOperationSpec,
@@ -167,6 +170,9 @@ export const standaloneOperationSpecs = [
 	maintenanceGcSubscribersOperationSpec,
 	maintenanceGcUnconfirmedOperationSpec,
 	settingsTestSmtpOperationSpec,
+	subscribersBouncesGetOperationSpec,
+	subscribersBouncesDeleteOperationSpec,
+	maintenanceGcAnalyticsOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */

@@ -3432,6 +3432,87 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/bounces.ts#getSubscriberBouncesOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindSubscribersBouncesGetOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindSubscribersBouncesGetOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#subscribersBouncesGetOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/bounces.ts#invokeGetSubscriberBouncesOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/bounces.ts#getSubscriberBounces:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindSubscribersBouncesGetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#subscribersBouncesGetOperationSpec:variable",
+        "executorNode": "packages/operations/src/bounces.ts#getSubscriberBounces:function",
+        "invokerNode": "packages/operations/src/bounces.ts#invokeGetSubscriberBouncesOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/bounces.ts#getSubscriberBouncesOperation:variable"
+      },
+      "operationId": "subscribers.bounces.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/bounces.ts#deleteSubscriberBouncesOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindSubscribersBouncesDeleteOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindSubscribersBouncesDeleteOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#subscribersBouncesDeleteOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/bounces.ts#invokeDeleteSubscriberBouncesOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/bounces.ts#deleteSubscriberBounces:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindSubscribersBouncesDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#subscribersBouncesDeleteOperationSpec:variable",
+        "executorNode": "packages/operations/src/bounces.ts#deleteSubscriberBounces:function",
+        "invokerNode": "packages/operations/src/bounces.ts#invokeDeleteSubscriberBouncesOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/bounces.ts#deleteSubscriberBouncesOperation:variable"
+      },
+      "operationId": "subscribers.bounces.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/maintenance.ts#gcAnalyticsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcAnalyticsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcAnalyticsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcAnalyticsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/maintenance.ts#invokeGcAnalyticsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/maintenance.ts#gcAnalytics:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcAnalyticsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcAnalyticsOperationSpec:variable",
+        "executorNode": "packages/operations/src/maintenance.ts#gcAnalytics:function",
+        "invokerNode": "packages/operations/src/maintenance.ts#invokeGcAnalyticsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/maintenance.ts#gcAnalyticsOperation:variable"
+      },
+      "operationId": "maintenance.gc-analytics"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function"

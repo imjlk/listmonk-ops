@@ -41928,6 +41928,556 @@
     {
       "agent": {
         "avoidWhen": [
+          "Bounce discovery across subscribers is required."
+        ],
+        "prerequisites": [],
+        "related": [
+          "subscribers.get",
+          "bounces.list"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "A subscriber's full bounce history must be reviewed before cleanup or deliverability triage."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBouncesGetInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk subscriber ID."
+                  }
+                },
+                "required": [
+                  "subscriber_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "subscriber_id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk subscriber ID."
+              }
+            },
+            "required": [
+              "subscriber_id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "BounceCampaignSummary": {
+                "additionalProperties": {},
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "BounceRecord": {
+                "additionalProperties": {},
+                "description": "A Listmonk bounce record as observed from the 6.2 API. The upstream\nOpenAPI document misses `subscriber_status` and models a stray `total`\ninside the item, so this contract follows observed responses and keeps\nan index signature for forward compatibility.",
+                "properties": {
+                  "campaign": {
+                    "$ref": "#/components/schemas/BounceCampaignSummary"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "subscriber_status": {
+                    "type": "string"
+                  },
+                  "subscriber_uuid": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBouncesCollectionOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/BounceRecord"
+                    },
+                    "type": "array"
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "total": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "subscriber_id",
+                  "results",
+                  "total"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "results": {
+                "items": {
+                  "$ref": "#/components/schemas/BounceRecord"
+                },
+                "type": "array"
+              },
+              "subscriber_id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "total": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "subscriber_id",
+              "results",
+              "total"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "List the bounce records Listmonk attributes to one subscriber. An unknown subscriber answers with an empty collection, not an error.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "bounce"
+        }
+      ],
+      "id": "subscribers.bounces.get",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindSubscribersBouncesGetOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#subscribersBouncesGetOperationSpec:variable",
+          "executorNode": "packages/operations/src/bounces.ts#getSubscriberBounces:function",
+          "invokerNode": "packages/operations/src/bounces.ts#invokeGetSubscriberBouncesOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/bounces.ts#getSubscriberBouncesOperation:variable"
+        },
+        "mcpName": "listmonk_get_subscriber_bounces",
+        "openWorld": true
+      },
+      "resource": "bounce",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the subscriber's bounce history."
+      },
+      "since": "0.18.0",
+      "stability": "stable",
+      "title": "Get subscriber bounces",
+      "verb": "get"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The bounce history is still needed for deliverability forensics or an audit trail."
+        ],
+        "prerequisites": [
+          "subscribers.bounces.get"
+        ],
+        "related": [
+          "subscribers.bounces.get",
+          "bounces.delete",
+          "bounces.prune"
+        ],
+        "retryGuidance": "Verify the history is empty with subscribers.bounces.get before repeating; the acknowledgement is not an existence proof.",
+        "useWhen": [
+          "A subscriber's bounce history must be cleared, typically before a redelivery attempt."
+        ],
+        "verifyWith": [
+          "subscribers.bounces.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBouncesGetInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk subscriber ID."
+                  }
+                },
+                "required": [
+                  "subscriber_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "subscriber_id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk subscriber ID."
+              }
+            },
+            "required": [
+              "subscriber_id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBouncesDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Echoed subscriber ID whose bounce history was cleared."
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Echoed subscriber ID whose bounce history was cleared."
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Delete every bounce record attributed to one subscriber in a single confirmed request.",
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "bounce",
+          "reversible": false
+        }
+      ],
+      "id": "subscribers.bounces.delete",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindSubscribersBouncesDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#subscribersBouncesDeleteOperationSpec:variable",
+          "executorNode": "packages/operations/src/bounces.ts#deleteSubscriberBounces:function",
+          "invokerNode": "packages/operations/src/bounces.ts#invokeDeleteSubscriberBouncesOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/bounces.ts#deleteSubscriberBouncesOperation:variable"
+        },
+        "mcpName": "listmonk_delete_subscriber_bounces",
+        "openWorld": true
+      },
+      "resource": "bounce",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-empty bounce history is a no-op acknowledgement; verify the surviving set with subscribers.bounces.get after an ambiguous result.",
+        "reconcileWith": "subscribers.bounces.get"
+      },
+      "since": "0.18.0",
+      "stability": "stable",
+      "title": "Delete subscriber bounces",
+      "verb": "delete"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Analytics reporting for the window is still needed — the deletion is irreversible and crosses every campaign."
+        ],
+        "prerequisites": [
+          "campaigns.analytics"
+        ],
+        "related": [
+          "campaigns.analytics",
+          "maintenance.gc-subscribers"
+        ],
+        "retryGuidance": "Verify with campaigns.analytics before repeating; the server reports only a boolean acknowledgement.",
+        "useWhen": [
+          "An operator has explicitly approved deleting analytics older than the cutoff to reclaim database space."
+        ],
+        "verifyWith": [
+          "campaigns.analytics"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "MaintenanceAnalyticsType": {
+                "oneOf": [
+                  {
+                    "const": "all"
+                  },
+                  {
+                    "const": "clicks"
+                  },
+                  {
+                    "const": "views"
+                  }
+                ]
+              },
+              "MaintenanceBeforeDate": {
+                "description": "RFC3339 cutoff bound shared with the executable schema.",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+                "type": "string"
+              },
+              "MaintenanceGcAnalyticsInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "before_date": {
+                    "$ref": "#/components/schemas/MaintenanceBeforeDate",
+                    "description": "RFC3339 cutoff; analytics recorded before this date are deleted."
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/MaintenanceAnalyticsType",
+                    "description": "Analytics category the one-shot collection deletes."
+                  }
+                },
+                "required": [
+                  "type",
+                  "before_date"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "before_date": {
+                "$ref": "#/components/schemas/MaintenanceBeforeDate",
+                "description": "RFC3339 cutoff; analytics recorded before this date are deleted."
+              },
+              "type": {
+                "$ref": "#/components/schemas/MaintenanceAnalyticsType",
+                "description": "Analytics category the one-shot collection deletes."
+              }
+            },
+            "required": [
+              "type",
+              "before_date"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "MaintenanceAnalyticsType": {
+                "oneOf": [
+                  {
+                    "const": "all"
+                  },
+                  {
+                    "const": "clicks"
+                  },
+                  {
+                    "const": "views"
+                  }
+                ]
+              },
+              "MaintenanceGcAnalyticsOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "before_date": {
+                    "description": "Echoed cutoff.",
+                    "type": "string"
+                  },
+                  "deleted": {
+                    "description": "Whether Listmonk acknowledged the deletion request.",
+                    "type": "boolean"
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/MaintenanceAnalyticsType"
+                  }
+                },
+                "required": [
+                  "type",
+                  "before_date",
+                  "deleted"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "before_date": {
+                "description": "Echoed cutoff.",
+                "type": "string"
+              },
+              "deleted": {
+                "description": "Whether Listmonk acknowledged the deletion request.",
+                "type": "boolean"
+              },
+              "type": {
+                "$ref": "#/components/schemas/MaintenanceAnalyticsType"
+              }
+            },
+            "required": [
+              "type",
+              "before_date",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "One-shot deletion of campaign analytics (views and/or link clicks) recorded before an RFC3339 cutoff, across every campaign. The server offers no preview and reports no count.",
+      "effects": [
+        {
+          "action": "prune",
+          "destructive": true,
+          "kind": "maintenance",
+          "preview": false,
+          "resource": "campaign"
+        }
+      ],
+      "id": "maintenance.gc-analytics",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcAnalyticsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcAnalyticsOperationSpec:variable",
+          "executorNode": "packages/operations/src/maintenance.ts#gcAnalytics:function",
+          "invokerNode": "packages/operations/src/maintenance.ts#invokeGcAnalyticsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/maintenance.ts#gcAnalyticsOperation:variable"
+        },
+        "mcpName": "listmonk_gc_analytics",
+        "openWorld": true
+      },
+      "resource": "maintenance",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "The first successful run empties the matching set for the echoed cutoff, so a repeated identical request deletes nothing new; verify with campaigns.analytics after an ambiguous result.",
+        "reconcileWith": "campaigns.analytics"
+      },
+      "since": "0.18.0",
+      "stability": "stable",
+      "title": "Garbage-collect campaign analytics",
+      "verb": "gc-analytics"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "A single role should be inspected without a full manifest.",
           "The protected Super Admin role is the intended target."
         ],

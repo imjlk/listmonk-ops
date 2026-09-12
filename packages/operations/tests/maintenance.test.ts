@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	invokeGcAnalyticsOperation,
 	invokeGcSubscribersOperation,
 	invokeGcUnconfirmedOperation,
 	invokeMaintenanceOperationByMcpName,
@@ -18,7 +19,7 @@ function maintenanceContext(
 
 describe("maintenance operations", () => {
 	test("registers destructive one-shot collections with confirmation gating", () => {
-		expect(maintenanceOperations).toHaveLength(2);
+		expect(maintenanceOperations).toHaveLength(3);
 		for (const operation of maintenanceOperations) {
 			expect(operation.safety.destructiveHint).toBe(true);
 			expect(operation.safety.readOnlyHint).toBe(false);
@@ -93,6 +94,43 @@ describe("maintenance operations", () => {
 			"operationId",
 			"maintenance.gc-subscribers",
 		);
+	});
+
+	test("collects analytics through the query-parameter cutoff", async () => {
+		const gcAnalytics = mock(async () => ({ data: true }));
+
+		await expect(
+			invokeGcAnalyticsOperation(
+				maintenanceContext({
+					gcAnalytics:
+						gcAnalytics as unknown as MaintenanceClient["maintenance"]["gcAnalytics"],
+				}),
+				{ type: "views", before_date: "2020-01-01T00:00:00Z" },
+			),
+		).resolves.toEqual({
+			type: "views",
+			before_date: "2020-01-01T00:00:00Z",
+			deleted: true,
+		});
+		expect(gcAnalytics).toHaveBeenCalledWith({
+			path: { type: "views" },
+			query: { before_date: "2020-01-01T00:00:00Z" },
+		});
+	});
+
+	test("rejects an analytics run with an unsupported type or cutoff before any request", async () => {
+		const gcAnalytics = mock(async () => ({ data: true }));
+		const context = maintenanceContext({
+			gcAnalytics:
+				gcAnalytics as unknown as MaintenanceClient["maintenance"]["gcAnalytics"],
+		});
+		await expect(
+			invokeGcAnalyticsOperation(context, { type: "bounces", before_date: "2020-01-01T00:00:00Z" }),
+		).rejects.toThrow();
+		await expect(
+			invokeGcAnalyticsOperation(context, { type: "views", before_date: "2020-01-01" }),
+		).rejects.toThrow();
+		expect(gcAnalytics).not.toHaveBeenCalled();
 	});
 
 	test("dispatches MCP names through the named operations", async () => {

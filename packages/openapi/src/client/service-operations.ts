@@ -1,6 +1,7 @@
 import {
 	deleteBounceById,
 	deleteBounces,
+	deleteCampaignAnalyticsByType,
 	deleteGcSubscribers,
 	deleteUnconfirmedSubscriptions,
 	getAboutInfo,
@@ -124,6 +125,17 @@ export function createMaintenanceOperations(
 			return (await transformResponse(result)) as FlattenedResponse<{
 				count?: number;
 			}>;
+		},
+		async gcAnalytics(options: {
+			path: { type: "all" | "views" | "clicks" };
+			query: { before_date: string };
+		}) {
+			const result = await deleteCampaignAnalyticsByType({
+				...sdkOptions,
+				path: options.path,
+				query: options.query,
+			});
+			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 	};
 }

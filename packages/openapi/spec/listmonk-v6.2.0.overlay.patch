@@ -124,7 +124,40 @@
        operationId: setDefaultTemplateById
        tags:
          - Templates
-@@ -2051,17 +2051,13 @@
+@@ -2016,23 +2016,20 @@
+       operationId: deleteCampaignAnalyticsByType
+       tags:
+         - Maintenance
+-      requestBody:
+-        description: date parameter
+-        required: true
+-        content:
+-          application/x-www-form-urlencoded:
+-            schema:
+-              type: object
+-              properties:
+-                before_date:
+-                  type: string
+-                  format: date
+       parameters:
++        - in: query
++          name: before_date
++          required: true
++          description: RFC3339 cutoff; analytics recorded before this timestamp are deleted
++          schema:
++            type: string
++            format: date-time
+         - in: path
+           name: type
+-          description: type of GC collected subscribers
++          description: analytics category to garbage collect
+           schema:
+             type: string
++            enum: [all, views, clicks]
+           required: true
+       responses:
+         "200":
+@@ -2051,17 +2054,13 @@
        operationId: deleteUnconfirmedSubscriptions
        tags:
          - Maintenance
@@ -149,7 +182,7 @@
        responses:
          "200":
            description: response
-@@ -2132,6 +2176,41 @@
+@@ -2132,6 +2172,41 @@
  
  components:
    schemas:
@@ -191,7 +224,7 @@
      LanguagePack:
        type: object
        properties:
-@@ -3874,6 +3953,8 @@
+@@ -3874,6 +3949,8 @@
          views:
            type: integer
          clicks:
@@ -200,7 +233,7 @@
            type: integer
          lists:
            type: array
-@@ -3886,6 +3967,8 @@
+@@ -3886,6 +3963,8 @@
                  type: string
          started_at:
            type: string
@@ -209,7 +242,7 @@
          to_send:
            type: integer
          sent:
-@@ -3902,22 +3985,55 @@
+@@ -3902,22 +3981,55 @@
          from_email:
            type: string
          body:
@@ -266,7 +299,7 @@
  
      CampaignContentRequest:
        type: object
-@@ -3945,6 +4061,8 @@
+@@ -3945,6 +4057,8 @@
                  type: string
          started_at:
            type: string
@@ -275,7 +308,7 @@
          to_send:
            type: integer
          sent:
-@@ -3964,17 +4082,20 @@
+@@ -3964,17 +4078,20 @@
            type: string
          send_at:
            type: string
@@ -297,7 +330,7 @@
          messenger:
            type: string
          from:
-@@ -3992,30 +4113,64 @@
+@@ -3992,30 +4109,64 @@
          lists:
            type: array
            items:
@@ -372,7 +405,7 @@
  
      CampaignUpdate:
        type: object
-@@ -4188,11 +4343,26 @@
+@@ -4188,11 +4339,26 @@
  
      TransactionalMessage:
        type: object
@@ -399,7 +432,7 @@
          template_id:
            type: integer
          from_email:
-@@ -4203,7 +4373,13 @@
+@@ -4203,7 +4369,13 @@
            type: array
            items:
              type: object

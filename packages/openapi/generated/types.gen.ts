@@ -2908,19 +2908,19 @@ export type DeleteGcSubscribersResponses = {
 export type DeleteGcSubscribersResponse = DeleteGcSubscribersResponses[keyof DeleteGcSubscribersResponses];
 
 export type DeleteCampaignAnalyticsByTypeData = {
-    /**
-     * date parameter
-     */
-    body: {
-        before_date?: string;
-    };
+    body?: never;
     path: {
         /**
-         * type of GC collected subscribers
+         * analytics category to garbage collect
          */
-        type: string;
+        type: 'all' | 'views' | 'clicks';
     };
-    query?: never;
+    query: {
+        /**
+         * RFC3339 cutoff; analytics recorded before this timestamp are deleted
+         */
+        before_date: string;
+    };
     url: '/maintenance/analytics/{type}';
 };
 

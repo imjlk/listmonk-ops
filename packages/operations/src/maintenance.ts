@@ -1,5 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	bindMaintenanceGcAnalyticsOperationSpec,
 	bindMaintenanceGcSubscribersOperationSpec,
 	bindMaintenanceGcUnconfirmedOperationSpec,
 } from "./specs";
@@ -15,6 +16,7 @@ import {
 import {
 	deleteResourceSafety,
 	jsonResourceValue,
+	requireAcknowledgement,
 	unwrapResourceResponse,
 } from "./resource-helpers";
 
@@ -45,6 +47,24 @@ const maintenanceGcUnconfirmedInputSchema = z.object({
 const maintenanceGcUnconfirmedOutputSchema = z.object({
 	before_date: z.string(),
 	count: z.number().int().nonnegative(),
+});
+
+const maintenanceGcAnalyticsTypeSchema = z.enum(["all", "views", "clicks"]);
+
+const maintenanceGcAnalyticsInputSchema = z.object({
+	type: maintenanceGcAnalyticsTypeSchema,
+	before_date: z
+		.string()
+		.regex(
+			RFC3339_PATTERN,
+			"before_date must be an RFC3339 timestamp (e.g. 2026-01-01T00:00:00Z)",
+		),
+});
+
+const maintenanceGcAnalyticsOutputSchema = z.object({
+	type: maintenanceGcAnalyticsTypeSchema,
+	before_date: z.string(),
+	deleted: z.boolean(),
 });
 
 /**
@@ -90,6 +110,33 @@ export async function gcUnconfirmedSubscriptions(
 	return {
 		before_date: input.before_date,
 		count: typeof data?.count === "number" ? data.count : 0,
+	};
+}
+
+/**
+ * One-shot deletion of campaign analytics (views and/or link clicks)
+ * recorded before the echoed RFC3339 cutoff, across every campaign. The
+ * upstream spec modeled the cutoff as a form body; echo does not parse
+ * form bodies on DELETE, so the observed endpoint takes it as a query
+ * parameter, corrected in the owned overlay. The server answers a bare
+ * boolean and offers neither preview nor count.
+ */
+export async function gcAnalytics(
+	{ client }: MaintenanceOperationContext,
+	input: z.output<typeof maintenanceGcAnalyticsInputSchema>,
+): Promise<z.output<typeof maintenanceGcAnalyticsOutputSchema>> {
+	const response = await client.maintenance.gcAnalytics({
+		path: { type: input.type },
+		query: { before_date: input.before_date },
+	});
+	requireAcknowledgement(
+		response,
+		`Failed to garbage-collect ${input.type} analytics`,
+	);
+	return {
+		type: input.type,
+		before_date: input.before_date,
+		deleted: true,
 	};
 }
 
@@ -167,9 +214,47 @@ export async function invokeGcUnconfirmedOperation(
 	);
 }
 
+export const gcAnalyticsOperation = defineOperation({
+	id: "maintenance.gc-analytics",
+	title: "Garbage-collect campaign analytics",
+	description:
+		"One-shot deletion of campaign analytics (views and/or link clicks) recorded before an RFC3339 cutoff, across every campaign. The server offers no preview and reports no count.",
+	inputSchema: maintenanceGcAnalyticsInputSchema,
+	outputSchema: maintenanceGcAnalyticsOutputSchema,
+	safety: deleteResourceSafety,
+	mcp: {
+		name: "listmonk_gc_analytics",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindMaintenanceGcAnalyticsOperationSpec(),
+	execute: gcAnalytics,
+});
+
+export async function invokeGcAnalyticsOperation(
+	context: MaintenanceOperationContext,
+	input: unknown,
+): Promise<z.output<typeof maintenanceGcAnalyticsOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		gcAnalyticsOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof maintenanceGcAnalyticsOutputSchema>;
+	try {
+		output = await gcAnalytics(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(gcAnalyticsOperation.id, error);
+	}
+	return parseOperationOutput(
+		gcAnalyticsOperation.id,
+		gcAnalyticsOperation.outputSchema,
+		output,
+	);
+}
+
 export const maintenanceOperations = [
 	gcSubscribersOperation,
 	gcUnconfirmedOperation,
+	gcAnalyticsOperation,
 ] as const;
 
 export const maintenanceOperationCatalog = defineOperationCatalog({
@@ -211,6 +296,11 @@ export async function invokeMaintenanceOperationByMcpName(
 			return {
 				operation: gcUnconfirmedOperation,
 				output: await invokeGcUnconfirmedOperation(context, input),
+			};
+		case gcAnalyticsOperation.mcp.name:
+			return {
+				operation: gcAnalyticsOperation,
+				output: await invokeGcAnalyticsOperation(context, input),
 			};
 		default:
 			return undefined;

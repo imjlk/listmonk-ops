@@ -61,6 +61,12 @@ describe("Maintenance CLI and MCP parity", () => {
 			{ before_date: "2020-01-01T00:00:00Z" },
 		);
 		utils.assertError(blockedUnconfirmed, "requires explicit confirmation");
+
+		const blockedAnalytics = await client.callTool("listmonk_gc_analytics", {
+			type: "views",
+			before_date: "2020-01-01T00:00:00Z",
+		});
+		utils.assertError(blockedAnalytics, "requires explicit confirmation");
 	});
 
 	test("runs the safe no-op collections through both adapters", async () => {
@@ -94,5 +100,60 @@ describe("Maintenance CLI and MCP parity", () => {
 		// system.reload is deliberately NOT exercised here: the observed
 		// reload gracefully restarts the HTTP server in-process and drops
 		// concurrent sockets, breaking tests that run after this file.
+	});
+
+	test("collects pre-history analytics through both adapters", async () => {
+		// A cutoff predating the stack deletes nothing on any state — the
+		// server still answers its bare boolean acknowledgement — so the
+		// destructive path is exercised live without losing analytics.
+		const cutoff = "2020-01-01T00:00:00Z";
+		const cliGc = runCliMaintenanceCommand([
+			"--format",
+			"json",
+			"gc-analytics",
+			"--type",
+			"views",
+			"--before-date",
+			cutoff,
+			"--confirm",
+		]);
+		expect(cliGc.exitCode).toBe(0);
+		const jsonStart = cliGc.stdout.indexOf("{");
+		expect(jsonStart).toBeGreaterThanOrEqual(0);
+		const cliResult = JSON.parse(cliGc.stdout.slice(jsonStart)) as {
+			type?: string;
+			before_date?: string;
+			deleted?: boolean;
+		};
+		expect(cliResult).toEqual({
+			type: "views",
+			before_date: cutoff,
+			deleted: true,
+		});
+
+		const mcpGc = utils.assertSuccess<{
+			type?: string;
+			before_date?: string;
+			deleted?: boolean;
+		}>(
+			await client.callTool("listmonk_gc_analytics", {
+				type: "clicks",
+				before_date: cutoff,
+				confirm: true,
+			}),
+			"Failed to collect analytics through MCP",
+		);
+		expect(mcpGc).toEqual({
+			type: "clicks",
+			before_date: cutoff,
+			deleted: true,
+		});
+
+		const mcpRejectedType = await client.callTool("listmonk_gc_analytics", {
+			type: "bounces",
+			before_date: cutoff,
+			confirm: true,
+		});
+		utils.assertError(mcpRejectedType, "type");
 	});
 });
