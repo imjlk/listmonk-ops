@@ -309,11 +309,14 @@ describe("Bounces CLI and MCP parity", () => {
 			"--subscriber-id",
 			String(subscriberId),
 		]);
-		const cliHistory = ["{", "["].some((marker) =>
-			cliHistoryResult.stdout.includes(marker),
-		)
-			? parseCliJson<{ total?: number }>(cliHistoryResult, "subscriber")
-			: { total: 0 };
+		expect(cliHistoryResult.exitCode).toBe(0);
+		const cliHistory = parseCliJson<{
+			subscriber_id?: number;
+			results?: unknown[];
+			total?: number;
+		}>(cliHistoryResult, "list-subscriber");
+		expect(cliHistory.subscriber_id).toBe(subscriberId);
+		expect(cliHistory.results).toEqual([]);
 		const mcpHistory = utils.assertSuccess<{
 			subscriber_id?: number;
 			results?: unknown[];

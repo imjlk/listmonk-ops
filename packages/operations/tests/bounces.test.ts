@@ -137,6 +137,22 @@ describe("shared bounce operations", () => {
 		});
 	});
 
+	test("fails a non-array subscriber bounce payload loudly", async () => {
+		const getBounces = mock(async () => ({
+			data: { results: [bounceRecord] },
+		}));
+
+		await expect(
+			invokeGetSubscriberBouncesOperation(
+				subscriberBounceContext({
+					getBounces:
+						getBounces as unknown as BounceClient["subscriber"]["getBounces"],
+				}),
+				{ subscriber_id: 663 },
+			),
+		).rejects.toThrow("unexpected payload shape");
+	});
+
 	test("deletes a subscriber's bounce history through the boolean acknowledgement", async () => {
 		const deleteBounces = mock(async () => ({ data: true }));
 

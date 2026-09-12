@@ -108,6 +108,9 @@ export async function renderSubscriberBounces(
 		context.output.info(
 			`No bounces found for subscriber ${input.subscriber_id}`,
 		);
+		// An empty history is a documented normal result, so the envelope
+		// still reaches stdout in machine-readable output modes.
+		context.output.json(result);
 		return;
 	}
 	context.output.table(result.results as Record<string, unknown>[]);
