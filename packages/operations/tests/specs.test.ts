@@ -218,13 +218,16 @@ describe("email operations specification", () => {
 			"maintenance.gc-subscribers",
 			"maintenance.gc-unconfirmed",
 			"settings.test-smtp",
+			"subscribers.bounces.get",
+			"subscribers.bounces.delete",
+			"maintenance.gc-analytics",
 		]);
 	});
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(128);
-		expect(new Set(operationIds).size).toBe(128);
+		expect(operationIds).toHaveLength(131);
+		expect(new Set(operationIds).size).toBe(131);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -234,7 +237,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(128);
+		).toHaveLength(131);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(

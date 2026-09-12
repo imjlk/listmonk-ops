@@ -1,5 +1,6 @@
 import type { tags } from "typia";
 import type {
+	NonNegativeInteger,
 	PaginationInput,
 	PositiveInteger,
 	ResourceId,
@@ -107,4 +108,26 @@ export interface BouncePruneOutput {
 	per_page?: number | undefined;
 	/** Per-id acknowledgement count; present on destructive runs. */
 	acknowledged?: number | undefined;
+}
+
+export type SubscriberBouncesGetInput = {
+	/** Positive Listmonk subscriber ID. */
+	subscriber_id: ResourceId;
+};
+
+export interface SubscriberBouncesCollectionOutput {
+	subscriber_id: ResourceId;
+	results: BounceRecord[];
+	total: NonNegativeInteger;
+}
+
+export type SubscriberBouncesDeleteInput = {
+	/** Positive Listmonk subscriber ID. */
+	subscriber_id: ResourceId;
+};
+
+export interface SubscriberBouncesDeleteOutput {
+	/** Echoed subscriber ID whose bounce history was cleared. */
+	id: ResourceId;
+	deleted: boolean;
 }

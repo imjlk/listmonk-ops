@@ -276,6 +276,10 @@ export interface MaintenanceOperations {
 	gcUnconfirmedSubscriptions(options: {
 		query: { before_date: string };
 	}): Promise<FlattenedResponse<{ count?: number }>>;
+	gcAnalytics(options: {
+		path: { type: "all" | "views" | "clicks" };
+		query: { before_date: string };
+	}): Promise<FlattenedResponse<boolean>>;
 }
 
 export interface BounceOperations {

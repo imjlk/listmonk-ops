@@ -277,4 +277,83 @@ describe("Bounces CLI and MCP parity", () => {
 			deleted: true,
 		});
 	});
+
+	test("reads and clears a subscriber's bounce history through both adapters", async () => {
+		// A far-out subscriber id answers both endpoints with the documented
+		// empty-collection / boolean no-op acknowledgement, so the parity
+		// path runs on any stack state without touching real subscribers.
+		const subscriberId = 9_200_001;
+
+		const cliBlocked = runCliBouncesCommand([
+			"delete-subscriber",
+			"--subscriber-id",
+			String(subscriberId),
+		]);
+		expect(cliBlocked.exitCode).not.toBe(0);
+		expect(`${cliBlocked.stdout}${cliBlocked.stderr}`).toContain(
+			"requires explicit confirmation",
+		);
+		const mcpBlocked = await client.callTool(
+			"listmonk_delete_subscriber_bounces",
+			{ subscriber_id: subscriberId },
+		);
+		utils.assertError(mcpBlocked, "requires explicit confirmation");
+
+		// The CLI renders an empty history as its human "No bounces found"
+		// line instead of a JSON table, which must compare equal to an
+		// empty MCP collection.
+		const cliHistoryResult = runCliBouncesCommand([
+			"--format",
+			"json",
+			"subscriber",
+			"--subscriber-id",
+			String(subscriberId),
+		]);
+		const cliHistory = ["{", "["].some((marker) =>
+			cliHistoryResult.stdout.includes(marker),
+		)
+			? parseCliJson<{ total?: number }>(cliHistoryResult, "subscriber")
+			: { total: 0 };
+		const mcpHistory = utils.assertSuccess<{
+			subscriber_id?: number;
+			results?: unknown[];
+			total?: number;
+		}>(
+			await client.callTool("listmonk_get_subscriber_bounces", {
+				subscriber_id: subscriberId,
+			}),
+			"Failed to read the subscriber bounce history through MCP",
+		);
+		expect(mcpHistory.subscriber_id).toBe(subscriberId);
+		expect(mcpHistory.results).toEqual([]);
+		expect(mcpHistory.total).toBe(cliHistory.total);
+
+		const cliCleared = parseCliJson<{ id?: number; deleted?: boolean }>(
+			runCliBouncesCommand([
+				"--format",
+				"json",
+				"delete-subscriber",
+				"--subscriber-id",
+				String(subscriberId),
+				"--confirm",
+			]),
+			"delete-subscriber",
+		);
+		expect(cliCleared).toEqual({ id: subscriberId, deleted: true });
+		const mcpClearedResult = await client.callTool(
+			"listmonk_delete_subscriber_bounces",
+			{
+				subscriber_id: subscriberId,
+				confirm: true,
+			},
+		);
+		utils.assertSuccess(
+			mcpClearedResult,
+			"Failed to clear the subscriber bounce history through MCP",
+		);
+		expect(mcpClearedResult.structuredContent).toEqual({
+			id: subscriberId,
+			deleted: true,
+		});
+	});
 });

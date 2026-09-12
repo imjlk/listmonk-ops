@@ -1780,6 +1780,48 @@ Verify with: none
 
 Retry guidance: Do not blindly repeat: each request sends another message. Inspect the returned log lines before retrying.
 
+## Get subscriber bounces (`subscribers.bounces.get`)
+
+Contract maturity: `stable`; effects: `read:subscriber`; confirmation: `never`; retry: `safe`.
+
+Use when: A subscriber's full bounce history must be reviewed before cleanup or deliverability triage.
+
+Avoid when: Bounce discovery across subscribers is required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## Delete subscriber bounces (`subscribers.bounces.delete`)
+
+Contract maturity: `stable`; effects: `delete:bounce`; confirmation: `required`; retry: `reconcile`.
+
+Use when: A subscriber's bounce history must be cleared, typically before a redelivery attempt.
+
+Avoid when: The bounce history is still needed for deliverability forensics or an audit trail.
+
+Prerequisites: `subscribers.bounces.get`
+
+Verify with: `subscribers.bounces.get`
+
+Retry guidance: Verify the history is empty with subscribers.bounces.get before repeating; the acknowledgement is not an existence proof.
+
+## Garbage-collect campaign analytics (`maintenance.gc-analytics`)
+
+Contract maturity: `stable`; effects: `maintenance:prune:destructive`; confirmation: `required`; retry: `reconcile`.
+
+Use when: An operator has explicitly approved deleting analytics older than the cutoff to reclaim database space.
+
+Avoid when: Analytics reporting for the window is still needed — the deletion is irreversible and crosses every campaign.
+
+Prerequisites: `campaigns.analytics`
+
+Verify with: `campaigns.analytics`
+
+Retry guidance: Verify with campaigns.analytics before repeating; the server reports only a boolean acknowledgement.
+
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 
 Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.

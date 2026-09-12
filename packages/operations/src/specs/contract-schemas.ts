@@ -31,12 +31,18 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	maintenanceGcSubscribersOutputContract: NormalizedContractSchema;
 	maintenanceGcUnconfirmedInputContract: NormalizedContractSchema;
 	maintenanceGcUnconfirmedOutputContract: NormalizedContractSchema;
+	maintenanceGcAnalyticsInputContract: NormalizedContractSchema;
+	maintenanceGcAnalyticsOutputContract: NormalizedContractSchema;
 	mediaCollectionOutputContract: NormalizedContractSchema;
 	bounceRecordContract: NormalizedContractSchema;
 	bounceCollectionOutputContract: NormalizedContractSchema;
 	bounceListInputContract: NormalizedContractSchema;
 	bounceIdInputContract: NormalizedContractSchema;
 	bounceDeleteOutputContract: NormalizedContractSchema;
+	subscriberBouncesGetInputContract: NormalizedContractSchema;
+	subscriberBouncesCollectionOutputContract: NormalizedContractSchema;
+	subscriberBouncesDeleteInputContract: NormalizedContractSchema;
+	subscriberBouncesDeleteOutputContract: NormalizedContractSchema;
 	bouncePruneInputContract: NormalizedContractSchema;
 	subscriberImportStartInputContract: NormalizedContractSchema;
 	subscriberImportStartOutputContract: NormalizedContractSchema;
@@ -259,6 +265,10 @@ export const maintenanceGcUnconfirmedInputContract =
 	contracts.maintenanceGcUnconfirmedInputContract;
 export const maintenanceGcUnconfirmedOutputContract =
 	contracts.maintenanceGcUnconfirmedOutputContract;
+export const maintenanceGcAnalyticsInputContract =
+	contracts.maintenanceGcAnalyticsInputContract;
+export const maintenanceGcAnalyticsOutputContract =
+	contracts.maintenanceGcAnalyticsOutputContract;
 export const mediaCollectionOutputContract =
 	contracts.mediaCollectionOutputContract;
 export const bounceRecordContract = contracts.bounceRecordContract;
@@ -267,6 +277,14 @@ export const bounceCollectionOutputContract =
 export const bounceListInputContract = contracts.bounceListInputContract;
 export const bounceIdInputContract = contracts.bounceIdInputContract;
 export const bounceDeleteOutputContract = contracts.bounceDeleteOutputContract;
+export const subscriberBouncesGetInputContract =
+	contracts.subscriberBouncesGetInputContract;
+export const subscriberBouncesCollectionOutputContract =
+	contracts.subscriberBouncesCollectionOutputContract;
+export const subscriberBouncesDeleteInputContract =
+	contracts.subscriberBouncesDeleteInputContract;
+export const subscriberBouncesDeleteOutputContract =
+	contracts.subscriberBouncesDeleteOutputContract;
 export const subscriberImportStartInputContract =
 	contracts.subscriberImportStartInputContract;
 export const subscriberImportStartOutputContract =

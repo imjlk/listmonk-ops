@@ -453,6 +453,8 @@ listmonk-cli system reload
 listmonk-cli maintenance gc-subscribers --type orphan --confirm
 listmonk-cli maintenance gc-unconfirmed \
   --before-date 2026-01-01T00:00:00Z --confirm
+listmonk-cli maintenance gc-analytics --type views \
+  --before-date 2026-01-01T00:00:00Z --confirm
 
 listmonk-cli subscribers create --email reader@example.com --name Reader
 listmonk-cli subscribers update --id 7 --status enabled
@@ -495,6 +497,8 @@ listmonk-cli bounces list --campaign-id 42 --source api \
   --order-by created_at --order desc
 listmonk-cli bounces get --id 7
 listmonk-cli bounces delete --id 7 --confirm
+listmonk-cli bounces subscriber --subscriber-id 7
+listmonk-cli bounces delete-subscriber --subscriber-id 7 --confirm
 
 # Preview one bounded batch, then delete exactly the echoed ids.
 listmonk-cli bounces prune --per-page 100 --confirm
@@ -581,9 +585,10 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 116 contracts are standalone TypeScript/Typia product contracts, and
-all 116 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
-`bounces.delete`, `bounces.prune`), the campaign preview, test-send, and
+All 131 contracts are standalone TypeScript/Typia product contracts, and
+all 131 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
+`bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
+`subscribers.bounces.delete`), the campaign preview, test-send, and
 analytics operations (`campaigns.preview`, `campaigns.test`,
 `campaigns.analytics`), the dashboard aggregate reads
 (`dashboard.counts`, `dashboard.charts`), the subscriber import
@@ -596,7 +601,8 @@ reads (`system.about`, `system.logs`), the campaign archive toggle
 (`subscribers.send-optin`), and the credential-redacted settings read
 (`settings.get`), the SMTP configuration test
 (`settings.test-smtp`), the one-shot maintenance collections
-(`maintenance.gc-subscribers`, `maintenance.gc-unconfirmed`), and the
+(`maintenance.gc-subscribers`, `maintenance.gc-unconfirmed`,
+`maintenance.gc-analytics`), and the
 configuration reload (`system.reload`) joined the accepted stable
 compatibility baseline after their observed Listmonk 6.2 response
 shapes were verified against the local stack. The runtime-operation

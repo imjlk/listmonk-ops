@@ -301,12 +301,18 @@ const openapiCampaignPreviewMethod =
 	"packages/openapi/src/client/contracts.ts#CampaignOperations.preview:method";
 const openapiCampaignTestMethod =
 	"packages/openapi/src/client/contracts.ts#CampaignOperations.test:method";
+const openapiGcAnalyticsMethod =
+	"packages/openapi/src/client/contracts.ts#MaintenanceOperations.gcAnalytics:method";
 const openapiBounceListMethod =
 	"packages/openapi/src/client/contracts.ts#BounceOperations.list:method";
 const openapiBounceGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#BounceOperations.getById:method";
 const openapiBounceDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#BounceOperations.deleteById:method";
+const openapiSubscriberGetBouncesMethod =
+	"packages/openapi/src/client/contracts.ts#SubscriberOperations.getBounces:method";
+const openapiSubscriberDeleteBouncesMethod =
+	"packages/openapi/src/client/contracts.ts#SubscriberOperations.deleteBounces:method";
 
 const cliOpsModule =
 	"apps/cli/src/commands/ops.ts#apps/cli/src/commands/ops.ts:module";
@@ -1110,6 +1116,15 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 					"packages/operations/src/maintenance.ts#gcUnconfirmedSubscriptions:function",
 				openapi: openapiGcUnconfirmedMethod,
 			},
+			{
+				label: "gc-analytics",
+				cliHandler: "handleGcAnalyticsCommand",
+				cliRender: "renderGcAnalytics",
+				invoker:
+					"packages/operations/src/maintenance.ts#invokeGcAnalyticsOperation:function",
+				action: "packages/operations/src/maintenance.ts#gcAnalytics:function",
+				openapi: openapiGcAnalyticsMethod,
+			},
 		],
 	}),
 	...resourceOperationContracts({
@@ -1561,6 +1576,26 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 					"packages/operations/src/bounces.ts#invokePruneBouncesOperation:function",
 				action: "packages/operations/src/bounces.ts#pruneBounces:function",
 				openapi: openapiBounceDeleteByIdMethod,
+			},
+			{
+				label: "subscriber-get",
+				cliHandler: "handleGetSubscriberBouncesCommand",
+				cliRender: "renderSubscriberBounces",
+				invoker:
+					"packages/operations/src/bounces.ts#invokeGetSubscriberBouncesOperation:function",
+				action:
+					"packages/operations/src/bounces.ts#getSubscriberBounces:function",
+				openapi: openapiSubscriberGetBouncesMethod,
+			},
+			{
+				label: "subscriber-delete",
+				cliHandler: "handleDeleteSubscriberBouncesCommand",
+				cliRender: "renderDeleteSubscriberBounces",
+				invoker:
+					"packages/operations/src/bounces.ts#invokeDeleteSubscriberBouncesOperation:function",
+				action:
+					"packages/operations/src/bounces.ts#deleteSubscriberBounces:function",
+				openapi: openapiSubscriberDeleteBouncesMethod,
 			},
 		],
 	}),

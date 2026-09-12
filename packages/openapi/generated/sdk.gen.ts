@@ -572,15 +572,7 @@ export const deleteGcSubscribers = <ThrowOnError extends boolean = false>(option
 /**
  * garbage collects (deletes) campaign analytics.
  */
-export const deleteCampaignAnalyticsByType = <ThrowOnError extends boolean = false>(options: Options<DeleteCampaignAnalyticsByTypeData, ThrowOnError>) => (options.client ?? client).delete<DeleteCampaignAnalyticsByTypeResponses, unknown, ThrowOnError>({
-    ...urlSearchParamsBodySerializer,
-    url: '/maintenance/analytics/{type}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        ...options.headers
-    }
-});
+export const deleteCampaignAnalyticsByType = <ThrowOnError extends boolean = false>(options: Options<DeleteCampaignAnalyticsByTypeData, ThrowOnError>) => (options.client ?? client).delete<DeleteCampaignAnalyticsByTypeResponses, unknown, ThrowOnError>({ url: '/maintenance/analytics/{type}', ...options });
 
 /**
  * garbage collects (deletes) orphaned or blocklisted subscribers.

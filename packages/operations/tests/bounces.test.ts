@@ -7,7 +7,9 @@ import {
 	getBouncesOperationByMcpName,
 	invokeBouncesOperationByMcpName,
 	invokeDeleteBounceOperation,
+	invokeDeleteSubscriberBouncesOperation,
 	invokeGetBounceOperation,
+	invokeGetSubscriberBouncesOperation,
 	invokeListBouncesOperation,
 	invokePruneBouncesOperation,
 } from "../src/bounces";
@@ -17,12 +19,23 @@ import {
 	ResourceResponseError,
 } from "../src/resource-helpers";
 
-type BounceClient = Pick<ListmonkClient, "bounce">;
+type BounceClient = Pick<ListmonkClient, "bounce" | "subscriber">;
 
 function bounceContext(methods: Partial<BounceClient["bounce"]>): {
 	client: BounceClient;
 } {
 	return { client: { bounce: methods } as BounceClient };
+}
+
+function subscriberBounceContext(
+	methods: Partial<BounceClient["subscriber"]>,
+): { client: BounceClient } {
+	return {
+		client: {
+			bounce: {},
+			subscriber: methods,
+		} as unknown as BounceClient,
+	};
 }
 
 const bounceRecord = {
@@ -40,7 +53,7 @@ const bounceRecord = {
 
 describe("shared bounce operations", () => {
 	test("exposes a registry with per-operation safety metadata", () => {
-		expect(bouncesOperations).toHaveLength(4);
+		expect(bouncesOperations).toHaveLength(6);
 		for (const operation of bouncesOperations) {
 			expect(operation.inputJsonSchema.type).toBe("object");
 			expect(operation.outputJsonSchema.type).toBe("object");
@@ -63,6 +76,18 @@ describe("shared bounce operations", () => {
 			idempotentHint: true,
 			openWorldHint: true,
 		});
+		expect(bouncesOperations[4]?.safety).toEqual({
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		});
+		expect(bouncesOperations[5]?.safety).toEqual({
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+			openWorldHint: true,
+		});
 		expect(bouncesOperationCatalog.id).toBe("bounces");
 		expect(
 			getBouncesOperationByMcpName("listmonk_get_bounce"),
@@ -73,6 +98,72 @@ describe("shared bounce operations", () => {
 		expect(getBouncesOperationByMcpName("listmonk_unknown_bounce")).toBe(
 			undefined,
 		);
+	});
+
+	test("reads a subscriber's bounce history as the observed flat array", async () => {
+		const getBounces = mock(async () => ({ data: [bounceRecord] }));
+
+		await expect(
+			invokeGetSubscriberBouncesOperation(
+				subscriberBounceContext({
+					getBounces:
+						getBounces as unknown as BounceClient["subscriber"]["getBounces"],
+				}),
+				{ subscriber_id: 663 },
+			),
+		).resolves.toEqual({
+			subscriber_id: 663,
+			results: [bounceRecord],
+			total: 1,
+		});
+		expect(getBounces).toHaveBeenCalledWith({ path: { id: 663 } });
+	});
+
+	test("reports an unknown subscriber as an empty bounce history", async () => {
+		const getBounces = mock(async () => ({ data: [] }));
+
+		await expect(
+			invokeGetSubscriberBouncesOperation(
+				subscriberBounceContext({
+					getBounces:
+						getBounces as unknown as BounceClient["subscriber"]["getBounces"],
+				}),
+				{ subscriber_id: 999999 },
+			),
+		).resolves.toEqual({
+			subscriber_id: 999999,
+			results: [],
+			total: 0,
+		});
+	});
+
+	test("deletes a subscriber's bounce history through the boolean acknowledgement", async () => {
+		const deleteBounces = mock(async () => ({ data: true }));
+
+		await expect(
+			invokeDeleteSubscriberBouncesOperation(
+				subscriberBounceContext({
+					deleteBounces:
+						deleteBounces as unknown as BounceClient["subscriber"]["deleteBounces"],
+				}),
+				{ subscriber_id: 663 },
+			),
+		).resolves.toEqual({ id: 663, deleted: true });
+		expect(deleteBounces).toHaveBeenCalledWith({ path: { id: 663 } });
+	});
+
+	test("rejects a non-positive subscriber id before any request", async () => {
+		const getBounces = mock(async () => ({ data: [] }));
+		await expect(
+			invokeGetSubscriberBouncesOperation(
+				subscriberBounceContext({
+					getBounces:
+						getBounces as unknown as BounceClient["subscriber"]["getBounces"],
+				}),
+				{ subscriber_id: 0 },
+			),
+		).rejects.toThrow();
+		expect(getBounces).not.toHaveBeenCalled();
 	});
 
 	test("lists bounces through the normalized page contract", async () => {

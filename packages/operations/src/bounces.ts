@@ -4,6 +4,8 @@ import {
 	bindBouncesGetOperationSpec,
 	bindBouncesListOperationSpec,
 	bindBouncesPruneOperationSpec,
+	bindSubscribersBouncesDeleteOperationSpec,
+	bindSubscribersBouncesGetOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
@@ -26,7 +28,7 @@ import {
 } from "./resource-helpers";
 
 export interface BounceOperationContext {
-	client: Pick<ListmonkClient, "bounce">;
+	client: Pick<ListmonkClient, "bounce" | "subscriber">;
 }
 
 const bounceCampaignSchema = z.looseObject({
@@ -84,6 +86,21 @@ const bounceIdInputSchema = z.object({
 });
 
 const bounceDeleteOutputSchema = z.object({
+	id: z.number().int().positive(),
+	deleted: z.boolean(),
+});
+
+const subscriberBouncesInputSchema = z.object({
+	subscriber_id: resourceIdSchema.describe("Subscriber ID"),
+});
+
+const subscriberBouncesOutputSchema = z.object({
+	subscriber_id: z.number().int().positive(),
+	results: z.array(bounceRecordSchema),
+	total: z.number().int().nonnegative(),
+});
+
+const subscriberBouncesDeleteOutputSchema = z.object({
 	id: z.number().int().positive(),
 	deleted: z.boolean(),
 });
@@ -290,6 +307,51 @@ export async function pruneBounces(
 	};
 }
 
+/**
+ * Listmonk answers the subscriber-scoped bounce read with the flat
+ * record array, and an unknown subscriber with an empty array rather
+ * than an error, so the output reports the observed set and never
+ * claims subscriber existence.
+ */
+export async function getSubscriberBounces(
+	{ client }: BounceOperationContext,
+	input: z.output<typeof subscriberBouncesInputSchema>,
+): Promise<z.output<typeof subscriberBouncesOutputSchema>> {
+	const response = await client.subscriber.getBounces({
+		path: { id: input.subscriber_id },
+	});
+	const data = unwrapResourceResponse(
+		response,
+		`Failed to fetch bounces for subscriber ${input.subscriber_id}`,
+	);
+	const results = Array.isArray(data) ? data : [];
+	return {
+		subscriber_id: input.subscriber_id,
+		results: results.map(asBounceRecord),
+		total: results.length,
+	};
+}
+
+/**
+ * Listmonk acknowledges clearing a subscriber's entire bounce history
+ * with a bare boolean and answers an already-empty or unknown subscriber
+ * the same way, so the acknowledgement proves acceptance, not that any
+ * record existed; verify with a follow-up subscriber bounce read.
+ */
+export async function deleteSubscriberBounces(
+	{ client }: BounceOperationContext,
+	input: z.output<typeof subscriberBouncesInputSchema>,
+): Promise<z.output<typeof subscriberBouncesDeleteOutputSchema>> {
+	const response = await client.subscriber.deleteBounces({
+		path: { id: input.subscriber_id },
+	});
+	requireAcknowledgement(
+		response,
+		`Failed to delete bounces for subscriber ${input.subscriber_id}`,
+	);
+	return { id: input.subscriber_id, deleted: true };
+}
+
 export const listBouncesOperation = defineOperation({
 	id: "bounces.list",
 	title: "List bounces",
@@ -427,11 +489,93 @@ export async function invokePruneBouncesOperation(
 	);
 }
 
+export const getSubscriberBouncesOperation = defineOperation({
+	id: "subscribers.bounces.get",
+	title: "Get subscriber bounces",
+	description:
+		"List the bounce records Listmonk attributes to one subscriber. An unknown subscriber answers with an empty collection, not an error.",
+	inputSchema: subscriberBouncesInputSchema,
+	outputSchema: subscriberBouncesOutputSchema,
+	safety: readResourceSafety,
+	mcp: {
+		name: "listmonk_get_subscriber_bounces",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSubscribersBouncesGetOperationSpec(),
+	execute: getSubscriberBounces,
+});
+
+export const deleteSubscriberBouncesOperation = defineOperation({
+	id: "subscribers.bounces.delete",
+	title: "Delete subscriber bounces",
+	description:
+		"Delete every bounce record attributed to one subscriber in a single confirmed request.",
+	inputSchema: subscriberBouncesInputSchema,
+	outputSchema: subscriberBouncesDeleteOutputSchema,
+	safety: deleteResourceSafety,
+	mcp: {
+		name: "listmonk_delete_subscriber_bounces",
+		legacySuccessText: "Subscriber bounces deleted successfully",
+	},
+	spec: bindSubscribersBouncesDeleteOperationSpec(),
+	execute: deleteSubscriberBounces,
+});
+
+export async function invokeGetSubscriberBouncesOperation(
+	context: BounceOperationContext,
+	input: unknown,
+): Promise<z.output<typeof subscriberBouncesOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		getSubscriberBouncesOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof subscriberBouncesOutputSchema>;
+	try {
+		output = await getSubscriberBounces(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			getSubscriberBouncesOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		getSubscriberBouncesOperation.id,
+		getSubscriberBouncesOperation.outputSchema,
+		output,
+	);
+}
+
+export async function invokeDeleteSubscriberBouncesOperation(
+	context: BounceOperationContext,
+	input: unknown,
+): Promise<z.output<typeof subscriberBouncesDeleteOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		deleteSubscriberBouncesOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof subscriberBouncesDeleteOutputSchema>;
+	try {
+		output = await deleteSubscriberBounces(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			deleteSubscriberBouncesOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		deleteSubscriberBouncesOperation.id,
+		deleteSubscriberBouncesOperation.outputSchema,
+		output,
+	);
+}
+
 export const bouncesOperations = [
 	listBouncesOperation,
 	getBounceOperation,
 	deleteBounceOperation,
 	pruneBouncesOperation,
+	getSubscriberBouncesOperation,
+	deleteSubscriberBouncesOperation,
 ] as const;
 
 export const bouncesOperationCatalog = defineOperationCatalog({
@@ -483,6 +627,16 @@ export async function invokeBouncesOperationByMcpName(
 			return {
 				operation: pruneBouncesOperation,
 				output: await invokePruneBouncesOperation(context, input),
+			};
+		case getSubscriberBouncesOperation.mcp.name:
+			return {
+				operation: getSubscriberBouncesOperation,
+				output: await invokeGetSubscriberBouncesOperation(context, input),
+			};
+		case deleteSubscriberBouncesOperation.mcp.name:
+			return {
+				operation: deleteSubscriberBouncesOperation,
+				output: await invokeDeleteSubscriberBouncesOperation(context, input),
 			};
 		default:
 			return undefined;

@@ -3,6 +3,8 @@ import {
 	maintenanceGcSubscribersOutputContract,
 	maintenanceGcUnconfirmedInputContract,
 	maintenanceGcUnconfirmedOutputContract,
+	maintenanceGcAnalyticsInputContract,
+	maintenanceGcAnalyticsOutputContract,
 } from "../contract-schemas";
 import { defineOperationSpec } from "../operation";
 
@@ -140,4 +142,75 @@ export function bindMaintenanceGcSubscribersOperationSpec(): typeof maintenanceG
 
 export function bindMaintenanceGcUnconfirmedOperationSpec(): typeof maintenanceGcUnconfirmedOperationSpec {
 	return maintenanceGcUnconfirmedOperationSpec;
+}
+
+/**
+ * Like the other maintenance collections, the analytics GC offers no
+ * preview: one confirmed request deletes every view and/or link-click
+ * row recorded before the RFC3339 cutoff, across all campaigns, and the
+ * server acknowledges with a bare boolean instead of a count.
+ */
+export const maintenanceGcAnalyticsOperationSpec = defineOperationSpec({
+	id: "maintenance.gc-analytics",
+	resource: "maintenance",
+	verb: "gc-analytics",
+	title: "Garbage-collect campaign analytics",
+	description:
+		"One-shot deletion of campaign analytics (views and/or link clicks) recorded before an RFC3339 cutoff, across every campaign. The server offers no preview and reports no count.",
+	contract: {
+		input: maintenanceGcAnalyticsInputContract,
+		output: maintenanceGcAnalyticsOutputContract,
+	},
+	effects: [
+		{
+			kind: "maintenance",
+			resource: "campaign",
+			action: "prune",
+			destructive: true,
+			preview: false,
+		},
+	],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
+	retry: {
+		kind: "reconcile",
+		reconcileWith: "campaigns.analytics",
+		idempotent: true,
+		reason:
+			"The first successful run empties the matching set for the echoed cutoff, so a repeated identical request deletes nothing new; verify with campaigns.analytics after an ambiguous result.",
+	},
+	agent: {
+		useWhen: [
+			"An operator has explicitly approved deleting analytics older than the cutoff to reclaim database space.",
+		],
+		avoidWhen: [
+			"Analytics reporting for the window is still needed — the deletion is irreversible and crosses every campaign.",
+		],
+		prerequisites: ["campaigns.analytics"],
+		verifyWith: ["campaigns.analytics"],
+		related: ["campaigns.analytics", "maintenance.gc-subscribers"],
+		retryGuidance:
+			"Verify with campaigns.analytics before repeating; the server reports only a boolean acknowledgement.",
+	},
+	projection: {
+		mcpName: "listmonk_gc_analytics",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/maintenance-specs.ts#maintenanceGcAnalyticsOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/maintenance-specs.ts#bindMaintenanceGcAnalyticsOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/maintenance.ts#gcAnalyticsOperation:variable",
+			invokerNode:
+				"packages/operations/src/maintenance.ts#invokeGcAnalyticsOperation:function",
+			executorNode:
+				"packages/operations/src/maintenance.ts#gcAnalytics:function",
+		},
+	},
+	stability: "stable",
+	since: "0.18.0",
+});
+
+export function bindMaintenanceGcAnalyticsOperationSpec(): typeof maintenanceGcAnalyticsOperationSpec {
+	return maintenanceGcAnalyticsOperationSpec;
 }

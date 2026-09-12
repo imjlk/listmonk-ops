@@ -13467,6 +13467,135 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "maintenanceGcAnalyticsInputContract": {
+    "components": {
+      "schemas": {
+        "MaintenanceAnalyticsType": {
+          "oneOf": [
+            {
+              "const": "all"
+            },
+            {
+              "const": "clicks"
+            },
+            {
+              "const": "views"
+            }
+          ]
+        },
+        "MaintenanceBeforeDate": {
+          "description": "RFC3339 cutoff bound shared with the executable schema.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "MaintenanceGcAnalyticsInput": {
+          "additionalProperties": false,
+          "properties": {
+            "before_date": {
+              "$ref": "#/components/schemas/MaintenanceBeforeDate",
+              "description": "RFC3339 cutoff; analytics recorded before this date are deleted."
+            },
+            "type": {
+              "$ref": "#/components/schemas/MaintenanceAnalyticsType",
+              "description": "Analytics category the one-shot collection deletes."
+            }
+          },
+          "required": [
+            "type",
+            "before_date"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "before_date": {
+          "$ref": "#/components/schemas/MaintenanceBeforeDate",
+          "description": "RFC3339 cutoff; analytics recorded before this date are deleted."
+        },
+        "type": {
+          "$ref": "#/components/schemas/MaintenanceAnalyticsType",
+          "description": "Analytics category the one-shot collection deletes."
+        }
+      },
+      "required": [
+        "type",
+        "before_date"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "maintenanceGcAnalyticsOutputContract": {
+    "components": {
+      "schemas": {
+        "MaintenanceAnalyticsType": {
+          "oneOf": [
+            {
+              "const": "all"
+            },
+            {
+              "const": "clicks"
+            },
+            {
+              "const": "views"
+            }
+          ]
+        },
+        "MaintenanceGcAnalyticsOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "before_date": {
+              "description": "Echoed cutoff.",
+              "type": "string"
+            },
+            "deleted": {
+              "description": "Whether Listmonk acknowledged the deletion request.",
+              "type": "boolean"
+            },
+            "type": {
+              "$ref": "#/components/schemas/MaintenanceAnalyticsType"
+            }
+          },
+          "required": [
+            "type",
+            "before_date",
+            "deleted"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "before_date": {
+          "description": "Echoed cutoff.",
+          "type": "string"
+        },
+        "deleted": {
+          "description": "Whether Listmonk acknowledged the deletion request.",
+          "type": "boolean"
+        },
+        "type": {
+          "$ref": "#/components/schemas/MaintenanceAnalyticsType"
+        }
+      },
+      "required": [
+        "type",
+        "before_date",
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "maintenanceGcSubscribersInputContract": {
     "components": {
       "schemas": {
@@ -20096,6 +20225,254 @@
         "dry_run",
         "max_items",
         "continue_on_error"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberBouncesCollectionOutputContract": {
+    "components": {
+      "schemas": {
+        "BounceCampaignSummary": {
+          "additionalProperties": {},
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "BounceRecord": {
+          "additionalProperties": {},
+          "description": "A Listmonk bounce record as observed from the 6.2 API. The upstream\nOpenAPI document misses `subscriber_status` and models a stray `total`\ninside the item, so this contract follows observed responses and keeps\nan index signature for forward compatibility.",
+          "properties": {
+            "campaign": {
+              "$ref": "#/components/schemas/BounceCampaignSummary"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "meta": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "source": {
+              "type": "string"
+            },
+            "subscriber_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "subscriber_status": {
+              "type": "string"
+            },
+            "subscriber_uuid": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberBouncesCollectionOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/BounceRecord"
+              },
+              "type": "array"
+            },
+            "subscriber_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "total": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "subscriber_id",
+            "results",
+            "total"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "results": {
+          "items": {
+            "$ref": "#/components/schemas/BounceRecord"
+          },
+          "type": "array"
+        },
+        "subscriber_id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "total": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        }
+      },
+      "required": [
+        "subscriber_id",
+        "results",
+        "total"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberBouncesDeleteInputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberBouncesDeleteInput": {
+          "additionalProperties": false,
+          "properties": {
+            "subscriber_id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk subscriber ID."
+            }
+          },
+          "required": [
+            "subscriber_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "subscriber_id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Positive Listmonk subscriber ID."
+        }
+      },
+      "required": [
+        "subscriber_id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberBouncesDeleteOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberBouncesDeleteOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "deleted": {
+              "type": "boolean"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Echoed subscriber ID whose bounce history was cleared."
+            }
+          },
+          "required": [
+            "id",
+            "deleted"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Echoed subscriber ID whose bounce history was cleared."
+        }
+      },
+      "required": [
+        "id",
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberBouncesGetInputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberBouncesGetInput": {
+          "additionalProperties": false,
+          "properties": {
+            "subscriber_id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk subscriber ID."
+            }
+          },
+          "required": [
+            "subscriber_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "subscriber_id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Positive Listmonk subscriber ID."
+        }
+      },
+      "required": [
+        "subscriber_id"
       ],
       "type": "object"
     },

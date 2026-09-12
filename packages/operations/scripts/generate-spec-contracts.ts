@@ -148,6 +148,8 @@ import type {
 	MaintenanceGcSubscribersOutput,
 	MaintenanceGcUnconfirmedInput,
 	MaintenanceGcUnconfirmedOutput,
+	MaintenanceGcAnalyticsInput,
+	MaintenanceGcAnalyticsOutput,
 	MediaUploadInput,
 	MediaUploadOutput,
 	MediaDeleteInput,
@@ -211,6 +213,10 @@ import type {
 	BouncePruneInput,
 	BouncePruneOutput,
 	BounceRecord,
+	SubscriberBouncesGetInput,
+	SubscriberBouncesCollectionOutput,
+	SubscriberBouncesDeleteInput,
+	SubscriberBouncesDeleteOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -374,6 +380,12 @@ const contracts = {
 	maintenanceGcUnconfirmedOutputContract: contractSchema(
 		typia.json.schema<MaintenanceGcUnconfirmedOutput>(),
 	),
+	maintenanceGcAnalyticsInputContract: contractSchema(
+		typia.json.schema<MaintenanceGcAnalyticsInput>(),
+	),
+	maintenanceGcAnalyticsOutputContract: contractSchema(
+		typia.json.schema<MaintenanceGcAnalyticsOutput>(),
+	),
 	mediaRecordContract: contractSchema(typia.json.schema<MediaRecord>()),
 	mediaCollectionOutputContract: contractSchema(
 		typia.json.schema<MediaCollectionOutput>(),
@@ -386,6 +398,18 @@ const contracts = {
 	bounceIdInputContract: contractSchema(typia.json.schema<BounceIdInput>()),
 	bounceDeleteOutputContract: contractSchema(
 		typia.json.schema<BounceDeleteOutput>(),
+	),
+	subscriberBouncesGetInputContract: contractSchema(
+		typia.json.schema<SubscriberBouncesGetInput>(),
+	),
+	subscriberBouncesCollectionOutputContract: contractSchema(
+		typia.json.schema<SubscriberBouncesCollectionOutput>(),
+	),
+	subscriberBouncesDeleteInputContract: contractSchema(
+		typia.json.schema<SubscriberBouncesDeleteInput>(),
+	),
+	subscriberBouncesDeleteOutputContract: contractSchema(
+		typia.json.schema<SubscriberBouncesDeleteOutput>(),
 	),
 	bouncePruneInputContract: contractSchema(
 		typia.json.schema<BouncePruneInput>(),

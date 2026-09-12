@@ -21,6 +21,7 @@ describe("maintenance operation adapter", () => {
 		expect(maintenanceTools.map((tool) => tool.name)).toEqual([
 			"listmonk_gc_subscribers",
 			"listmonk_gc_unconfirmed_subscriptions",
+			"listmonk_gc_analytics",
 		]);
 		for (const tool of maintenanceTools) {
 			expect(tool.annotations).toMatchObject({

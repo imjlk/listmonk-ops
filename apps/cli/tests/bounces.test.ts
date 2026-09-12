@@ -4,6 +4,8 @@ import {
 	renderBounce,
 	renderBounces,
 	renderDeleteBounce,
+	renderDeleteSubscriberBounces,
+	renderSubscriberBounces,
 	type BouncesCliContext,
 } from "../src/commands/bounces";
 
@@ -36,10 +38,10 @@ describe("bounce CLI actions", () => {
 			},
 		}));
 		const cliContext = {
-			client: { bounce: { list } } as unknown as Pick<
-				ListmonkClient,
-				"bounce"
-			>,
+			client: {
+				bounce: { list },
+				subscriber: {},
+			} as unknown as Pick<ListmonkClient, "bounce" | "subscriber">,
 			output: output(),
 		} satisfies BouncesCliContext;
 
@@ -62,10 +64,10 @@ describe("bounce CLI actions", () => {
 			data: { results: [], total: 0, per_page: 20, page: 1 },
 		}));
 		const cliContext = {
-			client: { bounce: { list } } as unknown as Pick<
-				ListmonkClient,
-				"bounce"
-			>,
+			client: {
+				bounce: { list },
+				subscriber: {},
+			} as unknown as Pick<ListmonkClient, "bounce" | "subscriber">,
 			output: output(),
 		} satisfies BouncesCliContext;
 
@@ -99,10 +101,10 @@ describe("bounce CLI actions", () => {
 			},
 		}));
 		const cliContext = {
-			client: { bounce: { getById } } as unknown as Pick<
-				ListmonkClient,
-				"bounce"
-			>,
+			client: {
+				bounce: { getById },
+				subscriber: {},
+			} as unknown as Pick<ListmonkClient, "bounce" | "subscriber">,
 			output: output(),
 		} satisfies BouncesCliContext;
 
@@ -122,10 +124,10 @@ describe("bounce CLI actions", () => {
 	test("deletes a bounce through the shared operation", async () => {
 		const deleteById = mock(async () => ({ data: true }));
 		const cliContext = {
-			client: { bounce: { deleteById } } as unknown as Pick<
-				ListmonkClient,
-				"bounce"
-			>,
+			client: {
+				bounce: { deleteById },
+				subscriber: {},
+			} as unknown as Pick<ListmonkClient, "bounce" | "subscriber">,
 			output: output(),
 		} satisfies BouncesCliContext;
 
@@ -137,6 +139,42 @@ describe("bounce CLI actions", () => {
 		);
 		expect(cliContext.output.json).toHaveBeenCalledWith({
 			id: 9,
+			deleted: true,
+		});
+	});
+
+	test("renders a subscriber's empty bounce history as an info line", async () => {
+		const getBounces = mock(async () => ({ data: [] }));
+		const cliContext = {
+			client: {
+				bounce: {},
+				subscriber: { getBounces },
+			} as unknown as Pick<ListmonkClient, "bounce" | "subscriber">,
+			output: output(),
+		} satisfies BouncesCliContext;
+
+		await renderSubscriberBounces(cliContext, { subscriber_id: 663 });
+		expect(cliContext.output.info).toHaveBeenCalledWith(
+			"No bounces found for subscriber 663",
+		);
+	});
+
+	test("renders the subscriber bounce deletion acknowledgement", async () => {
+		const deleteBounces = mock(async () => ({ data: true }));
+		const cliContext = {
+			client: {
+				bounce: {},
+				subscriber: { deleteBounces },
+			} as unknown as Pick<ListmonkClient, "bounce" | "subscriber">,
+			output: output(),
+		} satisfies BouncesCliContext;
+
+		await renderDeleteSubscriberBounces(cliContext, { subscriber_id: 663 });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Deleted bounces for subscriber: 663",
+		);
+		expect(cliContext.output.json).toHaveBeenCalledWith({
+			id: 663,
 			deleted: true,
 		});
 	});

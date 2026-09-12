@@ -452,6 +452,8 @@ listmonk-cli system reload
 listmonk-cli maintenance gc-subscribers --type orphan --confirm
 listmonk-cli maintenance gc-unconfirmed \
   --before-date 2026-01-01T00:00:00Z --confirm
+listmonk-cli maintenance gc-analytics --type views \
+  --before-date 2026-01-01T00:00:00Z --confirm
 
 listmonk-cli subscribers create --email reader@example.com --name Reader
 listmonk-cli subscribers update --id 7 --status enabled
@@ -494,6 +496,8 @@ listmonk-cli bounces list --campaign-id 42 --source api \
   --order-by created_at --order desc
 listmonk-cli bounces get --id 7
 listmonk-cli bounces delete --id 7 --confirm
+listmonk-cli bounces subscriber --subscriber-id 7
+listmonk-cli bounces delete-subscriber --subscriber-id 7 --confirm
 
 # 하나의 제한된 배치를 미리보기한 뒤, 정확히 그 id들만 삭제합니다.
 listmonk-cli bounces prune --per-page 100 --confirm
@@ -578,9 +582,10 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-116개 계약은 독립적인 TypeScript/Typia 제품 계약이며 116개 전부가
+131개 계약은 독립적인 TypeScript/Typia 제품 계약이며 131개 전부가
 `stable`입니다. 바운스 패밀리(`bounces.list`, `bounces.get`,
-`bounces.delete`, `bounces.prune`), 캠페인 프리뷰/테스트 발송/애널리틱스
+`bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
+`subscribers.bounces.delete`), 캠페인 프리뷰/테스트 발송/애널리틱스
 오퍼레이션(`campaigns.preview`, `campaigns.test`, `campaigns.analytics`),
 대시보드 집계 읽기(`dashboard.counts`, `dashboard.charts`), 구독자 임포트
 라이프사이클(`subscribers.import.start`, `subscribers.import.status`,
@@ -590,7 +595,8 @@ Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 `system.logs`), 캠페인 아카이브 토글(`campaigns.archive`), 옵트인 재발송
 (`subscribers.send-optin`), 자격 증명 무권화 설정 읽기(`settings.get`), SMTP 설정 테스트
 (`settings.test-smtp`), 일괄 유지보수 정리(`maintenance.gc-subscribers`,
-`maintenance.gc-unconfirmed`), 설정 다시 불러오기(`system.reload`)는
+`maintenance.gc-unconfirmed`, `maintenance.gc-analytics`),
+설정 다시 불러오기(`system.reload`)는
 관찰된 Listmonk 6.2 응답 형태를 로컬 스택으로 검증한 뒤 stable 호환성
 baseline에 승인되었습니다. runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
