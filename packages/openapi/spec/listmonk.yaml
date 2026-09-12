@@ -2053,6 +2053,7 @@ paths:
           description: RFC3339 cutoff; analytics recorded before this timestamp are deleted
           schema:
             type: string
+            format: date-time
         - in: path
           name: type
           description: analytics category to garbage collect

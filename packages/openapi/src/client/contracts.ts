@@ -266,7 +266,7 @@ export interface ImportOperations {
 }
 
 /**
- * Destructive maintenance garbage collection. Both endpoints delete the
+ * Destructive maintenance garbage collection. Every endpoint deletes the
  * full matching set in one request; there is no server-side preview.
  */
 export interface MaintenanceOperations {

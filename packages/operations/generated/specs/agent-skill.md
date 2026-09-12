@@ -1782,7 +1782,7 @@ Retry guidance: Do not blindly repeat: each request sends another message. Inspe
 
 ## Get subscriber bounces (`subscribers.bounces.get`)
 
-Contract maturity: `stable`; effects: `read:subscriber`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:bounce`; confirmation: `never`; retry: `safe`.
 
 Use when: A subscriber's full bounce history must be reviewed before cleanup or deliverability triage.
 

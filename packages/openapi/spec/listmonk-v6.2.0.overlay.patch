@@ -124,7 +124,7 @@
        operationId: setDefaultTemplateById
        tags:
          - Templates
-@@ -2016,23 +2016,19 @@
+@@ -2016,23 +2016,20 @@
        operationId: deleteCampaignAnalyticsByType
        tags:
          - Maintenance
@@ -139,14 +139,14 @@
 -                before_date:
 -                  type: string
 -                  format: date
--      parameters:
-+      parameters:
+       parameters:
 +        - in: query
 +          name: before_date
 +          required: true
 +          description: RFC3339 cutoff; analytics recorded before this timestamp are deleted
 +          schema:
 +            type: string
++            format: date-time
          - in: path
            name: type
 -          description: type of GC collected subscribers

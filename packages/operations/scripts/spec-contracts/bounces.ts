@@ -121,10 +121,7 @@ export interface SubscriberBouncesCollectionOutput {
 	total: NonNegativeInteger;
 }
 
-export type SubscriberBouncesDeleteInput = {
-	/** Positive Listmonk subscriber ID. */
-	subscriber_id: ResourceId;
-};
+export type SubscriberBouncesDeleteInput = SubscriberBouncesGetInput;
 
 export interface SubscriberBouncesDeleteOutput {
 	/** Echoed subscriber ID whose bounce history was cleared. */

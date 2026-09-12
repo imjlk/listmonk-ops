@@ -305,7 +305,7 @@ describe("Bounces CLI and MCP parity", () => {
 		const cliHistoryResult = runCliBouncesCommand([
 			"--format",
 			"json",
-			"subscriber",
+			"list-subscriber",
 			"--subscriber-id",
 			String(subscriberId),
 		]);

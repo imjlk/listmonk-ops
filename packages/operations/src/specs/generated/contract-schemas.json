@@ -20359,7 +20359,7 @@
           "minimum": 1,
           "type": "integer"
         },
-        "SubscriberBouncesDeleteInput": {
+        "SubscriberBouncesGetInput": {
           "additionalProperties": false,
           "properties": {
             "subscriber_id": {

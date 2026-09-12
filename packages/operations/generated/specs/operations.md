@@ -1540,7 +1540,7 @@ List the bounce records Listmonk attributes to one subscriber. An unknown subscr
 - Resource / verb: `bounce.get`
 - MCP tool: `listmonk_get_subscriber_bounces`
 - Contract source: input `typescript`, output `typescript`
-- Effects: `read:subscriber`
+- Effects: `read:bounce`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
 - Stability: `stable` since `0.18.0`

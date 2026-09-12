@@ -103,14 +103,14 @@ export async function renderSubscriberBounces(
 	context: BouncesCliContext,
 	input: { subscriber_id: number },
 ): Promise<void> {
-	const page = await invokeGetSubscriberBouncesOperation(context, input);
-	if (page.results.length === 0) {
+	const result = await invokeGetSubscriberBouncesOperation(context, input);
+	if (result.results.length === 0) {
 		context.output.info(
 			`No bounces found for subscriber ${input.subscriber_id}`,
 		);
 		return;
 	}
-	context.output.table(page.results as Record<string, unknown>[]);
+	context.output.table(result.results as Record<string, unknown>[]);
 }
 
 export async function renderDeleteSubscriberBounces(
@@ -313,7 +313,7 @@ export default defineGroup({
 			handler: handleDeleteBounceCommand,
 		}),
 		defineCommand({
-			name: "subscriber",
+			name: "list-subscriber",
 			operationId: "subscribers.bounces.get",
 			description: "List the bounce records of one subscriber",
 			options: {

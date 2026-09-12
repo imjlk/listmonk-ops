@@ -324,7 +324,17 @@ export async function getSubscriberBounces(
 		response,
 		`Failed to fetch bounces for subscriber ${input.subscriber_id}`,
 	);
-	const results = Array.isArray(data) ? data : [];
+	// The observed endpoint always answers the flat record array. A
+	// non-array payload is contract drift, and because this read is the
+	// verifyWith for the destructive clear, silently defaulting it to an
+	// empty set would falsely confirm that the history was cleared.
+	if (!Array.isArray(data)) {
+		throw new ResourceResponseError(
+			`Bounces for subscriber ${input.subscriber_id} returned an unexpected payload shape`,
+			{ status: 502 },
+		);
+	}
+	const results = data;
 	return {
 		subscriber_id: input.subscriber_id,
 		results: results.map(asBounceRecord),

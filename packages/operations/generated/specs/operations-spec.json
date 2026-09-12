@@ -42107,7 +42107,7 @@
       "effects": [
         {
           "kind": "read",
-          "resource": "subscriber"
+          "resource": "bounce"
         }
       ],
       "id": "subscribers.bounces.get",
@@ -42167,7 +42167,7 @@
                 "minimum": 1,
                 "type": "integer"
               },
-              "SubscriberBouncesDeleteInput": {
+              "SubscriberBouncesGetInput": {
                 "additionalProperties": false,
                 "properties": {
                   "subscriber_id": {

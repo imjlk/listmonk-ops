@@ -269,7 +269,7 @@ export const subscribersBouncesGetOperationSpec = defineOperationSpec({
 		input: subscriberBouncesGetInputContract,
 		output: subscriberBouncesCollectionOutputContract,
 	},
-	effects: [{ kind: "read", resource: "subscriber" }],
+	effects: [{ kind: "read", resource: "bounce" }],
 	policy: {
 		confirmation: "never",
 		audit: "optional",
