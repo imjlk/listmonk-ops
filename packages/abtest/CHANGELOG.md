@@ -1,5 +1,11 @@
 # @listmonk-ops/abtest
 
+## 0.8.1 — 2026-09-12
+
+### Patch changes
+
+- Updated dependencies: openapi@0.9.0, operations@0.17.0
+
 ## 0.8.0 — 2026-09-07
 
 ### Minor changes
