@@ -1,5 +1,16 @@
 # @listmonk-ops/abtest
 
+## 0.8.1 — 2026-09-22
+
+### Patch changes
+
+- [6ae61e8](https://github.com/imjlk/listmonk-ops/commit/6ae61e80c2cc291a33024cd67c760d536066b54b) Refresh runtime and compiler dependencies, regenerate the Fetch SDK, and align the Gunshi completion peer version. Preserve the OpenAPI generator TypeScript 5.9 compatibility dependency.
+  
+  The regenerated raw SDK now correctly marks request/response as optional on failures that occur before a request or response exists. Raw SDK consumers must guard these fields when inspecting errors.
+  
+  Preserve required MCP input metadata under Zod 4.6 and keep transactional serialization failures classified as invalid_message under the regenerated SDK. — Thanks @imjlk!
+- Updated dependencies: common@0.6.1, openapi@0.9.0, operations@0.17.0
+
 ## 0.8.0 — 2026-09-07
 
 ### Minor changes
