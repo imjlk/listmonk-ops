@@ -164,7 +164,7 @@ Return installation capabilities and goal-oriented operation and playbook recomm
 
 ## `control.status`
 
-Check catalog integrity, typed specification coverage, runtime identity, and live Listmonk connectivity.
+Check catalog integrity, typed specification coverage, runtime identity, public health, authentication, and selected collection read access.
 
 - Resource / verb: `control.status`
 - MCP tool: `listmonk_status`

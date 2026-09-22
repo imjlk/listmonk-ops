@@ -28,3 +28,10 @@ export {
 	createListmonkClientFromEnv,
 } from "./factory";
 export { transformResponse } from "./response";
+
+export type {
+	ListmonkReadiness,
+	ReadinessResource,
+	ReadinessProbeResult,
+	ReadinessProbeState,
+} from "./readiness";

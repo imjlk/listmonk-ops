@@ -56,3 +56,10 @@ export type {
  * Core entity types
  */
 export type { About, Campaign, List, Subscriber, Template };
+
+export type {
+	ListmonkReadiness,
+	ReadinessResource,
+	ReadinessProbeResult,
+	ReadinessProbeState,
+} from "./src/client/readiness";

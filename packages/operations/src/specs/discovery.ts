@@ -357,7 +357,7 @@ export const controlStatusOperationSpec = defineOperationSpec({
 	verb: "status",
 	title: "Get control-plane status",
 	description:
-		"Check catalog integrity, typed specification coverage, runtime identity, and live Listmonk connectivity.",
+		"Check catalog integrity, typed specification coverage, runtime identity, public health, authentication, and selected collection read access.",
 	contract: {
 		input: controlStatusInputContract,
 		output: controlStatusOutputContract,
@@ -371,7 +371,7 @@ export const controlStatusOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "safe",
 		reason:
-			"The operation performs read-only local checks and a Listmonk health probe.",
+			"The operation performs read-only local checks and bounded Listmonk health, authentication, and selected collection read probes.",
 	},
 	agent: {
 		useWhen: [
@@ -382,7 +382,7 @@ export const controlStatusOperationSpec = defineOperationSpec({
 		verifyWith: [],
 		related: ["control.capabilities", "control.prime"],
 		retryGuidance:
-			"Retry transient health failures with normal backoff; do not infer authentication from reachability alone.",
+			"Retry unavailable probes with backoff; fix rejected credentials or denied permissions first. Collection access only verifies visible resources, not global access or mutation rights.",
 	},
 	projection: {
 		mcpName: "listmonk_status",

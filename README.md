@@ -612,8 +612,25 @@ Agents can use the corresponding `listmonk_schema_search`,
 `listmonk_playbook_get`, `listmonk_capabilities`, `listmonk_prime`, and
 `listmonk_status` tools. Search and prime results include typed-spec coverage,
 effect-derived safety, execution requirements, and `useWhen`/`avoidWhen`
-guidance. Status adds runtime identity and a live Listmonk health probe without
-returning credentials.
+guidance. Status reports public connectivity/health, authentication, and selected
+collection read access separately without returning credentials or remote error bodies.
+
+```bash
+listmonk-cli status --check --permissions lists,subscribers,campaigns --format json
+```
+
+`--check` exits with code 1 unless health, authentication, local catalog/spec checks,
+and every requested collection read succeed. Without it, diagnostic failures remain
+in the JSON result and the command exits normally. MCP `listmonk_status` accepts
+`{"permissions":["lists","subscribers","campaigns"]}` and returns the same readiness
+fields. Omit `permissions` to check health and authentication only. Each probe is a
+read-only GET with a deadline of at most five seconds, no retries, and a 64 KiB response limit.
+`not_checked` means credentials or a preceding authentication check are missing;
+`unavailable` or `invalid_response` is inconclusive, never permission approval.
+A successful collection check only verifies access to the visible collection: it
+does not establish access to every subscriber/list, mutation rights, or send permission.
+Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
+inline credentials, query strings, and fragments.
 
 All 128 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,

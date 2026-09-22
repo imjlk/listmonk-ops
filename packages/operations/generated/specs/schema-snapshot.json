@@ -3173,7 +3173,25 @@
           "schemas": {
             "ControlStatusInput": {
               "additionalProperties": false,
-              "properties": {},
+              "properties": {
+                "permissions": {
+                  "items": {
+                    "oneOf": [
+                      {
+                        "const": "campaigns"
+                      },
+                      {
+                        "const": "lists"
+                      },
+                      {
+                        "const": "subscribers"
+                      }
+                    ]
+                  },
+                  "maxItems": 3,
+                  "type": "array"
+                }
+              },
               "required": [],
               "type": "object"
             }
@@ -3182,7 +3200,25 @@
         "dialect": "openapi-3.1",
         "schema": {
           "additionalProperties": false,
-          "properties": {},
+          "properties": {
+            "permissions": {
+              "items": {
+                "oneOf": [
+                  {
+                    "const": "campaigns"
+                  },
+                  {
+                    "const": "lists"
+                  },
+                  {
+                    "const": "subscribers"
+                  }
+                ]
+              },
+              "maxItems": 3,
+              "type": "array"
+            }
+          },
           "required": [],
           "type": "object"
         },
@@ -3198,11 +3234,36 @@
                 "listmonk": {
                   "additionalProperties": false,
                   "properties": {
+                    "authentication": {
+                      "$ref": "#/components/schemas/ReadinessProbeResult"
+                    },
                     "configured": {
                       "type": "boolean"
                     },
+                    "connectivity": {
+                      "oneOf": [
+                        {
+                          "const": "reachable"
+                        },
+                        {
+                          "const": "unknown"
+                        },
+                        {
+                          "const": "unreachable"
+                        }
+                      ]
+                    },
+                    "health": {
+                      "$ref": "#/components/schemas/ReadinessProbeResult"
+                    },
                     "health_error": {
                       "type": "string"
+                    },
+                    "permissions": {
+                      "items": {
+                        "$ref": "#/components/schemas/ReadinessProbeResult__type"
+                      },
+                      "type": "array"
                     },
                     "reachable": {
                       "type": "boolean"
@@ -3210,7 +3271,11 @@
                   },
                   "required": [
                     "configured",
-                    "reachable"
+                    "reachable",
+                    "connectivity",
+                    "health",
+                    "authentication",
+                    "permissions"
                   ],
                   "type": "object"
                 },
@@ -3321,6 +3386,86 @@
               "minimum": 0,
               "type": "integer"
             },
+            "ReadinessProbeResult": {
+              "additionalProperties": false,
+              "properties": {
+                "http_status": {
+                  "maximum": 599,
+                  "minimum": 100,
+                  "type": "integer"
+                },
+                "state": {
+                  "oneOf": [
+                    {
+                      "const": "denied"
+                    },
+                    {
+                      "const": "invalid_response"
+                    },
+                    {
+                      "const": "not_checked"
+                    },
+                    {
+                      "const": "ok"
+                    },
+                    {
+                      "const": "unavailable"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "state"
+              ],
+              "type": "object"
+            },
+            "ReadinessProbeResult__type": {
+              "additionalProperties": false,
+              "properties": {
+                "http_status": {
+                  "maximum": 599,
+                  "minimum": 100,
+                  "type": "integer"
+                },
+                "resource": {
+                  "oneOf": [
+                    {
+                      "const": "campaigns"
+                    },
+                    {
+                      "const": "lists"
+                    },
+                    {
+                      "const": "subscribers"
+                    }
+                  ]
+                },
+                "state": {
+                  "oneOf": [
+                    {
+                      "const": "denied"
+                    },
+                    {
+                      "const": "invalid_response"
+                    },
+                    {
+                      "const": "not_checked"
+                    },
+                    {
+                      "const": "ok"
+                    },
+                    {
+                      "const": "unavailable"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "state",
+                "resource"
+              ],
+              "type": "object"
+            },
             "Recordstringstring": {
               "additionalProperties": {
                 "type": "string"
@@ -3336,11 +3481,36 @@
             "listmonk": {
               "additionalProperties": false,
               "properties": {
+                "authentication": {
+                  "$ref": "#/components/schemas/ReadinessProbeResult"
+                },
                 "configured": {
                   "type": "boolean"
                 },
+                "connectivity": {
+                  "oneOf": [
+                    {
+                      "const": "reachable"
+                    },
+                    {
+                      "const": "unknown"
+                    },
+                    {
+                      "const": "unreachable"
+                    }
+                  ]
+                },
+                "health": {
+                  "$ref": "#/components/schemas/ReadinessProbeResult"
+                },
                 "health_error": {
                   "type": "string"
+                },
+                "permissions": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReadinessProbeResult__type"
+                  },
+                  "type": "array"
                 },
                 "reachable": {
                   "type": "boolean"
@@ -3348,7 +3518,11 @@
               },
               "required": [
                 "configured",
-                "reachable"
+                "reachable",
+                "connectivity",
+                "health",
+                "authentication",
+                "permissions"
               ],
               "type": "object"
             },
@@ -3460,7 +3634,7 @@
       },
       "retry": {
         "kind": "safe",
-        "reason": "The operation performs read-only local checks and a Listmonk health probe."
+        "reason": "The operation performs read-only local checks and bounded Listmonk health, authentication, and selected collection read probes."
       },
       "since": "0.8.0",
       "stability": "stable"

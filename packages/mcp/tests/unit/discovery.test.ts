@@ -27,7 +27,12 @@ function request(
 }
 
 const healthyClient = {
-	getHealthCheck: async () => ({ data: true }),
+	getReadiness: async () => ({
+		connectivity: "reachable",
+		health: { state: "ok" },
+		authentication: { state: "ok" },
+		permissions: [],
+	}),
 } as unknown as ListmonkClient;
 
 function runCliJson(args: string[]): Record<string, unknown> {

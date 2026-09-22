@@ -173,7 +173,9 @@ describe("agent discovery operations", () => {
 				version: "test",
 				runtime: { platform: "test" },
 				target: { url: "http://127.0.0.1:9000/api", auth: "token" },
-				probeListmonk: async () => true,
+				probeReadiness: async () => ({
+					connectivity: "reachable", health: { state: "ok" }, authentication: { state: "ok" }, permissions: [],
+				}),
 			},
 			{},
 		);
@@ -231,10 +233,10 @@ describe("agent discovery operations", () => {
 			},
 			{},
 		);
-		expect(unavailable.listmonk).toEqual({
+		expect(unavailable.listmonk).toMatchObject({
 			configured: false,
 			reachable: false,
-			health_error: "connection refused",
+			health_error: "Listmonk readiness probe failed",
 		});
 
 		const probeOnly = await invokeControlStatusOperation(
@@ -267,5 +269,35 @@ describe("agent discovery operations", () => {
 			idempotentHint: true,
 			openWorldHint: false,
 		});
+	});
+});
+
+describe("status readiness policy", () => {
+	const statusContext = { ...context, surface: "cli" as const, version: "test", runtime: {}, target: { url: "https://example.test/api", auth: "token" as const } };
+	test("does not infer authentication from a legacy public health probe", async () => {
+		const status = await invokeControlStatusOperation({ ...statusContext, probeListmonk: async () => true }, {});
+		expect(status.listmonk.reachable).toBe(true);
+		expect(status.listmonk.authentication.state).toBe("not_checked");
+		expect(status.readiness.listmonk).toBe(false);
+	});
+	test("requires affirmative access for every selected collection", async () => {
+		for (const state of ["ok", "denied", "unavailable", "not_checked"] as const) {
+			const status = await invokeControlStatusOperation({
+				...statusContext,
+				probeReadiness: async (resources) => ({
+					connectivity: "reachable", health: { state: "ok" }, authentication: { state: "ok" },
+					permissions: resources.map((resource) => ({ resource, state })),
+				}),
+			}, { permissions: ["subscribers"] });
+			expect(status.listmonk.authentication.state).toBe("ok");
+			expect(status.readiness.listmonk).toBe(state === "ok");
+		}
+	});
+	test("sanitizes URL query credentials and rejects unsupported checks before probing", async () => {
+		const status = await invokeControlStatusOperation({ ...statusContext, target: { url: "https://user:secret@example.test/api?token=secret#secret", auth: "token" } }, {});
+		expect(status.target?.url).toBe("https://example.test/api");
+		let called = false;
+		await expect(invokeControlStatusOperation({ ...statusContext, probeListmonk: async () => { called = true; return true; } }, { permissions: ["../settings"] })).rejects.toThrow();
+		expect(called).toBe(false);
 	});
 });
