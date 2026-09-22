@@ -54,7 +54,7 @@
 		"@types/bun": "1.4.2",
 		"esbuild": "0.28.2",
 		"ttsc": "0.30.4",
-		"typia": "14.0.6",
+		"typia": "15.0.0",
 		"typescript": "7.0.2"
 	}
 }

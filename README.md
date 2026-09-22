@@ -38,7 +38,7 @@ Runtime policy:
 
 ## Prerequisites
 
-- Bun 1.3+
+- Bun 1.3+ (CI/build: 1.4.2)
 - Docker and Docker Compose
 
 ## Quick Start
@@ -249,7 +249,8 @@ listmonk-cli subscribers list --format ndjson
 listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 ```
 
-Machine-readable modes omit the CLI banner. Resource `list` commands emit an
+Machine-readable modes omit the CLI banner. Large JSON results, including the
+full operation catalog, are drained to stdout before a normal CLI exit. Resource `list` commands emit an
 array, including `[]` when no rows match; NDJSON writes each result as one JSON
 line. Failures exit nonzero and emit a bounded `{ "error": { "code": "cli_error",
 "message": "..." } }` diagnostic on stderr instead of runtime stack traces.
@@ -321,12 +322,18 @@ bun run release:apply
 bun run release:publish
 ```
 
-After a PR is merged into `main`, workflow `.github/workflows/sampo-release-publish.yml` runs:
+After a PR is merged into `main` and its CI succeeds, workflow
+`.github/workflows/sampo-release-publish.yml` runs:
 
-1. `sampo release`
-2. `bun run build`
-3. `sampo publish -- --access public --provenance`
-4. Pushes release commit and tags after publish succeeds
+1. With pending changesets, Sampo opens or refreshes the release PR with package
+   versions, changelogs, and the regenerated Bun lockfile.
+2. After that release PR is merged, the workflow builds, checks, and tests the
+   workspaces before publishing npm packages through trusted publishing (OIDC).
+3. Successful publishing creates tags and dispatches the separate native CLI
+   release workflow. Native CLI contract tests also run on ordinary PRs.
+
+The release action requires successful lockfile regeneration. Bun 1.4.2 is used
+consistently for CI, publishing, and native CLI builds.
 
 CI guard:
 - PRs changing releasable packages (`apps/cli`, `packages/openapi`, `packages/operations`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) must include `.sampo/changesets/*.md`
