@@ -249,6 +249,14 @@ listmonk-cli subscribers list --format ndjson
 listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 ```
 
+Machine-readable modes omit the CLI banner. Resource `list` commands emit an
+array, including `[]` when no rows match; NDJSON writes each result as one JSON
+line. Failures exit nonzero and emit a bounded `{ "error": { "code": "cli_error",
+"message": "..." } }` diagnostic on stderr instead of runtime stack traces.
+Do not merge stderr into stdout when parsing results. Explicit help, version,
+and shell-completion requests retain their text formats. Interactive prompts
+and `ops digest --markdown-only` require `--format human`.
+
 ## CLI Binary Install (GitHub Release + curl)
 
 Prebuilt releases support Linux x64/arm64 and Apple silicon macOS (arm64).

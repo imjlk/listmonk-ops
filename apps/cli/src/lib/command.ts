@@ -89,7 +89,7 @@ function createArgSchema(name: string, definition: CliOption): ArgSchema {
 		parse(value) {
 			const result = definition.schema.safeParse(value);
 			if (!result.success) {
-				throw new TypeError(formatValidationError(result.error));
+				throw new TypeError(`--${name}: ${formatValidationError(result.error)}`);
 			}
 			return result.data;
 		},

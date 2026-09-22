@@ -76,10 +76,7 @@ describe("Campaign tag filter CLI/MCP parity", () => {
 					"--format", "json", "list", "--tags", filter.join(","), "--page", "1", "--per-page", "20",
 				 ]);
 				expect(cli.exitCode).toBe(0);
-				// The list CLI emits rows only; an empty page is an info message on stderr.
-				const jsonStart = cli.stdout.indexOf("[");
-				const cliRows = jsonStart >= 0 ? JSON.parse(cli.stdout.slice(jsonStart)) as CampaignPage["results"] : [];
-				if (jsonStart < 0) expect(cli.stderr).toContain("No campaigns found");
+				const cliRows = JSON.parse(cli.stdout) as CampaignPage["results"];
 				expect(cliRows.map((row) => row.id).sort((a, b) => a - b)).toEqual(expected.sort((a, b) => a - b));
 				for (const result of [direct.data, mcp]) {
 					expect(result.total).toBe(expected.length);

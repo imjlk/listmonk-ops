@@ -74,7 +74,6 @@ export async function renderTemplates(
 	const page = await invokeGetTemplatesOperation(context, input);
 	if (page.results.length === 0) {
 		context.output.info("No templates found");
-		return;
 	}
 	context.output.table(page.results as Record<string, unknown>[]);
 }

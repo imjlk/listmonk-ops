@@ -134,7 +134,6 @@ export async function renderCampaigns(
 	const page = await invokeGetCampaignsOperation(context, input);
 	if (page.results.length === 0) {
 		context.output.info("No campaigns found");
-		return;
 	}
 	context.output.table(page.results as Record<string, unknown>[]);
 }

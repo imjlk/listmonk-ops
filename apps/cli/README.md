@@ -183,3 +183,14 @@ listmonk-cli complete powershell
 ```
 
 The older `listmonk-cli completions <shell>` spelling remains a deprecated alias.
+
+## Machine-readable output
+
+Use `--format json` or `--format ndjson` to keep result data on stdout without
+the CLI banner. Empty resource lists produce `[]`. NDJSON emits one JSON value
+per line; list results remain arrays. Errors use a bounded
+`{"error":{"code":"cli_error","message":"..."}}` envelope on stderr and a
+nonzero exit code. Human mode displays a concise error without a runtime stack.
+Keep stdout and stderr separate when piping to a parser. Help, version, and
+shell completion retain their native text formats. Interactive prompts and
+`ops digest --markdown-only` require human mode.

@@ -82,7 +82,6 @@ export async function renderSubscribers(
 	const page = await invokeGetSubscribersOperation(context, input);
 	if (page.results.length === 0) {
 		context.output.info("No subscribers found");
-		return;
 	}
 	context.output.table(page.results as Record<string, unknown>[]);
 }

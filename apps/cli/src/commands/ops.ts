@@ -452,6 +452,9 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
+					if (flags["markdown-only"] && flags.format && flags.format !== "human") {
+						throw new Error("--markdown-only requires --format human.");
+					}
 					const client = await getListmonkClient(args);
 					const digest = await invokeDailyDigestOperation(
 						{ client },

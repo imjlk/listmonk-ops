@@ -41,7 +41,7 @@ export const humanOutput: OutputStrategy = {
 		console.log(`⚠️  ${message}`);
 	},
 	table(data) {
-		console.table(data);
+		if (!Array.isArray(data) || data.length > 0) console.table(data);
 	},
 	json(data) {
 		console.log(JSON.stringify(data, null, 2));
@@ -50,7 +50,7 @@ export const humanOutput: OutputStrategy = {
 
 /**
  * JSON-only strategy:
- * json → stdout (pretty-printed), success/info/warning → stderr, table → stderr.
+ * json → stdout (pretty-printed), success/info/warning → stderr, table → stdout.
  */
 export const jsonOutput: OutputStrategy = {
 	success(message) {

@@ -246,6 +246,15 @@ listmonk-cli subscribers list --format ndjson
 listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 ```
 
+기계 처리용 출력 모드에서는 CLI 배너를 출력하지 않습니다. 리소스 `list`
+명령은 결과가 없어도 `[]` 배열을 출력하며, NDJSON은 결과 하나를 JSON 한 줄로
+출력합니다. 실패 시 0이 아닌 종료 코드와 함께 stderr에 길이를 제한한
+`{ "error": { "code": "cli_error", "message": "..." } }` 진단을 출력하며
+런타임 스택이나 소스 코드를 덧붙이지 않습니다. 결과를 파싱할 때 stderr를
+stdout에 합치지 마세요. 명시적인 도움말·버전·셸 자동완성 요청은 텍스트 형식을
+유지합니다. 대화형 입력과 `ops digest --markdown-only`는 `--format human`이
+필요합니다.
+
 ## CLI 바이너리 설치 (GitHub Release + curl)
 
 사전 빌드 릴리즈는 Linux x64/arm64와 Apple silicon macOS(arm64)를 지원합니다.
