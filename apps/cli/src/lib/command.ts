@@ -22,6 +22,11 @@ type InferFlags<Options extends OptionMap> = {
 };
 
 type RuntimeFlags = {
+	profile?: string;
+	configFile?: string;
+	listmonkUrl?: string;
+	listmonkUsername?: string;
+	tokenFile?: string;
 	confirm?: boolean;
 	interactive?: boolean;
 	tui?: boolean;
@@ -191,6 +196,28 @@ export function prepareCliArgv(input: string[]): string[] {
 		if (token === "--") {
 			args.push(...input.slice(index));
 			break;
+		}
+
+		const configurationOptions = {
+			"--profile": "profile",
+			"--config": "configFile",
+			"--listmonk-url": "listmonkUrl",
+			"--listmonk-username": "listmonkUsername",
+			"--token-file": "tokenFile",
+		} as const;
+		const separator = token.indexOf("=");
+		const configurationOptionName = separator === -1
+			? token
+			: token.slice(0, separator);
+		if (Object.hasOwn(configurationOptions, configurationOptionName)) {
+			const key = configurationOptions[configurationOptionName as keyof typeof configurationOptions];
+			const value = separator === -1
+				? input[index + 1]
+				: token.slice(separator + 1);
+			if (!value?.trim() || (separator === -1 && value.startsWith("--"))) throw new Error(`${configurationOptionName} requires a value`);
+			runtimeFlags[key] = value;
+			if (separator === -1) index++;
+			continue;
 		}
 
 		const globalMatch = token.match(

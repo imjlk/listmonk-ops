@@ -283,3 +283,16 @@ describe("CLI operation execution safety", () => {
 		]);
 	});
 });
+
+test("connection selection flags stay outside domain inputs and lifecycle projections", () => {
+	const execution = getCliOperationExecution("lists.delete", {
+		id: 7,
+		profile: "production",
+		configFile: "/config/profiles.json",
+		tokenFile: "/secrets/token",
+		listmonkUrl: "https://example.test/api",
+		listmonkUsername: "operator",
+		confirm: true,
+	});
+	expect(execution.operationInput).toEqual({ id: 7 });
+});

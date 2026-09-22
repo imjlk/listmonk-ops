@@ -30,7 +30,9 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_prime` - Return goal-oriented operation and playbook
   recommendations.
 - `listmonk_status` - Report MCP runtime, catalog/spec readiness, and live
-  Listmonk connectivity.
+  Listmonk connectivity, authentication, and optional scoped collection reads.
+- `listmonk_config` - Inspect the active profile, configuration sources, authentication
+  reference, and default state directory without reading secret values.
 
 ### Execution Safety for Shared Operations
 
@@ -591,3 +593,19 @@ This MCP package is part of the larger listmonk-ops project and integrates with 
 - Uses `docker-compose.yml` from project root for testing
 - Leverages shared PostgreSQL and Mailpit services
 - Shares domain operations and versioned local persistence with the Gunshi CLI
+
+## Shared connection profiles
+
+Start with `listmonk-mcp --stdio --profile NAME` and optional `--config PATH`.
+The CLI reads the same versioned profile file. Profiles use `tokenEnv` or
+`tokenFile`; `--token-file` supplies an explicit override. The server reads the
+current token for each tool call and keeps that snapshot for the call. Atomically
+replace token files to rotate between calls; restart long-running workers and
+restart the server after changing the profile document. Local metadata tools,
+including `listmonk_config`, remain available if a token file disappears after
+startup. Profile defaults isolate file-backed state, while explicit per-store
+paths and Postgres settings retain precedence.
+
+See the root [English](https://github.com/imjlk/listmonk-ops#shared-connection-profiles)
+and [Korean](https://github.com/imjlk/listmonk-ops/blob/main/README_ko.md) guides for
+configuration fields and precedence.

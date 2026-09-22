@@ -138,8 +138,8 @@ describe("agent discovery operations", () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					id: "discovery",
-					operations: 7,
-					described: 7,
+					operations: 8,
+					described: 8,
 				}),
 			]),
 		);

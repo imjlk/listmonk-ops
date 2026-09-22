@@ -265,6 +265,73 @@ reject buffered JSON mode. Keep stderr separate from stdout when parsing results
 Explicit help, version, and shell-completion requests retain their text formats.
 Interactive prompts and `ops digest --markdown-only` require `--format human`.
 
+### Shared connection profiles
+
+CLI and MCP read the same versioned configuration file, defaulting to
+`~/.listmonk-ops/config.json`. Create it with credential references rather than
+secret values:
+
+```json
+{
+  "schemaVersion": 1,
+  "defaultProfile": "local",
+  "profiles": {
+    "local": {
+      "baseUrl": "http://localhost:9000/api",
+      "username": "api-admin",
+      "tokenEnv": "LOCAL_LISTMONK_TOKEN"
+    },
+    "production": {
+      "baseUrl": "https://newsletter.example.com/api",
+      "username": "ops",
+      "tokenFile": "tokens/production"
+    }
+  }
+}
+```
+
+```bash
+listmonk-cli --profile production config show --format json
+listmonk-cli --profile production status --check --format json
+listmonk-mcp --stdio --profile production
+```
+
+Use `--config /absolute/path/profiles.json` or `LISTMONK_OPS_CONFIG` for another
+file. Profile selection is `--profile`, then `LISTMONK_OPS_PROFILE`, then the
+file's `defaultProfile`. A selected profile supplies its own URL, username, and
+credential reference: it does not inherit legacy `LISTMONK_API_URL`,
+`LISTMONK_USERNAME`, `LISTMONK_API_TOKEN`, or `LISTMONK_PASSWORD` values.
+Explicit `--listmonk-url`, `--listmonk-username`, and `--token-file` overrides
+still apply. The MCP entrypoint also retains its inline token/password flags.
+Without a selected profile, existing environment-based configuration and defaults
+continue to work; `LISTMONK_API_TOKEN_FILE` takes precedence over an inline token.
+Bun loads `.env` for both executables.
+
+`config show` and MCP `listmonk_config` return the selected profile, available
+profile names, field sources, credential reference, and default state directory.
+They do not read or return token values. Relative `tokenFile` and `dataDirectory`
+values in a profile resolve from the configuration file's directory; `--token-file`
+resolves from the working directory, and a relative `LISTMONK_API_TOKEN_FILE`
+resolves from the home directory. `~/` is supported. Use only one of `tokenEnv`
+and `tokenFile` per profile. Token files must be regular UTF-8 files, at most
+16 KiB, containing one nonempty token; a trailing newline is accepted. Keep token
+files private, for example with mode `0600`.
+
+Replace a token file atomically to rotate it. The next CLI command or MCP tool
+call reads the new value; an in-flight command/tool call retains its credential
+snapshot. Restart long-running workers to change their credential snapshot.
+A missing or invalid replacement fails the next call instead of reusing a cached
+token. Profile-file changes require a new CLI command or MCP process restart.
+
+Profiles use separate default state directories under
+`~/.listmonk-ops/profiles/<name>-<identity>/`; the identity includes the config
+path, profile, target URL, and username, but not the token. Existing state is not
+copied automatically. Set a profile's `dataDirectory` to use an explicit location.
+Without a profile, `LISTMONK_OPS_DATA_DIR` selects the default state root, otherwise
+`~/.listmonk-ops` remains the default. Explicit per-store environment paths and
+Postgres runtime database settings retain precedence over these defaults; review
+those overrides when switching environments.
+
 ## CLI Binary Install (GitHub Release + curl)
 
 Prebuilt releases support Linux x64/arm64 and Apple silicon macOS (arm64).
@@ -632,7 +699,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 128 public shared operations now include a `spec` descriptor. Specs define
+All 132 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -701,9 +768,7 @@ stable baseline from 36 to 40 operations. Sequence revisions expose step counts,
 step types, and deterministic content fingerprints without arbitrary step
 payloads; enrollment reads expose subscriber-reference and stored-error
 presence without their values.
-`control.status` remains experimental because its runtime readiness contract is
-still maturing; newer subsystem, aggregation, and analytics reads remain
-experimental. Stable mutations also include `sequences.pause`,
+`control.status` and `control.config` have stable typed contracts. Stable mutations also include `sequences.pause`,
 `sequences.resume`, `webhooks.circuit.reset`, `templates.update`,
 `templates.set-default`, and `templates.reconcile`. A follow-up batch
 promoted the five read-only A/B test operations, `webhooks.update`,

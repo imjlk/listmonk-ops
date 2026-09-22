@@ -4,6 +4,7 @@ import {
 	controlPrimeOutputContract,
 	controlStatusInputContract,
 	controlStatusOutputContract,
+	controlConfigurationOutputContract,
 	emptyInputContract,
 	playbookGetInputContract,
 	playbookGetOutputContract,
@@ -404,6 +405,49 @@ export const controlStatusOperationSpec = defineOperationSpec({
 	since: "0.8.0",
 });
 
+export const controlConfigurationOperationSpec = defineOperationSpec({
+	id: "control.config",
+	resource: "control",
+	verb: "config",
+	title: "Inspect resolved configuration",
+	description: "Inspect the selected connection profile, configuration sources, credential reference, and default state directory without reading secret values.",
+	contract: {
+		input: emptyInputContract,
+		output: controlConfigurationOutputContract,
+	},
+	effects: [{ kind: "read", resource: "control" }],
+	policy: { confirmation: "never", audit: "optional", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason: "The operation reads local configuration metadata without credentials or remote requests.",
+	},
+	agent: {
+		useWhen: [
+			"Verify which profile, credential reference, and state directory this process will use.",
+		],
+		avoidWhen: [
+			"Verify live authentication or resource permissions; use control.status instead.",
+		],
+		prerequisites: [],
+		verifyWith: ["control.status"],
+		related: ["control.status"],
+		retryGuidance: "Metadata can be read again safely; configuration changes take effect on the next process start, token files on the next operation.",
+	},
+	projection: {
+		mcpName: "listmonk_config",
+		openWorld: false,
+		graph: {
+			descriptorNode: "packages/operations/src/specs/discovery.ts#controlConfigurationOperationSpec:variable",
+			bindingNode: "packages/operations/src/specs/discovery.ts#bindControlConfigurationOperationSpec:function",
+			runtimeDefinitionNode: "packages/operations/src/configuration.ts#controlConfigurationOperation:variable",
+			invokerNode: "packages/operations/src/configuration.ts#invokeControlConfigurationOperation:function",
+			executorNode: "packages/operations/src/configuration.ts#getControlConfiguration:function",
+		},
+	},
+	stability: "stable",
+	since: "0.18.0",
+});
+
 export const catalogReadOperationSpecs = [
 	specSearchOperationSpec,
 	specDescribeOperationSpec,
@@ -416,6 +460,7 @@ export const catalogReadOperationSpecs = [
 export const discoveryOperationSpecs = [
 	...catalogReadOperationSpecs,
 	controlStatusOperationSpec,
+	controlConfigurationOperationSpec,
 ] as const;
 
 export function bindSpecSearchOperationSpec(): typeof specSearchOperationSpec {
@@ -444,4 +489,8 @@ export function bindControlPrimeOperationSpec(): typeof controlPrimeOperationSpe
 
 export function bindControlStatusOperationSpec(): typeof controlStatusOperationSpec {
 	return controlStatusOperationSpec;
+}
+
+export function bindControlConfigurationOperationSpec(): typeof controlConfigurationOperationSpec {
+	return controlConfigurationOperationSpec;
 }

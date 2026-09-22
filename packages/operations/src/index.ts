@@ -21,3 +21,5 @@ export * from "./templates";
 export * from "./transactional";
 export * from "./transactional-idempotency";
 export * from "./user-roles";
+
+export * from "./configuration";

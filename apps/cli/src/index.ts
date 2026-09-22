@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import configCommand from "./commands/config";
+import { initializeCliConfiguration } from "./lib/configuration";
 
 import completion from "@gunshi/plugin-completion";
 import { cli, define } from "gunshi";
@@ -38,10 +40,27 @@ import { prepareCliArgv } from "./lib/command";
 const entry = define({
 	name: "listmonk-cli",
 	description: "CLI for Listmonk operations",
+	args: {
+		profile: { type: "string", description: "Shared connection profile" },
+		config: { type: "string", description: "Shared profile configuration file" },
+		"token-file": {
+			type: "string",
+			description: "Read the API token from this file",
+		},
+		"listmonk-url": {
+			type: "string",
+			description: "Override the Listmonk API URL",
+		},
+		"listmonk-username": {
+			type: "string",
+			description: "Override the Listmonk username",
+		},
+	},
 	run: () => undefined,
 });
 
 const subCommands = {
+	config: configCommand,
 	status: statusCommand,
 	system: systemCommand,
 	settings: settingsCommand,
@@ -91,6 +110,8 @@ try {
 			throw new Error("Interactive prompts require --format human.");
 		}
 	}
+	const metadataOnly = argv.includes("--help") || argv.includes("-h") || argv.includes("--version") || argv[0] === "complete";
+	if (!metadataOnly && !["operations", "specs", "capabilities", "prime", "playbooks", "examples"].includes(argv[0] ?? "")) await initializeCliConfiguration();
 	await cli(argv, entry, {
 		name: "listmonk-cli",
 		version: packageJson.version,

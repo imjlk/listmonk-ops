@@ -1,3 +1,4 @@
+import { resolveCliConfiguration } from "./configuration";
 import * as clack from "@clack/prompts";
 import { normalizeListmonkApiUrl } from "@listmonk-ops/common";
 import {
@@ -5,9 +6,6 @@ import {
 	type ListmonkClient,
 } from "@listmonk-ops/openapi";
 import { getRuntimeFlags, type HandlerArgs } from "./command";
-
-const DEFAULT_API_URL = "http://localhost:9000/api";
-const DEFAULT_USERNAME = "api-admin";
 
 type UnknownFlags = Record<string, unknown>;
 type ListmonkHandlerContext = Partial<HandlerArgs<UnknownFlags>>;
@@ -30,10 +28,11 @@ function shouldUseInteractivePrompt(args: ListmonkHandlerContext): boolean {
 async function promptForCredentials(defaults: {
 	baseUrl: string;
 	username: string;
+	fixedTarget?: boolean;
 }): Promise<{ baseUrl: string; username: string; apiToken: string }> {
 	clack.intro("Listmonk authentication setup");
 
-	const baseUrlResult = await clack.text({
+	const baseUrlResult = defaults.fixedTarget ? defaults.baseUrl : await clack.text({
 		message: "Listmonk API URL",
 		defaultValue: defaults.baseUrl,
 		validate: (value = "") => {
@@ -51,7 +50,7 @@ async function promptForCredentials(defaults: {
 		throw new Error("Prompt cancelled by user");
 	}
 
-	const usernameResult = await clack.text({
+	const usernameResult = defaults.fixedTarget ? defaults.username : await clack.text({
 		message: "Listmonk token username",
 		defaultValue: defaults.username,
 		validate: (value = "") =>
@@ -90,12 +89,17 @@ export async function resolveListmonkSession(
 ): Promise<ListmonkSession> {
 	const requireAuth = options.requireAuth ?? true;
 
-	let baseUrl = normalizeApiUrl(Bun.env.LISTMONK_API_URL || DEFAULT_API_URL);
-	let username = Bun.env.LISTMONK_USERNAME?.trim() || DEFAULT_USERNAME;
-	let apiToken = Bun.env.LISTMONK_API_TOKEN?.trim();
+	const resolved = await resolveCliConfiguration();
+	let baseUrl = resolved.summary.baseUrl;
+	let username = resolved.summary.username;
+	let apiToken = await resolved.readCredential();
 
 	if (!apiToken && requireAuth && shouldUseInteractivePrompt(args)) {
-		const prompted = await promptForCredentials({ baseUrl, username });
+		const prompted = await promptForCredentials({
+			baseUrl,
+			username,
+			fixedTarget: resolved.summary.profile !== undefined,
+		});
 		baseUrl = prompted.baseUrl;
 		username = prompted.username;
 		apiToken = prompted.apiToken;
@@ -104,7 +108,7 @@ export async function resolveListmonkSession(
 	if (!apiToken) {
 		if (requireAuth) {
 			throw new Error(
-				"Missing LISTMONK_API_TOKEN. Set env vars or run with --interactive.",
+				"Missing Listmonk API token. Set LISTMONK_API_TOKEN, configure a profile/token file, or run with --interactive.",
 			);
 		}
 

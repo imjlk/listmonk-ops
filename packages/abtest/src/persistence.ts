@@ -1,4 +1,4 @@
-import { homedir } from "node:os";
+import { getListmonkDataDirectory } from "@listmonk-ops/common";
 import { join } from "node:path";
 
 import {
@@ -752,7 +752,7 @@ export function getAbTestStorePath(): string {
 	const overriddenPath = process.env.LISTMONK_OPS_ABTEST_STORE?.trim();
 	return (
 		overriddenPath ||
-		join(homedir(), ".listmonk-ops", "abtests.json")
+		join(getListmonkDataDirectory(), "abtests.json")
 	);
 }
 

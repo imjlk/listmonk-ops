@@ -1,4 +1,8 @@
-import { existsSync, realpathSync, readFileSync } from "node:fs";
+import { realpathSync } from "node:fs";
+import {
+	resolveListmonkConfiguration,
+	type ListmonkConfigurationSummary,
+} from "@listmonk-ops/common";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -8,6 +12,9 @@ import {
 import type { ListmonkMCPServer } from "./server.js";
 
 interface RuntimeArgs {
+	profile?: string;
+	configFile?: string;
+	tokenFile?: string;
 	baseUrl?: string;
 	username?: string;
 	password?: string;
@@ -23,6 +30,8 @@ type MCPServerConfig = {
 	username: string;
 	password: string;
 	apiToken: string;
+	credentialProvider?: () => Promise<string | undefined>;
+	configuration?: ListmonkConfigurationSummary;
 	httpAuthToken?: string;
 	allowedHttpHosts?: string[];
 	allowedHttpOrigins?: string[];
@@ -86,55 +95,6 @@ async function createMCPServer(
 	return new ListmonkMCPServer(config);
 }
 
-function loadFileEnv(path: string): void {
-	if (!existsSync(path)) {
-		return;
-	}
-
-	let content: string;
-	try {
-		content = readFileSync(path, "utf8");
-	} catch (error) {
-		const detail = error instanceof Error ? error.message : String(error);
-		console.warn(`⚠️ Failed to read ${path}: ${detail}`);
-		return;
-	}
-
-	const lines = content.split(/\r?\n/);
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (!trimmed || trimmed.startsWith("#")) {
-			continue;
-		}
-
-		const separatorIndex = trimmed.indexOf("=");
-		if (separatorIndex < 0) {
-			continue;
-		}
-
-		const key = trimmed.slice(0, separatorIndex).trim();
-		if (!key) {
-			continue;
-		}
-
-		let value = trimmed.slice(separatorIndex + 1).trim();
-		if (
-			(value.startsWith('"') && value.endsWith('"')) ||
-			(value.startsWith("'") && value.endsWith("'"))
-		) {
-			value = value.slice(1, -1);
-		}
-
-		if (process.env[key] === undefined) {
-			process.env[key] = value;
-		}
-	}
-}
-
-function loadRuntimeEnv(): void {
-	loadFileEnv(resolve(process.cwd(), ".env"));
-}
-
 function parseCommaSeparatedEnv(value: string | undefined): string[] {
 	return value
 		? value
@@ -155,6 +115,9 @@ Options:
   --listmonk-username <name>   Listmonk username
   --listmonk-password <pass>   Listmonk password
   --listmonk-api-token <token> Listmonk API token
+  --profile <name>            Select a shared connection profile
+  --config <path>             Shared profile configuration file
+  --token-file <path>         Read the API token from a file on each operation
   --host <host>                MCP server host (default: localhost)
   --port <port>                MCP server port (default: 3000)
   --transport <http|stdio>     MCP transport (default: http)
@@ -166,6 +129,10 @@ Environment fallback:
   LISTMONK_USERNAME
   LISTMONK_PASSWORD
   LISTMONK_API_TOKEN
+  LISTMONK_API_TOKEN_FILE     Token file (relative paths resolve from home)
+  LISTMONK_OPS_CONFIG         Shared profile configuration path
+  LISTMONK_OPS_PROFILE        Selected connection profile
+  LISTMONK_OPS_DATA_DIR       Default state root when no profile is selected
   MCP_SERVER_HOST
   MCP_SERVER_PORT
   MCP_HTTP_AUTH_TOKEN          Optional Bearer token for HTTP tool endpoints
@@ -183,109 +150,44 @@ Environment fallback:
 
 function parseArgs(argv: string[]): RuntimeArgs {
 	const args: RuntimeArgs = {};
-	const takeValue = (
-		arg: string,
-		next: string | undefined,
-	): string | undefined => {
-		if (arg.includes("=")) {
-			const [, value] = arg.split("=", 2);
-			return value;
-		}
-		return next;
-	};
-
+	const options = {
+		"--listmonk-url": "baseUrl",
+		"--listmonk-username": "username",
+		"--listmonk-password": "password",
+		"--listmonk-api-token": "apiToken",
+		"--profile": "profile",
+		"--config": "configFile",
+		"--token-file": "tokenFile",
+		"--host": "host",
+	} as const;
 	for (let index = 0; index < argv.length; index++) {
-		const arg = argv[index];
-		if (!arg) {
+		const argument = argv[index]!;
+		if (argument === "--help" || argument === "-h") {
+			args.help = true;
 			continue;
 		}
-
-		const next = argv[index + 1];
-
-		switch (true) {
-			case arg === "--help":
-			case arg === "-h":
-				args.help = true;
-				break;
-			case arg === "--stdio":
-				args.transport = "stdio";
-				break;
-			case arg === "--transport":
-			case arg.startsWith("--transport="): {
-				const value = takeValue(arg, next);
-				if (value !== undefined && !arg.includes("=")) {
-					index += 1;
-				}
-				if (value !== "http" && value !== "stdio") {
-					throw new TypeError(
-						`Invalid transport: ${value || "(missing)"}. Expected http or stdio.`,
-					);
-				}
-				args.transport = value;
-				break;
-			}
-			case arg.startsWith("--listmonk-url"):
-			case arg.startsWith("--listmonk-api-url"): {
-				const value = takeValue(arg, next);
-				if (value !== undefined && !arg.includes("=")) {
-					index += 1;
-				}
-				args.baseUrl = value;
-				break;
-			}
-			case arg.startsWith("--listmonk-username"): {
-				const value = takeValue(arg, next);
-				if (value !== undefined && !arg.includes("=")) {
-					index += 1;
-				}
-				args.username = value;
-				break;
-			}
-			case arg.startsWith("--listmonk-password"): {
-				const value = takeValue(arg, next);
-				if (value !== undefined && !arg.includes("=")) {
-					index += 1;
-				}
-				args.password = value;
-				break;
-			}
-			case arg.startsWith("--listmonk-api-token"): {
-				const value = takeValue(arg, next);
-				if (value !== undefined && !arg.includes("=")) {
-					index += 1;
-				}
-				args.apiToken = value;
-				break;
-			}
-			case arg.startsWith("--host"): {
-				const value = takeValue(arg, next);
-				if (value !== undefined && !arg.includes("=")) {
-					index += 1;
-				}
-				args.host = value;
-				break;
-			}
-			case arg.startsWith("--port"): {
-				const value = takeValue(arg, next);
-				if (value !== undefined && !arg.includes("=")) {
-					index += 1;
-				}
-				const parsed = Number(value);
-				if (Number.isFinite(parsed) && parsed > 0) {
-					args.port = parsed;
-				}
-				break;
-			}
-			default:
-				break;
+		if (argument === "--stdio") {
+			args.transport = "stdio";
+			continue;
 		}
+		const separator = argument.indexOf("=");
+		const flag = separator < 0 ? argument : argument.slice(0, separator);
+		if (!Object.hasOwn(options, flag) && flag !== "--port" && flag !== "--transport") throw new Error("Unknown MCP option");
+		const value = separator < 0 ? argv[++index] : argument.slice(separator + 1);
+		if (!value || value.startsWith("--")) throw new Error(`${flag} requires a value`);
+		if (flag === "--port") {
+			const port = Number(value);
+			if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid MCP port");
+			args.port = port;
+		} else if (flag === "--transport") {
+			if (value !== "http" && value !== "stdio") throw new Error("Invalid MCP transport");
+			args.transport = value;
+		} else args[options[flag as keyof typeof options]] = value;
 	}
-
 	return args;
 }
 
 export async function main() {
-	loadRuntimeEnv();
 	const runtimeArgs = parseArgs(process.argv.slice(2));
 	if (runtimeArgs.help) {
 		printHelp();
@@ -295,15 +197,25 @@ export async function main() {
 	const port = runtimeArgs.port || Number(process.env.MCP_SERVER_PORT) || 3000;
 	const host = runtimeArgs.host || process.env.MCP_SERVER_HOST || "localhost";
 	const transport = runtimeArgs.transport || "http";
+	const resolved = await resolveListmonkConfiguration({
+		profile: runtimeArgs.profile,
+		configFile: runtimeArgs.configFile,
+		tokenFile: runtimeArgs.tokenFile,
+		baseUrl: runtimeArgs.baseUrl,
+		username: runtimeArgs.username,
+		apiToken: runtimeArgs.apiToken,
+		password: runtimeArgs.password,
+		allowLegacyPassword: true,
+	});
+	process.env.LISTMONK_OPS_DATA_DIR = resolved.summary.dataDirectory;
+	const initialCredential = await resolved.readCredential();
 	const config = {
-		baseUrl:
-			runtimeArgs.baseUrl ||
-			process.env.LISTMONK_API_URL ||
-			"http://localhost:9000/api",
-		username:
-			runtimeArgs.username || process.env.LISTMONK_USERNAME || "api-admin",
-		password: runtimeArgs.password || process.env.LISTMONK_PASSWORD || "",
-		apiToken: runtimeArgs.apiToken || process.env.LISTMONK_API_TOKEN || "",
+		baseUrl: resolved.summary.baseUrl,
+		username: resolved.summary.username,
+		password: "",
+		apiToken: initialCredential ?? "",
+		credentialProvider: resolved.readCredential,
+		configuration: resolved.summary,
 		httpAuthToken:
 			transport === "http" ? process.env.MCP_HTTP_AUTH_TOKEN : undefined,
 		allowedHttpHosts:
@@ -324,9 +236,9 @@ export async function main() {
 	) {
 		console.error("❌ Missing required configuration:");
 		console.error(
-			"   LISTMONK_API_URL, LISTMONK_USERNAME, and either LISTMONK_PASSWORD or LISTMONK_API_TOKEN",
+			"   Check the selected profile tokenEnv/tokenFile, --token-file, or legacy token/password environment configuration.",
 		);
-		console.error("   Please check your .env file or environment variables");
+
 		process.exit(1);
 	}
 

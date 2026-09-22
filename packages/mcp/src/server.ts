@@ -1,5 +1,7 @@
 import {
 	createOperationAuditExecutionId,
+	getListmonkDataDirectory,
+	type ListmonkConfigurationSummary,
 	normalizeListmonkApiUrl,
 	type OperationAuditEvent,
 	type OperationAuditStoreOptions,
@@ -173,6 +175,8 @@ export class ListmonkMCPServer {
 	private app: Hono;
 	private tools: Map<string, MCPTool>;
 	private client: ListmonkClient;
+	private configuration: ListmonkConfigurationSummary;
+	private credentialProvider: (() => Promise<string | undefined>) | undefined;
 	private baseUrl: string;
 	private username: string;
 	private auditStoreOptions: OperationAuditStoreOptions;
@@ -188,6 +192,8 @@ export class ListmonkMCPServer {
 		username: string;
 		password: string;
 		apiToken?: string;
+		credentialProvider?: () => Promise<string | undefined>;
+		configuration?: ListmonkConfigurationSummary;
 		auditStorePath?: string;
 		auditStoreLimit?: number;
 		webhookStorePath?: string;
@@ -207,6 +213,15 @@ export class ListmonkMCPServer {
 		// result or hash a URL the client never used.
 		this.baseUrl = normalizeListmonkApiUrl(config.baseUrl);
 		this.username = config.username.trim();
+		const explicitSource = { kind: "programmatic" as const };
+		let authenticationKind: "token" | "legacy_password" | "none" = "none";
+		if (config.apiToken || config.credentialProvider) authenticationKind = "token";
+		else if (config.password) authenticationKind = "legacy_password";
+		this.configuration = config.configuration ?? {
+			availableProfiles: [], baseUrl: this.baseUrl, username: this.username, dataDirectory: getListmonkDataDirectory(),
+			sources: { baseUrl: explicitSource, username: explicitSource, dataDirectory: process.env.LISTMONK_OPS_DATA_DIR?.trim() ? { kind: "environment", name: "LISTMONK_OPS_DATA_DIR" } : { kind: "default" } },
+			authentication: { kind: authenticationKind, source: explicitSource },
+		};
 		this.auditStoreOptions = {
 			path: config.auditStorePath,
 			limit: config.auditStoreLimit,
@@ -247,6 +262,7 @@ export class ListmonkMCPServer {
 		// Create ListmonkClient instance. Auth uses the canonical username
 		// (this.username) so a value like " alice " authenticates with the
 		// same identity used for idempotency namespacing.
+		this.credentialProvider = config.credentialProvider;
 		const credential = config.apiToken || config.password;
 		const authString = `${this.username}:${credential}`;
 
@@ -526,69 +542,76 @@ export class ListmonkMCPServer {
 		const operationRequest = execution?.request ?? request;
 
 		try {
+			let client = this.client;
+			if (this.credentialProvider && !toolNameSets.catalog.has(name) && (!toolNameSets.discovery.has(name) || name === "listmonk_status")) {
+				const credential = await this.credentialProvider();
+				if (!credential) throw new Error("Missing Listmonk API credential");
+				client = createListmonkClient({ baseUrl: this.baseUrl, headers: { Authorization: `token ${this.username}:${credential}` } });
+			}
 			// Route to appropriate handler based on tool name prefix
 			let result: CallToolResult;
 			if (isListsToolName(name)) {
-				result = await handleListsTools(operationRequest, this.client, {
+				result = await handleListsTools(operationRequest, client, {
 					baseUrl: this.baseUrl,
 					username: this.username,
 				});
 			} else if (toolNameSets.subscribers.has(name)) {
-				result = await handleSubscribersTools(operationRequest, this.client);
+				result = await handleSubscribersTools(operationRequest, client);
 			} else if (toolNameSets.campaigns.has(name)) {
-				result = await handleCampaignsTools(operationRequest, this.client, {
+				result = await handleCampaignsTools(operationRequest, client, {
 					baseUrl: this.baseUrl,
 					username: this.username,
 				});
 			} else if (toolNameSets.templates.has(name)) {
-				result = await handleTemplatesTools(operationRequest, this.client, {
+				result = await handleTemplatesTools(operationRequest, client, {
 					baseUrl: this.baseUrl,
 					username: this.username,
 				});
 			} else if (toolNameSets.catalog.has(name)) {
 				result = await handleOperationCatalogTools(
 					operationRequest,
-					this.client,
+					client,
 				);
 			} else if (toolNameSets.discovery.has(name)) {
-				result = await handleDiscoveryTools(operationRequest, this.client, {
+				result = await handleDiscoveryTools(operationRequest, client, {
 					url: this.baseUrl,
 					auth: "token",
+					configuration: this.configuration,
 				});
 			} else if (toolNameSets.dashboard.has(name)) {
-				result = await handleDashboardTools(operationRequest, this.client);
+				result = await handleDashboardTools(operationRequest, client);
 			} else if (toolNameSets.system.has(name)) {
-				result = await handleSystemTools(operationRequest, this.client);
+				result = await handleSystemTools(operationRequest, client);
 			} else if (toolNameSets.sharedSettings.has(name)) {
-				result = await handleSharedSettingsTools(operationRequest, this.client);
+				result = await handleSharedSettingsTools(operationRequest, client);
 			} else if (toolNameSets.maintenance.has(name)) {
-				result = await handleMaintenanceTools(operationRequest, this.client);
+				result = await handleMaintenanceTools(operationRequest, client);
 			} else if (toolNameSets.media.has(name)) {
-				result = await handleMediaTools(operationRequest, this.client, {
+				result = await handleMediaTools(operationRequest, client, {
 					baseUrl: this.baseUrl,
 					username: this.username,
 				});
 			} else if (toolNameSets.bounces.has(name)) {
-				result = await handleBouncesTools(operationRequest, this.client);
+				result = await handleBouncesTools(operationRequest, client);
 			} else if (toolNameSets.settings.has(name)) {
-				result = await handleSettingsTools(operationRequest, this.client);
+				result = await handleSettingsTools(operationRequest, client);
 			} else if (isTransactionalToolName(name)) {
-				result = await handleTransactionalTools(operationRequest, this.client, {
+				result = await handleTransactionalTools(operationRequest, client, {
 					baseUrl: this.baseUrl,
 					username: this.username,
 				});
 			} else if (toolNameSets.ops.has(name)) {
-				result = await handleOpsTools(operationRequest, this.client);
+				result = await handleOpsTools(operationRequest, client);
 			} else if (toolNameSets.providers.has(name)) {
-				result = await handleProviderTools(operationRequest, this.client);
+				result = await handleProviderTools(operationRequest, client);
 			} else if (toolNameSets.abtest.has(name)) {
-				result = await handleAbTestTools(operationRequest, this.client);
+				result = await handleAbTestTools(operationRequest, client);
 			} else if (toolNameSets.webhooks.has(name)) {
-				result = await this.webhookHandler(operationRequest, this.client);
+				result = await this.webhookHandler(operationRequest, client);
 			} else if (toolNameSets.sequences.has(name)) {
-				result = await this.sequenceHandler(operationRequest, this.client);
+				result = await this.sequenceHandler(operationRequest, client);
 			} else if (toolNameSets.userRoles.has(name)) {
-				result = await handleUserRolesTools(operationRequest, this.client);
+				result = await handleUserRolesTools(operationRequest, client);
 			} else {
 				result = createErrorResult(`No handler found for tool: ${name}`);
 			}
@@ -671,6 +694,8 @@ export function createListmonkMCPServer(config: {
 	username?: string;
 	password?: string;
 	apiToken?: string;
+	credentialProvider?: () => Promise<string | undefined>;
+	configuration?: ListmonkConfigurationSummary;
 	auditStorePath?: string;
 	auditStoreLimit?: number;
 	webhookStorePath?: string;
@@ -686,6 +711,8 @@ export function createListmonkMCPServer(config: {
 		username: config.username || "admin",
 		password: config.password || "adminpass",
 		apiToken: config.apiToken,
+		credentialProvider: config.credentialProvider,
+		configuration: config.configuration,
 		auditStorePath: config.auditStorePath,
 		auditStoreLimit: config.auditStoreLimit,
 		webhookStorePath: config.webhookStorePath,

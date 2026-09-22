@@ -4508,6 +4508,288 @@
     {
       "agent": {
         "avoidWhen": [
+          "Verify live authentication or resource permissions; use control.status instead."
+        ],
+        "prerequisites": [],
+        "related": [
+          "control.status"
+        ],
+        "retryGuidance": "Metadata can be read again safely; configuration changes take effect on the next process start, token files on the next operation.",
+        "useWhen": [
+          "Verify which profile, credential reference, and state directory this process will use."
+        ],
+        "verifyWith": [
+          "control.status"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ConfigurationSource": {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "oneOf": [
+                      {
+                        "const": "argument"
+                      },
+                      {
+                        "const": "default"
+                      },
+                      {
+                        "const": "environment"
+                      },
+                      {
+                        "const": "profile"
+                      },
+                      {
+                        "const": "programmatic"
+                      }
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "ControlConfigurationOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "authentication": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "oneOf": [
+                          {
+                            "const": "legacy_password"
+                          },
+                          {
+                            "const": "none"
+                          },
+                          {
+                            "const": "token"
+                          }
+                        ]
+                      },
+                      "reference": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "$ref": "#/components/schemas/ConfigurationSource"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "source"
+                    ],
+                    "type": "object"
+                  },
+                  "availableProfiles": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "baseUrl": {
+                    "type": "string"
+                  },
+                  "configFile": {
+                    "type": "string"
+                  },
+                  "dataDirectory": {
+                    "type": "string"
+                  },
+                  "profile": {
+                    "type": "string"
+                  },
+                  "sources": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "baseUrl": {
+                        "$ref": "#/components/schemas/ConfigurationSource"
+                      },
+                      "dataDirectory": {
+                        "$ref": "#/components/schemas/ConfigurationSource"
+                      },
+                      "username": {
+                        "$ref": "#/components/schemas/ConfigurationSource"
+                      }
+                    },
+                    "required": [
+                      "baseUrl",
+                      "username",
+                      "dataDirectory"
+                    ],
+                    "type": "object"
+                  },
+                  "username": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "availableProfiles",
+                  "baseUrl",
+                  "username",
+                  "dataDirectory",
+                  "sources",
+                  "authentication"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "authentication": {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "oneOf": [
+                      {
+                        "const": "legacy_password"
+                      },
+                      {
+                        "const": "none"
+                      },
+                      {
+                        "const": "token"
+                      }
+                    ]
+                  },
+                  "reference": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "$ref": "#/components/schemas/ConfigurationSource"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "source"
+                ],
+                "type": "object"
+              },
+              "availableProfiles": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "baseUrl": {
+                "type": "string"
+              },
+              "configFile": {
+                "type": "string"
+              },
+              "dataDirectory": {
+                "type": "string"
+              },
+              "profile": {
+                "type": "string"
+              },
+              "sources": {
+                "additionalProperties": false,
+                "properties": {
+                  "baseUrl": {
+                    "$ref": "#/components/schemas/ConfigurationSource"
+                  },
+                  "dataDirectory": {
+                    "$ref": "#/components/schemas/ConfigurationSource"
+                  },
+                  "username": {
+                    "$ref": "#/components/schemas/ConfigurationSource"
+                  }
+                },
+                "required": [
+                  "baseUrl",
+                  "username",
+                  "dataDirectory"
+                ],
+                "type": "object"
+              },
+              "username": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "availableProfiles",
+              "baseUrl",
+              "username",
+              "dataDirectory",
+              "sources",
+              "authentication"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Inspect the selected connection profile, configuration sources, credential reference, and default state directory without reading secret values.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "control"
+        }
+      ],
+      "id": "control.config",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/discovery.ts#bindControlConfigurationOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/discovery.ts#controlConfigurationOperationSpec:variable",
+          "executorNode": "packages/operations/src/configuration.ts#getControlConfiguration:function",
+          "invokerNode": "packages/operations/src/configuration.ts#invokeControlConfigurationOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/configuration.ts#controlConfigurationOperation:variable"
+        },
+        "mcpName": "listmonk_config",
+        "openWorld": false
+      },
+      "resource": "control",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation reads local configuration metadata without credentials or remote requests."
+      },
+      "since": "0.18.0",
+      "stability": "stable",
+      "title": "Inspect resolved configuration",
+      "verb": "config"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "Delivery attempts rather than endpoint configuration are needed."
         ],
         "prerequisites": [],

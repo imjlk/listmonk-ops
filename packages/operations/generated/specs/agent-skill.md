@@ -198,6 +198,20 @@ Verify with: none
 
 Retry guidance: Retry unavailable probes with backoff; fix rejected credentials or denied permissions first. Collection access only verifies visible resources, not global access or mutation rights.
 
+## Inspect resolved configuration (`control.config`)
+
+Contract maturity: `stable`; effects: `read:control`; confirmation: `never`; retry: `safe`.
+
+Use when: Verify which profile, credential reference, and state directory this process will use.
+
+Avoid when: Verify live authentication or resource permissions; use control.status instead.
+
+Prerequisites: none
+
+Verify with: `control.status`
+
+Retry guidance: Metadata can be read again safely; configuration changes take effect on the next process start, token files on the next operation.
+
 ## List outbound webhook endpoints (`webhooks.list`)
 
 Contract maturity: `stable`; effects: `read:webhook`; confirmation: `never`; retry: `safe`.

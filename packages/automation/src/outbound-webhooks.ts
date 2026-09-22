@@ -1,3 +1,4 @@
+import { getListmonkDataDirectory } from "@listmonk-ops/common";
 import {
 	createHmac,
 	randomBytes,
@@ -6,7 +7,6 @@ import {
 } from "node:crypto";
 import { lookup as dnsLookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
@@ -814,7 +814,7 @@ function resolveStoreLimit(limit: number | undefined): number {
 export function getOutboundWebhookStorePath(): string {
 	return (
 		process.env.LISTMONK_OPS_WEBHOOK_STORE?.trim() ||
-		join(homedir(), ".listmonk-ops", "outbound-webhooks.json")
+		join(getListmonkDataDirectory(), "outbound-webhooks.json")
 	);
 }
 

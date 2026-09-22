@@ -223,7 +223,7 @@ describe("CLI contract", () => {
 		expect(describe.output).toContain('"confirmation": "required"');
 		expect(playbooks.output).toContain('"campaign.safe-start"');
 		expect(capabilities.output).toContain('"schema_version": "2.0.0"');
-		expect(capabilities.output).toContain('"described_operations": 131');
+		expect(capabilities.output).toContain('"described_operations": 132');
 		expect(capabilities.output).toContain('"migration_operations": 0');
 		expect(prime.output).toContain('"recommended_operations"');
 	});
@@ -288,7 +288,7 @@ describe("CLI contract", () => {
 		]);
 
 		expect(result.exitCode).not.toBe(0);
-		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
+		expect(result.output).toContain("Missing Listmonk API token");
 	});
 
 	test("rejects empty campaign revision tokens before execution", () => {
@@ -304,7 +304,7 @@ describe("CLI contract", () => {
 
 		expect(result.exitCode).not.toBe(0);
 		expect(result.output).toContain("expected-updated-at");
-		expect(result.output).not.toContain("Missing LISTMONK_API_TOKEN");
+		expect(result.output).not.toContain("Missing Listmonk API token");
 	});
 
 	test("rejects non-canonical A/B revision timestamps before execution", () => {
@@ -322,7 +322,7 @@ describe("CLI contract", () => {
 
 		expect(result.exitCode).not.toBe(0);
 		expect(result.output).toContain("expected-updated-at");
-		expect(result.output).not.toContain("Missing LISTMONK_API_TOKEN");
+		expect(result.output).not.toContain("Missing Listmonk API token");
 	});
 
 	test("exposes subscriber-list CRUD commands", () => {
@@ -394,7 +394,7 @@ describe("CLI contract", () => {
 		const result = runCli(["lists", "list", "--per-page", "5000"]);
 
 		expect(result.exitCode).not.toBe(0);
-		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
+		expect(result.output).toContain("Missing Listmonk API token");
 		expect(result.output).not.toMatch(/less than|maximum|too big/i);
 	});
 
@@ -451,7 +451,7 @@ describe("CLI contract", () => {
 
 		expect(result.exitCode).not.toBe(0);
 		expect(result.output).toContain("Deliverability guard failed");
-		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
+		expect(result.output).toContain("Missing Listmonk API token");
 		expect(result.output).not.toMatch(
 			/unknown (option|argument|command)|unexpected (option|argument)/i,
 		);
@@ -468,7 +468,7 @@ describe("CLI contract", () => {
 		]);
 
 		expect(result.exitCode).not.toBe(0);
-		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
+		expect(result.output).toContain("Missing Listmonk API token");
 		expect(result.output).not.toMatch(
 			/unknown (option|argument|command)|unexpected (option|argument)/i,
 		);

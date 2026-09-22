@@ -108,6 +108,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	controlPrimeOutputContract: NormalizedContractSchema;
 	controlStatusInputContract: NormalizedContractSchema;
 	controlStatusOutputContract: NormalizedContractSchema;
+	controlConfigurationOutputContract: NormalizedContractSchema;
 	providerListInputContract: NormalizedContractSchema;
 	providerListOutputContract: NormalizedContractSchema;
 	providerIdInputContract: NormalizedContractSchema;
@@ -571,3 +572,5 @@ export const abTestExportAssignmentInputContract = contracts.abTestExportAssignm
 export const abTestExportOutputContract = contracts.abTestExportOutputContract;
 export const abTestDeleteOutputContract = contracts.abTestDeleteOutputContract;
 export const abTestDeployWinnerOutputContract = contracts.abTestDeployWinnerOutputContract;
+
+export const controlConfigurationOutputContract = contracts.controlConfigurationOutputContract;

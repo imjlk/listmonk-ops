@@ -19,6 +19,7 @@ import type {
 	ControlPrimeOutput,
 	ControlStatusInput,
 	ControlStatusOutput,
+	ControlConfigurationOutput,
 	DashboardCountsOutput,
 	DashboardChartsOutput,
 	DeliverabilityDnsCheckOutput,
@@ -602,6 +603,9 @@ const contracts = {
 	),
 	controlStatusInputContract: contractSchema(
 		typia.json.schema<ControlStatusInput>(),
+	),
+	controlConfigurationOutputContract: contractSchema(
+		typia.json.schema<ControlConfigurationOutput>(),
 	),
 	controlStatusOutputContract: contractSchema(
 		typia.json.schema<ControlStatusOutput>(),

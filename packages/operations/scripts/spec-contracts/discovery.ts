@@ -217,3 +217,18 @@ export interface ControlStatusOutput {
 		listmonk: boolean;
 	};
 }
+
+export interface ConfigurationSource {
+	kind: "default" | "environment" | "argument" | "profile" | "programmatic";
+	name?: string;
+}
+export interface ControlConfigurationOutput {
+	profile?: string;
+	configFile?: string;
+	availableProfiles: string[];
+	baseUrl: string;
+	username: string;
+	dataDirectory: string;
+	sources: { baseUrl: ConfigurationSource; username: ConfigurationSource; dataDirectory: ConfigurationSource };
+	authentication: { kind: "token" | "legacy_password" | "none"; source: ConfigurationSource; reference?: string };
+}
