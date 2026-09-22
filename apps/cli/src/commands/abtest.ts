@@ -353,7 +353,7 @@ async function promptInteractiveInput(
 
 	const nameResult = await clack.text({
 		message: "Test name",
-		validate: (value) =>
+		validate: (value = "") =>
 			value.trim().length > 0 ? undefined : "Test name is required",
 	});
 	if (clack.isCancel(nameResult)) {
@@ -363,7 +363,7 @@ async function promptInteractiveInput(
 
 	const campaignIdResult = await clack.text({
 		message: "Base campaign ID",
-		validate: (value) => {
+		validate: (value = "") => {
 			const parsed = Number(value);
 			return Number.isInteger(parsed) && parsed > 0
 				? undefined
@@ -394,7 +394,7 @@ async function promptInteractiveInput(
 		const variantNameResult = await clack.text({
 			message: `Variant ${label} name`,
 			defaultValue: `Variant ${label}`,
-			validate: (value) =>
+			validate: (value = "") =>
 				value.trim().length > 0 ? undefined : "Variant name is required",
 		});
 		if (clack.isCancel(variantNameResult)) {
@@ -405,7 +405,7 @@ async function promptInteractiveInput(
 		const percentageResult = await clack.text({
 			message: `Variant ${label} percentage (optional)`,
 			placeholder: "Leave empty for auto distribution",
-			validate: (value) => {
+			validate: (value = "") => {
 				if (!value.trim()) {
 					return undefined;
 				}
@@ -447,7 +447,7 @@ async function promptInteractiveInput(
 	const listsResult = await clack.text({
 		message: "List IDs (comma separated)",
 		placeholder: "1,2,3",
-		validate: (value) => {
+		validate: (value = "") => {
 			try {
 				parseCsvNumbers(value);
 				return undefined;
@@ -478,7 +478,7 @@ async function promptInteractiveInput(
 	const testGroupResult = await clack.text({
 		message: "Test group percentage",
 		defaultValue: testGroupDefault,
-		validate: (value) => {
+		validate: (value = "") => {
 			const parsed = Number(value);
 			return Number.isFinite(parsed) && parsed > 0 && parsed <= 100
 				? undefined

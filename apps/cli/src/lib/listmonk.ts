@@ -36,7 +36,7 @@ async function promptForCredentials(defaults: {
 	const baseUrlResult = await clack.text({
 		message: "Listmonk API URL",
 		defaultValue: defaults.baseUrl,
-		validate: (value) => {
+		validate: (value = "") => {
 			try {
 				normalizeApiUrl(value);
 				return undefined;
@@ -54,7 +54,7 @@ async function promptForCredentials(defaults: {
 	const usernameResult = await clack.text({
 		message: "Listmonk token username",
 		defaultValue: defaults.username,
-		validate: (value) =>
+		validate: (value = "") =>
 			value.trim().length > 0 ? undefined : "Username is required",
 	});
 
@@ -66,7 +66,7 @@ async function promptForCredentials(defaults: {
 	const tokenResult = await clack.password({
 		message: "Listmonk API token",
 		mask: "*",
-		validate: (value) =>
+		validate: (value = "") =>
 			value.trim().length > 0 ? undefined : "API token is required",
 	});
 

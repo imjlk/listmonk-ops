@@ -48,13 +48,13 @@
 	"dependencies": {
 		"@listmonk-ops/common": "workspace:^0.6.0",
 		"@listmonk-ops/openapi": "workspace:^0.8.0",
-		"zod": "4.3.6"
+		"zod": "4.6.5"
 	},
 	"devDependencies": {
-		"@types/bun": "1.3.10",
-		"esbuild": "0.28.1",
-		"ttsc": "0.22.0",
-		"typia": "13.2.0",
+		"@types/bun": "1.4.2",
+		"esbuild": "0.28.2",
+		"ttsc": "0.30.4",
+		"typia": "14.0.6",
 		"typescript": "7.0.2"
 	}
 }
