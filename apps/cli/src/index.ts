@@ -71,17 +71,26 @@ const subCommands = {
 
 import { getRuntimeFlags } from "./lib/command";
 
-const argv = prepareCliArgv(process.argv.slice(2));
-const flags = getRuntimeFlags();
-// In machine-readable output modes, suppress service-level console
-// output (warnings, info, statistical summaries) that would corrupt
-// stdout JSON.
-if (flags.format && flags.format !== "human") {
-	process.env.LISTMONK_OPS_ABTEST_SILENT = "1";
-}
+import {
+	captureCliDiagnostics,
+	renderCliDiagnostics,
+	renderCliError,
+} from "./lib/output";
 
 let commandError: unknown;
+let diagnostics: ReturnType<typeof captureCliDiagnostics> | undefined;
 try {
+	const argv = prepareCliArgv(process.argv.slice(2));
+	const flags = getRuntimeFlags();
+	const machineOutput = flags.format !== undefined && flags.format !== "human";
+	if (machineOutput) {
+		diagnostics = captureCliDiagnostics({ stream: flags.format === "ndjson" });
+		process.env.LISTMONK_OPS_ABTEST_SILENT = "1";
+		const helpRequested = argv.includes("--help") || argv.includes("-h") || argv.includes("--version");
+		if (!helpRequested && (flags.interactive || flags.tui || (argv[0] === "abtest" && argv[1] === "interactive"))) {
+			throw new Error("Interactive prompts require --format human.");
+		}
+	}
 	await cli(argv, entry, {
 		name: "listmonk-cli",
 		version: packageJson.version,
@@ -89,29 +98,31 @@ try {
 		strict: true,
 		subCommands,
 		plugins: [completion()],
+		...(machineOutput ? { renderHeader: null } : {}),
+		// Errors are rendered once at this boundary, never as stdout help or a Bun stack dump.
+		renderValidationErrors: null,
 	});
 } catch (error) {
 	commandError = error;
-	throw error;
 } finally {
 	const closeResults = await Promise.allSettled([
 		closeOutboundWebhookRuntimeRepositories(),
 		closeSequenceRuntimeRepositories(),
 	]);
 	const closeFailures = closeResults
-		.filter(
-			(result): result is PromiseRejectedResult =>
-				result.status === "rejected",
-		)
+		.filter((result): result is PromiseRejectedResult => result.status === "rejected")
 		.map((result) => result.reason);
 	if (closeFailures.length > 0) {
-		const error = new AggregateError(
-			closeFailures,
+		commandError = new AggregateError(
+			commandError === undefined ? closeFailures : [commandError, ...closeFailures],
 			"Failed to close one or more runtime repositories",
 		);
-		if (commandError === undefined) {
-			throw error;
-		}
-		console.error("⚠️ Failed to close runtime repositories:", error);
 	}
+	diagnostics?.restore();
+}
+if (commandError !== undefined) {
+	renderCliError(commandError, diagnostics);
+	process.exitCode = 1;
+} else {
+	renderCliDiagnostics(diagnostics);
 }

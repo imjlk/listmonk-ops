@@ -82,7 +82,6 @@ export async function renderSubscriberLists(
 	const page = await invokeGetListsOperation(context, input);
 	if (page.results.length === 0) {
 		context.output.info("No lists found");
-		return;
 	}
 
 	context.output.table(page.results as Record<string, unknown>[]);

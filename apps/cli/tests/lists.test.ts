@@ -86,7 +86,7 @@ describe("lists CLI actions", () => {
 		await renderSubscriberLists(cliContext, {});
 
 		expect(cliContext.output.info).toHaveBeenCalledWith("No lists found");
-		expect(cliContext.output.table).not.toHaveBeenCalled();
+		expect(cliContext.output.table).toHaveBeenCalledWith([]);
 	});
 
 	test("renders one list through the shared operation", async () => {

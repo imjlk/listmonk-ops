@@ -55,7 +55,6 @@ export async function renderMedia(
 	const page = await invokeGetMediaOperation(context, input);
 	if (page.results.length === 0) {
 		context.output.info("No media files found");
-		return;
 	}
 	context.output.table(page.results as Record<string, unknown>[]);
 }

@@ -61,17 +61,7 @@ function parseCliJson<T>(result: CliResult, operation: string): T {
 		);
 	}
 
-	const jsonStart = Math.min(
-		...["{", "["]
-			.map((marker) => result.stdout.indexOf(marker))
-			.filter((index) => index >= 0),
-	);
-	if (!Number.isFinite(jsonStart)) {
-		throw new Error(
-			`CLI bounces ${operation} did not return a JSON result: ${diagnosticOutput}`,
-		);
-	}
-	return JSON.parse(result.stdout.slice(jsonStart)) as T;
+	return JSON.parse(result.stdout) as T;
 }
 
 describe("Bounces CLI and MCP parity", () => {
@@ -259,7 +249,7 @@ describe("Bounces CLI and MCP parity", () => {
 		utils.assertError(blockedMcpDeletion, "requires explicit confirmation");
 
 		const cliDeletion = parseCliJson<{ id: number; deleted: boolean }>(
-			runCliBouncesCommand(["delete", "--id", String(targetId), "--confirm"]),
+			runCliBouncesCommand(["delete", "--id", String(targetId), "--confirm", "--format", "json"]),
 			"delete",
 		);
 		expect(cliDeletion).toEqual({ id: targetId, deleted: true });
