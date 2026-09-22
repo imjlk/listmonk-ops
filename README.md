@@ -414,6 +414,8 @@ Campaign, subscriber, and template CRUD now use the same typed operations on
 both surfaces. Uploaded media read/delete operations use the same contracts as
 well. The CLI includes the full CRUD command set where Listmonk exposes it:
 
+Campaign filters accept `--tags news,updates` (MCP: `tags: ["news", "updates"]`). The client sends repeated `tag` query parameters required by Listmonk 6.2; campaigns must contain all requested tags.
+
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \

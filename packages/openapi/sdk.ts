@@ -12,3 +12,8 @@ export type {
 	ResponseStyle,
 	TDataShape,
 } from "./generated/client/types.gen";
+
+export {
+	getCampaigns,
+	type GetCampaignsData,
+} from "./src/client/campaign-query";

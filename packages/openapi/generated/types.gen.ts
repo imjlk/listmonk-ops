@@ -2187,7 +2187,7 @@ export type GetCampaignsData = {
         /**
          * Filter campaigns by tags. Multiple tags can be specified by repeating the parameter
          */
-        tags?: Array<string>;
+        tag?: Array<string>;
         /**
          * Determines the sort order of results. ASC for ascending, DESC for descending order
          */

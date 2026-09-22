@@ -283,3 +283,5 @@ bun run --cwd packages/openapi build
 bun run --cwd packages/openapi test
 bun run graph:check
 ```
+
+Campaign listing accepts `query.tags` as a compatibility alias for `query.tag` (an array). Both serialize as repeated `tag` parameters; `tag` takes precedence when both are supplied. The public `/sdk` entry point also retains the deprecated `query.tags` alias; regenerated internals use `query.tag`.

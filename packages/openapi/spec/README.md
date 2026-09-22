@@ -17,6 +17,8 @@ Run `bun run --cwd packages/openapi compose:spec` after changing the overlay. Th
 
 The overlay currently:
 
+- corrects campaign filtering to repeated singular `tag` query parameters;
+
 - keeps the optional `no_body` query parameter for `GET /templates`;
 - documents `GET /about` so tests can verify the running Listmonk version;
 - documents the v6.1+ `PATCH /subscribers/{id}` route;

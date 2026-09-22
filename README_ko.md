@@ -413,6 +413,8 @@ campaign, subscriber, template CRUD도 CLI와 MCP에서 동일한 타입드 Oper
 사용합니다. 업로드된 media의 조회/삭제도 같은 계약을 사용합니다. Listmonk가
 제공하는 범위에서 CLI에는 전체 CRUD 명령이 제공됩니다.
 
+캠페인 필터는 `--tags news,updates`(MCP: `tags: ["news", "updates"]`)를 지원합니다. 클라이언트는 Listmonk 6.2에 맞게 반복된 `tag` 쿼리 파라미터를 전송하며, 지정한 태그를 모두 포함하는 캠페인만 반환합니다.
+
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \

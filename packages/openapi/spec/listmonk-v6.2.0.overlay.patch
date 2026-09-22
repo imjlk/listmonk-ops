@@ -67,6 +67,17 @@
    /lists:
      get:
        description: retrieves lists with additional metadata like subscriber counts. This may be slow.
+@@ -1187,7 +1231,9 @@
+                 enum: ["all"]
+                 description: Return all results without pagination
+         - in: query
+-          name: tags
++          name: tag
++          style: form
++          explode: true
+           description: Filter campaigns by tags. Multiple tags can be specified by repeating the parameter
+           required: false
+           schema:
 @@ -1261,7 +1305,7 @@
                  type: object
                  properties:

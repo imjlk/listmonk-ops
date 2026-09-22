@@ -1,3 +1,4 @@
+import { getCampaigns } from "./campaign-query";
 import {
 	blocklistSubscribersQuery,
 	createCampaign,
@@ -15,7 +16,6 @@ import {
 	exportSubscriberDataById,
 	getCampaignAnalytics,
 	getCampaignById,
-	getCampaigns,
 	getListById,
 	getLists,
 	getMedia,

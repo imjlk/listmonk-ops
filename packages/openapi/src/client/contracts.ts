@@ -1,3 +1,4 @@
+import type { GetCampaignsData } from "./campaign-query";
 import type * as t from "../../generated/types.gen";
 import type { ListmonkConfig } from "../config";
 import type { CrudOperations } from "./crud";
@@ -27,7 +28,7 @@ type ListTypes = ResourceTypes<
 
 type CampaignTypes = ResourceTypes<
 	t.CreateCampaignData,
-	t.GetCampaignsData,
+	GetCampaignsData,
 	t.GetCampaignByIdData,
 	t.UpdateCampaignByIdData,
 	t.DeleteCampaignByIdData
