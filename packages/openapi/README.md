@@ -232,6 +232,79 @@ unknown, so it must not be treated as proof that retrying is safe. Requests
 time out after 30 seconds by default; a `timed_out` result is equally ambiguous.
 HTTP redirects are rejected rather than replaying the non-idempotent body.
 
+### Subscriber membership reconciliation
+
+`reconcileSubscriberMembership` is a separate Fetch-only runtime helper for
+Listmonk 6.2 account-audience sync. It sends no email and uses no file persistence.
+Provision an API user with subscriber read/manage and SQL-query permissions plus
+read/manage access to the application-owned lists. The delivery-only role above
+is not sufficient. Unrelated lists need to remain visible to validate the response.
+
+```ts
+import { reconcileSubscriberMembership } from "@listmonk-ops/openapi/runtime";
+
+const result = await reconcileSubscriberMembership({
+  client: runtime,
+  email: account.email,
+  ownedListId: APP_LIST_ID, // Explicitly owned by this application.
+  cachedSubscriberId: account.listmonkSubscriberId ?? undefined,
+  eligible: account.active,
+  consented: account.marketingConsent,
+  timeoutMs: 30_000,
+});
+// Persist result.subscriberId only under the application's current email/version.
+// result.application is separate from result.provider and deliveryEligible.
+```
+
+The helper lowercases a validated email, looks up at most two rows with an exact
+escaped SQL equality, and rejects inconsistent totals or mismatched records. A
+cached ID is accepted only after reading its current email; a missing/mismatched
+ID falls back to exact lookup. Each successful response is capped at 64 KiB and
+subscriber snapshots at 100 memberships. The timeout covers the whole workflow,
+including stalled response streams or Fetch implementations that ignore abort.
+HTTPS, redirect rejection, token handling and bounded response reads are shared
+with transactional delivery. No remote response body, address, or credential is
+included in an error.
+
+When both application flags are true, an absent account is inserted without
+memberships or preconfirmation; existing names, attributes and unrelated lists
+are never updated. Only the named owned list is added, with **no `status` field**,
+so the provider preserves any existing or concurrently created suppression.
+Global blocklisting and list unsubscription always prevent restoration. New
+memberships remain `unconfirmed`: `single` opt-in allows delivery, while `double`
+requires a separate consent/confirmation workflow. Neither opt-in emails nor
+explicit re-consent are part of routine reconciliation.
+
+When either application flag is false, an existing active owned membership is
+unsubscribed. It is **not physically removed**: deleting a suppression record would
+allow a later add job to restore it. Repeated deactivate/activate jobs retain this
+tombstone. Re-enrollment requires a separately authorized, current re-consent
+workflow; never run unconditional status updates in background reconciliation.
+An absent membership/account stays absent, and a blocklisted account is untouched.
+
+The result reports `subscriberId`, `listId`, `application`, `provider.subscriber`
+(`absent`, `enabled`, `blocklisted`), `provider.membership` (`absent`, `unconfirmed`,
+`confirmed`, `unsubscribed`), `provider.optIn`, `subscriberCreated`, and `action`.
+`deliveryEligible` is only a point-in-time combination of these states, never a
+proof of consent, future delivery, or atomicity. Mutations require `data: true`
+(or a validated inserted subscriber for creation); subsequent reads verify the
+identity, membership and current opt-in mode. Unknown/malformed/oversized states
+throw `ListmonkRuntimeError` with `provider_state_unknown`; explicit false mutation
+acks use `membership_rejected`. Invalid input uses `invalid_reconciliation`;
+configuration, request, abort and timeout codes retain the runtime error contract.
+Errors must never be interpreted as absence or permission to send.
+
+A reconciliation is a bounded multi-request operation, not a provider transaction.
+A failure may occur after account creation or a membership change. Retried adds
+preserve suppression, but callers still own a durable outbox, idempotent job
+processing and per-account/email version ordering. Serialize jobs with email
+changes and explicit re-consent; a cached ID check cannot lock the provider's
+email against later edits. On email change or account deletion, explicitly clean
+up only the application's old memberships and handle shared-account retention.
+Backfills must be paged, checkpointed and restartable, use current consent/version
+state, and never assume a failed or timed-out call had no effect. Provisioning and
+re-consent stay outside this helper; no delivery engine or scheduler is added.
+
 Use the raw SDK when a different transactional mode or lower-level endpoint is
 required:
 

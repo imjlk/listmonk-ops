@@ -110,6 +110,7 @@ describe("OpenAPI consumer tree-shaking", () => {
 			"createListmonkRuntimeClient",
 			"createListmonkTokenAuthorization",
 			"normalizeListmonkApiBaseUrl",
+			"reconcileSubscriberMembership",
 			"sendExternalTransactionalEmail",
 		]);
 
@@ -120,4 +121,17 @@ describe("OpenAPI consumer tree-shaking", () => {
 		expect(generatedEndpointUrls(bundle)).toEqual(["/tx"]);
 		expect(Buffer.byteLength(bundle)).toBeLessThan(runtimeBundleBudgetBytes);
 	});
+	test("keeps membership reconciliation Fetch-only and free of mail sending endpoints", async () => {
+		const bundle = await bundleConsumer(`
+			import { createListmonkRuntimeClient, reconcileSubscriberMembership } from "./runtime.ts";
+			globalThis.__treeShakingProbe = { createListmonkRuntimeClient, reconcileSubscriberMembership };
+		`);
+		expect(generatedEndpointUrls(bundle)).toEqual([
+			"/lists/{list_id}", "/subscribers", "/subscribers/lists", "/subscribers/{id}",
+		]);
+		expect(bundle).not.toContain("node:fs");
+		expect(bundle).not.toContain("Bun.");
+		expect(Buffer.byteLength(bundle)).toBeLessThan(25_000);
+	});
+
 });
