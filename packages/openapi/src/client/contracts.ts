@@ -1,3 +1,4 @@
+import type { GetCampaignsData } from "./campaign-query";
 import type * as t from "../../generated/types.gen";
 import type { ListmonkConfig } from "../config";
 import type { CrudOperations } from "./crud";
@@ -25,16 +26,9 @@ type ListTypes = ResourceTypes<
 	t.DeleteListByIdData
 >;
 
-type CampaignListData = Omit<t.GetCampaignsData, "query"> & {
-	query?: NonNullable<t.GetCampaignsData["query"]> & {
-		/** Compatibility alias for tag. The singular tag takes precedence. */
-		tags?: string[];
-	};
-};
-
 type CampaignTypes = ResourceTypes<
 	t.CreateCampaignData,
-	CampaignListData,
+	GetCampaignsData,
 	t.GetCampaignByIdData,
 	t.UpdateCampaignByIdData,
 	t.DeleteCampaignByIdData
