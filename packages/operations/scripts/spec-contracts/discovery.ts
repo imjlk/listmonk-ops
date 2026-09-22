@@ -178,7 +178,14 @@ export interface ControlPrimeOutput {
 	guidance: string[];
 }
 
-export interface ControlStatusInput {}
+export interface ControlStatusInput {
+	permissions?: ("lists" | "subscribers" | "campaigns")[] & tags.MaxItems<3>;
+}
+
+export interface ReadinessProbeResult {
+	state: "ok" | "denied" | "unavailable" | "invalid_response" | "not_checked";
+	http_status?: number & tags.Type<"int32"> & tags.Minimum<100> & tags.Maximum<599>;
+}
 
 export interface ControlStatusOutput {
 	surface: "cli" | "mcp";
@@ -192,6 +199,10 @@ export interface ControlStatusOutput {
 		configured: boolean;
 		reachable: boolean;
 		health_error?: string | undefined;
+		connectivity: "reachable" | "unreachable" | "unknown";
+		health: ReadinessProbeResult;
+		authentication: ReadinessProbeResult;
+		permissions: (ReadinessProbeResult & { resource: "lists" | "subscribers" | "campaigns" })[];
 	};
 	specs: {
 		schema_version: NonEmptyString;

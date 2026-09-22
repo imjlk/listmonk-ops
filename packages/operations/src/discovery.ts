@@ -1,3 +1,7 @@
+import type {
+	ListmonkReadiness,
+	ReadinessResource,
+} from "@listmonk-ops/openapi";
 import { z } from "zod";
 import {
 	type ComposedOperationCatalog,
@@ -221,7 +225,20 @@ const controlPrimeOutputSchema = z.object({
 	guidance: z.array(z.string()),
 });
 
-const controlStatusInputSchema = emptyInputSchema;
+const readinessResourceSchema = z.enum(["lists", "subscribers", "campaigns"]);
+const readinessProbeSchema = z.object({
+	state: z.enum([
+		"ok",
+		"denied",
+		"unavailable",
+		"invalid_response",
+		"not_checked",
+	]),
+	http_status: z.number().int().min(100).max(599).optional(),
+});
+const controlStatusInputSchema = z.object({
+	permissions: z.array(readinessResourceSchema).max(3).optional(),
+});
 
 const controlStatusOutputSchema = z.object({
 	surface: z.enum(["cli", "mcp"]),
@@ -237,6 +254,10 @@ const controlStatusOutputSchema = z.object({
 		configured: z.boolean(),
 		reachable: z.boolean(),
 		health_error: z.string().optional(),
+		connectivity: z.enum(["reachable", "unreachable", "unknown"]),
+		health: readinessProbeSchema,
+		authentication: readinessProbeSchema,
+		permissions: z.array(readinessProbeSchema.extend({ resource: readinessResourceSchema })),
 	}),
 	specs: z.object({
 		schema_version: z.string().min(1),
@@ -267,7 +288,9 @@ export interface ControlStatusOperationContext extends DiscoveryOperationContext
 				auth: "token" | "none";
 		  }
 		| undefined;
+	/** @deprecated A public health result alone cannot verify readiness. */
 	probeListmonk?: (() => Promise<boolean>) | undefined;
+	probeReadiness?: ((resources: readonly ReadinessResource[]) => Promise<ListmonkReadiness>) | undefined;
 }
 
 type OperationSearchResult = z.output<typeof operationSearchResultSchema>;
@@ -684,15 +707,13 @@ export async function primeOperationsAgent(
 	};
 }
 
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
 function sanitizeTargetUrl(url: string): string {
 	try {
 		const parsed = new URL(url);
 		parsed.username = "";
 		parsed.password = "";
+		parsed.search = "";
+		parsed.hash = "";
 		return parsed.toString();
 	} catch {
 		return "[invalid URL]";
@@ -701,18 +722,35 @@ function sanitizeTargetUrl(url: string): string {
 
 export async function getControlStatus(
 	context: ControlStatusOperationContext,
+	input: z.output<typeof controlStatusInputSchema> = {},
 ): Promise<z.output<typeof controlStatusOutputSchema>> {
 	const capabilities = await getControlCapabilities(context);
 	const configured = context.target !== undefined;
-	let reachable = false;
+	let diagnostics: ListmonkReadiness = {
+		connectivity: "unknown",
+		health: { state: "not_checked" },
+		authentication: { state: "not_checked" },
+		permissions: [...new Set(input.permissions ?? [])].map((resource) => ({
+			resource,
+			state: "not_checked",
+		})),
+	};
 	let healthError: string | undefined;
-	if (context.probeListmonk !== undefined) {
-		try {
-			reachable = await context.probeListmonk();
-		} catch (error) {
-			healthError = errorMessage(error);
+	try {
+		if (context.probeReadiness !== undefined) {
+			diagnostics = await context.probeReadiness(input.permissions ?? []);
+		} else if (context.probeListmonk !== undefined) {
+			const healthy = await context.probeListmonk();
+			diagnostics.health = { state: healthy ? "ok" : "unavailable" };
+			diagnostics.connectivity = healthy ? "reachable" : "unknown";
 		}
+	} catch {
+		healthError = "Listmonk readiness probe failed";
+		diagnostics.health = { state: "unavailable" };
 	}
+	const reachable = diagnostics.connectivity === "reachable";
+	const ready = configured && diagnostics.health.state === "ok" && diagnostics.authentication.state === "ok"
+		&& (input.permissions ?? []).every((resource) => diagnostics.permissions.some((permission) => permission.resource === resource && permission.state === "ok"));
 
 	return {
 		surface: context.surface,
@@ -729,6 +767,7 @@ export async function getControlStatus(
 		listmonk: {
 			configured,
 			reachable,
+			...diagnostics,
 			...(healthError === undefined ? {} : { health_error: healthError }),
 		},
 		specs: {
@@ -741,7 +780,7 @@ export async function getControlStatus(
 		readiness: {
 			catalog: capabilities.operations > 0,
 			specs: capabilities.described_operations > 0,
-			listmonk: configured && reachable,
+			listmonk: ready,
 		},
 	};
 }
@@ -828,7 +867,7 @@ export const controlStatusOperation = defineOperation({
 	id: "control.status",
 	title: "Get control-plane status",
 	description:
-		"Check catalog integrity, typed specification coverage, runtime identity, and live Listmonk connectivity.",
+		"Check catalog integrity, typed specification coverage, runtime identity, public health, authentication, and selected collection read access.",
 	inputSchema: controlStatusInputSchema,
 	outputSchema: controlStatusOutputSchema,
 	safety: readOnlyOpenWorldSafety,
@@ -976,10 +1015,9 @@ export async function invokeControlStatusOperation(
 		controlStatusOperation.inputSchema,
 		input,
 	);
-	void parsedInput;
 	let output: z.output<typeof controlStatusOutputSchema>;
 	try {
-		output = await getControlStatus(context);
+		output = await getControlStatus(context, parsedInput);
 	} catch (error) {
 		throw normalizeOperationExecutionError(controlStatusOperation.id, error);
 	}

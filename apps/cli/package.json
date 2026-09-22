@@ -42,7 +42,7 @@
 		"@listmonk-ops/abtest": "workspace:^0.8.1",
 		"@listmonk-ops/automation": "workspace:^0.8.2",
 		"@listmonk-ops/common": "^0.6.0",
-		"@listmonk-ops/openapi": "^0.9.0",
+		"@listmonk-ops/openapi": "workspace:^0.9.0",
 		"@listmonk-ops/operations": "workspace:^0.17.0",
 		"gunshi": "0.37.3",
 		"postgres": "3.4.9",

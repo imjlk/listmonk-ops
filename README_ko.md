@@ -606,8 +606,26 @@ Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제�
 `listmonk_capabilities`, `listmonk_prime`, `listmonk_status` 도구도 사용할
 수 있습니다. 검색과 prime 결과에는 typed spec 적용 여부, effect에서 파생한
 안전 정책, 실행 요건, `useWhen`/`avoidWhen` 지침이 포함됩니다. status는
-자격 증명을 노출하지 않으면서 런타임 정보와 실제 Listmonk health probe
-결과를 함께 제공합니다.
+자격 증명이나 원격 오류 본문을 노출하지 않으면서 공개 연결·health, 인증,
+선택한 컬렉션의 읽기 접근 결과를 각각 제공합니다.
+
+```bash
+listmonk-cli status --check --permissions lists,subscribers,campaigns --format json
+```
+
+`--check`는 health·인증·로컬 카탈로그/spec 검사와 요청한 모든 컬렉션 읽기가
+성공해야 종료 코드 0을 반환하며, 하나라도 실패하면 1을 반환합니다. 이 옵션을
+생략하면 진단 실패도 JSON 결과로 출력하고 명령은 정상 종료합니다.
+MCP `listmonk_status`에도 `{"permissions":["lists","subscribers","campaigns"]}`를
+전달하면 같은 준비 상태 필드를 받습니다. `permissions`를 생략하면 health와
+인증만 검사합니다. 각 검사는 최대 5초, 응답 본문 64 KiB로 제한한 읽기 전용
+GET이며 자동 재시도하지 않습니다. `not_checked`는 자격 증명이 없거나 선행 인증
+검사를 통과하지 못해 검사하지 않았다는 뜻입니다. `unavailable`이나
+`invalid_response`는 판정 불가이며 접근 허용으로 간주하지 않습니다.
+컬렉션 검사 성공은 현재 보이는 컬렉션을 읽을 수 있다는 뜻으로, 전체 구독자·목록
+접근이나 수정·발송 권한을 보장하지 않습니다. 공개 health 성공만으로는 더 이상
+`readiness.listmonk`가 true가 되지 않습니다. 대상 URL의 인라인 자격 증명,
+쿼리 문자열, 프래그먼트는 결과에서 제거합니다.
 
 128개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전

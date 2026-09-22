@@ -47,10 +47,7 @@ export const handleDiscoveryTools: DiscoveryHandlerFunction = withErrorHandler(
 					node: process.version,
 				},
 				...(target === undefined ? {} : { target }),
-				probeListmonk: async () => {
-					const health = await client.getHealthCheck();
-					return Boolean(health.data);
-				},
+				probeReadiness: (resources) => client.getReadiness(resources),
 			},
 			request.params.name,
 			input,

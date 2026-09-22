@@ -196,7 +196,7 @@ Prerequisites: none
 
 Verify with: none
 
-Retry guidance: Retry transient health failures with normal backoff; do not infer authentication from reachability alone.
+Retry guidance: Retry unavailable probes with backoff; fix rejected credentials or denied permissions first. Collection access only verifies visible resources, not global access or mutation rights.
 
 ## List outbound webhook endpoints (`webhooks.list`)
 

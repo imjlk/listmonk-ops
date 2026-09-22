@@ -1,3 +1,4 @@
+import { createReadinessOperation } from "./readiness";
 import { createClient } from "../../generated/client";
 import {
 	configToHeaders,
@@ -158,6 +159,12 @@ export function createListmonkClient(
 	};
 
 	return {
+		getReadiness: createReadinessOperation({
+			baseUrl: resolvedConfig.baseUrl,
+			headers: resolvedConfig.headers,
+			timeoutMs: resolvedConfig.timeout,
+			fetch: globalThis.fetch.bind(globalThis) as FetchFn,
+		}),
 		getHealthCheck: createHealthCheckOperation({
 			baseUrl: resolvedConfig.baseUrl,
 			headers: resolvedConfig.headers,

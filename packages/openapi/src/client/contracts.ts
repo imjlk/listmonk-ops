@@ -1,3 +1,4 @@
+import type { ListmonkReadiness, ReadinessResource } from "./readiness";
 import type { GetCampaignsData } from "./campaign-query";
 import type * as t from "../../generated/types.gen";
 import type { ListmonkConfig } from "../config";
@@ -330,6 +331,7 @@ export type Template = t.Template;
 export type About = t.About;
 
 export interface EnhancedListmonkClient {
+	getReadiness(resources?: readonly ReadinessResource[]): Promise<ListmonkReadiness>;
 	getHealthCheck(): Promise<FlattenedResponse<boolean>>;
 
 	list: CrudOperations<
