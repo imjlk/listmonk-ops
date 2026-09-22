@@ -223,6 +223,8 @@ export function createCampaignOperations(
 			},
 			sdkOptions,
 		),
+		// Listmonk 6.2 requires repeated `tag`; preserve the public `tags` alias
+		// without changing shared CLI/MCP inputs. Explicit `tag` takes precedence.
 		async list(options?: Parameters<CampaignOperations["list"]>[0]) {
 			const { tags, ...query } = options?.query ?? {};
 			const result = await getCampaigns({
