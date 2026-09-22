@@ -246,7 +246,8 @@ listmonk-cli subscribers list --format ndjson
 listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 ```
 
-기계 처리용 출력 모드에서는 CLI 배너를 출력하지 않습니다. 리소스 `list`
+기계 처리용 출력 모드에서는 CLI 배너를 출력하지 않습니다. 전체 작업 카탈로그처럼
+큰 JSON 결과도 정상 종료 전에 stdout으로 끝까지 출력합니다. 리소스 `list`
 명령은 결과가 없어도 `[]` 배열을 출력하며, NDJSON은 결과 하나를 JSON 한 줄로
 출력합니다. 실패 시 0이 아닌 종료 코드와 함께 stderr에 길이를 제한한
 `{ "error": { "code": "cli_error", "message": "..." } }` 진단을 출력하며

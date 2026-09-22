@@ -44,7 +44,7 @@ export const humanOutput: OutputStrategy = {
 		if (!Array.isArray(data) || data.length > 0) console.table(data);
 	},
 	json(data) {
-		console.log(JSON.stringify(data, null, 2));
+		process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
 	},
 };
 
@@ -66,10 +66,10 @@ export const jsonOutput: OutputStrategy = {
 		console.error(`⚠️  ${message}`);
 	},
 	table(data) {
-		console.log(JSON.stringify(data, null, 2));
+		process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
 	},
 	json(data) {
-		console.log(JSON.stringify(data, null, 2));
+		process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
 	},
 };
 
@@ -91,10 +91,10 @@ export const ndjsonOutput: OutputStrategy = {
 		console.error(`⚠️  ${message}`);
 	},
 	table(data) {
-		console.log(JSON.stringify(data));
+		process.stdout.write(`${JSON.stringify(data)}\n`);
 	},
 	json(data) {
-		console.log(JSON.stringify(data));
+		process.stdout.write(`${JSON.stringify(data)}\n`);
 	},
 };
 
@@ -110,10 +110,10 @@ export const quietOutput: OutputStrategy = {
 	info(_message) {},
 	warning(_message) {},
 	table(data) {
-		console.log(JSON.stringify(data));
+		process.stdout.write(`${JSON.stringify(data)}\n`);
 	},
 	json(data) {
-		console.log(JSON.stringify(data));
+		process.stdout.write(`${JSON.stringify(data)}\n`);
 	},
 };
 

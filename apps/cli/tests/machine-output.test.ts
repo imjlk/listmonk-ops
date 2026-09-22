@@ -57,6 +57,17 @@ async function runCli(args: string[]) {
 }
 
 describe("CLI machine output", () => {
+	for (const format of ["human", "json", "ndjson", "quiet"]) {
+		test(`preserves the complete large operation catalog in ${format} mode`, async () => {
+			const result = await runCli(["operations", "--format", format]);
+			expect(result.exitCode).toBe(0);
+			expect(result.stderr).toBe("");
+			const start = format === "human" ? result.stdout.indexOf("{") : 0;
+			const catalog = JSON.parse(result.stdout.slice(start));
+			expect(catalog.operations.length).toBeGreaterThan(100);
+			expect(catalog.operations.every((operation: { id?: unknown }) => typeof operation.id === "string")).toBe(true);
+		}, 15_000);
+	}
 	for (const worker of [["sequences", "worker"], ["webhooks", "runtime", "worker"]]) {
 		test(`${worker.join(" ")} streams NDJSON diagnostics beyond the JSON buffer limit`, async () => {
 			const child = spawnCli([...worker, "--confirm", "--format=ndjson", "--interval-ms=250"]);

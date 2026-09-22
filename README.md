@@ -249,7 +249,8 @@ listmonk-cli subscribers list --format ndjson
 listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 ```
 
-Machine-readable modes omit the CLI banner. Resource `list` commands emit an
+Machine-readable modes omit the CLI banner. Large JSON results, including the
+full operation catalog, are drained to stdout before a normal CLI exit. Resource `list` commands emit an
 array, including `[]` when no rows match; NDJSON writes each result as one JSON
 line. Failures exit nonzero and emit a bounded `{ "error": { "code": "cli_error",
 "message": "..." } }` diagnostic on stderr instead of runtime stack traces.
