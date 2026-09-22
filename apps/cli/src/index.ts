@@ -71,14 +71,20 @@ const subCommands = {
 
 import { getRuntimeFlags } from "./lib/command";
 
-import { renderCliError } from "./lib/output";
+import {
+	captureCliDiagnostics,
+	renderCliDiagnostics,
+	renderCliError,
+} from "./lib/output";
 
 let commandError: unknown;
+let diagnostics: ReturnType<typeof captureCliDiagnostics> | undefined;
 try {
 	const argv = prepareCliArgv(process.argv.slice(2));
 	const flags = getRuntimeFlags();
 	const machineOutput = flags.format !== undefined && flags.format !== "human";
 	if (machineOutput) {
+		diagnostics = captureCliDiagnostics();
 		process.env.LISTMONK_OPS_ABTEST_SILENT = "1";
 		const helpRequested = argv.includes("--help") || argv.includes("-h") || argv.includes("--version");
 		if (!helpRequested && (flags.interactive || flags.tui || (argv[0] === "abtest" && argv[1] === "interactive"))) {
@@ -112,8 +118,11 @@ try {
 			"Failed to close one or more runtime repositories",
 		);
 	}
+	diagnostics?.restore();
 }
 if (commandError !== undefined) {
-	renderCliError(commandError);
+	renderCliError(commandError, diagnostics);
 	process.exitCode = 1;
+} else {
+	renderCliDiagnostics(diagnostics);
 }

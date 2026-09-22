@@ -250,7 +250,10 @@ listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 명령은 결과가 없어도 `[]` 배열을 출력하며, NDJSON은 결과 하나를 JSON 한 줄로
 출력합니다. 실패 시 0이 아닌 종료 코드와 함께 stderr에 길이를 제한한
 `{ "error": { "code": "cli_error", "message": "..." } }` 진단을 출력하며
-런타임 스택이나 소스 코드를 덧붙이지 않습니다. 결과를 파싱할 때 stderr를
+런타임 스택이나 소스 코드를 덧붙이지 않습니다. 부가 진단은 CLI 경계에서 모아
+명령 완료 시 같은 stderr 문서의 `diagnostics`에 포함합니다(최대 20개, 각
+1,024자). 오류 스택과 임의 객체의 상세 값은 제외하며 quiet 모드는 부가 진단을
+생략합니다. 결과를 파싱할 때 stderr를
 stdout에 합치지 마세요. 명시적인 도움말·버전·셸 자동완성 요청은 텍스트 형식을
 유지합니다. 대화형 입력과 `ops digest --markdown-only`는 `--format human`이
 필요합니다.

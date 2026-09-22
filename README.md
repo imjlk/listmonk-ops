@@ -253,7 +253,11 @@ Machine-readable modes omit the CLI banner. Resource `list` commands emit an
 array, including `[]` when no rows match; NDJSON writes each result as one JSON
 line. Failures exit nonzero and emit a bounded `{ "error": { "code": "cli_error",
 "message": "..." } }` diagnostic on stderr instead of runtime stack traces.
-Do not merge stderr into stdout when parsing results. Explicit help, version,
+Auxiliary diagnostics are buffered at the CLI boundary and emitted on completion
+in the same stderr document under `diagnostics` (at most 20 messages of 1,024
+characters). Error stacks and arbitrary object details are omitted; quiet mode
+omits auxiliary diagnostics. Do not merge stderr into stdout when parsing results.
+Explicit help, version,
 and shell-completion requests retain their text formats. Interactive prompts
 and `ops digest --markdown-only` require `--format human`.
 

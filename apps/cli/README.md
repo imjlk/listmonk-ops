@@ -190,7 +190,11 @@ Use `--format json` or `--format ndjson` to keep result data on stdout without
 the CLI banner. Empty resource lists produce `[]`. NDJSON emits one JSON value
 per line; list results remain arrays. Errors use a bounded
 `{"error":{"code":"cli_error","message":"..."}}` envelope on stderr and a
-nonzero exit code. Human mode displays a concise error without a runtime stack.
+nonzero exit code. Auxiliary diagnostics, including failed rollback/cleanup logs,
+are buffered until completion and included in the same stderr document under
+`diagnostics` (at most 20 messages, 1,024 characters each). Arbitrary object
+details and stacks are omitted; quiet mode omits auxiliary diagnostics.
+Human mode displays a concise command error without a runtime stack.
 Keep stdout and stderr separate when piping to a parser. Help, version, and
 shell completion retain their native text formats. Interactive prompts and
 `ops digest --markdown-only` require human mode.

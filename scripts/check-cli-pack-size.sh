@@ -5,10 +5,10 @@ set -euo pipefail
 # the single-file CLI bundle. Keep modest headroom above the reviewed baseline
 # while retaining the stricter compressed distribution budget below. Each
 # standalone contract migration adds a few KB of generated JSON.
-# CLI machine-output baseline: 1,871,003 bytes on CI (Bun 1.3.10/Linux).
+# CLI machine-output baseline: 1,872,264 bytes using the CI Bun 1.3.10 toolchain.
 MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1875000}"
-# September dependency refresh measures about 303 KB compressed (Clack/Gunshi and SDK updates).
-MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-306000}"
+# Bounded diagnostic capture measures 306,234 bytes compressed with Bun 1.3.10.
+MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-307000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"
 
