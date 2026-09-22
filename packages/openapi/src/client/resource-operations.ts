@@ -51,6 +51,7 @@ import type * as t from "../../generated/types.gen";
 import type {
 	Campaign,
 	CampaignTestParams,
+	CampaignOperations,
 	EnhancedListmonkClient,
 	List,
 	Subscriber,
@@ -63,7 +64,7 @@ import {
 	type SdkOptions,
 } from "./crud";
 import type { CrudResult, FlattenedResponse } from "./response";
-import { transformResponse } from "./response";
+import { normalizeListResult, transformResponse } from "./response";
 
 export function createListOperations(
 	sdkOptions: SdkOptions,
@@ -222,6 +223,15 @@ export function createCampaignOperations(
 			},
 			sdkOptions,
 		),
+		async list(options?: Parameters<CampaignOperations["list"]>[0]) {
+			const { tags, ...query } = options?.query ?? {};
+			const result = await getCampaigns({
+				...sdkOptions,
+				...options,
+				query: { ...query, tag: query.tag ?? tags },
+			});
+			return normalizeListResult<Campaign>(await transformResponse(result));
+		},
 		async preview(options: { path: { id: number } }) {
 			const result = await previewCampaignById({
 				...sdkOptions,

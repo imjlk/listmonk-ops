@@ -25,9 +25,16 @@ type ListTypes = ResourceTypes<
 	t.DeleteListByIdData
 >;
 
+type CampaignListData = Omit<t.GetCampaignsData, "query"> & {
+	query?: NonNullable<t.GetCampaignsData["query"]> & {
+		/** Compatibility alias for tag. The singular tag takes precedence. */
+		tags?: string[];
+	};
+};
+
 type CampaignTypes = ResourceTypes<
 	t.CreateCampaignData,
-	t.GetCampaignsData,
+	CampaignListData,
 	t.GetCampaignByIdData,
 	t.UpdateCampaignByIdData,
 	t.DeleteCampaignByIdData
