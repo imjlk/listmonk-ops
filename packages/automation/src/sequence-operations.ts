@@ -62,6 +62,7 @@ export interface SequenceOperationContext {
 	now?: () => Date;
 }
 
+// Preprocessors accept unknown inputs; retain required fields in Zod input JSON Schema.
 const booleanInput = z.preprocess((value: unknown) => {
 	if (typeof value !== "string") {
 		return value;
@@ -73,14 +74,14 @@ const booleanInput = z.preprocess((value: unknown) => {
 		return false;
 	}
 	return value;
-}, z.boolean());
+}, z.boolean()).nonoptional();
 const positiveIntegerInput = z.preprocess(
 	(value: unknown) =>
 		value === null || value === "" || typeof value === "boolean"
 			? Number.NaN
 			: value,
 	z.coerce.number().int().positive(),
-);
+).nonoptional();
 const isoDateTimeInput = z.iso.datetime({ offset: true });
 const sequenceIdInput = z.uuid();
 const stepIdInput = z

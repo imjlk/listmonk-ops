@@ -54,6 +54,7 @@ function requireOpsClient(context: OpsOperationContext): ListmonkClient {
 	return context.client;
 }
 
+// Preprocessors accept unknown inputs; retain required fields in Zod input JSON Schema.
 const numberInput = () =>
 	z.preprocess(
 		(value: unknown) =>
@@ -61,7 +62,7 @@ const numberInput = () =>
 				? Number.NaN
 				: value,
 		z.coerce.number().finite(),
-	);
+	).nonoptional();
 const positiveIntegerInput = numberInput().pipe(z.number().int().positive());
 const nonNegativeNumberInput = numberInput().pipe(z.number().min(0));
 const nonNegativeIntegerInput = numberInput().pipe(
@@ -80,7 +81,7 @@ const booleanInput = z.preprocess((value: unknown) => {
 		return false;
 	}
 	return value;
-}, z.boolean());
+}, z.boolean()).nonoptional();
 
 const campaignPreflightInputSchema = z.object({
 	campaign_id: positiveIntegerInput.describe("Campaign ID"),

@@ -196,6 +196,8 @@ email-change cleanup, account deletion, and restartable backfill.
 
 The package root no longer exports the generated SDK as a `rawSdk` namespace,
 because that namespace forced bundlers to retain every generated endpoint.
+Raw SDK failures can lack `request` or `response`; guard them (for example,
+`result.response?.status`) when inspecting transport errors.
 Import individual generated functions from `@listmonk-ops/openapi/sdk` instead;
 `createListmonkClient()` remains the ergonomic full-client entrypoint.
 

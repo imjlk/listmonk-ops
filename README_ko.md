@@ -194,6 +194,8 @@ single-label local domain은 허용합니다.
 
 패키지 root에서는 더 이상 생성 SDK를 `rawSdk` namespace로 export하지 않습니다.
 이 namespace가 bundler로 하여금 모든 생성 endpoint를 유지하게 했기 때문입니다.
+Raw SDK의 요청 생성·네트워크 오류에는 `request`나 `response`가 없을 수 있으므로
+`result.response?.status`처럼 존재 여부를 확인하세요.
 개별 생성 함수는 `@listmonk-ops/openapi/sdk`에서 import하세요.
 `createListmonkClient()`는 전체 client를 위한 편의 entrypoint로 계속 제공됩니다.
 

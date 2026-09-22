@@ -73,6 +73,7 @@ export function resolveWebhookOperationStore(
 	return context.store ?? getOutboundWebhookStoreOptionsFromEnvironment();
 }
 
+// Preprocessors accept unknown inputs; retain required fields in Zod input JSON Schema.
 const booleanInput = z.preprocess((value: unknown) => {
 	if (typeof value !== "string") {
 		return value;
@@ -84,14 +85,14 @@ const booleanInput = z.preprocess((value: unknown) => {
 		return false;
 	}
 	return value;
-}, z.boolean());
+}, z.boolean()).nonoptional();
 const positiveIntegerInput = z.preprocess(
 	(value: unknown) =>
 		value === null || value === "" || typeof value === "boolean"
 			? Number.NaN
 			: value,
 	z.coerce.number().int().positive(),
-);
+).nonoptional();
 const endpointIdInput = z.uuid().describe("Outbound webhook endpoint ID");
 const eventFilterInput = outboundWebhookEventFilterSchema
 	.describe("Exact event type, family wildcard such as operation.*, or *");

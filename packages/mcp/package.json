@@ -36,11 +36,11 @@
 		"@listmonk-ops/common": "workspace:^0.6.0",
 		"@listmonk-ops/openapi": "^0.8.0",
 		"@listmonk-ops/operations": "workspace:^0.16.0",
-		"@modelcontextprotocol/sdk": "1.27.1",
-		"hono": "4.12.7"
+		"@modelcontextprotocol/sdk": "1.30.0",
+		"hono": "4.13.8"
 	},
 	"devDependencies": {
-		"@types/node": "25.3.3",
+		"@types/node": "26.6.2",
 		"typescript": "7.0.2"
 	},
 	"engines": {

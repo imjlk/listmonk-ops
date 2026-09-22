@@ -99,8 +99,7 @@ async function errorCode(operation: Promise<unknown>, code: ListmonkRuntimeError
 	try {
 		await operation;
 		throw new Error("Expected reconciliation to fail");
-	}
-	catch (error) {
+	} catch (error) {
 		expect(error).toBeInstanceOf(ListmonkRuntimeError);
 		expect((error as ListmonkRuntimeError).code).toBe(code);
 		expect(String(error)).not.toContain(EMAIL);

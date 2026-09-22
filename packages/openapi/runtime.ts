@@ -392,10 +392,23 @@ export async function sendExternalTransactionalEmail(
 				timeoutMs,
 			);
 			if (preflightAbortError !== undefined) throw preflightAbortError;
+			const body = {
+			template_id: templateId,
+			subscriber_mode: "external" as const,
+			subscriber_emails: [recipient],
+			...(contentType === undefined ? {} : { content_type: contentType }),
+			...(altBody === undefined ? {} : { altbody: altBody }),
+			...(fromEmail === undefined ? {} : { from_email: fromEmail }),
+			...(messenger === undefined ? {} : { messenger }),
+			...(subject === undefined ? {} : { subject }),
+			...(data === undefined ? {} : { data }),
+			};
+			// Validate locally before the SDK can wrap serialization failures as transport errors.
+			const serializedBody = serializeTransactionalBody(body);
 			return await Promise.race([
 				transactWithSubscriber({
 					baseUrl: runtimeConfiguration.apiBaseUrl,
-					bodySerializer: serializeTransactionalBody,
+					bodySerializer: () => serializedBody,
 					client: runtimeConfiguration.client,
 					fetch: normalizeRuntimeResponseBody(runtimeConfiguration.fetch),
 					headers: {
@@ -415,17 +428,7 @@ export async function sendExternalTransactionalEmail(
 					responseValidator: undefined,
 					signal: abortContext.signal,
 					throwOnError: false,
-					body: {
-						template_id: templateId,
-						subscriber_mode: "external",
-						subscriber_emails: [recipient],
-						...(contentType === undefined ? {} : { content_type: contentType }),
-						...(altBody === undefined ? {} : { altbody: altBody }),
-						...(fromEmail === undefined ? {} : { from_email: fromEmail }),
-						...(messenger === undefined ? {} : { messenger }),
-						...(subject === undefined ? {} : { subject }),
-						...(data === undefined ? {} : { data }),
-					},
+					body,
 				}),
 				abortContext.interruption,
 			]);
