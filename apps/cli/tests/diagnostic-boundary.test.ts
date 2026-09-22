@@ -4,6 +4,7 @@ import { ListmonkAbTestIntegration } from "../../../packages/abtest/src/listmonk
 import { prepareCliArgv } from "../src/lib/command";
 import {
 	captureCliDiagnostics,
+	getOutput,
 	renderCliDiagnostics,
 	renderCliError,
 } from "../src/lib/output";
@@ -11,6 +12,32 @@ import {
 afterEach(() => prepareCliArgv([]));
 
 describe("CLI diagnostic boundary", () => {
+	test("preserves semantic levels for CLI messages and console diagnostics", () => {
+		prepareCliArgv(["--format=json"]);
+		const stderr = spyOn(console, "error").mockImplementation(() => undefined);
+		const captured = captureCliDiagnostics();
+		try {
+			const output = getOutput();
+			output.success("created");
+			output.info("empty");
+			output.warning("check provider");
+			output.error("failed");
+			console.warn("domain warning");
+			captured.restore();
+			renderCliDiagnostics(captured);
+			expect(JSON.parse(String(stderr.mock.calls[0]?.[0])).diagnostics).toEqual([
+				{ level: "success", message: "created" },
+				{ level: "info", message: "empty" },
+				{ level: "warning", message: "check provider" },
+				{ level: "error", message: "failed" },
+				{ level: "warning", message: "domain warning" },
+			]);
+		} finally {
+			captured.restore();
+			stderr.mockRestore();
+		}
+	});
+
 	test("failed A/B rollback diagnostics remain one bounded machine error", async () => {
 		prepareCliArgv(["--format=json"]);
 		const stderr = spyOn(console, "error").mockImplementation(() => undefined);
@@ -42,7 +69,7 @@ describe("CLI diagnostic boundary", () => {
 		}
 	});
 	test("caps diagnostics and omits object details without hiding quiet-mode errors", () => {
-		prepareCliArgv(["--format=ndjson"]);
+		prepareCliArgv(["--format=json"]);
 		const stderr = spyOn(console, "error").mockImplementation(() => undefined);
 		const captured = captureCliDiagnostics();
 		try {

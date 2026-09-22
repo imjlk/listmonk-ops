@@ -22,12 +22,12 @@ afterAll(() => {
 	rmSync(temporaryDirectory, { recursive: true, force: true });
 });
 
-async function runCli(args: string[]) {
+function spawnCli(args: string[]) {
 	const executable = process.env.CLI_TEST_EXECUTABLE?.trim();
 	const command = executable
 		? [executable, ...args]
 		: ["bun", "src/index.ts", ...args];
-	const child = Bun.spawn(command, {
+	return Bun.spawn(command, {
 		cwd: cliDirectory,
 		env: {
 			...process.env,
@@ -37,11 +37,17 @@ async function runCli(args: string[]) {
 			LISTMONK_API_TOKEN: "machine-test-token",
 			LISTMONK_OPS_AUDIT_STORE: join(temporaryDirectory, "audit.json"),
 			LISTMONK_OPS_WEBHOOK_STORE: join(temporaryDirectory, "webhooks.json"),
+			LISTMONK_OPS_WEBHOOK_DATABASE_URL: "",
+			LISTMONK_OPS_SEQUENCE_DATABASE_URL: "",
 			LISTMONK_OPS_SEQUENCE_STORE: join(temporaryDirectory, "sequences.json"),
 		},
 		stdout: "pipe",
 		stderr: "pipe",
 	});
+}
+
+async function runCli(args: string[]) {
+	const child = spawnCli(args);
 	const [stdout, stderr, exitCode] = await Promise.all([
 		new Response(child.stdout).text(),
 		new Response(child.stderr).text(),
@@ -51,6 +57,51 @@ async function runCli(args: string[]) {
 }
 
 describe("CLI machine output", () => {
+	for (const worker of [["sequences", "worker"], ["webhooks", "runtime", "worker"]]) {
+		test(`${worker.join(" ")} streams NDJSON diagnostics beyond the JSON buffer limit`, async () => {
+			const child = spawnCli([...worker, "--confirm", "--format=ndjson", "--interval-ms=250"]);
+			const stdoutPromise = new Response(child.stdout).text();
+			const reader = child.stderr.getReader();
+			const decoder = new TextDecoder();
+			const records: Array<{ diagnostic: { level: string; message: string } }> = [];
+			let buffer = "";
+			const timeout = setTimeout(() => child.kill("SIGTERM"), 15_000);
+			try {
+				while (records.length < 22) {
+					const chunk = await reader.read();
+					if (chunk.done) break;
+					buffer += decoder.decode(chunk.value, { stream: true });
+					const lines = buffer.split("\n");
+					buffer = lines.pop() ?? "";
+					for (const line of lines) if (line.trim()) records.push(JSON.parse(line));
+				}
+			} finally {
+				clearTimeout(timeout);
+				child.kill("SIGTERM");
+				const forceStop = setTimeout(() => child.kill("SIGKILL"), 5_000);
+				try {
+					let remainder = await reader.read();
+					while (!remainder.done) remainder = await reader.read();
+					await child.exited;
+				} finally {
+					clearTimeout(forceStop);
+					reader.releaseLock();
+				}
+			}
+			await stdoutPromise;
+			expect(child.exitCode).toBe(0);
+			expect(records.length).toBeGreaterThan(20);
+			expect(records.every((record) => record.diagnostic.level === "info")).toBe(true);
+			expect(records[0]?.diagnostic.message).toContain("worker started");
+		}, 20_000);
+		test(`${worker.join(" ")} rejects buffered JSON mode before starting`, async () => {
+			const result = await runCli([...worker, "--confirm", "--format=json"]);
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stdout).toBe("");
+			expect(JSON.parse(result.stderr).error.message).toContain("--format ndjson");
+		});
+	}
+
 	for (const format of ["json", "ndjson", "quiet"]) {
 		test(`${format} discovery stdout parses without removing banners`, async () => {
 			const result = await runCli(["capabilities", `--format=${format}`]);
@@ -64,6 +115,8 @@ describe("CLI machine output", () => {
 				expect(result.exitCode).toBe(0);
 				expect(JSON.parse(result.stdout)).toEqual([]);
 				if (format === "quiet") expect(result.stderr).toBe("");
+				else if (format === "json") expect(JSON.parse(result.stderr).diagnostics[0].level).toBe("info");
+				else expect(JSON.parse(result.stderr).diagnostic.level).toBe("info");
 			}
 		}, 20_000);
 		test(`${format} validation errors are structured stderr with no stdout`, async () => {

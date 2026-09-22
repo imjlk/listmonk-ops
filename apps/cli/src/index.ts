@@ -84,7 +84,7 @@ try {
 	const flags = getRuntimeFlags();
 	const machineOutput = flags.format !== undefined && flags.format !== "human";
 	if (machineOutput) {
-		diagnostics = captureCliDiagnostics();
+		diagnostics = captureCliDiagnostics({ stream: flags.format === "ndjson" });
 		process.env.LISTMONK_OPS_ABTEST_SILENT = "1";
 		const helpRequested = argv.includes("--help") || argv.includes("-h") || argv.includes("--version");
 		if (!helpRequested && (flags.interactive || flags.tui || (argv[0] === "abtest" && argv[1] === "interactive"))) {

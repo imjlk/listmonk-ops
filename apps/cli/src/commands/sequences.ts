@@ -429,6 +429,9 @@ const workerCommand = defineCommand({
 		),
 	},
 	handler: async ({ flags, ...args }) => {
+		if (flags.format === "json") {
+			throw new Error("Long-running workers require --format ndjson for live structured diagnostics, or human/quiet mode.");
+		}
 		if (flags.confirm !== true) {
 			throw new Error(
 				"The sequence worker may send email; rerun with --confirm",

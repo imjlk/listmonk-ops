@@ -1,28 +1,40 @@
 import { createOutputStrategy, type OutputFormat } from "@listmonk-ops/common";
 import { getRuntimeFlags } from "./command";
 
+type DiagnosticSink = (level: CliDiagnostic["level"], args: unknown[]) => void;
+let activeDiagnosticSink: DiagnosticSink | undefined;
+
 export function getOutput() {
-	const flags = getRuntimeFlags();
-	const format = (flags.format ?? "human") as OutputFormat;
-	return createOutputStrategy(format);
+	const format = (getRuntimeFlags().format ?? "human") as OutputFormat;
+	const output = createOutputStrategy(format);
+	const sink = activeDiagnosticSink;
+	if ((format !== "json" && format !== "ndjson") || sink === undefined) return output;
+	return {
+		...output,
+		success: (message: string) => sink("success", [message]),
+		info: (message: string) => sink("info", [message]),
+		warning: (message: string) => sink("warning", [message]),
+		error: (message: string) => sink("error", [message]),
+	};
 }
 
 export interface CliDiagnostic {
-	level: "info" | "warning" | "error";
+	level: "success" | "info" | "warning" | "error";
 	message: string;
 }
 
-/** Capture process-local diagnostics until the one-shot CLI result is known. */
-export function captureCliDiagnostics() {
+/** Buffer JSON diagnostics or stream bounded NDJSON records at the CLI boundary. */
+export function captureCliDiagnostics(options: { stream?: boolean } = {}) {
 	const diagnostics: CliDiagnostic[] = [];
 	const original = {
 		info: console.info,
 		warn: console.warn,
 		error: console.error,
 	};
+	const previousSink = activeDiagnosticSink;
 	let truncated = false;
 	const capture = (level: CliDiagnostic["level"], args: unknown[]) => {
-		if (diagnostics.length >= 20) {
+		if (!options.stream && diagnostics.length >= 20) {
 			truncated = true;
 			return;
 		}
@@ -32,8 +44,16 @@ export function captureCliDiagnostics() {
 			if (typeof value === "number" || typeof value === "boolean" || value === null) return String(value);
 			return "[diagnostic details omitted]";
 		}).join(" ").slice(0, 1024);
-		diagnostics.push({ level, message });
+		if (options.stream) {
+			original.error.call(
+				console,
+				JSON.stringify({ diagnostic: { level, message } }),
+			);
+		} else {
+			diagnostics.push({ level, message });
+		}
 	};
+	activeDiagnosticSink = capture;
 	console.info = (...args: unknown[]) => capture("info", args);
 	console.warn = (...args: unknown[]) => capture("warning", args);
 	console.error = (...args: unknown[]) => capture("error", args);
@@ -43,6 +63,7 @@ export function captureCliDiagnostics() {
 			return truncated;
 		},
 		restore() {
+			activeDiagnosticSink = previousSink;
 			console.info = original.info;
 			console.warn = original.warn;
 			console.error = original.error;

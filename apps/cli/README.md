@@ -186,15 +186,16 @@ The older `listmonk-cli completions <shell>` spelling remains a deprecated alias
 
 ## Machine-readable output
 
-Use `--format json` or `--format ndjson` to keep result data on stdout without
-the CLI banner. Empty resource lists produce `[]`. NDJSON emits one JSON value
-per line; list results remain arrays. Errors use a bounded
-`{"error":{"code":"cli_error","message":"..."}}` envelope on stderr and a
-nonzero exit code. Auxiliary diagnostics, including failed rollback/cleanup logs,
-are buffered until completion and included in the same stderr document under
-`diagnostics` (at most 20 messages, 1,024 characters each). Arbitrary object
-details and stacks are omitted; quiet mode omits auxiliary diagnostics.
-Human mode displays a concise command error without a runtime stack.
-Keep stdout and stderr separate when piping to a parser. Help, version, and
-shell completion retain their native text formats. Interactive prompts and
-`ops digest --markdown-only` require human mode.
+`--format json` and `--format ndjson` keep result data on stdout without a
+banner. Empty resource lists produce `[]`; NDJSON lists remain single-line
+arrays. Failures exit nonzero with `{"error":{"code":"cli_error","message":"..."}}`
+on stderr. JSON mode includes buffered auxiliary `diagnostics` in that document
+(up to 20 messages of 1,024 characters). NDJSON streams each diagnostic immediately
+as `{"diagnostic":{"level":"info","message":"..."}}` on stderr; parse each line
+separately. Levels distinguish success/info/warning/error; stacks and arbitrary
+object details are omitted. Quiet mode omits auxiliary diagnostics.
+
+Long-running sequence/webhook workers accept NDJSON, human, or quiet mode;
+buffered JSON mode is rejected. Human command errors omit runtime stacks.
+Keep stdout and stderr separate. Help, version, and completion retain text formats.
+Interactive prompts and `ops digest --markdown-only` require human mode.
