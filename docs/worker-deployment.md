@@ -129,7 +129,7 @@ instead.
 ```yaml
 services:
   sequence-worker:
-    image: oven/bun:1.3.10
+    image: oven/bun:1.4.2
     init: true
     restart: unless-stopped
     env_file: .env.workers
@@ -148,7 +148,7 @@ services:
     stop_grace_period: 180s
 
   webhook-worker:
-    image: oven/bun:1.3.10
+    image: oven/bun:1.4.2
     init: true
     restart: unless-stopped
     env_file: .env.workers

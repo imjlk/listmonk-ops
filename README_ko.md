@@ -38,7 +38,7 @@
 
 ## 사전 요구사항
 
-- Bun 1.3+
+- Bun 1.3+ (CI/빌드: 1.4.2)
 - Docker, Docker Compose
 
 ## 빠른 시작
@@ -317,12 +317,18 @@ bun run release:apply
 bun run release:publish
 ```
 
-PR이 `main`에 머지되면 `.github/workflows/sampo-release-publish.yml`가 자동 실행됩니다.
+PR이 `main`에 머지되고 해당 CI가 성공하면
+`.github/workflows/sampo-release-publish.yml`이 실행됩니다.
 
-1. `sampo release`
-2. `bun run build`
-3. `sampo publish -- --access public --provenance`
-4. publish 성공 후 릴리즈 커밋/태그 push
+1. 대기 중인 changeset이 있으면 패키지 버전·체인지로그·Bun 잠금 파일을 갱신한
+   릴리스 PR을 만들거나 업데이트합니다.
+2. 릴리스 PR이 머지되면 워크스페이스 빌드·검사·테스트를 거쳐
+   npm trusted publishing(OIDC)으로 패키지를 배포합니다.
+3. 배포 성공 후 태그를 만들고 별도의 네이티브 CLI 릴리스 워크플로를 실행합니다.
+   일반 PR에서도 네이티브 CLI 계약 테스트를 실행합니다.
+
+릴리스 액션은 잠금 파일 갱신이 실패하면 릴리스를 중단합니다.
+CI·배포·네이티브 CLI 빌드는 모두 Bun 1.4.2를 사용합니다.
 
 CI 가드:
 - 릴리즈 대상 패키지(`apps/cli`, `packages/openapi`, `packages/operations`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) 변경 PR에는 `.sampo/changesets/*.md`가 반드시 포함되어야 함
