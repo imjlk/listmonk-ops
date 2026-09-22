@@ -168,7 +168,7 @@ credential입니다. 이 권한을 runtime delivery role에 부여하지 마세�
 자동화는 릴리스/provisioning 경계에만 둡니다.
 `@listmonk-ops/openapi/runtime`은 Worker 요청 경로용으로 불투명한 token 인증 runtime
 handle과 단일 외부 수신자 transactional helper를 제공합니다. 생성 SDK client는
-handle 내부에 숨기며 Subscriber를 생성하지 않습니다.
+handle 내부에 숨기며 이 transactional helper는 Subscriber를 생성하지 않습니다.
 수신자 주소는 UTF-8 254바이트, 제목은 256바이트, 정상 직렬화되는 transactional
 body는 64 KiB로 제한합니다. Template data는 최대 2,048개 node와 32단계 중첩으로
 제한하고 원격 오류를 제한된 오류 코드와 상태로 투영합니다. 호출자는 공유 인스턴스
@@ -180,6 +180,17 @@ snapshot한 뒤 검증하며, 비멱등 요청이 달라지거나 다른 origin�
 Runtime base URL은 URL 파싱 전에 percent encoding, backslash, dot segment를
 거부합니다. 수신자 domain은 DNS label 규칙을 검증하되 private Mailpit 배포를 위한
 single-label local domain은 허용합니다.
+
+계정 대상 목록 동기화에는 같은 runtime entrypoint의
+`reconcileSubscriberMembership()`을 사용합니다. 정확한 이메일과 캐시된 Subscriber ID를
+검증하고 앱이 소유한 목록 하나만 동기화합니다. 앱의 자격·동의와 서버의 전체 차단,
+목록 구독 상태, 옵트인 방식을 별도로 반환합니다. 추가 중 발생한 구독 취소를 보존하며,
+비활성화는 기록을 삭제하지 않고 구독 취소로 남깁니다. 이후 자격이 다시 생겨도 자동
+재구독하지 않으므로 명시적 재동의는 별도 앱 흐름으로 처리해야 합니다. 단일 옵트인은
+미확인 멤버십도 발송 대상이지만 이중 옵트인은 확인 대기 상태이며, helper는 확인
+메일을 보내지 않습니다. 알 수 없는 서버 응답은 `provider_state_unknown` 오류로 중단합니다.
+응답 크기 제한, 오류, 권한 및 앱이 책임지는 outbox·버전 순서, 이메일 변경 정리,
+계정 삭제, 재시작 가능한 backfill은 [runtime 멤버십 계약](packages/openapi/README.md#subscriber-membership-reconciliation)을 참고하세요.
 
 패키지 root에서는 더 이상 생성 SDK를 `rawSdk` namespace로 export하지 않습니다.
 이 namespace가 bundler로 하여금 모든 생성 endpoint를 유지하게 했기 때문입니다.

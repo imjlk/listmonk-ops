@@ -1,6 +1,25 @@
 import { createClient } from "./generated/client/client.gen";
 import type { Client } from "./generated/client/types.gen";
-import { transactWithSubscriber } from "./generated/sdk.gen";
+import {
+	transactWithSubscriber,
+	getSubscriberById,
+	getSubscribers,
+	getListById,
+	createSubscriber,
+	manageSubscriberLists,
+} from "./generated/sdk.gen";
+import {
+	executeMembershipReconciliation,
+	MISSING_SUBSCRIBER,
+	MembershipReconciliationError,
+	validateMembershipDecision,
+	type SubscriberMembershipDecision,
+	type SubscriberMembershipReconciliationResult,
+} from "./src/runtime/subscriber-membership";
+export type {
+	SubscriberMembershipReconciliationResult,
+	SubscriberMembershipStatus,
+} from "./src/runtime/subscriber-membership";
 
 // Local domains such as `trainer@mailpit` are intentionally supported for
 // private deployments and the repository's Mailpit test environment.
@@ -55,6 +74,9 @@ export type ListmonkRuntimeErrorCode =
 	| "delivery_rejected"
 	| "invalid_configuration"
 	| "invalid_message"
+	| "invalid_reconciliation"
+	| "provider_state_unknown"
+	| "membership_rejected"
 	| "request_failed"
 	| "timed_out";
 
@@ -1215,4 +1237,183 @@ function optionalAltBodyValue(value: string | undefined): string | undefined {
 		);
 	}
 	return value;
+}
+
+export interface SubscriberMembershipReconciliationInput extends SubscriberMembershipDecision {
+	client: ListmonkRuntimeClient;
+	signal?: AbortSignal;
+	/** Timeout for the entire reconciliation, not each request. Defaults to 30 seconds. */
+	timeoutMs?: number;
+}
+
+/**
+ * Reconcile one application-owned list without restoring suppression or sending mail.
+ * Deactivation unsubscribes rather than deleting the suppression record. Re-consent
+ * is deliberately outside routine reconciliation. Failures may follow partial effects;
+ * applications own durable ordering and email-change/account-deletion cleanup.
+ */
+export async function reconcileSubscriberMembership(
+	input: SubscriberMembershipReconciliationInput,
+): Promise<SubscriberMembershipReconciliationResult> {
+	let snapshot: SubscriberMembershipReconciliationInput;
+	try {
+		snapshot = {
+			client: input.client,
+			email: input.email,
+			ownedListId: input.ownedListId,
+			eligible: input.eligible,
+			consented: input.consented,
+			cachedSubscriberId: input.cachedSubscriberId,
+			signal: input.signal,
+			timeoutMs: input.timeoutMs,
+		};
+	} catch {
+		throw new ListmonkRuntimeError(
+			"invalid_reconciliation",
+			"Invalid subscriber membership reconciliation input.",
+		);
+	}
+	const timeoutMs = snapshot.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+	try {
+		validateMembershipDecision(snapshot);
+	} catch {
+		throw new ListmonkRuntimeError(
+			"invalid_reconciliation",
+			"Invalid subscriber membership reconciliation input.",
+		);
+	}
+	if (
+		typeof snapshot.email !== "string" || snapshot.email.length > MAX_RECIPIENT_BYTES ||
+		snapshot.email !== snapshot.email.trim() || !isValidEmailAddress(
+			snapshot.email,
+		) ||
+		!Number.isSafeInteger(
+			timeoutMs,
+		) || timeoutMs <= 0 || timeoutMs > MAX_TIMEOUT_MS ||
+		(snapshot.signal !== undefined && !isAbortSignalLike(snapshot.signal))
+	) throw new ListmonkRuntimeError(
+		"invalid_reconciliation",
+		"Invalid subscriber membership reconciliation input.",
+	);
+	const configuration = resolveRuntimeClientConfiguration(snapshot.client);
+	let abortContext: TransactionalAbortContext | undefined;
+	try {
+		abortContext = createTransactionalAbortContext(snapshot.signal, timeoutMs);
+		const context = abortContext;
+		const options = {
+			baseUrl: configuration.apiBaseUrl,
+			client: configuration.client,
+			fetch: normalizeRuntimeResponseBody(configuration.fetch),
+			headers: { Authorization: configuration.authorization },
+			redirect: "manual" as const,
+			parseAs: "text" as const,
+			responseStyle: "fields" as const,
+			throwOnError: false as const,
+			signal: context.signal,
+		};
+		async function request(
+			invoke: () => Promise<{ response?: Response; data?: unknown; error?: unknown }>,
+		): Promise<unknown> {
+			const aborted = classifyTransactionalAbortError(
+				undefined,
+				context,
+				timeoutMs,
+			);
+			if (aborted !== undefined) throw aborted;
+			const result = await Promise.race([invoke(), context.interruption]);
+			const status = result.response?.status;
+			if (result.error !== undefined || status === undefined || status < 200 || status >= 300) {
+				throw new ListmonkRuntimeError(
+					"request_failed",
+					"Listmonk membership request failed.",
+					{
+						status,
+						reason: status === undefined ? "network_error" : "http_error",
+					},
+				);
+			}
+			try {
+				return parseTransactionalAcknowledgement(result.data, status);
+			} catch {
+				throw new ListmonkRuntimeError(
+					"provider_state_unknown",
+					"Listmonk subscriber membership state is unknown.",
+					{
+						status,
+						reason: "response_parse_failed",
+					},
+				);
+			}
+		}
+		const result = await executeMembershipReconciliation({
+			async getSubscriber(id) {
+				try {
+					return await request(() => getSubscriberById({ ...options, path: { id } }));
+				} catch (error) {
+					// Listmonk 6.2 returns 400 for a missing ID. A bounded exact-email
+					// lookup must still succeed before absence is accepted by the caller.
+					if (error instanceof ListmonkRuntimeError && error.reason === "http_error" &&
+						(error.status === 400 || error.status === 404)) return MISSING_SUBSCRIBER;
+					throw error;
+				}
+			},
+			findSubscriber(email) {
+				return request(() => getSubscribers({ ...options, query: {
+					page: 1, per_page: 2, query: `subscribers.email = E'${email.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`,
+				} }));
+			},
+			getList(id) {
+				return request(() => getListById({ ...options, path: { list_id: id } }));
+			},
+			createSubscriber(email) {
+				return request(() => createSubscriber({ ...options, body: {
+					email, name: "", status: "enabled", lists: [], preconfirm_subscriptions: false,
+				} }));
+			},
+			manageMembership(id, listId, action) {
+				// Never send status: an add must preserve a concurrent unsubscribe.
+				return request(() => manageSubscriberLists({ ...options, body: {
+					ids: [id], target_list_ids: [listId], action,
+				} }));
+			},
+		}, { ...snapshot, email: snapshot.email.toLowerCase() });
+		const aborted = classifyTransactionalAbortError(
+			undefined,
+			context,
+			timeoutMs,
+		);
+		if (aborted !== undefined) throw aborted;
+		return result;
+	} catch (error) {
+		if (error instanceof MembershipReconciliationError) {
+			throw new ListmonkRuntimeError(error.code, error.message);
+		}
+		let abortError: ListmonkRuntimeError | undefined;
+		if (abortContext !== undefined) {
+			abortError = classifyTransactionalAbortError(
+				error,
+				abortContext,
+				timeoutMs,
+			);
+		} else if (error instanceof ListmonkRuntimeError) {
+			abortError = error;
+		}
+		if (abortError?.code === "aborted" || abortError?.code === "timed_out") {
+			throw new ListmonkRuntimeError(
+				abortError.code,
+				"Membership request interrupted; provider state is unknown.",
+				{
+					reason: abortError.reason,
+				},
+			);
+		}
+		if (error instanceof ListmonkRuntimeError) throw error;
+		throw new ListmonkRuntimeError(
+			"request_failed",
+			"Listmonk membership request failed.",
+			{ reason: "client_exception" },
+		);
+	} finally {
+		abortContext?.cleanup();
+	}
 }

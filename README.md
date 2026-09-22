@@ -167,8 +167,8 @@ The runtime-neutral generated client under `@listmonk-ops/openapi/sdk` uses the
 standard Fetch API and can be consumed from Workers-compatible runtimes;
 file-backed registry automation remains a release/provisioning concern.
 `@listmonk-ops/openapi/runtime` adds an opaque token-authenticated runtime handle
-and a single-recipient external transactional helper for Worker request paths. It
-does not create subscribers, caps recipient addresses at 254 UTF-8 bytes and
+and a single-recipient external transactional helper for Worker request paths. The
+transactional helper does not create subscribers, caps recipient addresses at 254 UTF-8 bytes and
 subjects at 256 UTF-8 bytes, caps the successfully serialized transactional body
 at 64 KiB, snapshots and bounds template data to 2,048 nodes and 32 nesting
 levels, and projects remote failures to bounded errors. Callers can optionally
@@ -180,6 +180,19 @@ redirects before they can transform or replay a validated non-idempotent request
 Runtime base URLs also reject percent encoding, backslashes, and dot segments
 before URL parsing; recipient domains use DNS-style labels with single-label
 local domains retained for private Mailpit deployments.
+
+For account-audience sync, `reconcileSubscriberMembership()` on the same runtime
+entrypoint resolves an exact email, validates cached subscriber IDs, and reconciles
+one explicitly application-owned list. It reports application eligibility/consent
+separately from global blocklisting, membership status, and list opt-in mode.
+Routine adds preserve concurrent unsubscriptions; deactivation unsubscribes without
+deleting the suppression record. A later eligible job therefore cannot restore it:
+explicit re-consent is a separate application workflow. Single opt-in permits an
+unconfirmed membership; double opt-in remains pending and this helper never sends
+an opt-in email. Unknown provider shapes fail closed with `provider_state_unknown`.
+See the [runtime membership contract](packages/openapi/README.md#subscriber-membership-reconciliation)
+for response bounds, errors, permissions, and caller-owned durable ordering,
+email-change cleanup, account deletion, and restartable backfill.
 
 The package root no longer exports the generated SDK as a `rawSdk` namespace,
 because that namespace forced bundlers to retain every generated endpoint.
