@@ -249,8 +249,8 @@ export function parseStoredTransactionalDocument(
 		}
 	}
 	if (value.reconciliations !== undefined && (!Array.isArray(value.reconciliations)
-		|| value.reconciliations.length > 1_000
-		|| value.reconciliations.some((event) => !isReconciliationEvent(event)))) {
+		|| value.reconciliations.some((event) => !isReconciliationEvent(event))
+		|| value.reconciliations.filter((event) => !event.key.startsWith("sequence:")).length > 1_000)) {
 		throw new Error("Invalid transactional reconciliation history");
 	}
 	return {

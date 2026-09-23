@@ -121,6 +121,29 @@ describe("transactional idempotency file-backed store", () => {
 		expect((await loadStoredTransactionalDocument(storePath)).records[key]).toMatchObject({ status: "accepted", sent: true });
 	});
 
+	test("retains sequence recovery decisions while bounding direct-send history", async () => {
+		const claim = await claimTransactionalSend({ storePath, key: "direct-new", payloadHash: "payload", targetHash: DEFAULT_TARGET_HASH, now: fixedClock });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		const sequenceKey = "sequence:00000000-0000-4000-8000-000000000001:revision:1:step:send";
+		const event = (key: string) => ({
+			key, targetHash: DEFAULT_TARGET_HASH, payloadHash: "payload",
+			previousStatus: "pending" as const, previousRevision: "revision",
+			decision: "retry" as const, reason: "Verified no delivery in provider logs",
+			reconciledAt: FIXED_NOW.toISOString(),
+		});
+		await writeFile(storePath, JSON.stringify({
+			version: 2,
+			records: { [claim.record.key]: claim.record },
+			reconciliations: [event(sequenceKey), ...Array.from({ length: 1_000 }, (_, index) => event(`direct-${index}`))],
+		}));
+		// Sequence receipts do not count toward the direct-send history cap.
+		expect((await loadStoredTransactionalDocument(storePath)).reconciliations).toHaveLength(1_001);
+		await reconcileTransactionalSend({ storePath, key: claim.record.key, targetHash: DEFAULT_TARGET_HASH, expectedRevision: claim.record.claimToken, decision: "accepted", reason: "Provider logs confirm delivery", now: fixedClock });
+		const history = (await loadStoredTransactionalDocument(storePath)).reconciliations ?? [];
+		expect(history.some((decision) => decision.key === sequenceKey)).toBe(true);
+		expect(history.filter((decision) => !decision.key.startsWith("sequence:"))).toHaveLength(1_000);
+	});
+
 	test("requires an expired, quiesced pending claim before explicitly permitting a retry", async () => {
 		const key = "pending-order";
 		const claim = await claimTransactionalSend({ storePath, key, payloadHash: hashPayload(makePayload()), targetHash: DEFAULT_TARGET_HASH, ttlMs: 1, now: fixedClock });

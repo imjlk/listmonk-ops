@@ -149,11 +149,11 @@ export async function reconcileTransactionalRecord(context: TransactionalReconci
 export const transactionalRecordsOperation = defineOperation({
 	id: "transactional.list",
 	title: "Inspect transactional send records",
-	description: "Inspect redacted idempotency records for the selected Listmonk target.",
+	description: "Inspect redacted idempotency records for the selected Listmonk target; may initialize or migrate the claim store.",
 	inputSchema: recordsInputSchema,
 	outputSchema: recordsOutputSchema,
 	safety: {
-		readOnlyHint: true,
+		readOnlyHint: false,
 		destructiveHint: false,
 		idempotentHint: true,
 		openWorldHint: false,

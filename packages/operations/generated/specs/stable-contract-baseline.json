@@ -1586,21 +1586,22 @@
       },
       "effects": [
         {
-          "kind": "read",
-          "resource": "message"
+          "kind": "write",
+          "resource": "message",
+          "reversible": true
         }
       ],
       "id": "transactional.list",
       "mcpName": "listmonk_transactional_records",
       "policy": {
-        "audit": "optional",
+        "audit": "required",
         "confirmation": "never",
         "dryRun": false
       },
       "resource": "message",
       "retry": {
         "kind": "safe",
-        "reason": "Reads the local idempotency store without changing records or sending mail."
+        "reason": "Inspection may migrate the local claim store, but never sends mail or changes a claim."
       },
       "verb": "list"
     },

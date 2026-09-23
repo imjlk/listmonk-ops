@@ -248,16 +248,16 @@ export const transactionalRecordsOperationSpec = defineOperationSpec({
 	resource: "message",
 	verb: "list",
 	title: "Inspect transactional send records",
-	description: "Inspect redacted idempotency records for the selected Listmonk target.",
+	description: "Inspect redacted idempotency records for the selected Listmonk target; may initialize or migrate the claim store.",
 	contract: {
 		input: transactionalRecordsInputContract,
 		output: transactionalRecordsOutputContract,
 	},
-	effects: [{ kind: "read", resource: "message" }],
-	policy: { confirmation: "never", audit: "optional", dryRun: false },
+	effects: [{ kind: "write", resource: "message", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
 		kind: "safe",
-		reason: "Reads the local idempotency store without changing records or sending mail.",
+		reason: "Inspection may migrate the local claim store, but never sends mail or changes a claim.",
 	},
 	agent: {
 		useWhen: [

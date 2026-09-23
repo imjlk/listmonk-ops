@@ -69,7 +69,7 @@ describe("transactional operation MCP adapter", () => {
 			idempotentHint: false,
 			openWorldHint: true,
 		});
-		expect(transactionalTools[1]?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+		expect(transactionalTools[1]?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
 		expect(transactionalTools[2]?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
 	});
 

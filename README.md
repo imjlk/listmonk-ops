@@ -1124,7 +1124,8 @@ passed and `--quiesced` after the sender has stopped. A verified `accepted`
 decision does not wait for TTL because it cannot dispatch mail. The MCP equivalent is
 `listmonk_reconcile_transactional` with `confirm: true`. Both surfaces require
 the observed revision and a 10–500 character reason; the store atomically
-checks the target and revision and retains a bounded decision history. Never
+checks the target and revision. It retains the latest decision for each sequence
+claim so delayed enrollment recovery remains possible, while bounding direct-send history. Never
 approve retry while an earlier sender may still be active.
 When `LISTMONK_OPS_SEQUENCE_DATABASE_URL` is set, direct transactional sends,
 inspection, and reconciliation use the sequence PostgreSQL claim store. The
@@ -1132,8 +1133,8 @@ version 3 schema migration preserves existing claims.
 
 Without a sequence database, the store path defaults to
 `<resolved-data-directory>/transactional.json`; override it with
-`LISTMONK_OPS_TRANSACTIONAL_STORE`. Version 1 files migrate to
-version 2 on the next store access; older binaries reject version 2 instead of
+`LISTMONK_OPS_TRANSACTIONAL_STORE`. Inspection may create or migrate this
+store. Version 1 files migrate to version 2 on the next store access; older binaries reject version 2 instead of
 silently discarding unresolved claims or decision history.
 
 ## A/B Test Operations

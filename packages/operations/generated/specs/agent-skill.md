@@ -88,7 +88,7 @@ Retry guidance: Always provide a stable idempotency_key for agent retries; recon
 
 ## Inspect transactional send records (`transactional.list`)
 
-Contract maturity: `stable`; effects: `read:message`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:message`; confirmation: `never`; retry: `safe`.
 
 Use when: Inspect an ambiguous transactional send before deciding whether to permit a retry.
 

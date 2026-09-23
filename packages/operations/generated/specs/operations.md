@@ -80,13 +80,13 @@ Send a transactional email through Listmonk
 
 ## `transactional.list`
 
-Inspect redacted idempotency records for the selected Listmonk target.
+Inspect redacted idempotency records for the selected Listmonk target; may initialize or migrate the claim store.
 
 - Resource / verb: `message.list`
 - MCP tool: `listmonk_transactional_records`
 - Contract source: input `typescript`, output `typescript`
-- Effects: `read:message`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Effects: `write:message`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `stable` since `0.18.0`
 

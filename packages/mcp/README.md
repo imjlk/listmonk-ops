@@ -125,7 +125,8 @@ existing behavior until they are migrated.
 - `listmonk_transactional_records` - Inspect redacted, target-bound send records
   and their revision without exposing recipients or message contents. Pass its
   `next_cursor` back as `cursor` to read later pages; no API token refresh is
-  needed for this local operation.
+  needed for this local operation. First inspection may initialize or migrate
+  its claim store, so the MCP tool is marked as mutating.
 - `listmonk_reconcile_transactional` - Record a verified delivery decision or
   explicitly unblock a later retry; requires `confirm: true`, a reason, and the
   observed revision. It never sends a message and does not refresh the Listmonk

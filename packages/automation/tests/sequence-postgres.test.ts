@@ -84,6 +84,39 @@ afterAll(async () => {
 });
 
 describe("Postgres sequence repository", () => {
+	postgresTest("retains sequence recovery receipts beyond the direct-decision cap", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		const sql = postgres(databaseUrl, { max: 1, prepare: false });
+		const store = repositories[0]?.idempotencyStore;
+		if (!store?.reconcile) throw new Error("Postgres transactional reconciliation unavailable");
+		const prefix = `retention-${randomUUID()}`;
+		const key = `sequence:${randomUUID()}:revision:1:step:send`;
+		const now = () => new Date("2026-01-01T00:00:00.000Z");
+		const later = () => new Date("2026-01-02T00:00:00.000Z");
+		try {
+			const claim = await store.claim({ key, payloadHash: "payload", targetHash: "target", ttlMs: 1, now });
+			if (claim.kind !== "new") throw new Error("expected new claim");
+			await store.reconcile({ key, targetHash: "target", expectedRevision: claim.record.claimToken, decision: "retry", reason: "Provider logs confirm no delivery", quiesced: true, now: later });
+			await sql`
+				INSERT INTO listmonk_ops.sequence_idempotency_reconciliations
+					(key, target_hash, payload_hash, previous_status, previous_revision, decision, reason, reconciled_at)
+				SELECT ${prefix} || '-' || value::text, 'target', 'payload', 'unknown', ${randomUUID()}::uuid,
+					'accepted', 'Provider logs confirm delivery', ${later()}
+				FROM generate_series(1, 1000) AS series(value)
+			`;
+			const directKey = `${prefix}-new`;
+			const direct = await store.claim({ key: directKey, payloadHash: "payload", targetHash: "target", now: later });
+			if (direct.kind !== "new") throw new Error("expected new claim");
+			await store.reconcile({ key: directKey, targetHash: "target", expectedRevision: direct.record.claimToken, decision: "accepted", reason: "Provider logs confirm delivery", now: later });
+			const history = (await store.load()).reconciliations ?? [];
+			expect(history.some((decision) => decision.key === key && decision.decision === "retry")).toBe(true);
+			expect(history.filter((decision) => !decision.key.startsWith("sequence:")).length).toBeLessThanOrEqual(1_000);
+		} finally {
+			await sql`DELETE FROM listmonk_ops.sequence_idempotency_reconciliations WHERE key = ${key} OR key LIKE ${prefix + "-%"}`;
+			await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key LIKE ${prefix + "-%"}`;
+			await sql.end({ timeout: 5 });
+		}
+	});
 	postgresTest("routes transactional inspection and recovery to the configured sequence database", async () => {
 		const previous = process.env.LISTMONK_OPS_SEQUENCE_DATABASE_URL;
 		const target = { baseUrl: "http://localhost:9000/api", username: "operator" };

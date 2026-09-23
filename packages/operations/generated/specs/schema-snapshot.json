@@ -1485,13 +1485,13 @@
         "stage": "normalized"
       },
       "policy": {
-        "audit": "optional",
+        "audit": "required",
         "confirmation": "never",
         "dryRun": false
       },
       "retry": {
         "kind": "safe",
-        "reason": "Reads the local idempotency store without changing records or sending mail."
+        "reason": "Inspection may migrate the local claim store, but never sends mail or changes a claim."
       },
       "since": "0.18.0",
       "stability": "stable"

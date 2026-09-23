@@ -49,8 +49,32 @@ export interface TransactionalSendRecord {
 export interface StoredTransactionalDocument {
 	version: 2;
 	records: Record<string, TransactionalSendRecord>;
-	/** Bounded operator decisions, retained independently of send-record TTL. */
+	/** Recent direct-send decisions plus durable sequence recovery decisions. */
 	reconciliations?: TransactionalReconciliationEvent[];
+}
+
+const MAX_DIRECT_RECONCILIATIONS = 1_000;
+
+function isSequenceReconciliationKey(key: string): boolean {
+	return key.startsWith("sequence:");
+}
+
+function retainReconciliationHistory(events: TransactionalReconciliationEvent[]): TransactionalReconciliationEvent[] {
+	const latestSequenceIndexes = new Map<string, number>();
+	let directCount = 0;
+	for (const [index, event] of events.entries()) {
+		if (isSequenceReconciliationKey(event.key)) latestSequenceIndexes.set(event.key, index);
+		else directCount += 1;
+	}
+	let directToDrop = Math.max(0, directCount - MAX_DIRECT_RECONCILIATIONS);
+	return events.filter((event, index) => {
+		if (isSequenceReconciliationKey(event.key)) return latestSequenceIndexes.get(event.key) === index;
+		if (directToDrop > 0) {
+			directToDrop -= 1;
+			return false;
+		}
+		return true;
+	});
 }
 
 export interface TransactionalReconciliationEvent {
@@ -222,8 +246,8 @@ export function parseStoredTransactionalDocument(
 		}
 	}
 	if (value.reconciliations !== undefined && (!Array.isArray(value.reconciliations)
-		|| value.reconciliations.length > 1_000
-		|| value.reconciliations.some((event) => !isReconciliationEvent(event)))) {
+		|| value.reconciliations.some((event) => !isReconciliationEvent(event))
+		|| value.reconciliations.filter((event) => !isSequenceReconciliationKey(event.key)).length > MAX_DIRECT_RECONCILIATIONS)) {
 		throw new Error("Invalid transactional reconciliation history");
 	}
 	return {
@@ -586,7 +610,7 @@ export async function reconcileTransactionalSend(options: TransactionalReconcili
 		};
 		return commitJsonFileStoreUpdate({
 			...swept.document, records: nextRecords,
-			reconciliations: [...(swept.document.reconciliations ?? []), event].slice(-1_000),
+			reconciliations: retainReconciliationHistory([...(swept.document.reconciliations ?? []), event]),
 		}, result);
 	});
 }

@@ -1063,7 +1063,9 @@ listmonk-cli tx reconcile --key ORDER_KEY --expected-revision REVISION \
 필요하며 `--quiesced`도 전달해야 합니다. 배달 확인에 따른 `accepted` 판단은
 메일을 발송하지 않으므로 TTL을 기다리지 않습니다. MCP에서는 `listmonk_reconcile_transactional`에
 `confirm: true`를 전달합니다. 두 경로 모두 조회한 revision과 10~500자 사유가
-필수이며, 저장소는 대상과 revision을 원자적으로 확인하고 판단 이력을 보존합니다.
+필수이며, 저장소는 대상과 revision을 원자적으로 확인합니다. Sequence claim의
+마지막 판단은 늦은 enrollment 복구에도 사용할 수 있도록 보존하고 일반 발송 판단
+이력은 개수를 제한합니다.
 기존 발송이 진행 중일 가능성이 있다면 재시도를 허용하지 마세요.
 `LISTMONK_OPS_SEQUENCE_DATABASE_URL`을 설정하면 직접 transactional 발송,
 조회, 재조정도 sequence PostgreSQL claim 저장소를 사용합니다. Version 3 스키마
@@ -1071,7 +1073,8 @@ listmonk-cli tx reconcile --key ORDER_KEY --expected-revision REVISION \
 
 Sequence 데이터베이스를 사용하지 않을 때 저장소 경로 기본값은
 `<resolved-data-directory>/transactional.json`이며
-`LISTMONK_OPS_TRANSACTIONAL_STORE`로 재정의할 수 있습니다. Version 1 파일은
+`LISTMONK_OPS_TRANSACTIONAL_STORE`로 재정의할 수 있습니다. 첫 조회에서
+저장소를 생성하거나 마이그레이션할 수 있습니다. Version 1 파일은
 다음 저장소 접근에서 version 2로 이전됩니다. 이전 바이너리는 version 2를
 거부하므로 미확정 claim이나 판단 이력을 조용히 삭제하지 않습니다.
 

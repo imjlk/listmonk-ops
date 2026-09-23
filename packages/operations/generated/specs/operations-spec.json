@@ -2050,16 +2050,17 @@
           "stage": "normalized"
         }
       },
-      "description": "Inspect redacted idempotency records for the selected Listmonk target.",
+      "description": "Inspect redacted idempotency records for the selected Listmonk target; may initialize or migrate the claim store.",
       "effects": [
         {
-          "kind": "read",
-          "resource": "message"
+          "kind": "write",
+          "resource": "message",
+          "reversible": true
         }
       ],
       "id": "transactional.list",
       "policy": {
-        "audit": "optional",
+        "audit": "required",
         "confirmation": "never",
         "dryRun": false
       },
@@ -2077,7 +2078,7 @@
       "resource": "message",
       "retry": {
         "kind": "safe",
-        "reason": "Reads the local idempotency store without changing records or sending mail."
+        "reason": "Inspection may migrate the local claim store, but never sends mail or changes a claim."
       },
       "since": "0.18.0",
       "stability": "stable",

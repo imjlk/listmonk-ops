@@ -677,9 +677,18 @@ function createPostgresTransactionalIdempotencyStore(
 				`;
 				await transaction`
 					DELETE FROM listmonk_ops.sequence_idempotency_reconciliations
-					WHERE id NOT IN (
-						SELECT id FROM listmonk_ops.sequence_idempotency_reconciliations
-						ORDER BY id DESC LIMIT 1000
+					WHERE id IN (
+						SELECT id FROM (
+							SELECT id, row_number() OVER (ORDER BY id DESC) AS ordinal
+							FROM listmonk_ops.sequence_idempotency_reconciliations
+							WHERE key NOT LIKE 'sequence:%'
+						) AS direct_decisions WHERE ordinal > 1000
+						UNION ALL
+						SELECT id FROM (
+							SELECT id, row_number() OVER (PARTITION BY key ORDER BY id DESC) AS ordinal
+							FROM listmonk_ops.sequence_idempotency_reconciliations
+							WHERE key LIKE 'sequence:%'
+						) AS sequence_decisions WHERE ordinal > 1
 					)
 				`;
 				return { key: options.key, decision: options.decision, reconciledAt: now.toISOString(), ...(revision ? { revision } : {}) };
