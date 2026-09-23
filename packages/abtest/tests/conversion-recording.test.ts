@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,7 +15,7 @@ import { loadStoredAbTests, saveStoredAbTests } from "../src/persistence";
 import type { AbTest } from "../src/types";
 
 const launchedAt = "2026-08-01T00:00:00.000Z";
-const SUBSCRIBER_UUID = "00000000-0000-4000-8000-000000000001";
+const SUBSCRIBER_UUID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1";
 const OTHER_UUID = "00000000-0000-4000-8000-000000000002";
 
 function makeTest(): AbTest {
@@ -67,6 +67,18 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
 }
 
 describe("A/B conversion recording", () => {
+	let previousConversionStore: string | undefined;
+	beforeEach(() => {
+		previousConversionStore = process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE;
+		delete process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE;
+	});
+	afterEach(() => {
+		if (previousConversionStore === undefined) {
+			delete process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE;
+		} else {
+			process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE = previousConversionStore;
+		}
+	});
 	it("publishes and enforces the value/currency pairing", () => {
 		expect(recordAbTestConversionOperation.inputJsonSchema.dependentRequired).toEqual({
 			value: ["currency"], currency: ["value"],
@@ -100,7 +112,7 @@ describe("A/B conversion recording", () => {
 					event_id: ` ${event.eventId} `,
 					test_id: event.testId,
 					variant_id: event.variantId,
-					subscriber_uuid: event.subscriberUuid,
+					subscriber_uuid: event.subscriberUuid.toUpperCase(),
 					event: event.event,
 					value: event.value,
 					currency: event.currency,
@@ -109,9 +121,11 @@ describe("A/B conversion recording", () => {
 			);
 			expect(recorded).toEqual({ status: "created", event_id: "purchase-1", test_id: "test-1" });
 			expect(await recordAbTestConversion(client, event, storePath)).toBe("duplicate");
-			expect(subscriberQueries).toEqual([{
+			expect(subscriberQueries).toHaveLength(1);
+			expect(subscriberQueries[0]).toMatchObject({
 				query: { list_id: [20], query: `uuid = '${SUBSCRIBER_UUID}'`, page: 1, per_page: 2 },
-			}]);
+				signal: expect.any(AbortSignal),
+			});
 			await expect(recordAbTestConversion(client, makeEvent({ event: "signup" }), storePath)).rejects.toThrow("different conversion");
 			await expect(recordAbTestConversion(client, makeEvent({ eventId: "late", occurredAt: "2026-08-03T00:00:00.000Z" }), storePath)).rejects.toThrow("attribution window");
 			await expect(recordAbTestConversion(client, makeEvent({ eventId: "future", occurredAt: "2099-01-01T00:00:00.000Z" }), storePath)).rejects.toThrow("future");

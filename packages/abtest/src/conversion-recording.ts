@@ -11,6 +11,7 @@ import type { AbTest } from "./types";
 
 const DEFAULT_ATTRIBUTION_WINDOW_HOURS = 72;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const ASSIGNMENT_LOOKUP_TIMEOUT_MS = 30_000;
 export const SUBSCRIBER_UUID_PATTERN = /^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/;
 
 async function verifyVariantAssignment(
@@ -23,14 +24,29 @@ async function verifyVariantAssignment(
 	}
 	// Listmonk 6.2 accepts a SQL expression alongside list_id. The UUID
 	// pattern limits this expression to hexadecimal digits and hyphens.
-	const response = await client.subscriber.list({
-		query: {
-			list_id: [listId],
-			query: `uuid = '${subscriberUuid}'`,
-			page: 1,
-			per_page: 2,
-		},
-	});
+	const controller = new AbortController();
+	const timeout = setTimeout(
+		() => controller.abort(),
+		ASSIGNMENT_LOOKUP_TIMEOUT_MS,
+	);
+	let response: Awaited<ReturnType<typeof client.subscriber.list>>;
+	try {
+		response = await client.subscriber.list({
+			query: {
+				list_id: [listId],
+				query: `uuid = '${subscriberUuid}'`,
+				page: 1,
+				per_page: 2,
+			},
+			signal: controller.signal,
+		} as Parameters<typeof client.subscriber.list>[0] & { signal: AbortSignal });
+	} catch (error) {
+		throw new ConversionEventValidationError(
+			`Cannot verify variant assignment: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	} finally {
+		clearTimeout(timeout);
+	}
 	if ("error" in response && response.error !== undefined) {
 		throw new ConversionEventValidationError(
 			`Cannot verify variant assignment: ${String(response.error)}`,
@@ -87,12 +103,18 @@ export async function recordAbTestConversion(
 	input: ConversionEventInput,
 	storePath?: string,
 ): Promise<"created" | "duplicate"> {
-	validateConversionEvent(input);
+	const normalizedInput = {
+		...input,
+		subscriberUuid: typeof input.subscriberUuid === "string"
+			? input.subscriberUuid.toLowerCase()
+			: input.subscriberUuid,
+	};
+	validateConversionEvent(normalizedInput);
 	const conversionStore = new JsonFileConversionEventStore(
 		resolveConversionStorePath(storePath),
 	);
-	if (await conversionStore.hasEventId(input.eventId)) {
-		return conversionStore.record(input);
+	if (await conversionStore.hasEventId(normalizedInput.eventId)) {
+		return conversionStore.record(normalizedInput);
 	}
 	// The A/B lock fences delete and lifecycle transitions while the remote
 	// point lookup and conversion append run. Lock order is A/B then conversion.
@@ -100,30 +122,30 @@ export async function recordAbTestConversion(
 		client,
 		{ mode: "write", storePath },
 		async (executors) => {
-			if (await conversionStore.hasEventId(input.eventId)) {
-				return conversionStore.record(input);
+			if (await conversionStore.hasEventId(normalizedInput.eventId)) {
+				return conversionStore.record(normalizedInput);
 			}
-			const test = await executors.abTestService.getTest(input.testId);
+			const test = await executors.abTestService.getTest(normalizedInput.testId);
 			if (!test || test.pendingCreate) {
 				throw new ConversionEventValidationError(
-					`A/B test ${input.testId} is not provisioned`,
+					`A/B test ${normalizedInput.testId} is not provisioned`,
 				);
 			}
 			const mapping = test.testListMappings.find(
-				(candidate) => candidate.variantId === input.variantId,
+				(candidate) => candidate.variantId === normalizedInput.variantId,
 			);
 			if (!mapping) {
 				throw new ConversionEventValidationError(
-					`variant ${input.variantId} has no assignment list in test ${input.testId}`,
+					`variant ${normalizedInput.variantId} has no assignment list in test ${normalizedInput.testId}`,
 				);
 			}
-			assertAttributionWindow(test, input.occurredAt);
-			if (!await verifyVariantAssignment(client, mapping.listId, input.subscriberUuid)) {
+			assertAttributionWindow(test, normalizedInput.occurredAt);
+			if (!await verifyVariantAssignment(client, mapping.listId, normalizedInput.subscriberUuid)) {
 				throw new ConversionEventValidationError(
-					`subscriber ${input.subscriberUuid} is not assigned to variant ${input.variantId}`,
+					`subscriber ${normalizedInput.subscriberUuid} is not assigned to variant ${normalizedInput.variantId}`,
 				);
 			}
-			return conversionStore.record(input);
+			return conversionStore.record(normalizedInput);
 		},
 	);
 }

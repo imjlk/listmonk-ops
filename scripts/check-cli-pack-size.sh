@@ -5,9 +5,9 @@ set -euo pipefail
 # the single-file CLI bundle. Keep modest headroom above the reviewed baseline
 # while retaining the stricter compressed distribution budget below. Each
 # standalone contract migration adds a few KB of generated JSON.
-# A/B conversion operation baseline: 1,932,131 bytes unpacked.
+# A/B conversion operation baseline: 1,932,450 bytes unpacked.
 MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1934000}"
-# The same bundle measures 319,961 bytes compressed.
+# The same bundle measures 320,028 bytes compressed.
 MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-321000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"
