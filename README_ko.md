@@ -1055,8 +1055,9 @@ listmonk-cli tx reconcile --key ORDER_KEY --expected-revision REVISION \
 
 배달되지 않았음을 확실히 확인했다면 `--decision retry`를 사용합니다. 이 명령은
 차단 기록만 제거하며 메일을 보내지 않습니다. 이후 같은 키로 명시적으로 다시
-발송할 수 있습니다. 재시도 결정이나 `pending` 기록에 대한 판단은 TTL 경과와
-기존 발송자 중지 확인을 요구하며 `--quiesced`도 필요합니다. MCP에서는 `listmonk_reconcile_transactional`에
+발송할 수 있습니다. 재시도 결정에는 TTL 경과와 기존 발송자 중지 확인이
+필요하며 `--quiesced`도 전달해야 합니다. 배달 확인에 따른 `accepted` 판단은
+메일을 발송하지 않으므로 TTL을 기다리지 않습니다. MCP에서는 `listmonk_reconcile_transactional`에
 `confirm: true`를 전달합니다. 두 경로 모두 조회한 revision과 10~500자 사유가
 필수이며, 저장소는 대상과 revision을 원자적으로 확인하고 판단 이력을 보존합니다.
 기존 발송이 진행 중일 가능성이 있다면 재시도를 허용하지 마세요.

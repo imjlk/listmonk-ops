@@ -1115,9 +1115,9 @@ listmonk-cli tx reconcile --key ORDER_KEY --expected-revision REVISION \
 
 If delivery definitely did not occur, choose `--decision retry` instead. This
 only removes the blocking claim; it does not send mail. The next explicit send
-with the same key can dispatch. Any retry decision, and any decision on a
-`pending` claim, requires its TTL to have passed and `--quiesced` after the
-sender has stopped. The MCP equivalent is
+with the same key can dispatch. A retry decision requires its TTL to have
+passed and `--quiesced` after the sender has stopped. A verified `accepted`
+decision does not wait for TTL because it cannot dispatch mail. The MCP equivalent is
 `listmonk_reconcile_transactional` with `confirm: true`. Both surfaces require
 the observed revision and a 10–500 character reason; the store atomically
 checks the target and revision and retains a bounded decision history. Never

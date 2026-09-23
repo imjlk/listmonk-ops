@@ -108,8 +108,17 @@ describe("transactional idempotency file-backed store", () => {
 		expect(result.decision).toBe("accepted");
 		const stored = await loadStoredTransactionalDocument(storePath);
 		expect(stored.records[key]).toMatchObject({ status: "accepted", sent: true, claimToken: result.revision });
-		expect(stored.reconciliations?.at(-1)).toMatchObject({ key, decision: "accepted", reason: "Confirmed delivery in Mailpit" });
+		expect(stored.reconciliations?.at(-1)).toMatchObject({ key, decision: "accepted", reason: "Confirmed delivery in Mailpit", previousStatus: "unknown", previousRevision: claim.record.claimToken, payloadHash: claim.record.payloadHash });
 		await expect(reconcileTransactionalSend(args)).rejects.toThrow("changed");
+	});
+
+	test("records verified delivery immediately for a pending claim and fences its later commit", async () => {
+		const key = "verified-pending";
+		const claim = await claimTransactionalSend({ storePath, key, payloadHash: hashPayload(makePayload()), targetHash: DEFAULT_TARGET_HASH, now: fixedClock });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await reconcileTransactionalSend({ storePath, key, targetHash: DEFAULT_TARGET_HASH, expectedRevision: claim.record.claimToken, decision: "accepted", reason: "Verified delivered in provider logs", now: fixedClock });
+		await commitTransactionalSend({ storePath, key, claimToken: claim.record.claimToken, status: "failed", sent: false, now: fixedClock });
+		expect((await loadStoredTransactionalDocument(storePath)).records[key]).toMatchObject({ status: "accepted", sent: true });
 	});
 
 	test("requires an expired, quiesced pending claim before explicitly permitting a retry", async () => {

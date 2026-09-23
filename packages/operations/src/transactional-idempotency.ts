@@ -62,6 +62,9 @@ export interface StoredTransactionalDocument {
 	reconciliations?: Array<{
 		key: string;
 		targetHash: string;
+		payloadHash: string;
+		previousStatus: "pending" | "unknown";
+		previousRevision: string;
 		decision: "accepted" | "retry";
 		reason: string;
 		reconciledAt: string;
@@ -269,6 +272,9 @@ function isReconciliationEvent(value: unknown): boolean {
 	return isRecordValue(value)
 		&& typeof value.key === "string" && value.key.length > 0
 		&& typeof value.targetHash === "string" && value.targetHash.length > 0
+		&& typeof value.payloadHash === "string" && value.payloadHash.length > 0
+		&& (value.previousStatus === "pending" || value.previousStatus === "unknown")
+		&& typeof value.previousRevision === "string" && value.previousRevision.length > 0
 		&& (value.decision === "accepted" || value.decision === "retry")
 		&& typeof value.reason === "string" && value.reason.trim().length >= 10 && value.reason.length <= 500
 		&& !/[\u0000-\u001f\u007f]/u.test(value.reason)

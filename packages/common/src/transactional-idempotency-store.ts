@@ -55,6 +55,9 @@ export interface StoredTransactionalDocument {
 export interface TransactionalReconciliationEvent {
 	key: string;
 	targetHash: string;
+	payloadHash: string;
+	previousStatus: "pending" | "unknown";
+	previousRevision: string;
 	decision: "accepted" | "retry";
 	reason: string;
 	reconciledAt: string;
@@ -103,7 +106,7 @@ export interface TransactionalReconciliationOptions {
 	expectedRevision: string;
 	decision: "accepted" | "retry";
 	reason: string;
-	/** Required for retry or pending decisions after TTL; confirms the sender stopped. */
+	/** Required for retry decisions after TTL; confirms the sender stopped. */
 	quiesced?: boolean;
 	now?: () => Date;
 }
@@ -141,6 +144,9 @@ function isReconciliationEvent(value: unknown): value is TransactionalReconcilia
 	return isRecordValue(value)
 		&& typeof value.key === "string" && value.key.length > 0
 		&& typeof value.targetHash === "string" && value.targetHash.length > 0
+		&& typeof value.payloadHash === "string" && value.payloadHash.length > 0
+		&& (value.previousStatus === "pending" || value.previousStatus === "unknown")
+		&& typeof value.previousRevision === "string" && value.previousRevision.length > 0
 		&& (value.decision === "accepted" || value.decision === "retry")
 		&& typeof value.reason === "string" && value.reason.trim().length >= 10 && value.reason.length <= 500
 		&& !/[\u0000-\u001f\u007f]/u.test(value.reason)
@@ -522,7 +528,7 @@ export async function reconcileTransactionalSend(options: TransactionalReconcili
 		if (!existing || existing.targetHash !== options.targetHash) throw new Error("Transactional record not found for this Listmonk target");
 		if (existing.claimToken !== options.expectedRevision) throw new Error("Transactional record changed; inspect it again before reconciling");
 		if (existing.status !== "pending" && existing.status !== "unknown") throw new Error("Only pending or unknown transactional records can be reconciled");
-		if ((existing.status === "pending" || options.decision === "retry") && (new Date(existing.expiresAt).getTime() >= now.getTime() || options.quiesced !== true)) {
+		if (options.decision === "retry" && (new Date(existing.expiresAt).getTime() >= now.getTime() || options.quiesced !== true)) {
 			throw new Error("Dispatch may still be active; wait past its TTL and attest that its sender has stopped");
 		}
 		const nextRecords = copyRecords(swept.document.records);
@@ -542,6 +548,7 @@ export async function reconcileTransactionalSend(options: TransactionalReconcili
 		}
 		const event: TransactionalReconciliationEvent = {
 			key: options.key, targetHash: options.targetHash, decision: options.decision,
+			payloadHash: existing.payloadHash, previousStatus: existing.status, previousRevision: existing.claimToken,
 			reason: options.reason, reconciledAt: now.toISOString(),
 		};
 		return commitJsonFileStoreUpdate({

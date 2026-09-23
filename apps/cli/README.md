@@ -67,9 +67,9 @@ guide for the JSON format, precedence, path resolution, and rotation behavior.
 `tx records --format json` inspects redacted, target-bound transactional send
 records. `tx reconcile --key KEY --expected-revision REVISION --decision
 accepted|retry --reason TEXT --confirm` records a verified operator decision.
-The `retry` decision only unblocks a later explicit send. A retry decision or
-any `pending` decision also requires elapsed TTL and `--quiesced` after stopping
-the sender.
+The `retry` decision only unblocks a later explicit send and requires elapsed
+TTL plus `--quiesced` after stopping the sender. A verified `accepted` decision
+does not wait for TTL because it never dispatches mail.
 
 Shared operations with `confirmationRequired: true` need the global
 `--confirm` flag, for example `listmonk-cli lists delete --id 10 --confirm`.
