@@ -1281,6 +1281,18 @@ Get a specific A/B test by ID
 - Retry: `safe`
 - Stability: `stable` since `0.10.0`
 
+## `abtest.conversion.record`
+
+Record one attributed conversion event for a test variant and subscriber
+
+- Resource / verb: `experiment.record`
+- MCP tool: `listmonk_abtest_conversion_record`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:experiment`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.18.0`
+
 ## `abtest.create`
 
 Create a new A/B test with variants and configuration

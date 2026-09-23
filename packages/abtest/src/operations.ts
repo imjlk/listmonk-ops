@@ -12,6 +12,7 @@ import {
 import {
 	bindAbTestAnalyzeOperationSpec,
 	bindAbTestCreateOperationSpec,
+	bindAbTestConversionRecordOperationSpec,
 	bindAbTestDeleteOperationSpec,
 	bindAbTestDeployWinnerOperationSpec,
 	bindAbTestExportAssignmentOperationSpec,
@@ -28,6 +29,11 @@ import { z } from "zod";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError } from "./errors";
 import { withStoredAbTestExecutors } from "./persistence";
+import { getAbTestAttributionDeadline } from "./conversion-events";
+import {
+	recordAbTestConversion,
+	SUBSCRIBER_UUID_PATTERN,
+} from "./conversion-recording";
 import type {
 	AbTest,
 	AbTestConfig,
@@ -263,6 +269,7 @@ const testResultsSchema = z.object({
 	clicks: z.number().finite().nonnegative(),
 	conversions: z.number().finite().nonnegative(),
 	revenue: z.number().finite().optional(),
+	currency: z.string().regex(/^[A-Z]{3}$/).optional(),
 	openRate: z.number().finite().nonnegative(),
 	clickRate: z.number().finite().nonnegative(),
 	conversionRate: z.number().finite().nonnegative(),
@@ -494,6 +501,7 @@ export type AbTestOperationRecord = z.output<typeof abTestSchema>;
 export type TestAnalysisOperationRecord = z.output<typeof testAnalysisSchema>;
 export type ListAbTestsOperationOutput = { tests: AbTestOperationRecord[] };
 export type GetAbTestOperationOutput = { test: AbTestOperationRecord };
+export type RecordAbTestConversionOperationOutput = { status: "created" | "duplicate"; event_id: string; test_id: string };
 export type CreateAbTestOperationOutput = {
 	test: AbTestOperationRecord;
 	created: boolean;
@@ -622,6 +630,50 @@ export async function executeGetAbTestOperation(
 			),
 		),
 	};
+}
+
+const recordAbTestConversionInputObjectSchema = z.object({
+	event_id: z.string().trim().min(1),
+	test_id: z.string().trim().min(1),
+	variant_id: z.string().trim().min(1),
+	subscriber_uuid: z.string().regex(SUBSCRIBER_UUID_PATTERN),
+	event: z.string().trim().min(1),
+	value: z.number().finite().nonnegative().optional(),
+	currency: z.string().regex(/^[A-Z]{3}$/).optional(),
+	occurred_at: z.string().datetime({ offset: true }),
+});
+
+const recordAbTestConversionInputSchema = recordAbTestConversionInputObjectSchema.superRefine(
+	(input, context) => {
+		if ((input.value === undefined) !== (input.currency === undefined)) {
+			context.addIssue({
+				code: "custom",
+				path: ["currency"],
+				message: "value and currency must be provided together",
+			});
+		}
+	},
+);
+
+export async function executeRecordAbTestConversionOperation(
+	context: AbTestOperationContext,
+	input: z.output<typeof recordAbTestConversionInputSchema>,
+): Promise<RecordAbTestConversionOperationOutput> {
+	const status = await recordAbTestConversion(
+		context.client,
+		{
+			eventId: input.event_id,
+			testId: input.test_id,
+			variantId: input.variant_id,
+			subscriberUuid: input.subscriber_uuid,
+			event: input.event,
+			value: input.value,
+			currency: input.currency,
+			occurredAt: input.occurred_at,
+		},
+		context.storePath,
+	);
+	return { status, event_id: input.event_id, test_id: input.test_id };
 }
 
 // Identical create requests derive the same replay key, so an ambiguous
@@ -870,10 +922,13 @@ function isDueAtTickTime(
 			);
 		case "running":
 			return (
-				test.endsAt !== undefined && now >= new Date(test.endsAt).getTime()
+				test.endsAt !== undefined &&
+				now >= (getAbTestAttributionDeadline(test) ?? Number.POSITIVE_INFINITY)
 			);
-		case "analyzing":
-			return true;
+		case "analyzing": {
+			const deadline = getAbTestAttributionDeadline(test);
+			return !test.hypothesis || deadline === undefined || now >= deadline;
+		}
 		default:
 			return false;
 	}
@@ -1025,13 +1080,6 @@ const createSafety = {
 	openWorldHint: true,
 } as const;
 
-const mutationSafety = {
-	readOnlyHint: false,
-	destructiveHint: false,
-	idempotentHint: true,
-	openWorldHint: true,
-} as const;
-
 const destructiveSafety = {
 	readOnlyHint: false,
 	destructiveHint: true,
@@ -1072,6 +1120,26 @@ export const getAbTestOperation = defineOperation({
 	},
 	spec: bindAbTestGetOperationSpec(),
 	execute: executeGetAbTestOperation,
+});
+
+export const recordAbTestConversionOperation = defineOperation({
+	id: "abtest.conversion.record",
+	title: "Record A/B test conversion",
+	description: "Record one attributed conversion event for a test variant and subscriber",
+	inputSchema: recordAbTestConversionInputSchema,
+	inputDependentRequired: { value: ["currency"], currency: ["value"] },
+	outputSchema: z.object({
+		status: z.enum(["created", "duplicate"]),
+		event_id: z.string(),
+		test_id: z.string(),
+	}),
+	safety: destructiveSafety,
+	mcp: {
+		name: "listmonk_abtest_conversion_record",
+		legacySuccessText: (output) => jsonValue(output),
+	},
+	spec: bindAbTestConversionRecordOperationSpec(),
+	execute: executeRecordAbTestConversionOperation,
 });
 
 export const createAbTestOperation = defineOperation({
@@ -1289,6 +1357,7 @@ export const exportAbTestAssignmentOperation = defineOperation({
 export const abTestOperations = [
 	listAbTestsOperation,
 	getAbTestOperation,
+	recordAbTestConversionOperation,
 	createAbTestOperation,
 	analyzeAbTestOperation,
 	launchAbTestOperation,
@@ -1361,6 +1430,19 @@ export async function invokeGetAbTestOperation(
 		.catch((error) => {
 			throw normalizeOperationExecutionError(getAbTestOperation.id, error);
 		});
+}
+
+export async function invokeRecordAbTestConversionOperation(
+	context: AbTestOperationContext,
+	input: unknown,
+): Promise<RecordAbTestConversionOperationOutput> {
+	const parsedInput = parseOperationInput(
+		recordAbTestConversionOperation.inputSchema,
+		input,
+	);
+	return executeRecordAbTestConversionOperation(context, parsedInput)
+		.then((output) => parseOperationOutput(recordAbTestConversionOperation.id, recordAbTestConversionOperation.outputSchema, output))
+		.catch((error) => { throw normalizeOperationExecutionError(recordAbTestConversionOperation.id, error); });
 }
 
 export async function invokeCreateAbTestOperation(
@@ -1609,6 +1691,7 @@ export async function invokeExportAbTestAssignmentOperation(
 export type AbTestOperationInvocation =
 	| { operation: typeof listAbTestsOperation; output: ListAbTestsOperationOutput }
 	| { operation: typeof getAbTestOperation; output: GetAbTestOperationOutput }
+	| { operation: typeof recordAbTestConversionOperation; output: RecordAbTestConversionOperationOutput }
 	| {
 			operation: typeof createAbTestOperation;
 			output: CreateAbTestOperationOutput;
@@ -1653,6 +1736,11 @@ export async function invokeAbTestOperationByMcpName(
 			return {
 				operation: getAbTestOperation,
 				output: await invokeGetAbTestOperation(context, input),
+			};
+		case recordAbTestConversionOperation.mcp.name:
+			return {
+				operation: recordAbTestConversionOperation,
+				output: await invokeRecordAbTestConversionOperation(context, input),
 			};
 		case createAbTestOperation.mcp.name:
 			return {

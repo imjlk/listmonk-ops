@@ -145,6 +145,26 @@ export interface AbTestIdInput {
 	test_id: NonEmptyString;
 }
 
+interface AbTestConversionRecordBaseInput {
+	event_id: NonEmptyString;
+	test_id: NonEmptyString;
+	variant_id: NonEmptyString;
+	subscriber_uuid: string & tags.Format<"uuid">;
+	event: NonEmptyString;
+	occurred_at: IsoDateTime;
+}
+
+export type AbTestConversionRecordInput = AbTestConversionRecordBaseInput & (
+	| { value: number & tags.Type<"float"> & tags.Minimum<0>; currency: string & tags.Pattern<"^[A-Z]{3}$"> }
+	| { value?: never; currency?: never }
+);
+
+export interface AbTestConversionRecordOutput {
+	status: "created" | "duplicate";
+	event_id: string;
+	test_id: string;
+}
+
 export interface AbTestCreateVariantInput {
 	name: NonEmptyString;
 	percentage: number & tags.Type<"float"> & tags.Minimum<0> & tags.Maximum<100>;
@@ -291,6 +311,7 @@ export interface AbTestTestResults {
 	clicks: number;
 	conversions: number;
 	revenue?: number;
+	currency?: string;
 	openRate: number;
 	clickRate: number;
 	conversionRate: number;

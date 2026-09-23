@@ -90,6 +90,7 @@ import {
 import {
 	abTestListOperationSpec,
 	abTestGetOperationSpec,
+	abTestConversionRecordOperationSpec,
 	abTestCreateOperationSpec,
 	abTestAnalyzeOperationSpec,
 	abTestLaunchOperationSpec,
@@ -146,6 +147,7 @@ export const standaloneOperationSpecs = [
 	opsTemplateRegistryRollbackOperationSpec,
 	abTestListOperationSpec,
 	abTestGetOperationSpec,
+	abTestConversionRecordOperationSpec,
 	abTestCreateOperationSpec,
 	abTestAnalyzeOperationSpec,
 	abTestLaunchOperationSpec,

@@ -86,10 +86,11 @@ afterEach(async () => {
 
 describe("A/B test operation registry", () => {
 	test("publishes all lifecycle tools with object schemas and safety metadata", () => {
-		expect(abTestOperations).toHaveLength(13);
+		expect(abTestOperations).toHaveLength(14);
 		expect(abTestOperations.map((operation) => operation.mcp.name)).toEqual([
 			"listmonk_abtest_list",
 			"listmonk_abtest_get",
+			"listmonk_abtest_conversion_record",
 			"listmonk_abtest_create",
 			"listmonk_abtest_analyze",
 			"listmonk_abtest_launch",

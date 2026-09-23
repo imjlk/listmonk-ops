@@ -12,6 +12,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { AbTestNotFoundError } from "./errors";
 export { AbTestConflictError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
+import { resolveConversionStorePath } from "./conversion-events";
 import { isStrictIsoTimestamp, verifyHypothesisChecksum } from "./hypothesis";
 import type { AbTest } from "./types";
 
@@ -792,8 +793,12 @@ export async function saveStoredAbTests(
 function createHydratedExecutors(
 	client: ListmonkClient,
 	tests: AbTest[],
+	storePath?: string,
 ): AbTestExecutors {
-	const executors = createAbTestExecutors(client);
+	const executors = createAbTestExecutors(
+		client,
+		resolveConversionStorePath(storePath),
+	);
 	executors.abTestService.hydrateTests(tests);
 	return executors;
 }
@@ -806,14 +811,20 @@ export async function withStoredAbTestExecutors<Result>(
 	const store = createAbTestStore(options.storePath);
 	if (options.mode === "read") {
 		const persisted = await readJsonFileStore(store);
-		return action(createHydratedExecutors(client, persisted.tests));
+		return action(
+			createHydratedExecutors(client, persisted.tests, options.storePath),
+		);
 	}
 
 	let actionStarted = false;
 	let actionCompleted = false;
 	try {
 		return await updateJsonFileStore(store, async (persisted) => {
-			const executors = createHydratedExecutors(client, persisted.tests);
+			const executors = createHydratedExecutors(
+				client,
+				persisted.tests,
+				options.storePath,
+			);
 			actionStarted = true;
 			const result = await action(executors);
 			actionCompleted = true;

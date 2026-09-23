@@ -166,7 +166,7 @@ export function buildExperimentReport(
 				}
 			: undefined,
 		preRegistration,
-		revenueCurrency: undefined,
+		revenueCurrency: results.find((result) => result.currency)?.currency,
 	};
 }
 

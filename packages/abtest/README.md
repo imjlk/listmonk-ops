@@ -107,6 +107,20 @@ Direct `loadStoredAbTests` reads hydrate persisted timestamps back to `Date`
 objects. Remote lifecycle writes allow up to two minutes for another process's
 transaction lock before timing out.
 
+Conversions are recorded with the shared CLI `abtest record-conversion` command
+or MCP `listmonk_abtest_conversion_record` tool. The transactional SQLite conversion journal
+defaults to `~/.listmonk-ops/abtest-conversions.sqlite`; override it with
+`LISTMONK_OPS_ABTEST_CONVERSION_STORE`. A caller supplies an event ID, test and
+variant IDs, subscriber UUID, event name, ISO occurrence time, and optional
+non-negative value plus currency. Recording checks the launched test's end
+plus attribution window, requires ingestion before that deadline, and checks current variant-list membership with one filtered
+Listmonk lookup. Identical event-ID
+retries are deduplicated; conflicting reuse is rejected. Analysis uses the
+number of unique converting subscribers as `conversions` and sums values as
+`revenue`. Recording is append-only and requires CLI `--confirm` or MCP
+`confirm: true`. Automated run/tick waits until the attribution tail closes
+before analysis or winner deployment. Retain variant lists until that time.
+
 If a remote mutation fails, local state is not committed but Listmonk may
 contain partial resources. If the local commit fails after the remote action,
 the local state is unconfirmed. The raised `AbTestWriteTransactionError`

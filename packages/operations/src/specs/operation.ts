@@ -18,6 +18,7 @@ export type OperationSpecVerb =
 	| "list"
 	| "get"
 	| "create"
+	| "record"
 	| "update"
 	| "delete"
 	| "schedule"

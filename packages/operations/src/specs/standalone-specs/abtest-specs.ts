@@ -3,6 +3,8 @@ import {
 	abTestListInputContract,
 	abTestListOutputContract,
 	abTestIdInputContract,
+	abTestConversionRecordInputContract,
+	abTestConversionRecordOutputContract,
 	abTestGetOutputContract,
 	abTestCreateInputContract,
 	abTestCreateOutputContract,
@@ -91,6 +93,47 @@ export const abTestGetOperationSpec = defineOperationSpec({
 	},
 	stability: "stable",
 	since: "0.10.0",
+});
+
+export const abTestConversionRecordOperationSpec = defineOperationSpec({
+	id: "abtest.conversion.record",
+	resource: "experiment",
+	verb: "record",
+	title: "Record A/B test conversion",
+	description: "Record one attributed conversion event for a test variant and subscriber",
+	contract: {
+		input: abTestConversionRecordInputContract,
+		output: abTestConversionRecordOutputContract,
+	},
+	effects: [{ kind: "write", resource: "experiment", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason: "The event ID deduplicates identical retries and rejects conflicting payloads.",
+	},
+	agent: {
+		useWhen: [
+			"An external signup or purchase must be attributed to an A/B test variant.",
+		],
+		avoidWhen: ["The subscriber assignment or event ID is unknown."],
+		prerequisites: ["abtest.get"],
+		verifyWith: ["abtest.analyze"],
+		related: ["abtest.analyze"],
+		retryGuidance: "Retry an identical event ID and payload; inspect a conflict before using a new ID.",
+	},
+	projection: {
+		mcpName: "listmonk_abtest_conversion_record",
+		openWorld: true,
+		graph: {
+			descriptorNode: "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestConversionRecordOperationSpec:variable",
+			bindingNode: "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestConversionRecordOperationSpec:function",
+			runtimeDefinitionNode: "packages/abtest/src/operations.ts#recordAbTestConversionOperation:variable",
+			invokerNode: "packages/abtest/src/operations.ts#invokeRecordAbTestConversionOperation:function",
+			executorNode: "packages/abtest/src/operations.ts#executeRecordAbTestConversionOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.18.0",
 });
 
 export const abTestCreateOperationSpec = defineOperationSpec({
@@ -677,6 +720,10 @@ export function bindAbTestListOperationSpec(): typeof abTestListOperationSpec {
 
 export function bindAbTestGetOperationSpec(): typeof abTestGetOperationSpec {
 	return abTestGetOperationSpec;
+}
+
+export function bindAbTestConversionRecordOperationSpec(): typeof abTestConversionRecordOperationSpec {
+	return abTestConversionRecordOperationSpec;
 }
 
 export function bindAbTestCreateOperationSpec(): typeof abTestCreateOperationSpec {

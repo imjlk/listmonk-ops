@@ -7,6 +7,7 @@ import {
 	type DeployAbTestWinnerOperationOutput,
 	type ExportAbTestAssignmentOperationOutput,
 	type GetAbTestOperationOutput,
+	type RecordAbTestConversionOperationOutput,
 	type LaunchAbTestOperationOutput,
 	type ListAbTestsOperationOutput,
 	type ReconcileAbTestOperationOutput,
@@ -20,6 +21,7 @@ import {
 	invokeDeployAbTestWinnerOperation,
 	invokeExportAbTestAssignmentOperation,
 	invokeGetAbTestOperation,
+	invokeRecordAbTestConversionOperation,
 	invokeLaunchAbTestOperation,
 	invokeListAbTestsOperation,
 	invokeReconcileAbTestOperation,
@@ -256,6 +258,14 @@ async function invokeCliGetAbTest(
 ): Promise<GetAbTestOperationOutput> {
 	const client = await getListmonkClient(args);
 	return invokeGetAbTestOperation({ client }, input);
+}
+
+async function invokeCliRecordAbTestConversion(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<RecordAbTestConversionOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeRecordAbTestConversionOperation({ client }, input);
 }
 
 async function invokeCliCreateAbTest(
@@ -646,6 +656,34 @@ export default defineGroup({
 	description: "A/B test operations",
 	commands: [
 		defineCommand({
+			name: "record-conversion",
+			operationId: "abtest.conversion.record",
+			description: "Record an attributed A/B test conversion event",
+			options: {
+				"event-id": option(z.string().trim().min(1), { description: "Unique event ID for idempotent retries" }),
+				"test-id": option(z.string().trim().min(1), { description: "A/B test ID" }),
+				"variant-id": option(z.string().trim().min(1), { description: "Assigned variant ID" }),
+				"subscriber-uuid": option(z.string().trim().min(1), { description: "Assigned subscriber UUID" }),
+				event: option(z.string().trim().min(1), { description: "Event name, such as purchase" }),
+				value: option(z.coerce.number().finite().nonnegative().optional(), { description: "Optional monetary value" }),
+				currency: option(z.string().trim().min(1).optional(), { description: "ISO 4217 currency when value is provided" }),
+				"occurred-at": option(z.string().datetime({ offset: true }), { description: "Event ISO timestamp" }),
+			},
+			handler: async ({ flags, ...args }) => {
+				const result = await invokeCliRecordAbTestConversion(args, {
+					event_id: flags["event-id"],
+					test_id: flags["test-id"],
+					variant_id: flags["variant-id"],
+					subscriber_uuid: flags["subscriber-uuid"],
+					event: flags.event,
+					value: flags.value,
+					currency: flags.currency,
+					occurred_at: flags["occurred-at"],
+				});
+				getOutput().json(result);
+			},
+		}),
+		defineCommand({
 			name: "list",
 			operationId: "abtest.list",
 			description: "List A/B tests from persisted state",
@@ -815,6 +853,8 @@ export default defineGroup({
 						opens: result.opens,
 						clicks: result.clicks,
 						conversions: result.conversions,
+						revenue: result.revenue,
+						currency: result.currency,
 						open_rate: `${result.openRate.toFixed(2)}%`,
 						click_rate: `${result.clickRate.toFixed(2)}%`,
 						conversion_rate: `${result.conversionRate.toFixed(2)}%`,

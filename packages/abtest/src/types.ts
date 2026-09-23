@@ -176,6 +176,7 @@ export interface TestResults {
 	clicks: number;
 	conversions: number;
 	revenue?: number;
+	currency?: string;
 	openRate: number;
 	clickRate: number;
 	conversionRate: number;
