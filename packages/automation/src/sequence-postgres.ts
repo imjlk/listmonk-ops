@@ -151,6 +151,10 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				hashtext('sequence_runtime_schema')
 			)
 		`;
+		// Serialize the migration with already-running v2 claim transactions
+		// before changing the deletion trigger. Once acquired, later v2 claims
+		// wait until the new guard is committed.
+		await lockIdempotencyStore(transaction);
 		await transaction`CREATE SCHEMA IF NOT EXISTS listmonk_ops`;
 		await transaction`
 			CREATE TABLE IF NOT EXISTS listmonk_ops.sequence_runtime_meta (

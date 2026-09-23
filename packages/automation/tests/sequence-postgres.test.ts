@@ -84,6 +84,46 @@ afterAll(async () => {
 });
 
 describe("Postgres sequence repository", () => {
+	postgresTest("schema initialization waits for the active claim lock", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		const blocker = postgres(databaseUrl, { max: 1, prepare: false });
+		const observer = postgres(databaseUrl, { max: 1, prepare: false });
+		let releaseBlocker: (() => void) | undefined;
+		let signalLocked: (() => void) | undefined;
+		const locked = new Promise<void>((resolve) => { signalLocked = resolve; });
+		const released = new Promise<void>((resolve) => { releaseBlocker = resolve; });
+		const holding = blocker.begin(async (transaction) => {
+			await transaction`SELECT pg_advisory_xact_lock(hashtext('listmonk_ops'), hashtext('sequence_idempotency'))`;
+			signalLocked?.();
+			await released;
+		});
+		let candidate: SequenceRepository | undefined;
+		let initializing: Promise<unknown> | undefined;
+		try {
+			await locked;
+			candidate = createPostgresSequenceRepository({ connectionString: databaseUrl, maxConnections: 1 });
+			initializing = candidate.listDefinitions();
+			let waiterSeen = false;
+			for (let attempt = 0; attempt < 30; attempt++) {
+				const rows = await observer<{ count: number }[]>`
+					SELECT count(*)::integer AS count FROM pg_locks
+					WHERE locktype = 'advisory' AND NOT granted
+						AND classid = hashtext('listmonk_ops')::oid
+						AND objid = hashtext('sequence_idempotency')::oid
+				`;
+				if ((rows[0]?.count ?? 0) > 0) { waiterSeen = true; break; }
+				await Bun.sleep(20);
+			}
+			expect(waiterSeen).toBe(true);
+		} finally {
+			releaseBlocker?.();
+			await holding;
+			await initializing;
+			await candidate?.close?.();
+			await observer.end({ timeout: 5 });
+			await blocker.end({ timeout: 5 });
+		}
+	});
 	postgresTest("protects verified sequence acceptance until enrollment recovery", async () => {
 		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
 		const sql = postgres(databaseUrl, { max: 1, prepare: false });
