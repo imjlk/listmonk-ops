@@ -1,12 +1,13 @@
 import {
-	createFileBackedTransactionalIdempotencyStore,
 	hashTransactionalPayload,
 } from "@listmonk-ops/common";
+import { getTransactionalIdempotencyStoreFromEnvironment } from "@listmonk-ops/automation";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	getTransactionalOperationByMcpName,
 	invokeTransactionalOperationByMcpName,
 	transactionalOperations,
+	type TransactionalIdempotencyStore,
 } from "@listmonk-ops/operations";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import { createOperationResult, toMcpTool } from "./operation-adapter.js";
@@ -29,6 +30,7 @@ export function isTransactionalToolName(name: string): boolean {
 export type TransactionalHandlerTarget = {
 	baseUrl?: string;
 	username?: string;
+	idempotencyStore?: TransactionalIdempotencyStore;
 };
 
 /**
@@ -50,17 +52,16 @@ export const handleTransactionalTools: TransactionalHandlerFunction =
 			client: ListmonkClient,
 			target: TransactionalHandlerTarget = {},
 		): Promise<CallToolResult> => {
+		const { idempotencyStore, ...identity } = target;
 		const invocation = await invokeTransactionalOperationByMcpName(
 			{
 				client,
-				// Inject the file-backed idempotency store and SHA-256 hasher
-				// here so the operations package stays runtime-neutral. The
-				// store path resolves via LISTMONK_OPS_TRANSACTIONAL_STORE
-				// (same convention as the audit/abtest stores).
+				// Follow the server's configured sequence claim store when present;
+				// otherwise use the environment-selected Postgres or file store.
 				idempotencyStore:
-					createFileBackedTransactionalIdempotencyStore(),
+					idempotencyStore ?? getTransactionalIdempotencyStoreFromEnvironment(),
 				hashPayload: hashTransactionalPayload,
-				target,
+				target: identity,
 			},
 			request.params.name,
 			request.params.arguments ?? {},

@@ -14,6 +14,8 @@ import {
 	TRANSACTIONAL_FROM_EMAIL_PATTERN,
 	TRANSACTIONAL_SUBJECT_PATTERN,
 	transactionalOperations,
+	transactionalRecordsOperation,
+	transactionalReconcileOperation,
 	DEFAULT_TRANSACTIONAL_TTL_MS,
 	type TransactionalClaimResult,
 	type TransactionalIdempotencyStore,
@@ -42,9 +44,9 @@ function createInMemoryTransactionalIdempotencyStore(): TransactionalIdempotency
 			const at = (now ?? (() => new Date()))();
 			const ttl = ttlMs ?? DEFAULT_TRANSACTIONAL_TTL_MS;
 			const expiresAt = new Date(at.getTime() + ttl).toISOString();
-			// Sweep expired first so the test reflects the file-store behavior.
+			// Only definitive outcomes expire; ambiguous sends stay blocked.
 			for (const [k, r] of records) {
-				if (new Date(r.expiresAt).getTime() < at.getTime()) {
+				if ((r.status === "accepted" || r.status === "failed") && new Date(r.expiresAt).getTime() < at.getTime()) {
 					records.delete(k);
 				}
 			}
@@ -102,7 +104,7 @@ function createInMemoryTransactionalIdempotencyStore(): TransactionalIdempotency
 			return Promise.resolve();
 		},
 		load() {
-			const doc = { version: 1 as const, records: {} as Record<string, TransactionalSendRecord> };
+			const doc = { version: 2 as const, records: {} as Record<string, TransactionalSendRecord> };
 			for (const [k, v] of records) doc.records[k] = v;
 			return Promise.resolve(doc);
 		},
@@ -437,7 +439,7 @@ describe("transactional operations", () => {
 	});
 
 	test("exposes schemas and side-effect metadata through the registry", () => {
-		expect(transactionalOperations).toEqual([sendTransactionalOperation]);
+		expect(transactionalOperations).toEqual([sendTransactionalOperation, transactionalRecordsOperation, transactionalReconcileOperation]);
 		expect(sendTransactionalOperation.inputJsonSchema.type).toBe("object");
 		expect(sendTransactionalOperation.inputJsonSchema.required).toEqual([
 			"template_id",
@@ -474,10 +476,10 @@ describe("transactional operations", () => {
 		).toBe(sendTransactionalOperation);
 	});
 
-	test("rejects idempotency keys that contain whitespace or disallowed characters", async () => {
+	test("rejects disallowed idempotency keys and the reserved sequence namespace", async () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
 
-		for (const invalidKey of ["has space", "with@at", "slash/char", ""]) {
+		for (const invalidKey of ["has space", "with@at", "slash/char", "", "sequence:invoice"]) {
 			await expect(
 				invokeSendTransactionalOperation(context(send), {
 					template_id: 3,

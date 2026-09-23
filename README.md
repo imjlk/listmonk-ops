@@ -699,7 +699,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 132 public shared operations now include a `spec` descriptor. Specs define
+All 134 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -708,8 +708,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 132 contracts are standalone TypeScript/Typia product contracts, and
-all 132 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
+All 134 contracts are standalone TypeScript/Typia product contracts, and
+all 134 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and
 analytics operations (`campaigns.preview`, `campaigns.test`,
@@ -1096,12 +1096,48 @@ The wrapper:
 - Replays the stored result on an identical retry (`status: "replayed"`,
   `duplicate: true`) instead of re-sending.
 - Rejects a different payload under the same key as a conflict.
+- Reserves the `sequence:` key prefix for sequence workers; direct sends must
+  choose another idempotency key.
 - Records an ambiguous transport failure (timeout, connection reset) as
   `unknown` and blocks automatic retry — inspect Listmonk and the idempotency
-  record, then reconcile manually.
+  record, then reconcile manually. `pending` and `unknown` records remain
+  blocked after their TTL; time alone never permits a second delivery.
 
-The store path defaults to `~/.listmonk-ops/transactional.json`; override it
-with `LISTMONK_OPS_TRANSACTIONAL_STORE`.
+Inspect records for the selected Listmonk target with `listmonk-cli tx records
+--status unknown --format json` or MCP `listmonk_transactional_records`.
+These responses contain metadata, including an opaque `revision`, but no
+recipient, message body, or raw transport error.
+Use the returned `next_cursor` with `tx records --cursor CURSOR` (or the MCP
+`cursor` input) to inspect every page. These local commands remain available
+when the API token file is unavailable; `--interactive` can select the same
+target that an earlier interactive send used.
+Check Listmonk, the delivery provider, or local Mailpit independently before
+deciding. To record verified delivery, run:
+
+```bash
+listmonk-cli tx reconcile --key ORDER_KEY --expected-revision REVISION \
+  --decision accepted --reason "Verified delivery in provider logs" --confirm
+```
+
+If delivery definitely did not occur, choose `--decision retry` instead. This
+only removes the blocking claim; it does not send mail. The next explicit send
+with the same key can dispatch. A retry decision requires its TTL to have
+passed and `--quiesced` after the sender has stopped. A verified `accepted`
+decision does not wait for TTL because it cannot dispatch mail. The MCP equivalent is
+`listmonk_reconcile_transactional` with `confirm: true`. Both surfaces require
+the observed revision and a 10–500 character reason; the store atomically
+checks the target and revision. It retains the latest decision for each sequence
+claim so delayed enrollment recovery remains possible, while bounding direct-send history. Never
+approve retry while an earlier sender may still be active.
+When `LISTMONK_OPS_SEQUENCE_DATABASE_URL` is set, direct transactional sends,
+inspection, and reconciliation use the sequence PostgreSQL claim store. The
+version 3 schema migration preserves existing claims.
+
+Without a sequence database, the store path defaults to
+`<resolved-data-directory>/transactional.json`; override it with
+`LISTMONK_OPS_TRANSACTIONAL_STORE`. Inspection may create or migrate this
+store. Version 1 files migrate to version 2 on the next store access; older binaries reject version 2 instead of
+silently discarding unresolved claims or decision history.
 
 ## A/B Test Operations
 
@@ -1445,8 +1481,15 @@ enrollment list/get output.
 A response-lost send becomes `ambiguous` and is never retried automatically;
 after checking Listmonk/Mailpit/provider evidence, resolve it explicitly with
 `sequences reconcile --enrollment-id ... --resolution sent` or `not_sent`,
-plus `--no-dry-run --confirm`. A still-`pending` send claim cannot be manually
-reconciled because delivery may remain in flight.
+plus `--no-dry-run --confirm`. A still-`pending` send claim cannot be resolved
+through `sequences reconcile` while delivery may remain in flight. For a
+stranded claim, inspect it with `tx records`, verify delivery independently,
+and use `tx reconcile` with its observed revision. Then resolve the enrollment
+as `sent` after an `accepted` decision, or as `not_sent` after a TTL-expired,
+quiesced `retry` decision.
+Repeated `pending` replays move the enrollment to `ambiguous` before the
+retry limit would make it terminal; a verified `accepted` sequence claim is
+retained until enrollment recovery, preventing a resumed worker from sending again.
 
 The default file store is `~/.listmonk-ops/sequences.json`. Set
 `LISTMONK_OPS_SEQUENCE_DATABASE_URL` for concurrent workers; Postgres uses

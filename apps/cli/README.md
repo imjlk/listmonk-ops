@@ -64,6 +64,20 @@ explicit per-store paths and Postgres settings retain precedence. See the root
 [Korean](https://github.com/imjlk/listmonk-ops/blob/main/README_ko.md) configuration
 guide for the JSON format, precedence, path resolution, and rotation behavior.
 
+`tx records --format json` inspects redacted, target-bound transactional send
+records. `tx reconcile --key KEY --expected-revision REVISION --decision
+accepted|retry --reason TEXT --confirm` records a verified operator decision.
+Use `tx records --cursor CURSOR` to read later pages. Both local commands work
+without a readable API token; `--interactive` can select a previously prompted
+send target.
+The `retry` decision only unblocks a later explicit send and requires elapsed
+TTL plus `--quiesced` after stopping the sender. A verified `accepted` decision
+does not wait for TTL because it never dispatches mail.
+With `LISTMONK_OPS_SEQUENCE_DATABASE_URL`, transactional sends and these
+inspection commands share the sequence PostgreSQL claim store. For an
+ambiguous sequence enrollment, reconcile its claim first, then resolve the
+enrollment as `sent` after `accepted` or `not_sent` after `retry`.
+
 Shared operations with `confirmationRequired: true` need the global
 `--confirm` flag, for example `listmonk-cli lists delete --id 10 --confirm`.
 Media deletion follows the same policy:

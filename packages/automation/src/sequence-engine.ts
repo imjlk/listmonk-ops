@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	computeTransactionalTargetHash,
 	getSubscriber,
 	isDefinitivePreDispatchError,
 	isResourceMissingError,
@@ -10,7 +11,7 @@ import {
 	TransactionalReconcileError,
 	type TransactionalIdempotencyStore,
 } from "@listmonk-ops/operations";
-import { DEFAULT_SEQUENCE_LEASE_MS } from "./sequences";
+import { DEFAULT_SEQUENCE_LEASE_MS, SequenceNotFoundError } from "./sequences";
 import type {
 	ClaimedSequenceEnrollment,
 	SequenceEnrollment,
@@ -57,6 +58,41 @@ export type SequenceAmbiguousResolution = "sent" | "not_sent";
 export const SEQUENCE_RETRY_BASE_DELAY_MS = 5_000;
 export const SEQUENCE_RETRY_MAX_DELAY_MS = 5 * 60_000;
 export const SEQUENCE_RETRY_MAX_ATTEMPTS = 24;
+const SEQUENCE_RECEIPT_SWEEP_INTERVAL_MS = 60 * 60 * 1_000;
+const lastReceiptSweep = new WeakMap<SequenceRepository, number>();
+
+/** Retry receipt cleanup after a crash between enrollment advancement and store cleanup. */
+async function sweepRecoveredSequenceReceipts(context: SequenceExecutionContext, now: Date): Promise<void> {
+	if (!context.idempotencyStore.forgetReconciliation) return;
+	const last = lastReceiptSweep.get(context.repository);
+	if (last !== undefined && now.getTime() >= last && now.getTime() - last < SEQUENCE_RECEIPT_SWEEP_INTERVAL_MS) return;
+	const latestByKey = new Map<string, NonNullable<Awaited<ReturnType<TransactionalIdempotencyStore["load"]>>["reconciliations"]>[number]>();
+	for (const event of (await context.idempotencyStore.load()).reconciliations ?? []) {
+		if (event.key.startsWith("sequence:")) latestByKey.set(event.key, event);
+	}
+	for (const event of latestByKey.values()) {
+		const match = /^sequence:([0-9a-f-]{36}):revision:\d+:step:[A-Za-z0-9._:-]+$/i.exec(
+			event.key,
+		);
+		if (!match) continue;
+		let enrollment: SequenceEnrollment | undefined;
+		try {
+			enrollment = await context.repository.getEnrollment(match[1]!);
+		} catch (error) {
+			if (!(error instanceof SequenceNotFoundError)) throw error;
+		}
+		const currentKey = enrollment
+			? deterministicSendKey(enrollment)
+			: undefined;
+		const stillNeedsReceipt = currentKey === event.key && (
+			event.decision === "accepted"
+				? enrollment?.status !== "completed" && enrollment?.status !== "failed" && enrollment?.status !== "cancelled"
+				: enrollment?.status === "ambiguous"
+		);
+		if (!stillNeedsReceipt) await context.idempotencyStore.forgetReconciliation({ key: event.key, targetHash: event.targetHash });
+	}
+	lastReceiptSweep.set(context.repository, now.getTime());
+}
 
 function toErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -269,6 +305,7 @@ async function executeSendStep(
 				now,
 			);
 		}
+		const sendKey = deterministicSendKey(claimed.enrollment);
 		const result = await sendTransactionalMessage(
 			{
 				client: context.client,
@@ -292,7 +329,7 @@ async function executeSendStep(
 				messenger: step.messenger,
 				subject: step.subject,
 				altbody: step.altBody,
-				idempotency_key: deterministicSendKey(claimed.enrollment),
+				idempotency_key: sendKey,
 			},
 		);
 		if (!result.sent) {
@@ -310,6 +347,13 @@ async function executeSendStep(
 	} catch (error) {
 		if (error instanceof TransactionalReconcileError) {
 			if (error.status === "pending") {
+				if (claimed.enrollment.retryCount + 1 >= SEQUENCE_RETRY_MAX_ATTEMPTS) {
+					return withoutLease(claimed.enrollment, {
+						status: "ambiguous",
+						retryCount: claimed.enrollment.retryCount + 1,
+						lastError: "Pending transactional claim requires operator reconciliation",
+					}, now);
+				}
 				return retryEnrollment(
 					claimed.enrollment,
 					now,
@@ -463,7 +507,17 @@ async function executeClaimedEnrollment(
 			step satisfies never;
 			throw new Error("Unsupported sequence step");
 	}
-	return context.repository.completeClaim(claimed.enrollment, next);
+	const completed = await context.repository.completeClaim(
+		claimed.enrollment,
+		next,
+	);
+	if (step.type === "send" && completed.status !== "ambiguous") {
+		await context.idempotencyStore.forgetReconciliation?.({
+			key: deterministicSendKey(claimed.enrollment),
+			targetHash: computeTransactionalTargetHash(context.target ?? {}),
+		});
+	}
+	return completed;
 }
 
 function countOutcome(
@@ -542,6 +596,7 @@ export async function recoverSequenceTick(
 	}
 > {
 	const now = options.now ?? context.now?.() ?? new Date();
+	await sweepRecoveredSequenceReceipts(context, now);
 	const claimed = await context.repository.claimSpecific({
 		claims: options.claims,
 		now,
@@ -629,6 +684,7 @@ export async function runSequenceTick(
 	options: RunSequenceTickOptions = {},
 ): Promise<SequenceTickSummary> {
 	const now = options.now ?? context.now?.() ?? new Date();
+	await sweepRecoveredSequenceReceipts(context, now);
 	const claimed = await context.repository.claimDue({
 		limit: options.limit ?? 25,
 		now,
@@ -710,10 +766,65 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		);
 	}
 	const key = deterministicSendKey(enrollment);
+	const targetHash = computeTransactionalTargetHash(context.target ?? {});
+	const forgetReceipt = async () => context.idempotencyStore.forgetReconciliation?.(
+		{ key, targetHash },
+	);
+	const sentNext = () => {
+		const following = nextStep(revision, step.id);
+		return withoutLease(
+			enrollment,
+			following
+				? {
+						status: "pending",
+						retryCount: 0,
+						currentStepId: following.id,
+						nextRunAt: now.toISOString(),
+						lastError: undefined,
+					}
+				: { status: "completed", retryCount: 0, lastError: undefined },
+			now,
+		);
+	};
 	const document = await context.idempotencyStore.load();
 	const record = document.records[key];
 	if (!record) {
-		throw new Error(`Transactional idempotency record ${key} is missing`);
+		const latestDecision = document.reconciliations?.slice().reverse().find(
+			(event) => event.key === key && event.targetHash === targetHash,
+		);
+		if (!latestDecision ||
+			Date.parse(latestDecision.reconciledAt) < Date.parse(enrollment.lastTransitionAt)) {
+			throw new Error(`Transactional idempotency record ${key} is missing`);
+		}
+		if (resolution === "sent" && latestDecision.decision === "accepted") {
+			const resolved = await forceCompleteAmbiguous(
+				context.repository,
+				enrollment,
+				sentNext(),
+			);
+			await forgetReceipt();
+			return resolved;
+		}
+		if (resolution !== "not_sent" || latestDecision.decision !== "retry") {
+			throw new Error(`Transactional idempotency record ${key} is missing`);
+		}
+		const next = withoutLease(
+			enrollment,
+			{
+				status: "pending",
+				retryCount: 0,
+				nextRunAt: now.toISOString(),
+				lastError: undefined,
+			},
+			now,
+		);
+		const resolved = await forceCompleteAmbiguous(
+			context.repository,
+			enrollment,
+			next,
+		);
+		await forgetReceipt();
+		return resolved;
 	}
 	if (record.status === "pending") {
 		throw new Error(
@@ -731,24 +842,10 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		);
 	}
 	if (resolution === "sent") {
-		const following = nextStep(revision, step.id);
-		const next = withoutLease(
-			enrollment,
-			following
-				? {
-						status: "pending",
-						retryCount: 0,
-						currentStepId: following.id,
-						nextRunAt: now.toISOString(),
-						lastError: undefined,
-					}
-				: { status: "completed", retryCount: 0, lastError: undefined },
-			now,
-		);
 		const resolved = await forceCompleteAmbiguous(
 			context.repository,
 			enrollment,
-			next,
+			sentNext(),
 		);
 		if (record.status !== "accepted") {
 			await context.idempotencyStore.commit({
@@ -759,6 +856,7 @@ export async function reconcileAmbiguousSequenceEnrollment(
 				now: () => now,
 			});
 		}
+		await forgetReceipt();
 		return resolved;
 	}
 	const next = withoutLease(
@@ -781,6 +879,7 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		claimToken: record.claimToken,
 		now: () => now,
 	});
+	await forgetReceipt();
 	return resolved;
 }
 

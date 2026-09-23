@@ -1,8 +1,10 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	computeTransactionalTargetHash,
 	createFileBackedTransactionalIdempotencyStore,
 	hashTransactionalPayload,
 } from "@listmonk-ops/common";
+import { serializeTransactionalPayload } from "@listmonk-ops/operations";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1454,6 +1456,31 @@ describe("sequence execution", () => {
 		expect(sends).toBe(1);
 	});
 
+	test("keeps repeated pending replays ambiguous instead of exhausting recovery", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const startedAt = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(createSequenceDefinition({
+			name: "pending replay remains recoverable",
+			steps: [{ id: "send", type: "send", templateId: 9 }],
+		}, startedAt));
+		const enrollment = await repository.createEnrollment(createSequenceEnrollment(
+			definition, { sequenceId: definition.id, subscriberId: 42 }, startedAt,
+		));
+		const context = executionContext(repository, {
+			...idempotencyStore,
+			claim: async (options) => ({ kind: "replay" as const, record: {
+				key: options.key, payloadHash: options.payloadHash, targetHash: options.targetHash,
+				status: "pending" as const, claimToken: "original-claim",
+				createdAt: startedAt.toISOString(), updatedAt: startedAt.toISOString(),
+				expiresAt: new Date(startedAt.getTime() + 24 * 60 * 60 * 1_000).toISOString(),
+			} }),
+		}, client({ send: async () => { throw new Error("should not dispatch"); } }));
+		for (let attempt = 0; attempt < 24; attempt++) {
+			await runSequenceTick(context, { now: new Date(startedAt.getTime() + attempt * 10 * 60 * 1_000) });
+		}
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({ status: "ambiguous", retryCount: 24 });
+	});
+
 	test("keeps ambiguous sends active until an operator resolves them", async () => {
 		const { repository, idempotencyStore } = await createStores();
 		let fail = true;
@@ -1562,12 +1589,15 @@ describe("sequence execution", () => {
 			lastTransitionAt: now.toISOString(),
 			updatedAt: now.toISOString(),
 		});
-		await idempotencyStore.claim({
-			key: `sequence:${enrollment.id}:revision:1:step:send`,
+		const key = `sequence:${enrollment.id}:revision:1:step:send`;
+		const claim = await idempotencyStore.claim({
+			key,
 			payloadHash: "payload",
-			targetHash: "target",
+			targetHash: computeTransactionalTargetHash(executionContext(repository, idempotencyStore).target!),
+			ttlMs: 1,
 			now: () => now,
 		});
+		if (claim.kind !== "new") throw new Error("expected new claim");
 
 		await expect(
 			reconcileAmbiguousSequenceEnrollment(
@@ -1577,6 +1607,129 @@ describe("sequence execution", () => {
 				now,
 			),
 		).rejects.toThrow("still pending");
+		const later = new Date(now.getTime() + 2_000);
+		await idempotencyStore.reconcile!({
+			key,
+			targetHash: claim.record.targetHash,
+			expectedRevision: claim.record.claimToken,
+			decision: "retry",
+			reason: "Provider logs confirm no delivery",
+			quiesced: true,
+			now: () => later,
+		});
+		expect(await reconcileAmbiguousSequenceEnrollment(
+			executionContext(repository, idempotencyStore),
+			enrollment.id,
+			"not_sent",
+			later,
+		)).toMatchObject({ status: "pending", currentStepId: "send" });
+		expect((await idempotencyStore.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
+	});
+
+	test("worker honors accepted history after record expiry without a second send", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		let sends = 0;
+		const definition = await repository.createDefinition(createSequenceDefinition({
+			name: "accepted history blocks worker resend",
+			steps: [{ id: "send", type: "send", templateId: 9 }],
+		}, now));
+		const enrollment = await repository.createEnrollment(createSequenceEnrollment(
+			definition, { sequenceId: definition.id, subscriberId: 42 }, now,
+		));
+		const context = executionContext(repository, idempotencyStore, client({
+			send: async () => { sends += 1; return { data: true }; },
+		}));
+		const key = `sequence:${enrollment.id}:revision:1:step:send`;
+		const claim = await idempotencyStore.claim({
+			key,
+			payloadHash: hashTransactionalPayload(serializeTransactionalPayload({
+				template_id: 9,
+				subscriber_id: 42,
+				data: {
+					sequence_id: enrollment.sequenceId,
+					sequence_revision: enrollment.revision,
+					sequence_enrollment_id: enrollment.id,
+					sequence_step_id: "send",
+				},
+			})),
+			targetHash: computeTransactionalTargetHash(context.target!), now: () => now,
+		});
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await idempotencyStore.reconcile!({
+			key, targetHash: claim.record.targetHash, expectedRevision: claim.record.claimToken,
+			decision: "accepted", reason: "Provider logs confirm delivery", now: () => now,
+		});
+		const later = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1_000);
+		await idempotencyStore.claim({ key: "unrelated-expiry-sweep", payloadHash: "other", targetHash: claim.record.targetHash, now: () => later });
+		expect((await idempotencyStore.load()).records[key]).toMatchObject({ status: "accepted" });
+		expect(await runSequenceTick(context, { now: later })).toMatchObject({ completed: 1 });
+		expect(sends).toBe(0);
+		expect((await idempotencyStore.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
+		await idempotencyStore.claim({ key: "post-completion-sweep", payloadHash: "other", targetHash: claim.record.targetHash, now: () => later });
+		expect((await idempotencyStore.load()).records[key]).toBeUndefined();
+	});
+
+	test("a restarted tick removes a receipt left behind after enrollment advancement", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(createSequenceDefinition({
+			name: "recovered receipt cleanup",
+			steps: [{ id: "send", type: "send", templateId: 9 }],
+		}, now));
+		const enrollment = await repository.createEnrollment(createSequenceEnrollment(
+			definition, { sequenceId: definition.id, subscriberId: 42 }, now,
+		));
+		const target = executionContext(repository, idempotencyStore).target!;
+		const key = `sequence:${enrollment.id}:revision:1:step:send`;
+		const claim = await idempotencyStore.claim({ key, payloadHash: "payload", targetHash: computeTransactionalTargetHash(target), now: () => now });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await idempotencyStore.reconcile!({ key, targetHash: claim.record.targetHash, expectedRevision: claim.record.claimToken, decision: "accepted", reason: "Provider logs confirm delivery", now: () => now });
+		const [leased] = await repository.claimDue({ limit: 1, now, leaseMs: 90_000 });
+		if (!leased) throw new Error("expected claimed enrollment");
+		const { leaseToken: _leaseToken, leaseExpiresAt: _leaseExpiresAt, ...next } = leased.enrollment;
+		await repository.completeClaim(leased.enrollment, {
+			...next, status: "completed", updatedAt: now.toISOString(), lastTransitionAt: now.toISOString(),
+		});
+		expect((await idempotencyStore.load()).reconciliations?.some((decision) => decision.key === key)).toBe(true);
+		const restarted = executionContext({ ...repository }, idempotencyStore);
+		expect(await runSequenceTick(restarted, { now })).toMatchObject({ claimed: 0 });
+		expect((await idempotencyStore.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
+	});
+
+	test("retains an accepted decision until ambiguous enrollment recovery", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(createSequenceDefinition({
+			name: "accepted decision after expiry",
+			steps: [{ id: "send", type: "send", templateId: 9 }],
+		}, now));
+		const enrollment = await repository.createEnrollment(createSequenceEnrollment(
+			definition,
+			{ sequenceId: definition.id, subscriberId: 42 },
+			now,
+		));
+		const context = executionContext(repository, idempotencyStore, client({
+			send: async () => { throw new TypeError("fetch failed after dispatch"); },
+		}));
+		expect(await runSequenceTick(context, { now })).toMatchObject({ ambiguous: 1 });
+		const key = `sequence:${enrollment.id}:revision:1:step:send`;
+		const record = (await idempotencyStore.load()).records[key]!;
+		await idempotencyStore.reconcile!({
+			key,
+			targetHash: record.targetHash,
+			expectedRevision: record.claimToken,
+			decision: "accepted",
+			reason: "Provider logs confirm delivery",
+			now: () => now,
+		});
+		const later = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1_000);
+		await idempotencyStore.claim({ key: "unrelated-sweep", payloadHash: "other", targetHash: record.targetHash, now: () => later });
+		expect((await idempotencyStore.load()).records[key]).toMatchObject({ status: "accepted" });
+		expect(await reconcileAmbiguousSequenceEnrollment(context, enrollment.id, "sent", later)).toMatchObject({ status: "completed" });
+		expect((await idempotencyStore.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
+		await idempotencyStore.claim({ key: "after-recovery-sweep", payloadHash: "other", targetHash: record.targetHash, now: () => later });
+		expect((await idempotencyStore.load()).records[key]).toBeUndefined();
 	});
 
 	test("commits an operator-confirmed ambiguous send before advancing", async () => {

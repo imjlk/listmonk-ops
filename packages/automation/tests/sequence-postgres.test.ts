@@ -4,6 +4,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import postgres from "postgres";
+import { computeTransactionalTargetHash } from "@listmonk-ops/common";
+import {
+	invokeTransactionalRecordsOperation,
+	invokeTransactionalReconcileOperation,
+} from "@listmonk-ops/operations";
 import {
 	invokeSequenceEnrollmentGetOperation,
 	invokeSequenceEnrollmentListOperation,
@@ -13,6 +18,10 @@ import {
 	invokeSequenceResumeOperation,
 } from "../src/sequence-operations";
 import { createPostgresSequenceRepository } from "../src/sequence-postgres";
+import {
+	closeSequenceRuntimeRepositories,
+	getTransactionalIdempotencyStoreFromEnvironment,
+} from "../src/sequence-runtime";
 import {
 	createFileSequenceRepository,
 	createSequenceDefinition,
@@ -53,6 +62,7 @@ beforeAll(async () => {
 	}
 	const sql = postgres(databaseUrl, { max: 1, prepare: false });
 	try {
+		await sql`DROP TABLE IF EXISTS listmonk_ops.sequence_idempotency_reconciliations`;
 		await sql`DROP TABLE IF EXISTS listmonk_ops.sequence_idempotency_records`;
 		await sql`DROP TABLE IF EXISTS listmonk_ops.sequence_enrollments`;
 		await sql`DROP TABLE IF EXISTS listmonk_ops.sequence_definitions`;
@@ -74,6 +84,203 @@ afterAll(async () => {
 });
 
 describe("Postgres sequence repository", () => {
+	postgresTest("schema initialization waits for the active claim lock", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		const blocker = postgres(databaseUrl, { max: 1, prepare: false });
+		const observer = postgres(databaseUrl, { max: 1, prepare: false });
+		let releaseBlocker: (() => void) | undefined;
+		let signalLocked: (() => void) | undefined;
+		const locked = new Promise<void>((resolve) => { signalLocked = resolve; });
+		const released = new Promise<void>((resolve) => { releaseBlocker = resolve; });
+		const holding = blocker.begin(async (transaction) => {
+			await transaction`SELECT pg_advisory_xact_lock(hashtext('listmonk_ops'), hashtext('sequence_idempotency'))`;
+			signalLocked?.();
+			await released;
+		});
+		let candidate: SequenceRepository | undefined;
+		let initializing: Promise<unknown> | undefined;
+		try {
+			await locked;
+			candidate = createPostgresSequenceRepository({ connectionString: databaseUrl, maxConnections: 1 });
+			initializing = candidate.listDefinitions();
+			let waiterSeen = false;
+			for (let attempt = 0; attempt < 30; attempt++) {
+				const rows = await observer<{ count: number }[]>`
+					SELECT count(*)::integer AS count FROM pg_locks
+					WHERE locktype = 'advisory' AND NOT granted
+						AND classid = hashtext('listmonk_ops')::oid
+						AND objid = hashtext('sequence_idempotency')::oid
+				`;
+				if ((rows[0]?.count ?? 0) > 0) { waiterSeen = true; break; }
+				await Bun.sleep(20);
+			}
+			expect(waiterSeen).toBe(true);
+		} finally {
+			releaseBlocker?.();
+			await holding;
+			await initializing;
+			await candidate?.close?.();
+			await observer.end({ timeout: 5 });
+			await blocker.end({ timeout: 5 });
+		}
+	});
+	postgresTest("protects verified sequence acceptance until enrollment recovery", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		const sql = postgres(databaseUrl, { max: 1, prepare: false });
+		const store = repositories[0]?.idempotencyStore;
+		if (!store?.reconcile || !store.forgetReconciliation) throw new Error("Postgres transactional recovery unavailable");
+		const key = `sequence:${randomUUID()}:revision:1:step:send`;
+		const now = () => new Date("2026-01-01T00:00:00.000Z");
+		const later = () => new Date("2026-01-03T00:00:00.000Z");
+		try {
+			const claim = await store.claim({ key, payloadHash: "payload", targetHash: "target", now });
+			if (claim.kind !== "new") throw new Error("expected new claim");
+			await store.reconcile({ key, targetHash: "target", expectedRevision: claim.record.claimToken, decision: "accepted", reason: "Provider logs confirm delivery", now });
+			expect((await store.claim({ key, payloadHash: "payload", targetHash: "target", now: later })).kind).toBe("replay");
+			expect((await store.load()).records[key]).toMatchObject({ status: "accepted" });
+			let deleteError: unknown;
+			try { await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key = ${key}`; } catch (error) { deleteError = error; }
+			expect(String(deleteError)).toContain("Ambiguous transactional claim deletion requires version 3 reconciliation");
+			await store.forgetReconciliation({ key, targetHash: "target" });
+			expect((await store.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
+			expect(Date.parse((await store.load()).records[key]!.expiresAt)).toBeLessThan(later().getTime());
+			const replacement = await store.claim({ key, payloadHash: "payload", targetHash: "target", now: later });
+			expect(replacement.kind).toBe("new");
+			if (replacement.kind === "new") await store.release({ key, claimToken: replacement.record.claimToken });
+		} finally {
+			await sql`DELETE FROM listmonk_ops.sequence_idempotency_reconciliations WHERE key = ${key}`;
+			await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key = ${key}`;
+			await sql.end({ timeout: 5 });
+		}
+	});
+	postgresTest("retains sequence recovery receipts beyond the direct-decision cap", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		const sql = postgres(databaseUrl, { max: 1, prepare: false });
+		const store = repositories[0]?.idempotencyStore;
+		if (!store?.reconcile) throw new Error("Postgres transactional reconciliation unavailable");
+		const prefix = `retention-${randomUUID()}`;
+		const key = `sequence:${randomUUID()}:revision:1:step:send`;
+		const now = () => new Date("2026-01-01T00:00:00.000Z");
+		const later = () => new Date("2026-01-02T00:00:00.000Z");
+		try {
+			const claim = await store.claim({ key, payloadHash: "payload", targetHash: "target", ttlMs: 1, now });
+			if (claim.kind !== "new") throw new Error("expected new claim");
+			await store.reconcile({ key, targetHash: "target", expectedRevision: claim.record.claimToken, decision: "retry", reason: "Provider logs confirm no delivery", quiesced: true, now: later });
+			await sql`
+				INSERT INTO listmonk_ops.sequence_idempotency_reconciliations
+					(key, target_hash, payload_hash, previous_status, previous_revision, decision, reason, reconciled_at)
+				SELECT ${prefix} || '-' || value::text, 'target', 'payload', 'unknown', ${randomUUID()}::uuid,
+					'accepted', 'Provider logs confirm delivery', ${later()}
+				FROM generate_series(1, 1000) AS series(value)
+			`;
+			const directKey = `${prefix}-new`;
+			const direct = await store.claim({ key: directKey, payloadHash: "payload", targetHash: "target", now: later });
+			if (direct.kind !== "new") throw new Error("expected new claim");
+			await store.reconcile({ key: directKey, targetHash: "target", expectedRevision: direct.record.claimToken, decision: "accepted", reason: "Provider logs confirm delivery", now: later });
+			const history = (await store.load()).reconciliations ?? [];
+			expect(history.some((decision) => decision.key === key && decision.decision === "retry")).toBe(true);
+			expect(history.filter((decision) => !decision.key.startsWith("sequence:")).length).toBeLessThanOrEqual(1_000);
+			await store.forgetReconciliation?.({ key, targetHash: "target" });
+			expect((await store.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
+		} finally {
+			await sql`DELETE FROM listmonk_ops.sequence_idempotency_reconciliations WHERE key = ${key} OR key LIKE ${prefix + "-%"}`;
+			await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key LIKE ${prefix + "-%"}`;
+			await sql.end({ timeout: 5 });
+		}
+	});
+	postgresTest("routes transactional inspection and recovery to the configured sequence database", async () => {
+		const previous = process.env.LISTMONK_OPS_SEQUENCE_DATABASE_URL;
+		const target = { baseUrl: "http://localhost:9000/api", username: "operator" };
+		const key = `postgres-routed-${randomUUID()}`;
+		const store = repositories[0]?.idempotencyStore;
+		if (!store || !databaseUrl) throw new Error("Postgres transactional store unavailable");
+		const claim = await store.claim({ key, payloadHash: "payload", targetHash: computeTransactionalTargetHash(target) });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		process.env.LISTMONK_OPS_SEQUENCE_DATABASE_URL = databaseUrl;
+		try {
+			const routed = getTransactionalIdempotencyStoreFromEnvironment();
+			const records = await invokeTransactionalRecordsOperation({ idempotencyStore: routed, target }, { key });
+			expect(records.records).toMatchObject([{ key, status: "pending" }]);
+			await invokeTransactionalReconcileOperation({ idempotencyStore: routed, target }, {
+				key,
+				expected_revision: claim.record.claimToken,
+				decision: "accepted",
+				reason: "Provider logs confirm delivery",
+			});
+			expect((await store.load()).records[key]).toMatchObject({ status: "accepted", sent: true });
+		} finally {
+			await closeSequenceRuntimeRepositories();
+			if (previous === undefined) delete process.env.LISTMONK_OPS_SEQUENCE_DATABASE_URL;
+			else process.env.LISTMONK_OPS_SEQUENCE_DATABASE_URL = previous;
+		}
+	});
+	postgresTest("retains ambiguous transactional claims past TTL and reconciles with target/revision fencing", async () => {
+		const store = repositories[0]?.idempotencyStore;
+		if (!store?.reconcile) throw new Error("Postgres transactional reconciliation unavailable");
+		const now = () => new Date("2026-01-01T00:00:00.000Z");
+		const later = () => new Date("2026-01-02T00:00:00.000Z");
+		const key = `postgres-reconcile-${randomUUID()}`;
+		const claim = await store.claim({ key, payloadHash: "payload", targetHash: "target", ttlMs: 1, now });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		expect((await store.claim({ key, payloadHash: "payload", targetHash: "target", now: later })).kind).toBe("replay");
+		const args = { key, targetHash: "target", expectedRevision: claim.record.claimToken, decision: "retry" as const, reason: "Provider logs confirm no delivery", now: later };
+		await expect(store.reconcile({ ...args, targetHash: "other", quiesced: true })).rejects.toThrow("not found");
+		await expect(store.reconcile(args)).rejects.toThrow("may still be active");
+		await expect(store.reconcile({ ...args, quiesced: true })).resolves.toMatchObject({ decision: "retry" });
+		const document = await store.load();
+		expect(document.records[key]).toBeUndefined();
+		expect(document.reconciliations?.at(-1)).toMatchObject({ key, decision: "retry", previousRevision: claim.record.claimToken });
+		await store.commit({ key, claimToken: claim.record.claimToken, status: "accepted", now: later });
+		expect((await store.load()).records[key]).toBeUndefined();
+
+		const unknownKey = `postgres-unknown-${randomUUID()}`;
+		const unknownClaim = await store.claim({ key: unknownKey, payloadHash: "other-payload", targetHash: "target", ttlMs: 1, now });
+		if (unknownClaim.kind !== "new") throw new Error("expected new claim");
+		await store.commit({ key: unknownKey, claimToken: unknownClaim.record.claimToken, status: "unknown", now });
+		expect((await store.claim({ key: unknownKey, payloadHash: "other-payload", targetHash: "target", now: later })).kind).toBe("replay");
+		const accepted = await store.reconcile({ key: unknownKey, targetHash: "target", expectedRevision: unknownClaim.record.claimToken, decision: "accepted", reason: "Provider logs confirm delivery", now });
+		await store.commit({ key: unknownKey, claimToken: unknownClaim.record.claimToken, status: "failed", now });
+		expect((await store.load()).records[unknownKey]).toMatchObject({ status: "accepted", sent: true, claimToken: accepted.revision });
+		const inheritedKey = await store.claim({ key: "__proto__", payloadHash: "prototype-payload", targetHash: "target" });
+		if (inheritedKey.kind !== "new") throw new Error("expected new claim");
+		expect(Object.hasOwn((await store.load()).records, "__proto__")).toBe(true);
+		await store.release({ key: "__proto__", claimToken: inheritedKey.record.claimToken });
+	});
+
+	postgresTest("migrates a version 2 idempotency store without discarding pending records", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		const sql = postgres(databaseUrl, { max: 1, prepare: false });
+		const key = `postgres-v2-${randomUUID()}`;
+		const store = repositories[0]?.idempotencyStore;
+		if (!store) throw new Error("Postgres transactional store unavailable");
+		await store.claim({ key, payloadHash: "migration-payload", targetHash: "target" });
+		let migrated: SequenceRepository | undefined;
+		try {
+			await sql`DROP TRIGGER IF EXISTS guard_ambiguous_sequence_claim_delete ON listmonk_ops.sequence_idempotency_records`;
+			await sql`DROP TABLE listmonk_ops.sequence_idempotency_reconciliations`;
+			await sql`UPDATE listmonk_ops.sequence_runtime_meta SET value = '2' WHERE key = 'schema_version'`;
+			migrated = createPostgresSequenceRepository({ connectionString: databaseUrl, maxConnections: 1 });
+			const document = await migrated.idempotencyStore!.load();
+			expect(document.records[key]?.status).toBe("pending");
+			expect(document.reconciliations).toEqual([]);
+			let deleteError: unknown;
+			try {
+				await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key = ${key}`;
+			} catch (error) {
+				deleteError = error;
+			}
+			expect(String(deleteError)).toContain("Ambiguous transactional claim deletion requires version 3 reconciliation");
+			await migrated.idempotencyStore!.reconcile!({ key, targetHash: "target", expectedRevision: document.records[key]!.claimToken, decision: "accepted", reason: "Verified delivery in provider logs" });
+			expect((await migrated.idempotencyStore!.load()).records[key]?.status).toBe("accepted");
+			const version = await sql<{ value: string }[]>`SELECT value FROM listmonk_ops.sequence_runtime_meta WHERE key = 'schema_version'`;
+			expect(version[0]?.value).toBe("3");
+		} finally {
+			await migrated?.close?.();
+			await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key = ${key}`;
+			await sql.end({ timeout: 5 });
+		}
+	});
+
 	postgresTest(
 		"matches file-backed ordering and redacted public read projections",
 		async () => {
@@ -634,7 +841,7 @@ describe("Postgres sequence repository", () => {
 				`;
 				await sql`
 					UPDATE listmonk_ops.sequence_runtime_meta
-					SET value = '2', updated_at = now()
+					SET value = '3', updated_at = now()
 					WHERE key = 'schema_version'
 				`;
 				await sql.end({ timeout: 5 });

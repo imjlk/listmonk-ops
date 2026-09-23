@@ -1,5 +1,12 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import {
+	computeTransactionalTargetHash,
+	createFileBackedTransactionalIdempotencyStore,
+} from "@listmonk-ops/common";
 import { describe, expect, mock, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	handleTransactionalTools,
 	transactionalTools,
@@ -23,8 +30,24 @@ function clientWithTransactional(
 }
 
 describe("transactional operation MCP adapter", () => {
+	test("inspects the server-selected claim store instead of the environment fallback", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "mcp-tx-selected-store-"));
+		const target = { baseUrl: "http://127.0.0.1:9000/api", username: "operator" };
+		const store = createFileBackedTransactionalIdempotencyStore({ storePath: join(directory, "selected.json") });
+		try {
+			await store.claim({ key: "selected-claim", payloadHash: "payload", targetHash: computeTransactionalTargetHash(target) });
+			const result = await handleTransactionalTools(
+				request("listmonk_transactional_records", { key: "selected-claim" }),
+				clientWithTransactional({}),
+				{ ...target, idempotencyStore: store },
+			);
+			expect(result.structuredContent).toMatchObject({ records: [{ key: "selected-claim", status: "pending" }] });
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
 	test("publishes the shared schema and side-effect annotations", () => {
-		expect(transactionalTools).toHaveLength(1);
+		expect(transactionalTools).toHaveLength(3);
 		const tool = transactionalTools[0];
 		expect(tool?.title).toBe("Send transactional message");
 		expect(tool?.inputSchema.required).toEqual(["template_id"]);
@@ -46,6 +69,8 @@ describe("transactional operation MCP adapter", () => {
 			idempotentHint: false,
 			openWorldHint: true,
 		});
+		expect(transactionalTools[1]?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+		expect(transactionalTools[2]?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
 	});
 
 	test("returns structured output while preserving boolean text", async () => {

@@ -232,7 +232,13 @@ up to 24 times with jittered, bounded exponential backoff and expose the
 persisted retry count through enrollment operations. Ambiguous outcomes are durable and require
 `reconcileAmbiguousSequenceEnrollment()` with an operator-reviewed `sent` or
 `not_sent` decision; pending send claims cannot be reconciled while delivery
-may remain in flight.
+may remain in flight. Repeated pending replays become `ambiguous` before the
+retry limit would make the enrollment terminal, preserving operator recovery.
+The Postgres sequence idempotency adapter now retains expired `pending` and
+`unknown` send claims. Schema version 3 retains sequence recovery decisions
+until the enrollment advances and bounds direct-send decision history;
+the adapter exposes the same target/revision-checked `reconcile` contract as
+the file store, so a TTL sweep cannot silently authorize a duplicate send.
 Sequence definitions reuse the shared transactional sender and subject schemas,
 so malformed From mailboxes and header-control injection are rejected before
 the definition is persisted.

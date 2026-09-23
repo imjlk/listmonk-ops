@@ -28,7 +28,7 @@ import {
 	canonicalStepsJson,
 } from "./sequences";
 
-export const SEQUENCE_POSTGRES_SCHEMA_VERSION = 2;
+export const SEQUENCE_POSTGRES_SCHEMA_VERSION = 3;
 
 export interface PostgresSequenceRepositoryOptions {
 	connectionString: string;
@@ -91,6 +91,17 @@ type IdempotencyRow = {
 	expires_at: string | Date;
 };
 
+type ReconciliationRow = {
+	key: string;
+	target_hash: string;
+	payload_hash: string;
+	previous_status: "pending" | "unknown";
+	previous_revision: string;
+	decision: "accepted" | "retry";
+	reason: string;
+	reconciled_at: string | Date;
+};
+
 type ActiveEnrollmentConflictRow = {
 	sequence_id: string;
 	subscriber_id: string;
@@ -140,6 +151,10 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				hashtext('sequence_runtime_schema')
 			)
 		`;
+		// Serialize the migration with already-running v2 claim transactions
+		// before changing the deletion trigger. Once acquired, later v2 claims
+		// wait until the new guard is committed.
+		await lockIdempotencyStore(transaction);
 		await transaction`CREATE SCHEMA IF NOT EXISTS listmonk_ops`;
 		await transaction`
 			CREATE TABLE IF NOT EXISTS listmonk_ops.sequence_runtime_meta (
@@ -315,6 +330,55 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				WHERE key = 'schema_version'
 			`;
 		}
+		// Refresh the guard function even when version 3 already exists: a
+		// running older worker can otherwise delete an operator-accepted claim.
+			await transaction`
+				CREATE TABLE IF NOT EXISTS listmonk_ops.sequence_idempotency_reconciliations (
+					id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+					key text NOT NULL,
+					target_hash text NOT NULL,
+					payload_hash text NOT NULL,
+					previous_status text NOT NULL CHECK (previous_status IN ('pending', 'unknown')),
+					previous_revision uuid NOT NULL,
+					decision text NOT NULL CHECK (decision IN ('accepted', 'retry')),
+					reason text NOT NULL,
+					reconciled_at timestamptz NOT NULL
+				)
+			`;
+			await transaction`
+				CREATE OR REPLACE FUNCTION listmonk_ops.guard_ambiguous_sequence_claim_delete()
+				RETURNS trigger LANGUAGE plpgsql AS $$
+				BEGIN
+					IF (OLD.status IN ('pending', 'unknown')
+						OR (OLD.status = 'accepted' AND OLD.key LIKE 'sequence:%'
+							AND (
+								SELECT decision FROM listmonk_ops.sequence_idempotency_reconciliations
+								WHERE key = OLD.key ORDER BY id DESC LIMIT 1
+							) = 'accepted'))
+						AND current_setting('listmonk_ops.allow_ambiguous_claim_delete', true) IS DISTINCT FROM 'on'
+					THEN
+						RAISE EXCEPTION 'Ambiguous transactional claim deletion requires version 3 reconciliation';
+					END IF;
+					RETURN OLD;
+				END;
+				$$
+			`;
+		if (storedVersion < 3) {
+			await transaction`
+				DROP TRIGGER IF EXISTS guard_ambiguous_sequence_claim_delete
+				ON listmonk_ops.sequence_idempotency_records
+			`;
+			await transaction`
+				CREATE TRIGGER guard_ambiguous_sequence_claim_delete
+				BEFORE DELETE ON listmonk_ops.sequence_idempotency_records
+				FOR EACH ROW EXECUTE FUNCTION listmonk_ops.guard_ambiguous_sequence_claim_delete()
+			`;
+			await transaction`
+				UPDATE listmonk_ops.sequence_runtime_meta
+				SET value = '3', updated_at = now()
+				WHERE key = 'schema_version'
+			`;
+		}
 		// Idempotent and unversioned so existing deployments pick it up on
 		// the next start: the guarded-enrollment generation lookup counts
 		// and selects the newest record per (sequence, subscriber) pair
@@ -418,8 +482,16 @@ async function sweepExpiredIdempotencyRecords(
 	now: Date,
 ): Promise<void> {
 	await transaction`
-		DELETE FROM listmonk_ops.sequence_idempotency_records
-		WHERE expires_at < ${now}
+		DELETE FROM listmonk_ops.sequence_idempotency_records AS record
+		WHERE record.expires_at < ${now}
+			AND record.status IN ('accepted', 'failed')
+			AND NOT (
+				record.status = 'accepted' AND record.key LIKE 'sequence:%'
+				AND COALESCE((
+					SELECT decision FROM listmonk_ops.sequence_idempotency_reconciliations
+					WHERE key = record.key ORDER BY id DESC LIMIT 1
+				) = 'accepted', false)
+			)
 	`;
 }
 
@@ -434,9 +506,9 @@ function createPostgresTransactionalIdempotencyStore(
 			if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
 				throw new RangeError("Transactional idempotency TTL must be positive");
 			}
-			const now = (options.now ?? (() => new Date()))();
 			return sql.begin(async (transaction) => {
 				await lockIdempotencyStore(transaction);
+				const now = (options.now ?? (() => new Date()))();
 				await sweepExpiredIdempotencyRecords(transaction, now);
 				const existingRows = await transaction<IdempotencyRow[]>`
 					SELECT *
@@ -526,6 +598,10 @@ function createPostgresTransactionalIdempotencyStore(
 			await sql.begin(async (transaction) => {
 				await lockIdempotencyStore(transaction);
 				await sweepExpiredIdempotencyRecords(transaction, now);
+				// A definitive pre-dispatch failure may release its own claim.
+				// Legacy workers cannot set this transaction-local bypass and are
+				// fenced by the migration trigger during rolling deployments.
+				await transaction`SELECT set_config('listmonk_ops.allow_ambiguous_claim_delete', 'on', true)`;
 				await transaction`
 					DELETE FROM listmonk_ops.sequence_idempotency_records
 					WHERE key = ${options.key}
@@ -542,12 +618,110 @@ function createPostgresTransactionalIdempotencyStore(
 				SELECT *
 				FROM listmonk_ops.sequence_idempotency_records
 			`;
-			const records: Record<string, TransactionalSendRecord> = {};
+			const records: Record<string, TransactionalSendRecord> = Object.create(null);
 			for (const row of rows) {
 				const record = toIdempotencyRecord(row);
 				records[record.key] = record;
 			}
-			return { version: 1, records };
+			const reconciliations = await sql<ReconciliationRow[]>`
+				SELECT key, target_hash, payload_hash, previous_status,
+					previous_revision::text, decision, reason, reconciled_at
+				FROM listmonk_ops.sequence_idempotency_reconciliations
+				ORDER BY id ASC
+			`;
+			return {
+				version: 2,
+				records,
+				reconciliations: reconciliations.map((row) => ({
+					key: row.key,
+					targetHash: row.target_hash,
+					payloadHash: row.payload_hash,
+					previousStatus: row.previous_status,
+					previousRevision: row.previous_revision,
+					decision: row.decision,
+					reason: row.reason,
+					reconciledAt: requiredTimestamp(row.reconciled_at),
+				})),
+			};
+		},
+		async reconcile(options) {
+			await ready();
+			if (options.reason.trim().length < 10 || options.reason.length > 500 || /[\u0000-\u001f\u007f]/u.test(options.reason)) {
+				throw new Error("A reconciliation reason of 10-500 printable characters is required");
+			}
+			return sql.begin(async (transaction) => {
+				await lockIdempotencyStore(transaction);
+				const now = (options.now ?? (() => new Date()))();
+				await sweepExpiredIdempotencyRecords(transaction, now);
+				const rows = await transaction<IdempotencyRow[]>`
+					SELECT * FROM listmonk_ops.sequence_idempotency_records
+					WHERE key = ${options.key}
+				`;
+				const existing = rows[0];
+				if (!existing || existing.target_hash !== options.targetHash) throw new Error("Transactional record not found for this Listmonk target");
+				if (existing.claim_token !== options.expectedRevision) throw new Error("Transactional record changed; inspect it again before reconciling");
+				if (existing.status !== "pending" && existing.status !== "unknown") throw new Error("Only pending or unknown transactional records can be reconciled");
+				if (options.decision === "retry" && (new Date(existing.expires_at).getTime() >= now.getTime() || options.quiesced !== true)) {
+					throw new Error("Dispatch may still be active; wait past its TTL and attest that its sender has stopped");
+				}
+				let revision: string | undefined;
+				if (options.decision === "accepted") {
+					revision = randomUUID();
+					await transaction`
+						UPDATE listmonk_ops.sequence_idempotency_records
+						SET status = 'accepted', sent = true, error_message = NULL,
+							claim_token = ${revision}::uuid, updated_at = ${now},
+							expires_at = ${new Date(now.getTime() + DEFAULT_TRANSACTIONAL_TTL_MS)}
+						WHERE key = ${options.key} AND claim_token = ${options.expectedRevision}::uuid
+					`;
+				} else if (options.decision === "retry") {
+					await transaction`SELECT set_config('listmonk_ops.allow_ambiguous_claim_delete', 'on', true)`;
+					await transaction`
+						DELETE FROM listmonk_ops.sequence_idempotency_records
+						WHERE key = ${options.key} AND claim_token = ${options.expectedRevision}::uuid
+					`;
+				} else {
+					throw new Error("Invalid transactional reconciliation decision");
+				}
+				await transaction`
+					INSERT INTO listmonk_ops.sequence_idempotency_reconciliations (
+						key, target_hash, payload_hash, previous_status, previous_revision,
+						decision, reason, reconciled_at
+					) VALUES (
+						${existing.key}, ${existing.target_hash}, ${existing.payload_hash},
+						${existing.status}, ${existing.claim_token}::uuid,
+						${options.decision}, ${options.reason}, ${now}
+					)
+				`;
+				await transaction`
+					DELETE FROM listmonk_ops.sequence_idempotency_reconciliations
+					WHERE id IN (
+						SELECT id FROM (
+							SELECT id, row_number() OVER (ORDER BY id DESC) AS ordinal
+							FROM listmonk_ops.sequence_idempotency_reconciliations
+							WHERE key NOT LIKE 'sequence:%'
+						) AS direct_decisions WHERE ordinal > 1000
+						UNION ALL
+						SELECT id FROM (
+							SELECT id, row_number() OVER (PARTITION BY key ORDER BY id DESC) AS ordinal
+							FROM listmonk_ops.sequence_idempotency_reconciliations
+							WHERE key LIKE 'sequence:%'
+						) AS sequence_decisions WHERE ordinal > 1
+					)
+				`;
+				return { key: options.key, decision: options.decision, reconciledAt: now.toISOString(), ...(revision ? { revision } : {}) };
+			});
+		},
+		async forgetReconciliation(options) {
+			if (!options.key.startsWith("sequence:")) return;
+			await ready();
+			await sql.begin(async (transaction) => {
+				await lockIdempotencyStore(transaction);
+				await transaction`
+					DELETE FROM listmonk_ops.sequence_idempotency_reconciliations
+					WHERE key = ${options.key} AND target_hash = ${options.targetHash}
+				`;
+			});
 		},
 	};
 }

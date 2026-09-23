@@ -18,6 +18,8 @@ test("MCP observes token-file rotation between calls and does not reuse an old t
 	directories.push(home);
 	const tokenFile = join(home, "token");
 	await writeFile(tokenFile, "first");
+	const previousTransactionalStore = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE;
+	process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = join(home, "transactional.json");
 	let expectedToken = "first";
 	let authenticatedCalls = 0;
 	const backend = Bun.serve({
@@ -38,6 +40,7 @@ test("MCP observes token-file rotation between calls and does not reuse an old t
 			apiToken: "unused-fallback",
 			credentialProvider: resolved.readCredential,
 			configuration: resolved.summary,
+			auditStorePath: join(home, "operation-audit.json"),
 		});
 		const request = {
 			method: "tools/call" as const,
@@ -64,8 +67,16 @@ test("MCP observes token-file rotation between calls and does not reuse an old t
 		const config = await server.callTool({ method: "tools/call", params: { name: "listmonk_config", arguments: {} } });
 		expect(config.structuredContent).toEqual(resolved.summary);
 		expect(JSON.stringify(config)).not.toContain("unused-fallback");
+		const records = await server.callTool({ method: "tools/call", params: { name: "listmonk_transactional_records", arguments: {} } });
+		expect(records.structuredContent).toMatchObject({ records: [], total: 0 });
+		const reconcile = await server.callTool({ method: "tools/call", params: { name: "listmonk_reconcile_transactional", arguments: { key: "missing", expected_revision: "missing", decision: "accepted", reason: "Verified delivery in provider logs", confirm: true } } });
+		expect(reconcile.isError).toBe(true);
+		expect(JSON.stringify(reconcile)).toContain("not found");
+		expect(authenticatedCalls).toBe(2);
 	} finally {
 		backend.stop(true);
+		if (previousTransactionalStore === undefined) delete process.env.LISTMONK_OPS_TRANSACTIONAL_STORE;
+		else process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = previousTransactionalStore;
 	}
 });
 

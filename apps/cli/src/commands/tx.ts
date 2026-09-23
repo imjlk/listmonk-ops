@@ -1,12 +1,14 @@
 import {
-	createFileBackedTransactionalIdempotencyStore,
 	hashTransactionalPayload,
 	type OutputUtils,
 } from "@listmonk-ops/common";
+import { getTransactionalIdempotencyStoreFromEnvironment } from "@listmonk-ops/automation";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	idempotencyKeySchema,
+	invokeTransactionalRecordsOperation,
+	invokeTransactionalReconcileOperation,
 	invokeSendTransactionalOperation,
 	OperationExecutionError,
 	TransactionalReconcileError,
@@ -115,7 +117,7 @@ export async function handleSendTransactionalCommand({
 				client,
 				output: getOutput(),
 				idempotencyStore:
-					createFileBackedTransactionalIdempotencyStore(),
+					getTransactionalIdempotencyStoreFromEnvironment(),
 				hashPayload: hashTransactionalPayload,
 				target: { baseUrl: session.baseUrl, username: session.username },
 			},
@@ -143,10 +145,64 @@ export async function handleSendTransactionalCommand({
 	}
 }
 
+async function handleRecordsCommand(args: HandlerArgs<{ key?: string; status?: "pending" | "accepted" | "failed" | "unknown"; limit: number; cursor?: string }>): Promise<void> {
+	const session = await resolveListmonkSession(args, {
+		requireAuth: false,
+		localOnly: true,
+	});
+	getOutput().json(await invokeTransactionalRecordsOperation({
+		idempotencyStore: getTransactionalIdempotencyStoreFromEnvironment(),
+		target: { baseUrl: session.baseUrl, username: session.username },
+	}, args.flags));
+}
+
+async function handleReconcileCommand(args: HandlerArgs<{ key: string; "expected-revision": string; decision: "accepted" | "retry"; reason: string; quiesced?: boolean }>): Promise<void> {
+	const session = await resolveListmonkSession(args, {
+		requireAuth: false,
+		localOnly: true,
+	});
+	const { flags } = args;
+	getOutput().json(await invokeTransactionalReconcileOperation({
+		idempotencyStore: getTransactionalIdempotencyStoreFromEnvironment(),
+		target: { baseUrl: session.baseUrl, username: session.username },
+	}, {
+		key: flags.key,
+		expected_revision: flags["expected-revision"],
+		decision: flags.decision,
+		reason: flags.reason,
+		quiesced: flags.quiesced,
+	}));
+}
+
 export default defineGroup({
 	name: "tx",
 	description: "Transactional email operations",
 	commands: [
+		defineCommand({
+			name: "records",
+			operationId: "transactional.list",
+			description: "Inspect redacted send records for the selected Listmonk target",
+			options: {
+				key: option(z.string().optional(), { description: "Exact idempotency key" }),
+				status: option(z.enum(["pending", "accepted", "failed", "unknown"]).optional(), { description: "Filter by record status" }),
+				limit: option(z.coerce.number().int().min(1).max(100).default(50), { description: "Maximum records to show" }),
+				cursor: option(z.string().optional(), { description: "Cursor returned by the previous records page" }),
+			},
+			handler: handleRecordsCommand,
+		}),
+		defineCommand({
+			name: "reconcile",
+			operationId: "transactional.reconcile",
+			description: "Record an explicit operator conclusion; never sends mail",
+			options: {
+				key: option(z.string(), { description: "Exact idempotency key" }),
+				"expected-revision": option(z.string(), { description: "Revision returned by tx records" }),
+				decision: option(z.enum(["accepted", "retry"]), { description: "Verified delivery decision" }),
+				reason: option(z.string(), { description: "Operator evidence or reason, 10-500 characters" }),
+				quiesced: option(z.boolean().optional(), { description: "Attest that the sender has stopped for an expired pending claim" }),
+			},
+			handler: handleReconcileCommand,
+		}),
 		defineCommand({
 			name: "send",
 			operationId: "transactional.send",

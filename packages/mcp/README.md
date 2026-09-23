@@ -122,6 +122,18 @@ existing behavior until they are migrated.
 - `listmonk_send_transactional` - Send a transactional template to an existing
   subscriber email or ID with optional template data, content type, messenger,
   sender, subject override, plain-text alternative, and custom headers
+- `listmonk_transactional_records` - Inspect redacted, target-bound send records
+  and their revision without exposing recipients or message contents. Pass its
+  `next_cursor` back as `cursor` to read later pages; no API token refresh is
+  needed for this local operation. First inspection may initialize or migrate
+  its claim store, so the MCP tool is marked as mutating.
+- `listmonk_reconcile_transactional` - Record a verified delivery decision or
+  explicitly unblock a later retry; requires `confirm: true`, a reason, and the
+  observed revision. It never sends a message and does not refresh the Listmonk
+  API credential; MCP transport authorization and audit still apply.
+  With `LISTMONK_OPS_SEQUENCE_DATABASE_URL`, these tools and direct sends use
+  the same PostgreSQL claim store as sequence workers. Reconcile an ambiguous
+  sequence claim here before resolving its enrollment.
 
 ### A/B Tests
 

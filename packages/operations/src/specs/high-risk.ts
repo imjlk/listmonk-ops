@@ -5,6 +5,10 @@ import {
 	campaignPreflightOutputContract,
 	transactionalSendInputContract,
 	transactionalSendOutputContract,
+	transactionalRecordsInputContract,
+	transactionalRecordsOutputContract,
+	transactionalReconcileInputContract,
+	transactionalReconcileOutputContract,
 } from "./contract-schemas";
 import { defineOperationSpec } from "./operation";
 import { defineOperationPlaybook } from "./playbook";
@@ -239,6 +243,90 @@ export const transactionalSendOperationSpec = defineOperationSpec({
 	since: "0.7.0",
 });
 
+export const transactionalRecordsOperationSpec = defineOperationSpec({
+	id: "transactional.list",
+	resource: "message",
+	verb: "list",
+	title: "Inspect transactional send records",
+	description: "Inspect redacted idempotency records for the selected Listmonk target; may initialize or migrate the claim store.",
+	contract: {
+		input: transactionalRecordsInputContract,
+		output: transactionalRecordsOutputContract,
+	},
+	effects: [{ kind: "write", resource: "message", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason: "Inspection may migrate the local claim store, but never sends mail or changes a claim.",
+	},
+	agent: {
+		useWhen: [
+			"Inspect an ambiguous transactional send before deciding whether to permit a retry.",
+		],
+		avoidWhen: ["The send did not use an idempotency key."],
+		prerequisites: [],
+		verifyWith: [],
+		related: ["transactional.send", "transactional.reconcile"],
+		retryGuidance: "Repeat the inspection if the record revision changes before reconciliation.",
+	},
+	projection: {
+		mcpName: "listmonk_transactional_records",
+		openWorld: false,
+		graph: {
+			descriptorNode: "packages/operations/src/specs/high-risk.ts#transactionalRecordsOperationSpec:variable",
+			bindingNode: "packages/operations/src/specs/high-risk.ts#bindTransactionalRecordsOperationSpec:function",
+			runtimeDefinitionNode: "packages/operations/src/transactional-reconciliation.ts#transactionalRecordsOperation:variable",
+			invokerNode: "packages/operations/src/transactional-reconciliation.ts#invokeTransactionalRecordsOperation:function",
+			executorNode: "packages/operations/src/transactional-reconciliation.ts#listTransactionalRecords:function",
+		},
+	},
+	stability: "stable",
+	since: "0.18.0",
+});
+
+export const transactionalReconcileOperationSpec = defineOperationSpec({
+	id: "transactional.reconcile",
+	resource: "message",
+	verb: "reconcile",
+	title: "Reconcile transactional send record",
+	description: "Record an explicit operator delivery decision or permit a later retry without sending mail.",
+	contract: {
+		input: transactionalReconcileInputContract,
+		output: transactionalReconcileOutputContract,
+	},
+	effects: [{ kind: "write", resource: "message", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
+	retry: {
+		kind: "unsafe",
+		reason: "A retry decision removes the blocking claim; inspect the current revision before any further action.",
+	},
+	agent: {
+		useWhen: [
+			"An operator verified whether an ambiguous keyed send was delivered and recorded the evidence.",
+		],
+		avoidWhen: [
+			"Delivery has not been independently checked or a sender may still be in flight.",
+		],
+		prerequisites: ["transactional.list"],
+		verifyWith: ["transactional.list"],
+		related: ["transactional.send"],
+		retryGuidance: "Inspect the record again; do not repeat a reconciliation or resend automatically.",
+	},
+	projection: {
+		mcpName: "listmonk_reconcile_transactional",
+		openWorld: false,
+		graph: {
+			descriptorNode: "packages/operations/src/specs/high-risk.ts#transactionalReconcileOperationSpec:variable",
+			bindingNode: "packages/operations/src/specs/high-risk.ts#bindTransactionalReconcileOperationSpec:function",
+			runtimeDefinitionNode: "packages/operations/src/transactional-reconciliation.ts#transactionalReconcileOperation:variable",
+			invokerNode: "packages/operations/src/transactional-reconciliation.ts#invokeTransactionalReconcileOperation:function",
+			executorNode: "packages/operations/src/transactional-reconciliation.ts#reconcileTransactionalRecord:function",
+		},
+	},
+	stability: "stable",
+	since: "0.18.0",
+});
+
 export const campaignPreflightOperationSpec = defineOperationSpec({
 	id: "ops.campaign.preflight",
 	resource: "campaign",
@@ -299,6 +387,8 @@ export const highRiskOperationSpecs = [
 	campaignStartOperationSpec,
 	campaignCancelOperationSpec,
 	transactionalSendOperationSpec,
+	transactionalRecordsOperationSpec,
+	transactionalReconcileOperationSpec,
 	campaignPreflightOperationSpec,
 ] as const;
 
@@ -312,6 +402,14 @@ export function bindCampaignCancelOperationSpec(): typeof campaignCancelOperatio
 
 export function bindTransactionalSendOperationSpec(): typeof transactionalSendOperationSpec {
 	return transactionalSendOperationSpec;
+}
+
+export function bindTransactionalRecordsOperationSpec(): typeof transactionalRecordsOperationSpec {
+	return transactionalRecordsOperationSpec;
+}
+
+export function bindTransactionalReconcileOperationSpec(): typeof transactionalReconcileOperationSpec {
+	return transactionalReconcileOperationSpec;
 }
 
 export function bindCampaignPreflightOperationSpec(): typeof campaignPreflightOperationSpec {

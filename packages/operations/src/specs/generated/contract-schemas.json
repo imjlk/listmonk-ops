@@ -25283,6 +25283,388 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "transactionalReconcileInputContract": {
+    "components": {
+      "schemas": {
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "TransactionalReconcileInput": {
+          "additionalProperties": false,
+          "properties": {
+            "decision": {
+              "oneOf": [
+                {
+                  "const": "accepted"
+                },
+                {
+                  "const": "retry"
+                }
+              ]
+            },
+            "expected_revision": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "key": {
+              "$ref": "#/components/schemas/TransactionalRecordKey"
+            },
+            "quiesced": {
+              "type": "boolean"
+            },
+            "reason": {
+              "maxLength": 500,
+              "minLength": 10,
+              "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "expected_revision",
+            "decision",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "TransactionalRecordKey": {
+          "description": "Internal sequence keys may exceed the public send-key limit.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "oneOf": [
+            {
+              "const": "accepted"
+            },
+            {
+              "const": "retry"
+            }
+          ]
+        },
+        "expected_revision": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "key": {
+          "$ref": "#/components/schemas/TransactionalRecordKey"
+        },
+        "quiesced": {
+          "type": "boolean"
+        },
+        "reason": {
+          "maxLength": 500,
+          "minLength": 10,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "expected_revision",
+        "decision",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "transactionalReconcileOutputContract": {
+    "components": {
+      "schemas": {
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "TransactionalReconcileOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "decision": {
+              "oneOf": [
+                {
+                  "const": "accepted"
+                },
+                {
+                  "const": "retry"
+                }
+              ]
+            },
+            "key": {
+              "$ref": "#/components/schemas/TransactionalRecordKey"
+            },
+            "reconciled_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "revision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "decision",
+            "reconciled_at"
+          ],
+          "type": "object"
+        },
+        "TransactionalRecordKey": {
+          "description": "Internal sequence keys may exceed the public send-key limit.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "oneOf": [
+            {
+              "const": "accepted"
+            },
+            {
+              "const": "retry"
+            }
+          ]
+        },
+        "key": {
+          "$ref": "#/components/schemas/TransactionalRecordKey"
+        },
+        "reconciled_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "revision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "decision",
+        "reconciled_at"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "transactionalRecordsInputContract": {
+    "components": {
+      "schemas": {
+        "TransactionalRecordKey": {
+          "description": "Internal sequence keys may exceed the public send-key limit.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        "TransactionalRecordsInput": {
+          "additionalProperties": false,
+          "properties": {
+            "cursor": {
+              "maxLength": 320,
+              "type": "string"
+            },
+            "key": {
+              "$ref": "#/components/schemas/TransactionalRecordKey"
+            },
+            "limit": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "accepted"
+                },
+                {
+                  "const": "failed"
+                },
+                {
+                  "const": "pending"
+                },
+                {
+                  "const": "unknown"
+                }
+              ]
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "maxLength": 320,
+          "type": "string"
+        },
+        "key": {
+          "$ref": "#/components/schemas/TransactionalRecordKey"
+        },
+        "limit": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "status": {
+          "oneOf": [
+            {
+              "const": "accepted"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "pending"
+            },
+            {
+              "const": "unknown"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "transactionalRecordsOutputContract": {
+    "components": {
+      "schemas": {
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "TransactionalRecordKey": {
+          "description": "Internal sequence keys may exceed the public send-key limit.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        "TransactionalRecordView": {
+          "additionalProperties": false,
+          "properties": {
+            "created_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "error_present": {
+              "type": "boolean"
+            },
+            "expires_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "key": {
+              "$ref": "#/components/schemas/TransactionalRecordKey"
+            },
+            "payload_hash": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "string"
+            },
+            "sent": {
+              "type": "boolean"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "accepted"
+                },
+                {
+                  "const": "failed"
+                },
+                {
+                  "const": "pending"
+                },
+                {
+                  "const": "unknown"
+                }
+              ]
+            },
+            "updated_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            }
+          },
+          "required": [
+            "key",
+            "status",
+            "payload_hash",
+            "revision",
+            "created_at",
+            "updated_at",
+            "expires_at",
+            "error_present"
+          ],
+          "type": "object"
+        },
+        "TransactionalRecordsOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "next_cursor": {
+              "type": "string"
+            },
+            "records": {
+              "items": {
+                "$ref": "#/components/schemas/TransactionalRecordView"
+              },
+              "type": "array"
+            },
+            "total": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "records",
+            "total"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "next_cursor": {
+          "type": "string"
+        },
+        "records": {
+          "items": {
+            "$ref": "#/components/schemas/TransactionalRecordView"
+          },
+          "type": "array"
+        },
+        "total": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "records",
+        "total"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "transactionalSendInputContract": {
     "components": {
       "schemas": {
@@ -25293,7 +25675,7 @@
         "IdempotencyKey": {
           "maxLength": 128,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9._:-]+$",
+          "pattern": "^(?!sequence:)[A-Za-z0-9._:-]+$",
           "type": "string"
         },
         "NonEmptyString": {
@@ -25471,7 +25853,7 @@
         "IdempotencyKey": {
           "maxLength": 128,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9._:-]+$",
+          "pattern": "^(?!sequence:)[A-Za-z0-9._:-]+$",
           "type": "string"
         },
         "IsoDateTime": {
