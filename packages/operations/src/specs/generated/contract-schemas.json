@@ -273,7 +273,8 @@
               "$ref": "#/components/schemas/IsoDateTime"
             },
             "subscriber_uuid": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "format": "uuid",
+              "type": "string"
             },
             "test_id": {
               "$ref": "#/components/schemas/NonEmptyString"
@@ -311,7 +312,8 @@
               "$ref": "#/components/schemas/IsoDateTime"
             },
             "subscriber_uuid": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "format": "uuid",
+              "type": "string"
             },
             "test_id": {
               "$ref": "#/components/schemas/NonEmptyString"

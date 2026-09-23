@@ -112,8 +112,9 @@ or MCP `listmonk_abtest_conversion_record` tool. The atomic conversion journal
 defaults to `~/.listmonk-ops/abtest-conversions.json`; override it with
 `LISTMONK_OPS_ABTEST_CONVERSION_STORE`. A caller supplies an event ID, test and
 variant IDs, subscriber UUID, event name, ISO occurrence time, and optional
-non-negative value plus currency. Recording checks the launched test's
-attribution window and current variant-list membership. Identical event-ID
+non-negative value plus currency. Recording checks the launched test's end
+plus attribution window and current variant-list membership with one filtered
+Listmonk lookup. Identical event-ID
 retries are deduplicated; conflicting reuse is rejected. Analysis uses the
 number of unique converting subscribers as `conversions` and sums values as
 `revenue`. Recording is append-only and requires CLI `--confirm` or MCP

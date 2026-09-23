@@ -1178,8 +1178,9 @@ preceding `abtest get` result into its revision options so an intervening tick
 cannot invalidate the approved state silently. `abtest reconcile` reports
 local drift and can repair with `--repair --confirm`.
 
-`record-conversion` accepts events only after launch, within the pre-registered
-attribution window (or the test's end time; 72 hours if neither is set), and
+`record-conversion` accepts events only after launch, through the test end plus
+the pre-registered attribution window (or the test's end time when no window is
+registered; 72 hours after launch if neither is set), and
 for a subscriber still verifiable in the provisioned variant list. The event
 ID is globally unique in the local store: identical retries return
 `duplicate`, while a changed payload with the same ID is rejected. CLI and MCP

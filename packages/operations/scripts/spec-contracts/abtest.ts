@@ -149,7 +149,7 @@ interface AbTestConversionRecordBaseInput {
 	event_id: NonEmptyString;
 	test_id: NonEmptyString;
 	variant_id: NonEmptyString;
-	subscriber_uuid: NonEmptyString;
+	subscriber_uuid: string & tags.Format<"uuid">;
 	event: NonEmptyString;
 	occurred_at: IsoDateTime;
 }

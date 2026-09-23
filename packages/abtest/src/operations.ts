@@ -29,7 +29,10 @@ import { z } from "zod";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError } from "./errors";
 import { withStoredAbTestExecutors } from "./persistence";
-import { recordAbTestConversion } from "./conversion-recording";
+import {
+	recordAbTestConversion,
+	SUBSCRIBER_UUID_PATTERN,
+} from "./conversion-recording";
 import type {
 	AbTest,
 	AbTestConfig,
@@ -632,7 +635,7 @@ const recordAbTestConversionInputObjectSchema = z.object({
 	event_id: z.string().trim().min(1),
 	test_id: z.string().min(1),
 	variant_id: z.string().min(1),
-	subscriber_uuid: z.string().min(1),
+	subscriber_uuid: z.string().regex(SUBSCRIBER_UUID_PATTERN),
 	event: z.string().min(1),
 	value: z.number().finite().nonnegative().optional(),
 	currency: z.string().min(1).optional(),
