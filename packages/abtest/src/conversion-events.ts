@@ -11,13 +11,13 @@ export function getAbTestAttributionDeadline(
 	test: Pick<AbTest, "launchAt" | "startedAt" | "endsAt" | "hypothesis">,
 ): number | undefined {
 	const start = test.launchAt ?? test.startedAt;
-	if (!start) return undefined;
 	const windowHours = test.hypothesis?.experimentScope.attributionWindowHours;
-	if (windowHours !== undefined) {
-		return new Date(test.endsAt ?? start).getTime() + windowHours * 3_600_000;
+	if (test.endsAt !== undefined) {
+		return new Date(test.endsAt).getTime() + (windowHours ?? 0) * 3_600_000;
 	}
-	if (test.endsAt !== undefined) return new Date(test.endsAt).getTime();
-	return new Date(start).getTime() + DEFAULT_ATTRIBUTION_WINDOW_HOURS * 3_600_000;
+	if (!start) return undefined;
+	return new Date(start).getTime() +
+		(windowHours ?? DEFAULT_ATTRIBUTION_WINDOW_HOURS) * 3_600_000;
 }
 
 /**

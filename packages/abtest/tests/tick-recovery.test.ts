@@ -81,6 +81,19 @@ describe("abtest tick echoed-set recovery", () => {
 		);
 	});
 
+	test("advances an ended running test even when legacy start timestamps are missing", async () => {
+		const storePath = await createStorePath();
+		const fixture = scheduledFixture("test-missing-start");
+		fixture.status = "running";
+		fixture.launchAt = undefined;
+		fixture.startedAt = undefined;
+		fixture.endsAt = new Date(Date.now() - 60_000).toISOString();
+		await saveStoredAbTests([fixture], storePath);
+		const tick = await invokeTickAbTestsOperation({ client: noopClient(), storePath }, {});
+		expect(tick.claim_steps).toEqual([{ test_id: fixture.id, status: "running" }]);
+		expect((await invokeGetAbTestOperation({ client: noopClient(), storePath }, { test_id: fixture.id })).test.status).toBe("analyzing");
+	});
+
 	test("echoes pre-tick claim positions and converges a retried recovery", async () => {
 		const storePath = await createStorePath();
 		const fixture = scheduledFixture("test-scheduled");
