@@ -4,6 +4,7 @@ import {
 	createFileBackedTransactionalIdempotencyStore,
 	hashTransactionalPayload,
 } from "@listmonk-ops/common";
+import { serializeTransactionalPayload } from "@listmonk-ops/operations";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1641,7 +1642,18 @@ describe("sequence execution", () => {
 		}));
 		const key = `sequence:${enrollment.id}:revision:1:step:send`;
 		const claim = await idempotencyStore.claim({
-			key, payloadHash: "payload", targetHash: computeTransactionalTargetHash(context.target!), now: () => now,
+			key,
+			payloadHash: hashTransactionalPayload(serializeTransactionalPayload({
+				template_id: 9,
+				subscriber_id: 42,
+				data: {
+					sequence_id: enrollment.sequenceId,
+					sequence_revision: enrollment.revision,
+					sequence_enrollment_id: enrollment.id,
+					sequence_step_id: "send",
+				},
+			})),
+			targetHash: computeTransactionalTargetHash(context.target!), now: () => now,
 		});
 		if (claim.kind !== "new") throw new Error("expected new claim");
 		await idempotencyStore.reconcile!({
@@ -1656,6 +1668,33 @@ describe("sequence execution", () => {
 		expect((await idempotencyStore.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
 		await idempotencyStore.claim({ key: "post-completion-sweep", payloadHash: "other", targetHash: claim.record.targetHash, now: () => later });
 		expect((await idempotencyStore.load()).records[key]).toBeUndefined();
+	});
+
+	test("a restarted tick removes a receipt left behind after enrollment advancement", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(createSequenceDefinition({
+			name: "recovered receipt cleanup",
+			steps: [{ id: "send", type: "send", templateId: 9 }],
+		}, now));
+		const enrollment = await repository.createEnrollment(createSequenceEnrollment(
+			definition, { sequenceId: definition.id, subscriberId: 42 }, now,
+		));
+		const target = executionContext(repository, idempotencyStore).target!;
+		const key = `sequence:${enrollment.id}:revision:1:step:send`;
+		const claim = await idempotencyStore.claim({ key, payloadHash: "payload", targetHash: computeTransactionalTargetHash(target), now: () => now });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await idempotencyStore.reconcile!({ key, targetHash: claim.record.targetHash, expectedRevision: claim.record.claimToken, decision: "accepted", reason: "Provider logs confirm delivery", now: () => now });
+		const [leased] = await repository.claimDue({ limit: 1, now, leaseMs: 90_000 });
+		if (!leased) throw new Error("expected claimed enrollment");
+		const { leaseToken: _leaseToken, leaseExpiresAt: _leaseExpiresAt, ...next } = leased.enrollment;
+		await repository.completeClaim(leased.enrollment, {
+			...next, status: "completed", updatedAt: now.toISOString(), lastTransitionAt: now.toISOString(),
+		});
+		expect((await idempotencyStore.load()).reconciliations?.some((decision) => decision.key === key)).toBe(true);
+		const restarted = executionContext({ ...repository }, idempotencyStore);
+		expect(await runSequenceTick(restarted, { now })).toMatchObject({ claimed: 0 });
+		expect((await idempotencyStore.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
 	});
 
 	test("retains an accepted decision until ambiguous enrollment recovery", async () => {

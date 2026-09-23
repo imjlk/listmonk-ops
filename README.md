@@ -1096,6 +1096,8 @@ The wrapper:
 - Replays the stored result on an identical retry (`status: "replayed"`,
   `duplicate: true`) instead of re-sending.
 - Rejects a different payload under the same key as a conflict.
+- Reserves the `sequence:` key prefix for sequence workers; direct sends must
+  choose another idempotency key.
 - Records an ambiguous transport failure (timeout, connection reset) as
   `unknown` and blocks automatic retry — inspect Listmonk and the idempotency
   record, then reconcile manually. `pending` and `unknown` records remain

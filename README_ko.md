@@ -1037,6 +1037,8 @@ listmonk-cli tx send \
 - 동일한 재시도는 저장된 결과를 그대로 반환(`status: "replayed"`,
   `duplicate: true`)하며 Listmonk를 다시 호출하지 않습니다.
 - 같은 키로 다른 payload가 들어오면 충돌로 거부합니다.
+- `sequence:` 키 접두사는 sequence worker 전용이므로 직접 발송에서는 다른
+  멱등성 키를 사용해야 합니다.
 - 타임아웃이나 연결 리셋 같은 모호한 전송 실패는 `unknown`으로 기록하고 자동
   재시도를 차단합니다. Listmonk와 멱등성 레코드를 확인한 뒤 수동으로
   reconcile하세요. `pending`과 `unknown` 레코드는 TTL이 지나도 유지되므로

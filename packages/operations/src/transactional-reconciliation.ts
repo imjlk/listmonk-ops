@@ -33,7 +33,7 @@ const recordsInputSchema = z.object({
 	key: keySchema.optional(),
 	status: recordStatusSchema.optional(),
 	limit: z.coerce.number().int().min(1).max(100).default(50),
-	cursor: z.string().max(256).optional(),
+	cursor: z.string().max(320).optional(),
 });
 const recordsOutputSchema = z.object({
 	records: z.array(recordViewSchema),

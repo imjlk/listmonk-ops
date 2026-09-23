@@ -62,7 +62,7 @@ export interface TransactionalRecordsInput {
 	key?: TransactionalRecordKey;
 	status?: "pending" | "accepted" | "failed" | "unknown";
 	limit?: number & tags.Type<"uint32"> & tags.Minimum<1> & tags.Maximum<100>;
-	cursor?: string & tags.MaxLength<256>;
+	cursor?: string & tags.MaxLength<320>;
 }
 
 export interface TransactionalRecordView {

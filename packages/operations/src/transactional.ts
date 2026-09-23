@@ -346,7 +346,7 @@ function collectHeaderIssues(
  * Exported so CLI/MCP adapters reuse the same contract instead of
  * re-declaring the pattern and drifting from the operation schema.
  */
-export const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;
+export const IDEMPOTENCY_KEY_PATTERN = /^(?!sequence:)[A-Za-z0-9._:-]+$/;
 export const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 
 const idempotencyKeyBaseSchema = z
@@ -356,7 +356,7 @@ const idempotencyKeyBaseSchema = z
 	.max(IDEMPOTENCY_KEY_MAX_LENGTH)
 	.regex(
 		IDEMPOTENCY_KEY_PATTERN,
-		"idempotency_key must contain only letters, digits, and . _ : - characters",
+		"idempotency_key must contain only letters, digits, and . _ : - characters and must not use the reserved sequence: prefix",
 	);
 
 export const idempotencyKeySchema = idempotencyKeyBaseSchema

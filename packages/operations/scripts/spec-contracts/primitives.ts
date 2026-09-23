@@ -38,7 +38,7 @@ export type IsoDateTime = string & tags.Format<"date-time">;
 export type IdempotencyKey = string &
 	tags.MinLength<1> &
 	tags.MaxLength<128> &
-	tags.Pattern<"^[A-Za-z0-9._:-]+$">;
+	tags.Pattern<"^(?!sequence:)[A-Za-z0-9._:-]+$">;
 
 export interface PaginationInput {
 	/** One-based result page. Omitted values use the shared operation default. */

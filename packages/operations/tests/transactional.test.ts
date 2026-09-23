@@ -476,10 +476,10 @@ describe("transactional operations", () => {
 		).toBe(sendTransactionalOperation);
 	});
 
-	test("rejects idempotency keys that contain whitespace or disallowed characters", async () => {
+	test("rejects disallowed idempotency keys and the reserved sequence namespace", async () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
 
-		for (const invalidKey of ["has space", "with@at", "slash/char", ""]) {
+		for (const invalidKey of ["has space", "with@at", "slash/char", "", "sequence:invoice"]) {
 			await expect(
 				invokeSendTransactionalOperation(context(send), {
 					template_id: 3,

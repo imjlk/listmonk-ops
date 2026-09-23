@@ -25471,7 +25471,7 @@
           "additionalProperties": false,
           "properties": {
             "cursor": {
-              "maxLength": 256,
+              "maxLength": 320,
               "type": "string"
             },
             "key": {
@@ -25509,7 +25509,7 @@
       "additionalProperties": false,
       "properties": {
         "cursor": {
-          "maxLength": 256,
+          "maxLength": 320,
           "type": "string"
         },
         "key": {
@@ -25675,7 +25675,7 @@
         "IdempotencyKey": {
           "maxLength": 128,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9._:-]+$",
+          "pattern": "^(?!sequence:)[A-Za-z0-9._:-]+$",
           "type": "string"
         },
         "NonEmptyString": {
@@ -25853,7 +25853,7 @@
         "IdempotencyKey": {
           "maxLength": 128,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9._:-]+$",
+          "pattern": "^(?!sequence:)[A-Za-z0-9._:-]+$",
           "type": "string"
         },
         "IsoDateTime": {

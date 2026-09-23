@@ -127,3 +127,26 @@ test("inspects and reconciles long sequence keys with valid offset timestamps", 
 		reason: "Provider logs confirm delivery",
 	})).resolves.toMatchObject({ key, decision: "accepted" });
 });
+
+test("accepts pagination cursors produced from maximum-length record keys", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "lmops-reconcile-max-cursor-"));
+	directories.push(directory);
+	const storePath = join(directory, "transactional.json");
+	const target = { baseUrl: "http://localhost:9000/api", username: "operator" };
+	const targetHash = computeTransactionalTargetHash(target);
+	const longKey = "x".repeat(256);
+	const record = (key: string, updatedAt: string) => ({
+		key, payloadHash: "payload", targetHash, status: "unknown", claimToken: "revision",
+		createdAt: updatedAt, updatedAt, expiresAt: "2026-01-03T00:00:00.000Z",
+	});
+	await writeFile(storePath, JSON.stringify({ version: 2, records: {
+		[longKey]: record(longKey, "2026-01-02T00:00:00.000Z"),
+		short: record("short", "2026-01-01T00:00:00.000Z"),
+	} }));
+	const context = { idempotencyStore: createFileBackedTransactionalIdempotencyStore({ storePath }), target };
+	const first = await invokeTransactionalRecordsOperation(context, { limit: 1 });
+	expect(first.records.map((entry) => entry.key)).toEqual([longKey]);
+	expect(first.next_cursor?.length).toBeGreaterThan(256);
+	const second = await invokeTransactionalRecordsOperation(context, { limit: 1, cursor: first.next_cursor });
+	expect(second.records.map((entry) => entry.key)).toEqual(["short"]);
+});

@@ -11,7 +11,7 @@ import {
 	TransactionalReconcileError,
 	type TransactionalIdempotencyStore,
 } from "@listmonk-ops/operations";
-import { DEFAULT_SEQUENCE_LEASE_MS } from "./sequences";
+import { DEFAULT_SEQUENCE_LEASE_MS, SequenceNotFoundError } from "./sequences";
 import type {
 	ClaimedSequenceEnrollment,
 	SequenceEnrollment,
@@ -58,6 +58,41 @@ export type SequenceAmbiguousResolution = "sent" | "not_sent";
 export const SEQUENCE_RETRY_BASE_DELAY_MS = 5_000;
 export const SEQUENCE_RETRY_MAX_DELAY_MS = 5 * 60_000;
 export const SEQUENCE_RETRY_MAX_ATTEMPTS = 24;
+const SEQUENCE_RECEIPT_SWEEP_INTERVAL_MS = 60 * 60 * 1_000;
+const lastReceiptSweep = new WeakMap<SequenceRepository, number>();
+
+/** Retry receipt cleanup after a crash between enrollment advancement and store cleanup. */
+async function sweepRecoveredSequenceReceipts(context: SequenceExecutionContext, now: Date): Promise<void> {
+	if (!context.idempotencyStore.forgetReconciliation) return;
+	const last = lastReceiptSweep.get(context.repository);
+	if (last !== undefined && now.getTime() >= last && now.getTime() - last < SEQUENCE_RECEIPT_SWEEP_INTERVAL_MS) return;
+	const latestByKey = new Map<string, NonNullable<Awaited<ReturnType<TransactionalIdempotencyStore["load"]>>["reconciliations"]>[number]>();
+	for (const event of (await context.idempotencyStore.load()).reconciliations ?? []) {
+		if (event.key.startsWith("sequence:")) latestByKey.set(event.key, event);
+	}
+	for (const event of latestByKey.values()) {
+		const match = /^sequence:([0-9a-f-]{36}):revision:\d+:step:[A-Za-z0-9._:-]+$/i.exec(
+			event.key,
+		);
+		if (!match) continue;
+		let enrollment: SequenceEnrollment | undefined;
+		try {
+			enrollment = await context.repository.getEnrollment(match[1]!);
+		} catch (error) {
+			if (!(error instanceof SequenceNotFoundError)) throw error;
+		}
+		const currentKey = enrollment
+			? deterministicSendKey(enrollment)
+			: undefined;
+		const stillNeedsReceipt = currentKey === event.key && (
+			event.decision === "accepted"
+				? enrollment?.status !== "completed" && enrollment?.status !== "failed" && enrollment?.status !== "cancelled"
+				: enrollment?.status === "ambiguous"
+		);
+		if (!stillNeedsReceipt) await context.idempotencyStore.forgetReconciliation({ key: event.key, targetHash: event.targetHash });
+	}
+	lastReceiptSweep.set(context.repository, now.getTime());
+}
 
 function toErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -271,12 +306,6 @@ async function executeSendStep(
 			);
 		}
 		const sendKey = deterministicSendKey(claimed.enrollment);
-		const targetHash = computeTransactionalTargetHash(context.target ?? {});
-		const priorDecision = (await context.idempotencyStore.load()).reconciliations
-			?.slice().reverse().find((event) => event.key === sendKey && event.targetHash === targetHash);
-		// A verified acceptance must survive expiry of its ordinary replay record.
-		// The enrollment may still be pending when a stopped worker resumes.
-		if (priorDecision?.decision === "accepted") return transitionToNext(claimed, now);
 		const result = await sendTransactionalMessage(
 			{
 				client: context.client,
@@ -567,6 +596,7 @@ export async function recoverSequenceTick(
 	}
 > {
 	const now = options.now ?? context.now?.() ?? new Date();
+	await sweepRecoveredSequenceReceipts(context, now);
 	const claimed = await context.repository.claimSpecific({
 		claims: options.claims,
 		now,
@@ -654,6 +684,7 @@ export async function runSequenceTick(
 	options: RunSequenceTickOptions = {},
 ): Promise<SequenceTickSummary> {
 	const now = options.now ?? context.now?.() ?? new Date();
+	await sweepRecoveredSequenceReceipts(context, now);
 	const claimed = await context.repository.claimDue({
 		limit: options.limit ?? 25,
 		now,
