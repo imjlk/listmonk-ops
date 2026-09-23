@@ -1,5 +1,6 @@
 import { getListmonkDataDirectory } from "./configuration";
 import { createHash, randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import {
@@ -46,7 +47,7 @@ export interface TransactionalSendRecord {
 }
 
 export interface StoredTransactionalDocument {
-	version: 1;
+	version: 2;
 	records: Record<string, TransactionalSendRecord>;
 	/** Bounded operator decisions, retained independently of send-record TTL. */
 	reconciliations?: TransactionalReconciliationEvent[];
@@ -195,9 +196,14 @@ export function parseStoredTransactionalDocument(
 	if (!isRecordValue(value)) {
 		throw new Error("Invalid transactional store: expected an object");
 	}
-	if (value.version !== 1) {
+	if (value.version !== 1 && value.version !== 2) {
 		throw new Error(
-			`Invalid transactional store: unsupported schema version ${String(value.version)} (expected 1)`,
+			`Invalid transactional store: unsupported schema version ${String(value.version)} (expected 1 or 2)`,
+		);
+	}
+	if (value.version === 1 && value.reconciliations !== undefined) {
+		throw new Error(
+			"Invalid transactional store: version 1 cannot contain reconciliation history",
 		);
 	}
 	if (!isRecordValue(value.records)) {
@@ -221,7 +227,7 @@ export function parseStoredTransactionalDocument(
 		throw new Error("Invalid transactional reconciliation history");
 	}
 	return {
-		version: 1,
+		version: 2,
 		records: value.records as Record<string, TransactionalSendRecord>,
 		...(value.reconciliations === undefined ? {} : { reconciliations: value.reconciliations as TransactionalReconciliationEvent[] }),
 	};
@@ -285,10 +291,37 @@ function createTransactionalStore(
 ): JsonFileStore<StoredTransactionalDocument> {
 	return {
 		path: storePath,
-		createDefault: () => ({ version: 1, records: Object.create(null) }),
+		createDefault: () => ({ version: 2, records: Object.create(null) }),
 		parse: parseStoredTransactionalDocument,
 		lock: { timeoutMs: TRANSACTIONAL_STORE_LOCK_TIMEOUT_MS },
 	};
+}
+
+/** Promote a legacy document before an operator relies on a read-only inspection. */
+async function loadTransactionalDocument(storePath: string): Promise<StoredTransactionalDocument> {
+	const store = createTransactionalStore(storePath);
+	const document = await readJsonFileStore(store);
+	let raw: string;
+	try {
+		raw = await readFile(storePath, "utf8");
+	} catch (error) {
+		if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+			// Establish the version-2 marker even for an empty inspection, so an
+			// old process cannot subsequently create a version-1 store here.
+			return updateJsonFileStore<StoredTransactionalDocument, StoredTransactionalDocument>(
+				store,
+				(current) => commitJsonFileStoreUpdate(current, current),
+			);
+		}
+		throw error;
+	}
+	if ((JSON.parse(raw) as { version?: unknown }).version !== 1) return document;
+	// Re-read under the store lock. A concurrent old writer must see version 2
+	// before it can sweep another ambiguous claim.
+	return updateJsonFileStore<StoredTransactionalDocument, StoredTransactionalDocument>(
+		store,
+		(current) => commitJsonFileStoreUpdate(current, current),
+	);
 }
 
 function newClaimToken(): string {
@@ -574,7 +607,7 @@ export function createFileBackedTransactionalIdempotencyStore(
 			commitTransactionalSend({ storePath, ...commitOptions }),
 		release: (releaseOptions) =>
 			releaseTransactionalSend({ storePath, ...releaseOptions }),
-		load: () => readJsonFileStore(createTransactionalStore(storePath)),
+		load: () => loadTransactionalDocument(storePath),
 		reconcile: (reconcileOptions) =>
 			reconcileTransactionalSend({ storePath, ...reconcileOptions }),
 	};
@@ -592,7 +625,7 @@ export function hashTransactionalPayload(serialized: string): string {
 export async function loadStoredTransactionalDocument(
 	storePath = getTransactionalStorePath(),
 ): Promise<StoredTransactionalDocument> {
-	return readJsonFileStore(createTransactionalStore(storePath));
+	return loadTransactionalDocument(storePath);
 }
 
 export async function validateStoredTransactionalStore(

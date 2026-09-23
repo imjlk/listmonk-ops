@@ -52,6 +52,7 @@ test("shared transactional operations inspect a target-bound redacted record and
 		decision: "accepted",
 		reason: "Verified delivered in Mailpit",
 	};
+	await expect(invokeTransactionalReconcileOperation(context, { ...input, reason: "Verified delivery\nfrom logs" })).rejects.toThrow();
 	await expect(invokeTransactionalReconcileOperation(context, { ...input, expected_revision: "stale" })).rejects.toThrow();
 	const result = await invokeTransactionalReconcileOperation(context, input);
 	expect(result.decision).toBe("accepted");

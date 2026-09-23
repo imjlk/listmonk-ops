@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -147,6 +147,22 @@ describe("transactional idempotency file-backed store", () => {
 		const replacement = await claimTransactionalSend({ storePath, key, payloadHash: hashPayload(makePayload()), targetHash: DEFAULT_TARGET_HASH, now: () => new Date("2026-01-02T00:00:01Z") });
 		expect(replacement.kind).toBe("new");
 		expect((await loadStoredTransactionalDocument(storePath)).reconciliations?.at(-1)).toMatchObject({ key, decision: "retry", reason: "Verified no delivery in provider logs" });
+	});
+
+	test("migrates legacy version 1 claims to version 2 before replaying an expired pending send", async () => {
+		const key = "legacy-pending";
+		const claim = await claimTransactionalSend({ storePath, key, payloadHash: "payload", targetHash: DEFAULT_TARGET_HASH, ttlMs: 1, now: fixedClock });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await writeFile(storePath, JSON.stringify({ version: 1, records: { [key]: claim.record } }));
+		expect((await loadStoredTransactionalDocument(storePath)).records[key]?.status).toBe("pending");
+		expect(JSON.parse(await readFile(storePath, "utf8")).version).toBe(2);
+		const replay = await claimTransactionalSend({ storePath, key, payloadHash: "payload", targetHash: DEFAULT_TARGET_HASH, now: () => new Date("2026-01-02T00:00:00Z") });
+		expect(replay.kind).toBe("replay");
+	});
+
+	test("creates the version 2 marker when an empty store is first inspected", async () => {
+		expect(Object.keys((await loadStoredTransactionalDocument(storePath)).records)).toEqual([]);
+		expect(JSON.parse(await readFile(storePath, "utf8")).version).toBe(2);
 	});
 
 	describe("getTransactionalStorePath", () => {
@@ -1031,7 +1047,7 @@ describe("transactional idempotency file-backed store", () => {
 			expect(isStoredTransactionalSendRecord(record)).toBe(false);
 		});
 
-		test("parseStoredTransactionalDocument round-trips a valid document", () => {
+		test("parseStoredTransactionalDocument migrates a valid version 1 document", () => {
 			const doc = {
 				version: 1,
 				records: {
@@ -1049,7 +1065,7 @@ describe("transactional idempotency file-backed store", () => {
 				},
 			};
 			const parsed = parseStoredTransactionalDocument(doc);
-			expect(parsed.version).toBe(1);
+			expect(parsed.version).toBe(2);
 			expect(parsed.records["k"]?.status).toBe("accepted");
 		});
 	});

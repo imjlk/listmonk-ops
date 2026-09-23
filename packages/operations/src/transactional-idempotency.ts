@@ -53,11 +53,12 @@ export interface TransactionalSendRecord {
 /**
  * On-disk document shape for the transactional idempotency store.
  *
- * Version 1 is the initial shape. Records are keyed by `idempotency_key`
+ * Version 2 retains ambiguous claims past TTL and stores operator decisions;
+ * version 1 documents are migrated on read. Records are keyed by `idempotency_key`
  * so a replay reads in O(1) without scanning history.
  */
 export interface StoredTransactionalDocument {
-	version: 1;
+	version: 2;
 	records: Record<string, TransactionalSendRecord>;
 	reconciliations?: Array<{
 		key: string;
@@ -221,9 +222,14 @@ export function parseStoredTransactionalDocument(
 	if (!isRecordValue(value)) {
 		throw new Error("Invalid transactional store: expected an object");
 	}
-	if (value.version !== 1) {
+	if (value.version !== 1 && value.version !== 2) {
 		throw new Error(
-			`Invalid transactional store: unsupported schema version ${String(value.version)} (expected 1)`,
+			`Invalid transactional store: unsupported schema version ${String(value.version)} (expected 1 or 2)`,
+		);
+	}
+	if (value.version === 1 && value.reconciliations !== undefined) {
+		throw new Error(
+			"Invalid transactional store: version 1 cannot contain reconciliation history",
 		);
 	}
 	if (!isRecordValue(value.records)) {
@@ -248,7 +254,7 @@ export function parseStoredTransactionalDocument(
 		throw new Error("Invalid transactional reconciliation history");
 	}
 	return {
-		version: 1,
+		version: 2,
 		records: value.records as Record<string, TransactionalSendRecord>,
 		...(value.reconciliations === undefined ? {} : { reconciliations: value.reconciliations as StoredTransactionalDocument["reconciliations"] }),
 	};

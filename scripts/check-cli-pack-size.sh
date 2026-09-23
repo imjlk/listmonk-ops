@@ -5,9 +5,9 @@ set -euo pipefail
 # the single-file CLI bundle. Keep modest headroom above the reviewed baseline
 # while retaining the stricter compressed distribution budget below. Each
 # standalone contract migration adds a few KB of generated JSON.
-# Transactional reconciliation baseline: 1,910,701 bytes with Bun 1.4.2.
+# Transactional reconciliation baseline: 1,911,368 bytes with Bun 1.4.2.
 MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1915000}"
-# Transactional reconciliation bundle measures 315,363 bytes compressed.
+# Transactional reconciliation bundle measures 315,508 bytes compressed.
 MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-317000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"

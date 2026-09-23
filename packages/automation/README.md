@@ -233,6 +233,10 @@ persisted retry count through enrollment operations. Ambiguous outcomes are dura
 `reconcileAmbiguousSequenceEnrollment()` with an operator-reviewed `sent` or
 `not_sent` decision; pending send claims cannot be reconciled while delivery
 may remain in flight.
+The Postgres sequence idempotency adapter now retains expired `pending` and
+`unknown` send claims. Schema version 3 adds a bounded reconciliation history;
+the adapter exposes the same target/revision-checked `reconcile` contract as
+the file store, so a TTL sweep cannot silently authorize a duplicate send.
 Sequence definitions reuse the shared transactional sender and subject schemas,
 so malformed From mailboxes and header-control injection are rejected before
 the definition is persisted.

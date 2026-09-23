@@ -42,7 +42,10 @@ const reconcileInputSchema = z.object({
 	key: keySchema,
 	expected_revision: z.string().min(1),
 	decision: z.enum(["accepted", "retry"]),
-	reason: z.string().trim().min(10).max(500),
+	reason: z.string().trim().min(10).max(500).regex(
+		/^[^\u0000-\u001f\u007f]+$/u,
+		"reason must contain printable characters only",
+	),
 	quiesced: z.boolean().optional(),
 });
 const reconcileOutputSchema = z.object({

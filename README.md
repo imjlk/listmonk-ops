@@ -1122,9 +1122,13 @@ decision does not wait for TTL because it cannot dispatch mail. The MCP equivale
 the observed revision and a 10–500 character reason; the store atomically
 checks the target and revision and retains a bounded decision history. Never
 approve retry while an earlier sender may still be active.
+The PostgreSQL sequence runtime follows the same ambiguous-claim retention and
+reconciliation rules; its version 3 schema migration preserves existing claims.
 
 The store path defaults to `<resolved-data-directory>/transactional.json`;
-override it with `LISTMONK_OPS_TRANSACTIONAL_STORE`.
+override it with `LISTMONK_OPS_TRANSACTIONAL_STORE`. Version 1 files migrate to
+version 2 on the next store access; older binaries reject version 2 instead of
+silently discarding unresolved claims or decision history.
 
 ## A/B Test Operations
 

@@ -104,7 +104,7 @@ function createInMemoryTransactionalIdempotencyStore(): TransactionalIdempotency
 			return Promise.resolve();
 		},
 		load() {
-			const doc = { version: 1 as const, records: {} as Record<string, TransactionalSendRecord> };
+			const doc = { version: 2 as const, records: {} as Record<string, TransactionalSendRecord> };
 			for (const [k, v] of records) doc.records[k] = v;
 			return Promise.resolve(doc);
 		},

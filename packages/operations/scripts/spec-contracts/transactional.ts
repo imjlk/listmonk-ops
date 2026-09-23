@@ -85,7 +85,7 @@ export interface TransactionalReconcileInput {
 	key: IdempotencyKey;
 	expected_revision: NonEmptyString;
 	decision: "accepted" | "retry";
-	reason: string & tags.MinLength<10> & tags.MaxLength<500>;
+	reason: string & tags.MinLength<10> & tags.MaxLength<500> & tags.Pattern<"^[^\\u0000-\\u001f\\u007f]+$">;
 	quiesced?: boolean;
 }
 

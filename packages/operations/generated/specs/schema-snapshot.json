@@ -1522,6 +1522,7 @@
                 "reason": {
                   "maxLength": 500,
                   "minLength": 10,
+                  "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
                   "type": "string"
                 }
               },
@@ -1561,6 +1562,7 @@
             "reason": {
               "maxLength": 500,
               "minLength": 10,
+              "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
               "type": "string"
             }
           },
