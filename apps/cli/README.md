@@ -73,6 +73,10 @@ send target.
 The `retry` decision only unblocks a later explicit send and requires elapsed
 TTL plus `--quiesced` after stopping the sender. A verified `accepted` decision
 does not wait for TTL because it never dispatches mail.
+With `LISTMONK_OPS_SEQUENCE_DATABASE_URL`, transactional sends and these
+inspection commands share the sequence PostgreSQL claim store. For an
+ambiguous sequence enrollment, reconcile its claim first, then resolve the
+enrollment as `sent` after `accepted` or `not_sent` after `retry`.
 
 Shared operations with `confirmationRequired: true` need the global
 `--confirm` flag, for example `listmonk-cli lists delete --id 10 --confirm`.

@@ -1,8 +1,8 @@
 import {
-	createFileBackedTransactionalIdempotencyStore,
 	hashTransactionalPayload,
 	type OutputUtils,
 } from "@listmonk-ops/common";
+import { getTransactionalIdempotencyStoreFromEnvironment } from "@listmonk-ops/automation";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
@@ -117,7 +117,7 @@ export async function handleSendTransactionalCommand({
 				client,
 				output: getOutput(),
 				idempotencyStore:
-					createFileBackedTransactionalIdempotencyStore(),
+					getTransactionalIdempotencyStoreFromEnvironment(),
 				hashPayload: hashTransactionalPayload,
 				target: { baseUrl: session.baseUrl, username: session.username },
 			},
@@ -151,7 +151,7 @@ async function handleRecordsCommand(args: HandlerArgs<{ key?: string; status?: "
 		localOnly: true,
 	});
 	getOutput().json(await invokeTransactionalRecordsOperation({
-		idempotencyStore: createFileBackedTransactionalIdempotencyStore(),
+		idempotencyStore: getTransactionalIdempotencyStoreFromEnvironment(),
 		target: { baseUrl: session.baseUrl, username: session.username },
 	}, args.flags));
 }
@@ -163,7 +163,7 @@ async function handleReconcileCommand(args: HandlerArgs<{ key: string; "expected
 	});
 	const { flags } = args;
 	getOutput().json(await invokeTransactionalReconcileOperation({
-		idempotencyStore: createFileBackedTransactionalIdempotencyStore(),
+		idempotencyStore: getTransactionalIdempotencyStoreFromEnvironment(),
 		target: { baseUrl: session.baseUrl, username: session.username },
 	}, {
 		key: flags.key,

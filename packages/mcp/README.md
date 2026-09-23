@@ -130,6 +130,9 @@ existing behavior until they are migrated.
   explicitly unblock a later retry; requires `confirm: true`, a reason, and the
   observed revision. It never sends a message and does not refresh the Listmonk
   API credential; MCP transport authorization and audit still apply.
+  With `LISTMONK_OPS_SEQUENCE_DATABASE_URL`, these tools and direct sends use
+  the same PostgreSQL claim store as sequence workers. Reconcile an ambiguous
+  sequence claim here before resolving its enrollment.
 
 ### A/B Tests
 

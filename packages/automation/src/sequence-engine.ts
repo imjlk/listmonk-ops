@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	computeTransactionalTargetHash,
 	getSubscriber,
 	isDefinitivePreDispatchError,
 	isResourceMissingError,
@@ -713,7 +714,27 @@ export async function reconcileAmbiguousSequenceEnrollment(
 	const document = await context.idempotencyStore.load();
 	const record = document.records[key];
 	if (!record) {
-		throw new Error(`Transactional idempotency record ${key} is missing`);
+		const targetHash = context.target?.baseUrl && context.target.username
+			? computeTransactionalTargetHash(context.target)
+			: undefined;
+		const latestDecision = document.reconciliations?.slice().reverse().find(
+			(event) => event.key === key && event.targetHash === targetHash,
+		);
+		if (resolution !== "not_sent" || latestDecision?.decision !== "retry" ||
+			Date.parse(latestDecision.reconciledAt) < Date.parse(enrollment.lastTransitionAt)) {
+			throw new Error(`Transactional idempotency record ${key} is missing`);
+		}
+		const next = withoutLease(
+			enrollment,
+			{
+				status: "pending",
+				retryCount: 0,
+				nextRunAt: now.toISOString(),
+				lastError: undefined,
+			},
+			now,
+		);
+		return forceCompleteAmbiguous(context.repository, enrollment, next);
 	}
 	if (record.status === "pending") {
 		throw new Error(

@@ -1065,10 +1065,12 @@ listmonk-cli tx reconcile --key ORDER_KEY --expected-revision REVISION \
 `confirm: true`를 전달합니다. 두 경로 모두 조회한 revision과 10~500자 사유가
 필수이며, 저장소는 대상과 revision을 원자적으로 확인하고 판단 이력을 보존합니다.
 기존 발송이 진행 중일 가능성이 있다면 재시도를 허용하지 마세요.
-PostgreSQL sequence runtime도 모호한 claim 보존과 복구 규칙을 동일하게 적용하며,
-version 3 스키마 마이그레이션은 기존 claim을 유지합니다.
+`LISTMONK_OPS_SEQUENCE_DATABASE_URL`을 설정하면 직접 transactional 발송,
+조회, 재조정도 sequence PostgreSQL claim 저장소를 사용합니다. Version 3 스키마
+마이그레이션은 기존 claim을 유지합니다.
 
-저장소 경로 기본값은 `<resolved-data-directory>/transactional.json`이며
+Sequence 데이터베이스를 사용하지 않을 때 저장소 경로 기본값은
+`<resolved-data-directory>/transactional.json`이며
 `LISTMONK_OPS_TRANSACTIONAL_STORE`로 재정의할 수 있습니다. Version 1 파일은
 다음 저장소 접근에서 version 2로 이전됩니다. 이전 바이너리는 version 2를
 거부하므로 미확정 claim이나 판단 이력을 조용히 삭제하지 않습니다.
@@ -1401,8 +1403,12 @@ exponential backoff로 최대 24회 재시도하며, enrollment list/get 결과�
 `ambiguous`가 되며 자동
 재시도하지 않습니다. Listmonk, Mailpit 또는 provider 근거를 확인한 후
 `sequences reconcile --enrollment-id ... --resolution sent` 또는 `not_sent`와
-`--no-dry-run --confirm`으로 명시적으로 복구합니다. 발송이 여전히 진행 중일
-수 있는 `pending` 멱등성 claim은 운영자가 수동 reconcile할 수 없습니다.
+`--no-dry-run --confirm`으로 명시적으로 복구합니다. 발송이 진행 중일 수 있는
+`pending` claim은 `sequences reconcile`에서 바로 해결할 수 없습니다. 오래
+남은 claim은 `tx records`로 조회하고 배달 여부를 별도로 확인한 뒤, 조회한
+revision으로 `tx reconcile`을 실행하세요. `accepted` 결정 뒤에는 enrollment를
+`sent`로, TTL 경과와 발송자 중지를 확인한 `retry` 결정 뒤에는 `not_sent`로
+복구합니다.
 
 기본 파일 저장소는 `~/.listmonk-ops/sequences.json`입니다. 여러 worker가
 동시에 처리할 때는 `LISTMONK_OPS_SEQUENCE_DATABASE_URL`을 설정하세요.

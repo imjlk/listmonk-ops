@@ -1,3 +1,4 @@
+import { createFileBackedTransactionalIdempotencyStore } from "@listmonk-ops/common";
 import {
 	createFileSequenceRepository,
 	getSequenceStorePath,
@@ -59,6 +60,12 @@ export function getSequenceRepositoryFromEnvironment(
 		repositoryCache.set(key, repository);
 	}
 	return repository;
+}
+
+/** Share the configured Postgres claim store with direct transactional sends. */
+export function getTransactionalIdempotencyStoreFromEnvironment() {
+	return getSequenceRepositoryFromEnvironment().idempotencyStore
+		?? createFileBackedTransactionalIdempotencyStore();
 }
 
 export async function closeSequenceRuntimeRepositories(): Promise<void> {

@@ -1,5 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	computeTransactionalTargetHash,
 	createFileBackedTransactionalIdempotencyStore,
 	hashTransactionalPayload,
 } from "@listmonk-ops/common";
@@ -1562,12 +1563,15 @@ describe("sequence execution", () => {
 			lastTransitionAt: now.toISOString(),
 			updatedAt: now.toISOString(),
 		});
-		await idempotencyStore.claim({
-			key: `sequence:${enrollment.id}:revision:1:step:send`,
+		const key = `sequence:${enrollment.id}:revision:1:step:send`;
+		const claim = await idempotencyStore.claim({
+			key,
 			payloadHash: "payload",
-			targetHash: "target",
+			targetHash: computeTransactionalTargetHash(executionContext(repository, idempotencyStore).target!),
+			ttlMs: 1,
 			now: () => now,
 		});
+		if (claim.kind !== "new") throw new Error("expected new claim");
 
 		await expect(
 			reconcileAmbiguousSequenceEnrollment(
@@ -1577,6 +1581,22 @@ describe("sequence execution", () => {
 				now,
 			),
 		).rejects.toThrow("still pending");
+		const later = new Date(now.getTime() + 2_000);
+		await idempotencyStore.reconcile!({
+			key,
+			targetHash: claim.record.targetHash,
+			expectedRevision: claim.record.claimToken,
+			decision: "retry",
+			reason: "Provider logs confirm no delivery",
+			quiesced: true,
+			now: () => later,
+		});
+		expect(await reconcileAmbiguousSequenceEnrollment(
+			executionContext(repository, idempotencyStore),
+			enrollment.id,
+			"not_sent",
+			later,
+		)).toMatchObject({ status: "pending", currentStepId: "send" });
 	});
 
 	test("commits an operator-confirmed ambiguous send before advancing", async () => {

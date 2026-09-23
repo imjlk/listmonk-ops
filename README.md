@@ -1126,11 +1126,13 @@ decision does not wait for TTL because it cannot dispatch mail. The MCP equivale
 the observed revision and a 10–500 character reason; the store atomically
 checks the target and revision and retains a bounded decision history. Never
 approve retry while an earlier sender may still be active.
-The PostgreSQL sequence runtime follows the same ambiguous-claim retention and
-reconciliation rules; its version 3 schema migration preserves existing claims.
+When `LISTMONK_OPS_SEQUENCE_DATABASE_URL` is set, direct transactional sends,
+inspection, and reconciliation use the sequence PostgreSQL claim store. The
+version 3 schema migration preserves existing claims.
 
-The store path defaults to `<resolved-data-directory>/transactional.json`;
-override it with `LISTMONK_OPS_TRANSACTIONAL_STORE`. Version 1 files migrate to
+Without a sequence database, the store path defaults to
+`<resolved-data-directory>/transactional.json`; override it with
+`LISTMONK_OPS_TRANSACTIONAL_STORE`. Version 1 files migrate to
 version 2 on the next store access; older binaries reject version 2 instead of
 silently discarding unresolved claims or decision history.
 
@@ -1476,8 +1478,12 @@ enrollment list/get output.
 A response-lost send becomes `ambiguous` and is never retried automatically;
 after checking Listmonk/Mailpit/provider evidence, resolve it explicitly with
 `sequences reconcile --enrollment-id ... --resolution sent` or `not_sent`,
-plus `--no-dry-run --confirm`. A still-`pending` send claim cannot be manually
-reconciled because delivery may remain in flight.
+plus `--no-dry-run --confirm`. A still-`pending` send claim cannot be resolved
+through `sequences reconcile` while delivery may remain in flight. For a
+stranded claim, inspect it with `tx records`, verify delivery independently,
+and use `tx reconcile` with its observed revision. Then resolve the enrollment
+as `sent` after an `accepted` decision, or as `not_sent` after a TTL-expired,
+quiesced `retry` decision.
 
 The default file store is `~/.listmonk-ops/sequences.json`. Set
 `LISTMONK_OPS_SEQUENCE_DATABASE_URL` for concurrent workers; Postgres uses

@@ -4,6 +4,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import postgres from "postgres";
+import { computeTransactionalTargetHash } from "@listmonk-ops/common";
+import {
+	invokeTransactionalRecordsOperation,
+	invokeTransactionalReconcileOperation,
+} from "@listmonk-ops/operations";
 import {
 	invokeSequenceEnrollmentGetOperation,
 	invokeSequenceEnrollmentListOperation,
@@ -13,6 +18,10 @@ import {
 	invokeSequenceResumeOperation,
 } from "../src/sequence-operations";
 import { createPostgresSequenceRepository } from "../src/sequence-postgres";
+import {
+	closeSequenceRuntimeRepositories,
+	getTransactionalIdempotencyStoreFromEnvironment,
+} from "../src/sequence-runtime";
 import {
 	createFileSequenceRepository,
 	createSequenceDefinition,
@@ -75,6 +84,32 @@ afterAll(async () => {
 });
 
 describe("Postgres sequence repository", () => {
+	postgresTest("routes transactional inspection and recovery to the configured sequence database", async () => {
+		const previous = process.env.LISTMONK_OPS_SEQUENCE_DATABASE_URL;
+		const target = { baseUrl: "http://localhost:9000/api", username: "operator" };
+		const key = `postgres-routed-${randomUUID()}`;
+		const store = repositories[0]?.idempotencyStore;
+		if (!store || !databaseUrl) throw new Error("Postgres transactional store unavailable");
+		const claim = await store.claim({ key, payloadHash: "payload", targetHash: computeTransactionalTargetHash(target) });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		process.env.LISTMONK_OPS_SEQUENCE_DATABASE_URL = databaseUrl;
+		try {
+			const routed = getTransactionalIdempotencyStoreFromEnvironment();
+			const records = await invokeTransactionalRecordsOperation({ idempotencyStore: routed, target }, { key });
+			expect(records.records).toMatchObject([{ key, status: "pending" }]);
+			await invokeTransactionalReconcileOperation({ idempotencyStore: routed, target }, {
+				key,
+				expected_revision: claim.record.claimToken,
+				decision: "accepted",
+				reason: "Provider logs confirm delivery",
+			});
+			expect((await store.load()).records[key]).toMatchObject({ status: "accepted", sent: true });
+		} finally {
+			await closeSequenceRuntimeRepositories();
+			if (previous === undefined) delete process.env.LISTMONK_OPS_SEQUENCE_DATABASE_URL;
+			else process.env.LISTMONK_OPS_SEQUENCE_DATABASE_URL = previous;
+		}
+	});
 	postgresTest("retains ambiguous transactional claims past TTL and reconciles with target/revision fencing", async () => {
 		const store = repositories[0]?.idempotencyStore;
 		if (!store?.reconcile) throw new Error("Postgres transactional reconciliation unavailable");

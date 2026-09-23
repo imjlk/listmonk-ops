@@ -1,7 +1,7 @@
 import {
-	createFileBackedTransactionalIdempotencyStore,
 	hashTransactionalPayload,
 } from "@listmonk-ops/common";
+import { getTransactionalIdempotencyStoreFromEnvironment } from "@listmonk-ops/automation";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	getTransactionalOperationByMcpName,
@@ -58,7 +58,7 @@ export const handleTransactionalTools: TransactionalHandlerFunction =
 				// store path resolves via LISTMONK_OPS_TRANSACTIONAL_STORE
 				// (same convention as the audit/abtest stores).
 				idempotencyStore:
-					createFileBackedTransactionalIdempotencyStore(),
+					getTransactionalIdempotencyStoreFromEnvironment(),
 				hashPayload: hashTransactionalPayload,
 				target,
 			},
