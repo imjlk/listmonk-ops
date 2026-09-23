@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { recordAbTestConversion } from "../src/conversion-recording";
-import { JsonFileConversionEventStore } from "../src/conversion-events";
+import { SqliteConversionEventStore } from "../src/conversion-events";
 import { lockHypothesis } from "../src/hypothesis";
 import { ListmonkMetricsCollector } from "../src/metrics";
 import {
@@ -16,7 +16,9 @@ import {
 import { loadStoredAbTests, saveStoredAbTests } from "../src/persistence";
 import type { AbTest } from "../src/types";
 
-const launchedAt = "2026-08-01T00:00:00.000Z";
+const launchedAt = new Date(Date.now() - 2 * 3_600_000).toISOString();
+const endsAt = new Date(Date.now() + 3_600_000).toISOString();
+const eventAt = new Date(Date.now() - 3_600_000).toISOString();
 const SUBSCRIBER_UUID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1";
 const OTHER_UUID = "00000000-0000-4000-8000-000000000002";
 
@@ -50,7 +52,7 @@ function makeTest(): AbTest {
 		],
 		startedAt: launchedAt,
 		launchAt: launchedAt,
-		endsAt: "2026-08-02T00:00:00.000Z",
+		endsAt,
 	};
 }
 
@@ -63,7 +65,7 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
 		event: "purchase",
 		value: 25,
 		currency: "USD",
-		occurredAt: "2026-08-01T21:00:00+09:00",
+		occurredAt: eventAt,
 		...overrides,
 	};
 }
@@ -108,13 +110,14 @@ describe("A/B conversion recording", () => {
 		const base = {
 			event_id: "event-1", test_id: "test-1", variant_id: "A",
 			subscriber_uuid: SUBSCRIBER_UUID, event: "purchase",
-			occurred_at: "2026-08-01T21:00:00+09:00",
+			occurred_at: eventAt,
 		};
 		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, value: 25 }).success).toBe(false);
 		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, currency: "USD" }).success).toBe(false);
 		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, value: 25, currency: "USD" }).success).toBe(true);
 		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, value: 25, currency: "US" }).success).toBe(false);
 		expect(recordAbTestConversionOperation.inputJsonSchema.properties?.currency).toMatchObject({ pattern: "^[A-Z]{3}$" });
+		expect(recordAbTestConversionOperation.inputSchema.parse({ ...base, test_id: " test-1 ", variant_id: " A " })).toMatchObject({ test_id: "test-1", variant_id: "A" });
 	});
 	it("validates assignment and window, persists idempotently, and feeds analysis metrics", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "abtest-recording-"));
@@ -151,10 +154,10 @@ describe("A/B conversion recording", () => {
 				signal: expect.any(AbortSignal),
 			});
 			await expect(recordAbTestConversion(client, makeEvent({ event: "signup" }), storePath)).rejects.toThrow("different conversion");
-			await expect(recordAbTestConversion(client, makeEvent({ eventId: "late", occurredAt: "2026-08-03T00:00:00.000Z" }), storePath)).rejects.toThrow("attribution window");
+			await expect(recordAbTestConversion(client, makeEvent({ eventId: "early", occurredAt: new Date(Date.parse(launchedAt) - 3_600_000).toISOString() }), storePath)).rejects.toThrow("attribution window");
 			await expect(recordAbTestConversion(client, makeEvent({ eventId: "future", occurredAt: "2099-01-01T00:00:00.000Z" }), storePath)).rejects.toThrow("future");
 			await expect(recordAbTestConversion(client, makeEvent({ eventId: "wrong", subscriberUuid: OTHER_UUID }), storePath)).rejects.toThrow("not assigned");
-			const conversions = new JsonFileConversionEventStore(join(directory, "abtest-conversions.json"));
+			const conversions = new SqliteConversionEventStore(join(directory, "abtest-conversions.sqlite"));
 			const results = await new ListmonkMetricsCollector(client, conversions).collect(makeTest());
 			expect(results[0]).toMatchObject({ conversions: 1, revenue: 25, currency: "USD", conversionRate: 10 });
 			expect(results[1]).toMatchObject({ conversions: 0, conversionRate: 0, revenue: 0, currency: "USD" });
@@ -168,11 +171,29 @@ describe("A/B conversion recording", () => {
 		try {
 			const storePath = join(directory, "abtests.json");
 			const test = makeTest();
+			test.endsAt = new Date(Date.now() - 3_600_000).toISOString();
 			test.hypothesis = makeLockedHypothesis(launchedAt);
 			await saveStoredAbTests([test], storePath);
 			const client = { subscriber: { list: async () => ({ data: { results: [{ uuid: SUBSCRIBER_UUID }] } }) } } as unknown as ListmonkClient;
-			expect(await recordAbTestConversion(client, makeEvent({ occurredAt: "2026-08-02T12:00:00.000Z" }), storePath)).toBe("created");
-			await expect(recordAbTestConversion(client, makeEvent({ eventId: "after-tail", occurredAt: "2026-08-03T00:00:01.000Z" }), storePath)).rejects.toThrow("attribution window");
+			expect(await recordAbTestConversion(client, makeEvent({ occurredAt: new Date(Date.parse(test.endsAt) + 30 * 60_000).toISOString() }), storePath)).toBe("created");
+			await expect(recordAbTestConversion(client, makeEvent({ eventId: "after-tail", occurredAt: new Date(Date.parse(test.endsAt) + 24 * 3_600_000 + 1_000).toISOString() }), storePath)).rejects.toThrow("future");
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("rejects a backdated new conversion after the attribution deadline", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "abtest-closed-attribution-"));
+		try {
+			const storePath = join(directory, "abtests.json");
+			const test = makeTest();
+			test.launchAt = new Date(Date.now() - 48 * 3_600_000).toISOString();
+			test.startedAt = test.launchAt;
+			test.endsAt = new Date(Date.now() - 25 * 3_600_000).toISOString();
+			test.hypothesis = makeLockedHypothesis(test.launchAt);
+			await saveStoredAbTests([test], storePath);
+			const client = { subscriber: { list: async () => { throw new Error("should not query Listmonk"); } } } as unknown as ListmonkClient;
+			await expect(recordAbTestConversion(client, makeEvent({ occurredAt: new Date(Date.now() - 26 * 3_600_000).toISOString() }), storePath)).rejects.toThrow("attribution window has closed");
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}
@@ -208,9 +229,12 @@ describe("A/B conversion recording", () => {
 			expect(preview.results).toContainEqual(expect.objectContaining({
 				test_id: test.id, action: "dry-run:noop:running-before-attribution-deadline",
 			}));
+			expect(preview.claim_steps).toEqual([]);
+			expect((await invokeTickAbTestsOperation(context, {})).claim_steps).toEqual([]);
 			test.status = "analyzing";
 			await saveStoredAbTests([test], storePath);
 			expect((await invokeRunAbTestOperation(context, { test_id: test.id })).test.status).toBe("analyzing");
+			expect((await invokeTickAbTestsOperation(context, {})).claim_steps).toEqual([]);
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}

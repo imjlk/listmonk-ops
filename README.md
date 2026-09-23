@@ -1180,11 +1180,12 @@ local drift and can repair with `--repair --confirm`.
 
 `record-conversion` accepts events only after launch, through the test end plus
 the pre-registered attribution window (or the test's end time when no window is
-registered; 72 hours after launch if neither is set), and
+registered; 72 hours after launch if neither is set), and only while that
+deadline has not passed at recording time, and
 for a subscriber still verifiable in the provisioned variant list. The event
 ID is globally unique in the local store: identical retries return
 `duplicate`, while a changed payload with the same ID is rejected. CLI and MCP
-share the atomic `abtest-conversions.json` store in the Listmonk data directory;
+share the transactional `abtest-conversions.sqlite` store in the Listmonk data directory;
 set `LISTMONK_OPS_ABTEST_CONVERSION_STORE` to override its path. The store keeps
 UUIDs, event names, timestamps, and optional value/currency, without emails or
 names. Analysis counts unique converting subscribers per variant and sums

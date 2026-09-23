@@ -35,7 +35,7 @@ export { InMemoryAbTestStore, JsonFileAbTestStore } from "./store-adapters";
 export {
 	ConversionEventValidationError,
 	InMemoryConversionEventStore,
-	JsonFileConversionEventStore,
+	SqliteConversionEventStore,
 	getConversionEventStorePath,
 	resolveConversionStorePath,
 	type ConversionEventInput,

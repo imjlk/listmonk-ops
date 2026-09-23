@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
 	InMemoryConversionEventStore,
-	JsonFileConversionEventStore,
+	SqliteConversionEventStore,
 	resolveConversionStorePath,
 	ConversionEventValidationError,
 	validateConversionEvent,
@@ -172,14 +172,14 @@ describe("InMemoryConversionEventStore", () => {
 	});
 });
 
-describe("JsonFileConversionEventStore", () => {
+describe("SqliteConversionEventStore", () => {
 	it("honors the explicit conversion-store override even with a custom test store", () => {
 		const previous = process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE;
 		try {
 			delete process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE;
-			expect(resolveConversionStorePath("/tmp/custom/abtests.json")).toBe("/tmp/custom/abtest-conversions.json");
-			process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE = "/tmp/overridden-conversions.json";
-			expect(resolveConversionStorePath("/tmp/custom/abtests.json")).toBe("/tmp/overridden-conversions.json");
+			expect(resolveConversionStorePath("/tmp/custom/abtests.json")).toBe("/tmp/custom/abtest-conversions.sqlite");
+			process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE = "/tmp/overridden-conversions.sqlite";
+			expect(resolveConversionStorePath("/tmp/custom/abtests.json")).toBe("/tmp/overridden-conversions.sqlite");
 		} finally {
 			if (previous === undefined) delete process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE;
 			else process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE = previous;
@@ -188,9 +188,9 @@ describe("JsonFileConversionEventStore", () => {
 	it("persists events across instances and deduplicates concurrent writes", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "abtest-conversions-"));
 		try {
-			const path = join(directory, "events.json");
-			const first = new JsonFileConversionEventStore(path);
-			const second = new JsonFileConversionEventStore(path);
+			const path = join(directory, "events.sqlite");
+			const first = new SqliteConversionEventStore(path);
+			const second = new SqliteConversionEventStore(path);
 			const results = await Promise.all([first.record(makeEvent()), second.record(makeEvent())]);
 			expect(results.sort()).toEqual(["created", "duplicate"]);
 			expect(await second.aggregate("test-1")).toMatchObject([
@@ -209,8 +209,8 @@ describe("JsonFileConversionEventStore", () => {
 	it("rejects cross-variant subscriber attribution and mixed revenue currencies", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "abtest-conversions-"));
 		try {
-			const store = new JsonFileConversionEventStore(
-				join(directory, "events.json"),
+			const store = new SqliteConversionEventStore(
+				join(directory, "events.sqlite"),
 			);
 			await store.record(makeEvent({ value: 10, currency: "USD" }));
 			await expect(store.record(makeEvent({ eventId: "other-variant", variantId: "B" }))).rejects.toThrow("another variant");
@@ -223,7 +223,7 @@ describe("JsonFileConversionEventStore", () => {
 	it("rejects revenue that would make the aggregate non-finite", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "abtest-conversions-"));
 		try {
-			const store = new JsonFileConversionEventStore(join(directory, "events.json"));
+			const store = new SqliteConversionEventStore(join(directory, "events.sqlite"));
 			await store.record(makeEvent({ eventId: "large-1", value: 1e308, currency: "USD" }));
 			await expect(store.record(makeEvent({ eventId: "large-2", subscriberUuid: "uuid-2", value: 1e308, currency: "USD" }))).rejects.toThrow("overflow");
 			expect((await store.aggregate("test-1"))[0]?.totalValue).toBe(1e308);

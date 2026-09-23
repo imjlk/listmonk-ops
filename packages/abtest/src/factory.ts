@@ -11,7 +11,7 @@ import { ListmonkAbTestIntegration } from "./listmonk-integration";
 import { ListmonkMetricsCollector } from "./metrics";
 import {
 	getAbTestAttributionDeadline,
-	JsonFileConversionEventStore,
+	SqliteConversionEventStore,
 } from "./conversion-events";
 import { cancelAbTest } from "./lifecycle";
 import { AbTestNotFoundError } from "./errors";
@@ -38,7 +38,7 @@ export function createAbTestExecutors(
 	// collectTestResults path on the integration.
 	const metricsCollector = new ListmonkMetricsCollector(
 		listmonkClient,
-		new JsonFileConversionEventStore(conversionStorePath),
+		new SqliteConversionEventStore(conversionStorePath),
 	);
 	const abTestService = new AbTestService(
 		listmonkIntegration,

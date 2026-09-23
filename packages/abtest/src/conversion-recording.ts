@@ -2,7 +2,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	ConversionEventValidationError,
 	getAbTestAttributionDeadline,
-	JsonFileConversionEventStore,
+	SqliteConversionEventStore,
 	resolveConversionStorePath,
 	validateConversionEvent,
 	type ConversionEventInput,
@@ -80,6 +80,11 @@ function assertAttributionWindow(test: AbTest, occurredAt: string): void {
 	const startMs = new Date(start).getTime();
 	const endMs = getAbTestAttributionDeadline(test);
 	const occurredMs = new Date(occurredAt).getTime();
+	if (endMs !== undefined && Date.now() > endMs) {
+		throw new ConversionEventValidationError(
+			"A/B test attribution window has closed for new conversions",
+		);
+	}
 	if (occurredMs > Date.now() + MAX_CLOCK_SKEW_MS) {
 		throw new ConversionEventValidationError(
 			"event occurrence time is in the future",
@@ -112,7 +117,7 @@ export async function recordAbTestConversion(
 			: input.subscriberUuid,
 	};
 	validateConversionEvent(normalizedInput);
-	const conversionStore = new JsonFileConversionEventStore(
+	const conversionStore = new SqliteConversionEventStore(
 		resolveConversionStorePath(storePath),
 	);
 	if (await conversionStore.hasEventId(normalizedInput.eventId)) {
@@ -147,6 +152,7 @@ export async function recordAbTestConversion(
 					`subscriber ${normalizedInput.subscriberUuid} is not assigned to variant ${normalizedInput.variantId}`,
 				);
 			}
+			assertAttributionWindow(test, normalizedInput.occurredAt);
 			return conversionStore.record(normalizedInput);
 		},
 	);

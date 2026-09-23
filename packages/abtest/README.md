@@ -108,12 +108,12 @@ objects. Remote lifecycle writes allow up to two minutes for another process's
 transaction lock before timing out.
 
 Conversions are recorded with the shared CLI `abtest record-conversion` command
-or MCP `listmonk_abtest_conversion_record` tool. The atomic conversion journal
-defaults to `~/.listmonk-ops/abtest-conversions.json`; override it with
+or MCP `listmonk_abtest_conversion_record` tool. The transactional SQLite conversion journal
+defaults to `~/.listmonk-ops/abtest-conversions.sqlite`; override it with
 `LISTMONK_OPS_ABTEST_CONVERSION_STORE`. A caller supplies an event ID, test and
 variant IDs, subscriber UUID, event name, ISO occurrence time, and optional
 non-negative value plus currency. Recording checks the launched test's end
-plus attribution window and current variant-list membership with one filtered
+plus attribution window, requires ingestion before that deadline, and checks current variant-list membership with one filtered
 Listmonk lookup. Identical event-ID
 retries are deduplicated; conflicting reuse is rejected. Analysis uses the
 number of unique converting subscribers as `conversions` and sums values as

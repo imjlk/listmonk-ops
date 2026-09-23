@@ -1,11 +1,7 @@
 import { getListmonkDataDirectory } from "@listmonk-ops/common";
-import {
-	commitJsonFileStoreUpdate,
-	readJsonFileStore,
-	updateJsonFileStore,
-	type JsonFileStore,
-} from "@listmonk-ops/common";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import type { AbTest } from "./types";
 
 const DEFAULT_ATTRIBUTION_WINDOW_HOURS = 72;
@@ -66,43 +62,6 @@ export interface ConversionEventStore {
 	aggregate(testId: string): Promise<VariantConversionAggregate[]>;
 }
 
-interface StoredConversionEvents {
-	version: 1;
-	events: ConversionEventInput[];
-}
-
-function parseStoredConversionEvents(value: unknown): StoredConversionEvents {
-	if (
-		typeof value !== "object" ||
-		value === null ||
-		!("version" in value) ||
-		value.version !== 1 ||
-		!("events" in value) ||
-		!Array.isArray(value.events)
-	) {
-		throw new ConversionEventValidationError("Invalid conversion event store");
-	}
-	const events: ConversionEventInput[] = [];
-	const eventIds = new Set<string>();
-	for (const raw of value.events) {
-		if (typeof raw !== "object" || raw === null) {
-			throw new ConversionEventValidationError(
-				"Invalid stored conversion event",
-			);
-		}
-		const event = raw as ConversionEventInput;
-		validateConversionEvent(event);
-		if (eventIds.has(event.eventId)) {
-			throw new ConversionEventValidationError(
-				`Duplicate stored eventId: ${event.eventId}`,
-			);
-		}
-		eventIds.add(event.eventId);
-		events.push(sanitizeConversionEvent(event));
-	}
-	return { version: 1, events };
-}
-
 function sanitizeConversionEvent(input: ConversionEventInput): ConversionEventInput {
 	return {
 		eventId: input.eventId,
@@ -120,80 +79,136 @@ export function resolveConversionStorePath(testStorePath?: string): string {
 	const overriddenPath = process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE?.trim();
 	if (overriddenPath) return overriddenPath;
 	return testStorePath === undefined
-		? join(getListmonkDataDirectory(), "abtest-conversions.json")
-		: join(dirname(testStorePath), "abtest-conversions.json");
+		? join(getListmonkDataDirectory(), "abtest-conversions.sqlite")
+		: join(dirname(testStorePath), "abtest-conversions.sqlite");
 }
 
 export function getConversionEventStorePath(): string {
 	return resolveConversionStorePath();
 }
 
-/** Atomic, locked event journal shared by CLI and MCP processes. */
-export class JsonFileConversionEventStore implements ConversionEventStore {
-	private readonly store: JsonFileStore<StoredConversionEvents>;
+/** Indexed, transactional event journal shared by CLI and MCP processes. */
+export class SqliteConversionEventStore implements ConversionEventStore {
+	constructor(private readonly path = getConversionEventStorePath()) {}
 
-	constructor(path = getConversionEventStorePath()) {
-		this.store = {
-			path,
-			createDefault: () => ({ version: 1, events: [] }),
-			parse: parseStoredConversionEvents,
-			lock: { timeoutMs: 120_000 },
-			skipUnchangedWrites: true,
-		};
+	private open(): DatabaseSync {
+		mkdirSync(dirname(this.path), { recursive: true });
+		const database = new DatabaseSync(this.path);
+		try {
+			database.exec("PRAGMA busy_timeout = 120000; PRAGMA synchronous = FULL");
+			const version = database.prepare("PRAGMA user_version").get() as { user_version: number };
+			if (version.user_version > 1) throw new ConversionEventValidationError("Unsupported conversion event store version");
+			database.exec(`CREATE TABLE IF NOT EXISTS conversion_events (
+				event_id TEXT PRIMARY KEY,
+				test_id TEXT NOT NULL,
+				variant_id TEXT NOT NULL,
+				subscriber_uuid TEXT NOT NULL,
+				value REAL,
+				currency TEXT,
+				payload TEXT NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS conversion_events_test_subscriber ON conversion_events (test_id, subscriber_uuid);
+			CREATE INDEX IF NOT EXISTS conversion_events_test_currency ON conversion_events (test_id, currency);
+			CREATE TABLE IF NOT EXISTS conversion_totals (
+				test_id TEXT PRIMARY KEY,
+				total_value REAL NOT NULL
+			);
+			PRAGMA user_version = 1`);
+			return database;
+		} catch (error) {
+			database.close();
+			throw error;
+		}
 	}
 
 	async hasEventId(eventId: string): Promise<boolean> {
-		return (await readJsonFileStore(this.store)).events.some(
-			(event) => event.eventId === eventId,
-		);
+		const database = this.open();
+		try {
+			return database.prepare("SELECT 1 FROM conversion_events WHERE event_id = ?").get(eventId) !== undefined;
+		} finally {
+			database.close();
+		}
 	}
 
 	async record(input: ConversionEventInput): Promise<"created" | "duplicate"> {
 		validateConversionEvent(input);
 		const sanitized = sanitizeConversionEvent(input);
-		return updateJsonFileStore(this.store, (document) => {
-			const existing = document.events.find(
-				(event) => event.eventId === input.eventId,
-			);
-			if (existing) {
-				if (JSON.stringify(existing) !== JSON.stringify(sanitized)) {
+		const payload = JSON.stringify(sanitized);
+		const database = this.open();
+		try {
+			database.exec("BEGIN IMMEDIATE");
+			try {
+				const existing = database.prepare("SELECT payload FROM conversion_events WHERE event_id = ?").get(
+					input.eventId,
+				) as { payload: string } | undefined;
+				if (existing) {
+					if (existing.payload !== payload) throw new ConversionEventValidationError(`eventId ${input.eventId} already belongs to a different conversion`);
+					database.exec("COMMIT");
+					return "duplicate";
+				}
+				if (database.prepare("SELECT 1 FROM conversion_events WHERE test_id = ? AND subscriber_uuid = ? AND variant_id <> ? LIMIT 1").get(
+					input.testId,
+					input.subscriberUuid,
+					input.variantId,
+				)) {
 					throw new ConversionEventValidationError(
-						`eventId ${input.eventId} already belongs to a different conversion`,
+						`subscriber ${input.subscriberUuid} already converted in another variant of test ${input.testId}`,
 					);
 				}
-				return commitJsonFileStoreUpdate(document, "duplicate" as const);
-			}
-			if (document.events.some((event) =>
-				event.testId === input.testId &&
-				event.subscriberUuid === input.subscriberUuid &&
-				event.variantId !== input.variantId,
-			)) {
-				throw new ConversionEventValidationError(`subscriber ${input.subscriberUuid} already converted in another variant of test ${input.testId}`);
-			}
-			if (input.currency !== undefined && document.events.some((event) =>
-				event.testId === input.testId && event.currency !== undefined && event.currency !== input.currency,
-			)) {
-				throw new ConversionEventValidationError(`A/B test ${input.testId} already records revenue in another currency`);
-			}
-			let totalValue = input.value ?? 0;
-			for (const event of document.events) {
-				if (event.testId === input.testId) totalValue += event.value ?? 0;
-				if (!Number.isFinite(totalValue)) {
-					throw new ConversionEventValidationError(`A/B test ${input.testId} revenue total would overflow`);
+				if (input.currency !== undefined && database.prepare("SELECT 1 FROM conversion_events WHERE test_id = ? AND currency IS NOT NULL AND currency <> ? LIMIT 1").get(input.testId, input.currency)) {
+					throw new ConversionEventValidationError(
+						`A/B test ${input.testId} already records revenue in another currency`,
+					);
 				}
+				const totals = database.prepare("SELECT total_value FROM conversion_totals WHERE test_id = ?").get(
+					input.testId,
+				) as { total_value: number } | undefined;
+				const nextTotal = (totals?.total_value ?? 0) + (input.value ?? 0);
+				if (!Number.isFinite(nextTotal)) {
+					throw new ConversionEventValidationError(
+						`A/B test ${input.testId} revenue total would overflow`,
+					);
+				}
+				database.prepare("INSERT INTO conversion_events (event_id, test_id, variant_id, subscriber_uuid, value, currency, payload) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+					input.eventId,
+					input.testId,
+					input.variantId,
+					input.subscriberUuid,
+					input.value ?? null,
+					input.currency ?? null,
+					payload,
+				);
+				database.prepare("INSERT INTO conversion_totals (test_id, total_value) VALUES (?, ?) ON CONFLICT (test_id) DO UPDATE SET total_value = excluded.total_value").run(
+					input.testId,
+					nextTotal,
+				);
+				database.exec("COMMIT");
+				return "created";
+			} catch (error) {
+				database.exec("ROLLBACK");
+				throw error;
 			}
-			return commitJsonFileStoreUpdate(
-				{ version: 1 as const, events: [...document.events, sanitized] },
-				"created" as const,
-			);
-		});
+		} finally {
+			database.close();
+		}
 	}
 
 	async aggregate(testId: string): Promise<VariantConversionAggregate[]> {
-		const document = await readJsonFileStore(this.store);
-		return aggregateConversionEvents(
-			document.events.filter((event) => event.testId === testId),
-		);
+		const database = this.open();
+		try {
+			const rows = database.prepare("SELECT payload FROM conversion_events WHERE test_id = ?").all(
+				testId,
+			) as Array<{ payload: string }>;
+			return aggregateConversionEvents(
+				rows.map((row) => {
+					const event = JSON.parse(row.payload) as ConversionEventInput;
+					validateConversionEvent(event);
+					return event;
+				}),
+			);
+		} finally {
+			database.close();
+		}
 	}
 }
 

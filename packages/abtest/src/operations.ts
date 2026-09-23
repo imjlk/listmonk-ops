@@ -29,6 +29,7 @@ import { z } from "zod";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError } from "./errors";
 import { withStoredAbTestExecutors } from "./persistence";
+import { getAbTestAttributionDeadline } from "./conversion-events";
 import {
 	recordAbTestConversion,
 	SUBSCRIBER_UUID_PATTERN,
@@ -633,8 +634,8 @@ export async function executeGetAbTestOperation(
 
 const recordAbTestConversionInputObjectSchema = z.object({
 	event_id: z.string().trim().min(1),
-	test_id: z.string().min(1),
-	variant_id: z.string().min(1),
+	test_id: z.string().trim().min(1),
+	variant_id: z.string().trim().min(1),
 	subscriber_uuid: z.string().regex(SUBSCRIBER_UUID_PATTERN),
 	event: z.string().trim().min(1),
 	value: z.number().finite().nonnegative().optional(),
@@ -921,10 +922,13 @@ function isDueAtTickTime(
 			);
 		case "running":
 			return (
-				test.endsAt !== undefined && now >= new Date(test.endsAt).getTime()
+				test.endsAt !== undefined &&
+				now >= (getAbTestAttributionDeadline(test) ?? Number.POSITIVE_INFINITY)
 			);
-		case "analyzing":
-			return true;
+		case "analyzing": {
+			const deadline = getAbTestAttributionDeadline(test);
+			return !test.hypothesis || deadline === undefined || now >= deadline;
+		}
 		default:
 			return false;
 	}
