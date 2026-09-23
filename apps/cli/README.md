@@ -69,7 +69,7 @@ Shared operations with `confirmationRequired: true` need the global
 Media deletion follows the same policy:
 `listmonk-cli media delete --id 10 --confirm`.
 The CLI records metadata-only audit events for shared writes in
-`$HOME/.listmonk-ops/operation-audit.json` by default; set
+`<resolved-data-directory>/operation-audit.json` by default; set
 `LISTMONK_OPS_AUDIT_STORE` to use a different local path.
 
 Versioned template manifests use the same normalized 1 MiB payload limit as

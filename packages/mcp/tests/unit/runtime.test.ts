@@ -86,7 +86,7 @@ describe("mcp runtime entrypoint", () => {
 			cmd: [
 				"bun",
 				"./bin/listmonk-mcp.js",
-				"--listmonk-url",
+				"--listmonk-api-url",
 				"http://127.0.0.1:9000/api",
 				"--listmonk-username",
 				"api-admin",

@@ -699,7 +699,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-131개 계약은 독립적인 TypeScript/Typia 제품 계약이며 131개 전부가
+132개 계약은 독립적인 TypeScript/Typia 제품 계약이며 132개 전부가
 `stable`입니다. 바운스 패밀리(`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), 캠페인 프리뷰/테스트 발송/애널리틱스
@@ -966,7 +966,7 @@ destructive 공용 MCP Operation에는 MCP 전용 입력인 `"confirm": true`를
 제어 값을 제거합니다. `dry_run: true`는 카탈로그에서 실제 dry run을 명시한
 Operation에서만 허용되며, 지원하지 않는 요청을 가짜로 성공시키지 않고
 거부합니다. 변경을 수행하는 공용 MCP Operation은 기본적으로
-`$HOME/.listmonk-ops/operation-audit.json`에 `started`, `blocked`,
+`<resolved-data-directory>/operation-audit.json`에 `started`, `blocked`,
 `succeeded`, `failed` 메타데이터 이벤트를 남깁니다. 단계적 마이그레이션 동안
 기존 transport 전용 MCP 도구의 동작은 변경하지 않습니다. 단,
 `listmonk_update_campaign_status`는 서버 수준 감사 저장소와 확인 게이트를

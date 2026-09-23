@@ -64,6 +64,7 @@ describe("shared Listmonk configuration", () => {
 		expect(resolved.summary.dataDirectory).toStartWith(
 			join(options.homeDirectory, ".listmonk-ops", "profiles", "production-"),
 		);
+		expect(resolved.summary.sources.dataDirectory).toEqual({ kind: "default" });
 		expect(await resolved.readCredential()).toBeUndefined();
 		options.env.PROD_TOKEN = "rotated-environment-secret";
 		expect(await resolved.readCredential()).toBe("rotated-environment-secret");
@@ -83,6 +84,23 @@ describe("shared Listmonk configuration", () => {
 		expect(resolved.summary.dataDirectory).toBe(
 			join(options.homeDirectory, "config", "state"),
 		);
+		expect(resolved.summary.sources.dataDirectory).toEqual({
+			kind: "profile",
+			name: "local.dataDirectory",
+		});
+	});
+
+	test("preserves legacy password whitespace without weakening token validation", async () => {
+		const options = await fixture();
+		const settings = { ...options, configFile: undefined };
+		const inline = await resolveListmonkConfiguration({ ...settings, allowLegacyPassword: true, password: " leading and trailing " });
+		expect(await inline.readCredential()).toBe(" leading and trailing ");
+		const environment = await resolveListmonkConfiguration({ ...settings, allowLegacyPassword: true, env: { LISTMONK_PASSWORD: " pass phrase " } });
+		expect(await environment.readCredential()).toBe(" pass phrase ");
+		const unsafe = await resolveListmonkConfiguration({ ...settings, allowLegacyPassword: true, password: "bad\nheader" });
+		await expect(unsafe.readCredential()).rejects.toThrow("Invalid Listmonk authentication value");
+		const token = await resolveListmonkConfiguration({ ...settings, apiToken: "bad token" });
+		await expect(token.readCredential()).rejects.toThrow("Invalid Listmonk authentication value");
 	});
 
 	test("uses deterministic separate default state for each target and profile", async () => {

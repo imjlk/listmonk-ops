@@ -158,6 +158,11 @@ function credentialValue(value: string | undefined): string | undefined {
 	if (normalized.length > 16_384 || /[\s\u0000-\u001f\u007f]/u.test(normalized)) throw new Error("Invalid Listmonk authentication value");
 	return normalized;
 }
+function legacyPasswordValue(value: string | undefined): string | undefined {
+	if (value === undefined || value.length === 0) return undefined;
+	if (value.length > 16_384 || /[\u0000-\u001f\u007f]/u.test(value)) throw new Error("Invalid Listmonk authentication value");
+	return value;
+}
 
 /** One connection resolver for CLI and MCP. A selected profile never inherits legacy connection env fields. */
 export async function resolveListmonkConfiguration(options: ListmonkConfigurationOptions = {}): Promise<ResolvedListmonkConfiguration> {
@@ -226,7 +231,7 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 	};
 	const selectEnv = (name: string, selectedSource: ConfigurationSource, kind: "token" | "legacy_password" = "token") => {
 		authentication = { kind, source: selectedSource, reference: name };
-		readCredential = async () => credentialValue(env[name]);
+		readCredential = async () => kind === "legacy_password" ? legacyPasswordValue(env[name]) : credentialValue(env[name]);
 	};
 	if (options.apiToken !== undefined && options.tokenFile !== undefined) throw new Error("Choose an API token or a token file, not both");
 	if (options.tokenFile !== undefined) selectFile(options.tokenFile, { kind: "argument", name: "tokenFile" }, cwd);
@@ -235,13 +240,13 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 		readCredential = async () => credentialValue(options.apiToken);
 	} else if (options.password !== undefined && options.allowLegacyPassword) {
 		authentication = { kind: "legacy_password", source: { kind: "argument", name: "password" } };
-		readCredential = async () => credentialValue(options.password);
+		readCredential = async () => legacyPasswordValue(options.password);
 	} else if (profile?.tokenFile !== undefined) selectFile(profile.tokenFile, source("tokenFile"), dirname(path));
 	else if (profile?.tokenEnv !== undefined) selectEnv(profile.tokenEnv, source("tokenEnv"));
 	else if (profile === undefined) {
 		if (env.LISTMONK_API_TOKEN_FILE?.trim()) selectFile(env.LISTMONK_API_TOKEN_FILE, { kind: "environment", name: "LISTMONK_API_TOKEN_FILE" }, home);
 		else if (env.LISTMONK_API_TOKEN?.trim()) selectEnv("LISTMONK_API_TOKEN", { kind: "environment", name: "LISTMONK_API_TOKEN" });
-		else if (options.allowLegacyPassword && env.LISTMONK_PASSWORD?.trim()) selectEnv("LISTMONK_PASSWORD", { kind: "environment", name: "LISTMONK_PASSWORD" }, "legacy_password");
+		else if (options.allowLegacyPassword && env.LISTMONK_PASSWORD) selectEnv("LISTMONK_PASSWORD", { kind: "environment", name: "LISTMONK_PASSWORD" }, "legacy_password");
 	}
 	let dataDirectory: string;
 	let dataSource: ConfigurationSource;
@@ -251,7 +256,7 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 			16,
 		);
 		dataDirectory = profile.dataDirectory === undefined ? join(home, ".listmonk-ops", "profiles", `${profileName}-${identity}`) : filePath(profile.dataDirectory, dirname(path), home);
-		dataSource = source("dataDirectory");
+		dataSource = profile.dataDirectory === undefined ? { kind: "default" } : source("dataDirectory");
 	} else {
 		dataDirectory = env.LISTMONK_OPS_DATA_DIR?.trim() ? filePath(env.LISTMONK_OPS_DATA_DIR, home, home) : join(home, ".listmonk-ops");
 		dataSource = env.LISTMONK_OPS_DATA_DIR?.trim() ? { kind: "environment", name: "LISTMONK_OPS_DATA_DIR" } : { kind: "default" };

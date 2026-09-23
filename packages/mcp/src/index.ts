@@ -152,6 +152,7 @@ function parseArgs(argv: string[]): RuntimeArgs {
 	const args: RuntimeArgs = {};
 	const options = {
 		"--listmonk-url": "baseUrl",
+		"--listmonk-api-url": "baseUrl",
 		"--listmonk-username": "username",
 		"--listmonk-password": "password",
 		"--listmonk-api-token": "apiToken",

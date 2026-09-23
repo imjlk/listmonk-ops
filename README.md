@@ -708,8 +708,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 131 contracts are standalone TypeScript/Typia product contracts, and
-all 131 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
+All 132 contracts are standalone TypeScript/Typia product contracts, and
+all 132 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and
 analytics operations (`campaigns.preview`, `campaigns.test`,
@@ -1024,7 +1024,7 @@ typed domain operation. A `dry_run: true` request is accepted only when the
 cataloged operation explicitly supports a real dry run; unsupported dry-run
 requests are rejected instead of being simulated. Mutating shared MCP
 operations append `started`, `blocked`, `succeeded`, or `failed` metadata-only
-events to `$HOME/.listmonk-ops/operation-audit.json` by default. The staged
+events to `<resolved-data-directory>/operation-audit.json` by default. The staged
 migration deliberately leaves legacy transport-specific MCP tools unchanged,
 except for `listmonk_update_campaign_status`, which was removed because it
 bypassed the server-level audit store and confirmation gate. Use the shared

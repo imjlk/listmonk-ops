@@ -12,7 +12,7 @@ const projectRoot = resolve(
 	"../../../..",
 );
 
-test("CLI and published MCP authenticate to local Listmonk with the same token-file profile", async () => {
+test("CLI and MCP authenticate to local Listmonk with the same token-file profile", async () => {
 	const home = await mkdtemp(join(tmpdir(), "listmonk-profile-e2e-"));
 	const configFile = join(home, "profiles.json");
 	const tokenFile = join(home, "token");
@@ -27,13 +27,7 @@ test("CLI and published MCP authenticate to local Listmonk with the same token-f
 	};
 	const transport = new StdioClientTransport({
 		command: "bun",
-		args: [
-			"./bin/listmonk-mcp.js",
-			"--stdio",
-			"--config",
-			configFile,
-			"--profile=local",
-		],
+		args: ["src/index.ts", "--stdio", "--config", configFile, "--profile=local"],
 		cwd: join(projectRoot, "packages/mcp"),
 		env,
 		stderr: "pipe",
