@@ -381,6 +381,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/configuration.ts#controlConfigurationOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/discovery.ts#bindControlConfigurationOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/discovery.ts#bindControlConfigurationOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/discovery.ts#controlConfigurationOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/configuration.ts#invokeControlConfigurationOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/configuration.ts#getControlConfiguration:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/discovery.ts#bindControlConfigurationOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/discovery.ts#controlConfigurationOperationSpec:variable",
+        "executorNode": "packages/operations/src/configuration.ts#getControlConfiguration:function",
+        "invokerNode": "packages/operations/src/configuration.ts#invokeControlConfigurationOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/configuration.ts#controlConfigurationOperation:variable"
+      },
+      "operationId": "control.config"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/automation/src/webhook-operations.ts#webhookListOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/webhooks.ts#bindWebhookListOperationSpec:function"

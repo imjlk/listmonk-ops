@@ -58,6 +58,7 @@ export type OperationSpecVerb =
 	| "blocklist"
 	| "search"
 	| "describe"
+	| "config"
 	| "capabilities"
 	| "prime"
 	| "test"

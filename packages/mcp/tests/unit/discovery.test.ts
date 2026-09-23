@@ -58,8 +58,8 @@ function runCliJson(args: string[]): Record<string, unknown> {
 }
 
 describe("agent discovery MCP adapter", () => {
-	test("publishes seven typed read-only tools", () => {
-		expect(discoveryTools).toHaveLength(7);
+	test("publishes eight typed read-only tools", () => {
+		expect(discoveryTools).toHaveLength(8);
 		expect(discoveryTools.map(({ name }) => name)).toEqual([
 			"listmonk_schema_search",
 			"listmonk_schema_describe",
@@ -68,6 +68,7 @@ describe("agent discovery MCP adapter", () => {
 			"listmonk_capabilities",
 			"listmonk_prime",
 			"listmonk_status",
+			"listmonk_config",
 		]);
 		for (const tool of discoveryTools) {
 			expect(tool.annotations).toMatchObject({

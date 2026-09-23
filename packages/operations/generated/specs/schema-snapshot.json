@@ -3640,6 +3640,249 @@
       "stability": "stable"
     },
     {
+      "id": "control.config",
+      "input": {
+        "components": {
+          "schemas": {
+            "EmptyInput": {
+              "additionalProperties": false,
+              "properties": {},
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {},
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "ConfigurationSource": {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "oneOf": [
+                    {
+                      "const": "argument"
+                    },
+                    {
+                      "const": "default"
+                    },
+                    {
+                      "const": "environment"
+                    },
+                    {
+                      "const": "profile"
+                    },
+                    {
+                      "const": "programmatic"
+                    }
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            "ControlConfigurationOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "authentication": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "oneOf": [
+                        {
+                          "const": "legacy_password"
+                        },
+                        {
+                          "const": "none"
+                        },
+                        {
+                          "const": "token"
+                        }
+                      ]
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "$ref": "#/components/schemas/ConfigurationSource"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "source"
+                  ],
+                  "type": "object"
+                },
+                "availableProfiles": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "baseUrl": {
+                  "type": "string"
+                },
+                "configFile": {
+                  "type": "string"
+                },
+                "dataDirectory": {
+                  "type": "string"
+                },
+                "profile": {
+                  "type": "string"
+                },
+                "sources": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "baseUrl": {
+                      "$ref": "#/components/schemas/ConfigurationSource"
+                    },
+                    "dataDirectory": {
+                      "$ref": "#/components/schemas/ConfigurationSource"
+                    },
+                    "username": {
+                      "$ref": "#/components/schemas/ConfigurationSource"
+                    }
+                  },
+                  "required": [
+                    "baseUrl",
+                    "username",
+                    "dataDirectory"
+                  ],
+                  "type": "object"
+                },
+                "username": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "availableProfiles",
+                "baseUrl",
+                "username",
+                "dataDirectory",
+                "sources",
+                "authentication"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "authentication": {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "oneOf": [
+                    {
+                      "const": "legacy_password"
+                    },
+                    {
+                      "const": "none"
+                    },
+                    {
+                      "const": "token"
+                    }
+                  ]
+                },
+                "reference": {
+                  "type": "string"
+                },
+                "source": {
+                  "$ref": "#/components/schemas/ConfigurationSource"
+                }
+              },
+              "required": [
+                "kind",
+                "source"
+              ],
+              "type": "object"
+            },
+            "availableProfiles": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "baseUrl": {
+              "type": "string"
+            },
+            "configFile": {
+              "type": "string"
+            },
+            "dataDirectory": {
+              "type": "string"
+            },
+            "profile": {
+              "type": "string"
+            },
+            "sources": {
+              "additionalProperties": false,
+              "properties": {
+                "baseUrl": {
+                  "$ref": "#/components/schemas/ConfigurationSource"
+                },
+                "dataDirectory": {
+                  "$ref": "#/components/schemas/ConfigurationSource"
+                },
+                "username": {
+                  "$ref": "#/components/schemas/ConfigurationSource"
+                }
+              },
+              "required": [
+                "baseUrl",
+                "username",
+                "dataDirectory"
+              ],
+              "type": "object"
+            },
+            "username": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "availableProfiles",
+            "baseUrl",
+            "username",
+            "dataDirectory",
+            "sources",
+            "authentication"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation reads local configuration metadata without credentials or remote requests."
+      },
+      "since": "0.18.0",
+      "stability": "stable"
+    },
+    {
       "id": "webhooks.list",
       "input": {
         "components": {

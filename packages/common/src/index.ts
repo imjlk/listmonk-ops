@@ -165,3 +165,14 @@ export {
 	type OutputFormat,
 	type OutputStrategy,
 } from "./output-modes";
+
+export {
+	getListmonkDataDirectory,
+	resolveListmonkConfiguration,
+} from "./configuration";
+export type {
+	ConfigurationSource,
+	ListmonkConfigurationSummary,
+	ListmonkConfigurationOptions,
+	ResolvedListmonkConfiguration,
+} from "./configuration";

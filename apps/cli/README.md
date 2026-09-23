@@ -50,15 +50,26 @@ both the CLI and MCP server. Use `--family` to filter by `lists`,
 `specs search` and `specs describe` expose effect-derived safety, execution
 requirements, retry semantics, and agent guidance. `playbooks` returns typed
 multi-step workflows. `capabilities` and `prime` require no credentials;
-`status` adds the current runtime and a live Listmonk health probe when a token
-is configured.
+`status` separates public health, authentication, and optional scoped collection
+reads. `status --check` exits nonzero unless the requested checks pass.
+
+Use `--profile NAME` and optional `--config PATH` to select the same connection
+profile as MCP. `config show --format json` reports profile names, configuration
+sources, authentication references, and the default state directory without
+reading token values. Profiles reference tokens through `tokenEnv` or `tokenFile`;
+`--token-file` overrides the reference for a command. Each command reads the
+current token file. Profiles have separate default file-backed state directories;
+explicit per-store paths and Postgres settings retain precedence. See the root
+[English](https://github.com/imjlk/listmonk-ops#shared-connection-profiles) /
+[Korean](https://github.com/imjlk/listmonk-ops/blob/main/README_ko.md) configuration
+guide for the JSON format, precedence, path resolution, and rotation behavior.
 
 Shared operations with `confirmationRequired: true` need the global
 `--confirm` flag, for example `listmonk-cli lists delete --id 10 --confirm`.
 Media deletion follows the same policy:
 `listmonk-cli media delete --id 10 --confirm`.
 The CLI records metadata-only audit events for shared writes in
-`$HOME/.listmonk-ops/operation-audit.json` by default; set
+`<resolved-data-directory>/operation-audit.json` by default; set
 `LISTMONK_OPS_AUDIT_STORE` to use a different local path.
 
 Versioned template manifests use the same normalized 1 MiB payload limit as

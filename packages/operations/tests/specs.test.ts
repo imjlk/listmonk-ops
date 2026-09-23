@@ -226,8 +226,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(131);
-		expect(new Set(operationIds).size).toBe(131);
+		expect(operationIds).toHaveLength(132);
+		expect(new Set(operationIds).size).toBe(132);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -237,7 +237,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(131);
+		).toHaveLength(132);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(

@@ -24,3 +24,17 @@ The `updateJsonFileStore` callback runs while the exclusive lock is held. Keep
 the callback bounded. A caller that intentionally performs a remote mutation
 inside the callback must report how to reconcile the remote result when the
 subsequent local write or lock release cannot be confirmed.
+
+## Shared connection configuration
+
+`resolveListmonkConfiguration` reads versioned connection profiles and returns a
+secret-free `summary` plus an async `readCredential()` function. The latter reads
+the configured environment variable or bounded regular token file on each call.
+A selected profile does not inherit legacy connection environment fields.
+`getListmonkDataDirectory()` resolves the process's default file-backed state
+root; executable adapters apply a selected profile's isolated directory before
+opening repositories. Explicit per-store paths retain precedence.
+
+These configuration APIs require a Node-compatible filesystem runtime. See the
+root [configuration guide](https://github.com/imjlk/listmonk-ops#shared-connection-profiles)
+for schema, precedence, relative-path rules, and rotation behavior.

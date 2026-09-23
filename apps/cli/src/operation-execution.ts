@@ -20,7 +20,16 @@ import {
 import { toErrorMessage } from "./lib/command-utils";
 import { cliOperationCatalog } from "./operation-catalog";
 
-const cliRuntimeInputKeys = new Set(["confirm", "interactive", "tui"]);
+const cliRuntimeInputKeys = new Set([
+	"confirm",
+	"interactive",
+	"tui",
+	"profile",
+	"configFile",
+	"tokenFile",
+	"listmonkUrl",
+	"listmonkUsername",
+]);
 
 export type CliOperationExecution = Readonly<{
 	operation: OperationCatalogItem;

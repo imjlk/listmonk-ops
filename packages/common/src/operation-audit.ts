@@ -1,5 +1,5 @@
+import { getListmonkDataDirectory } from "./configuration";
 import { randomUUID } from "node:crypto";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
@@ -137,7 +137,7 @@ function resolveAuditLimit(limit: number | undefined): number {
 export function getOperationAuditStorePath(): string {
 	return (
 		process.env.LISTMONK_OPS_AUDIT_STORE?.trim() ||
-		join(homedir(), ".listmonk-ops", "operation-audit.json")
+		join(getListmonkDataDirectory(), "operation-audit.json")
 	);
 }
 

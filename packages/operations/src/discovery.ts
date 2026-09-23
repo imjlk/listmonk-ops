@@ -1,3 +1,8 @@
+import {
+	controlConfigurationOperation,
+	invokeControlConfigurationOperation,
+	type ControlConfigurationOperationContext,
+} from "./configuration";
 import type {
 	ListmonkReadiness,
 	ReadinessResource,
@@ -278,7 +283,8 @@ export interface DiscoveryOperationContext {
 	spec?: EmailOperationsSpec | undefined;
 }
 
-export interface ControlStatusOperationContext extends DiscoveryOperationContext {
+export interface ControlStatusOperationContext
+	extends DiscoveryOperationContext, ControlConfigurationOperationContext {
 	surface: "cli" | "mcp";
 	version: string;
 	runtime: Readonly<Record<string, string>>;
@@ -1036,6 +1042,7 @@ export const discoveryOperations = [
 	controlCapabilitiesOperation,
 	controlPrimeOperation,
 	controlStatusOperation,
+	controlConfigurationOperation,
 ] as const;
 
 export type DiscoveryOperation = (typeof discoveryOperations)[number];
@@ -1068,6 +1075,8 @@ export async function invokeDiscoveryOperationByMcpName(
 			return invokeControlCapabilitiesOperation(context, input);
 		case controlPrimeOperation.mcp.name:
 			return invokeControlPrimeOperation(context, input);
+		case controlConfigurationOperation.mcp.name:
+			return invokeControlConfigurationOperation(context, input);
 		case controlStatusOperation.mcp.name:
 			return invokeControlStatusOperation(context, input);
 		default:

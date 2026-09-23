@@ -1,3 +1,4 @@
+import { getListmonkDataDirectory } from "./configuration";
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -184,7 +185,7 @@ export class TransactionalStoreCapacityError extends Error {
 export function getTransactionalStorePath(): string {
 	const overridden = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE?.trim();
 	if (!overridden) {
-		return join(homedir(), ".listmonk-ops", "transactional.json");
+		return join(getListmonkDataDirectory(), "transactional.json");
 	}
 	// Resolve relative overrides against the user's home directory (not
 	// process.cwd()) so the CLI (invoked from any directory) and the MCP

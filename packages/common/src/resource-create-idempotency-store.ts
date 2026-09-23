@@ -1,3 +1,4 @@
+import { getListmonkDataDirectory } from "./configuration";
 import { createHash, randomUUID } from "node:crypto";
 import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
@@ -157,7 +158,7 @@ const STORE_HOSTNAME = hostname();
 export function getResourceCreateStorePath(): string {
 	const overridden = process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE?.trim();
 	if (!overridden) {
-		return join(homedir(), ".listmonk-ops", "ops", "resource-creates.json");
+		return join(getListmonkDataDirectory(), "ops", "resource-creates.json");
 	}
 	// Resolve relative overrides against the user's home directory (not
 	// process.cwd()) so the CLI (invoked from any directory) and the MCP

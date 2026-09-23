@@ -261,6 +261,69 @@ listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 합치지 마세요. 명시적인 도움말·버전·셸 자동완성 요청은 텍스트 형식을 유지합니다.
 대화형 입력과 `ops digest --markdown-only`는 `--format human`이 필요합니다.
 
+### 공용 연결 프로필
+
+CLI와 MCP는 같은 버전 관리 형식의 설정 파일을 읽으며 기본 경로는
+`~/.listmonk-ops/config.json`입니다. 비밀값 대신 환경변수나 파일 참조를 저장하세요.
+
+```json
+{
+  "schemaVersion": 1,
+  "defaultProfile": "local",
+  "profiles": {
+    "local": {
+      "baseUrl": "http://localhost:9000/api",
+      "username": "api-admin",
+      "tokenEnv": "LOCAL_LISTMONK_TOKEN"
+    },
+    "production": {
+      "baseUrl": "https://newsletter.example.com/api",
+      "username": "ops",
+      "tokenFile": "tokens/production"
+    }
+  }
+}
+```
+
+```bash
+listmonk-cli --profile production config show --format json
+listmonk-cli --profile production status --check --format json
+listmonk-mcp --stdio --profile production
+```
+
+다른 파일은 `--config /absolute/path/profiles.json` 또는 `LISTMONK_OPS_CONFIG`로
+지정합니다. 프로필 선택 우선순위는 `--profile`, `LISTMONK_OPS_PROFILE`, 파일의
+`defaultProfile` 순서입니다. 선택된 프로필은 자체 URL·사용자명·자격 증명 참조를
+사용하며 기존 `LISTMONK_API_URL`, `LISTMONK_USERNAME`, `LISTMONK_API_TOKEN`,
+`LISTMONK_PASSWORD` 값을 섞어 사용하지 않습니다. 명시적인 `--listmonk-url`,
+`--listmonk-username`, `--token-file` 인수는 프로필보다 우선합니다.
+MCP의 기존 인라인 토큰·비밀번호 인수도 유지됩니다. 프로필을 선택하지 않으면
+기존 환경변수와 기본값을 사용하며, `LISTMONK_API_TOKEN_FILE`이 인라인 토큰보다
+우선합니다. 두 실행 파일 모두 Bun의 `.env` 로딩을 사용합니다.
+
+`config show`와 MCP `listmonk_config`는 선택한 프로필, 사용 가능한 프로필 이름,
+필드별 설정 출처, 토큰 참조 위치, 기본 상태 저장 경로를 반환합니다. 토큰 값은
+읽거나 반환하지 않습니다. 프로필의 상대 `tokenFile`·`dataDirectory`는 설정 파일
+디렉터리를 기준으로, `--token-file`은 실행 디렉터리를 기준으로 해석합니다.
+상대 `LISTMONK_API_TOKEN_FILE`은 홈 디렉터리를 기준으로 하며 `~/`도 지원합니다.
+프로필에는 `tokenEnv`와 `tokenFile` 중 하나만 지정하세요. 토큰 파일은 16 KiB
+이하의 일반 UTF-8 파일이어야 하며 비어 있지 않은 토큰 하나를 담습니다.
+마지막 줄바꿈은 허용합니다. 파일 권한은 `0600`처럼 비공개로 설정하세요.
+
+토큰 파일을 원자적으로 교체하면 다음 CLI 명령 또는 MCP 도구 호출부터 새 값을
+읽습니다. 실행 중인 명령·도구 호출은 시작할 때 읽은 자격 증명을 유지하므로,
+장기 실행 워커의 토큰을 바꾸려면 워커를 재시작하세요. 교체한 파일이 없거나
+유효하지 않으면 기존 토큰을 재사용하지 않고 다음 호출이 실패합니다.
+프로필 설정 파일의 변경은 새 CLI 실행 또는 MCP 프로세스 재시작 시 적용됩니다.
+
+프로필별 기본 상태 저장 경로는 `~/.listmonk-ops/profiles/<name>-<identity>/`로
+분리됩니다. 식별자는 설정 파일 경로·프로필·대상 URL·사용자명을 반영하며 토큰은
+포함하지 않습니다. 기존 상태는 자동 복사하지 않습니다. 프로필의
+`dataDirectory`로 경로를 직접 지정할 수 있습니다. 프로필 없이 실행할 때는
+`LISTMONK_OPS_DATA_DIR`을 기본 상태 루트로 사용하며, 미지정 시 기존
+`~/.listmonk-ops`를 유지합니다. 개별 저장소 경로 환경변수와 Postgres 런타임 DB
+설정은 이 기본값보다 우선하므로 환경 전환 시 해당 설정도 확인하세요.
+
 ## CLI 바이너리 설치 (GitHub Release + curl)
 
 사전 빌드 릴리즈는 Linux x64/arm64와 Apple silicon macOS(arm64)를 지원합니다.
@@ -627,7 +690,7 @@ GET이며 자동 재시도하지 않습니다. `not_checked`는 자격 증명이
 `readiness.listmonk`가 true가 되지 않습니다. 대상 URL의 인라인 자격 증명,
 쿼리 문자열, 프래그먼트는 결과에서 제거합니다.
 
-128개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+132개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -636,7 +699,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-131개 계약은 독립적인 TypeScript/Typia 제품 계약이며 131개 전부가
+132개 계약은 독립적인 TypeScript/Typia 제품 계약이며 132개 전부가
 `stable`입니다. 바운스 패밀리(`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), 캠페인 프리뷰/테스트 발송/애널리틱스
@@ -689,8 +752,7 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 늘렸습니다. Sequence revision은 임의 step payload 대신 step 수, step type과
 결정적 content fingerprint를 반환하고, enrollment 조회는 subscriber reference와
 저장된 오류의 값 대신 존재 여부만 반환합니다.
-`control.status`의 runtime readiness 계약과 신규 subsystem·집계·분석 조회는
-더 성숙할 때까지 experimental로 유지합니다. stable mutation에는
+`control.status`와 `control.config`의 공용 타입 계약은 stable입니다. stable mutation에는
 `sequences.pause`, `sequences.resume`, `webhooks.circuit.reset`,
 `templates.update`, `templates.set-default`, `templates.reconcile`도 포함됩니다.
 후속 batch에서 read-only A/B test 조회 5종과 `webhooks.update`,
@@ -904,7 +966,7 @@ destructive 공용 MCP Operation에는 MCP 전용 입력인 `"confirm": true`를
 제어 값을 제거합니다. `dry_run: true`는 카탈로그에서 실제 dry run을 명시한
 Operation에서만 허용되며, 지원하지 않는 요청을 가짜로 성공시키지 않고
 거부합니다. 변경을 수행하는 공용 MCP Operation은 기본적으로
-`$HOME/.listmonk-ops/operation-audit.json`에 `started`, `blocked`,
+`<resolved-data-directory>/operation-audit.json`에 `started`, `blocked`,
 `succeeded`, `failed` 메타데이터 이벤트를 남깁니다. 단계적 마이그레이션 동안
 기존 transport 전용 MCP 도구의 동작은 변경하지 않습니다. 단,
 `listmonk_update_campaign_status`는 서버 수준 감사 저장소와 확인 게이트를

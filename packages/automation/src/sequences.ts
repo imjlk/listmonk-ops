@@ -1,5 +1,5 @@
+import { getListmonkDataDirectory } from "@listmonk-ops/common";
 import { randomUUID } from "node:crypto";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
@@ -537,7 +537,7 @@ function parseStore(value: unknown): SequenceStore {
 export function getSequenceStorePath(): string {
 	return (
 		process.env.LISTMONK_OPS_SEQUENCE_STORE?.trim() ||
-		join(homedir(), ".listmonk-ops", "sequences.json")
+		join(getListmonkDataDirectory(), "sequences.json")
 	);
 }
 

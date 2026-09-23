@@ -1,3 +1,4 @@
+import type { ListmonkConfigurationSummary } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	discoveryOperations,
@@ -17,6 +18,7 @@ export const discoveryTools: readonly MCPTool[] =
 export type DiscoveryHandlerTarget = {
 	url: string;
 	auth: "token" | "none";
+	configuration?: ListmonkConfigurationSummary;
 };
 
 export type DiscoveryHandlerFunction = (
@@ -48,6 +50,7 @@ export const handleDiscoveryTools: DiscoveryHandlerFunction = withErrorHandler(
 				},
 				...(target === undefined ? {} : { target }),
 				probeReadiness: (resources) => client.getReadiness(resources),
+				configuration: target?.configuration,
 			},
 			request.params.name,
 			input,

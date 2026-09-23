@@ -174,6 +174,18 @@ Check catalog integrity, typed specification coverage, runtime identity, public 
 - Retry: `safe`
 - Stability: `stable` since `0.8.0`
 
+## `control.config`
+
+Inspect the selected connection profile, configuration sources, credential reference, and default state directory without reading secret values.
+
+- Resource / verb: `control.config`
+- MCP tool: `listmonk_config`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:control`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.18.0`
+
 ## `webhooks.list`
 
 List configured outbound webhook endpoints without exposing signing secret values.
