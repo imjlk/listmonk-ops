@@ -257,7 +257,7 @@
   "abTestConversionRecordInputContract": {
     "components": {
       "schemas": {
-        "AbTestConversionRecordInput": {
+        "AbTestConversionRecordBaseInput__type": {
           "additionalProperties": false,
           "properties": {
             "currency": {
@@ -292,9 +292,53 @@
             "variant_id",
             "subscriber_uuid",
             "event",
+            "occurred_at",
+            "value",
+            "currency"
+          ],
+          "type": "object"
+        },
+        "AbTestConversionRecordBaseInput__type-o1": {
+          "additionalProperties": false,
+          "properties": {
+            "event": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "event_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "occurred_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "subscriber_uuid": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "test_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "variant_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "event_id",
+            "test_id",
+            "variant_id",
+            "subscriber_uuid",
+            "event",
             "occurred_at"
           ],
           "type": "object"
+        },
+        "AbTestConversionRecordInput": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/AbTestConversionRecordBaseInput__type"
+            },
+            {
+              "$ref": "#/components/schemas/AbTestConversionRecordBaseInput__type-o1"
+            }
+          ]
         },
         "IsoDateTime": {
           "format": "date-time",
@@ -308,43 +352,14 @@
     },
     "dialect": "openapi-3.1",
     "schema": {
-      "additionalProperties": false,
-      "properties": {
-        "currency": {
-          "$ref": "#/components/schemas/NonEmptyString"
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/AbTestConversionRecordBaseInput__type"
         },
-        "event": {
-          "$ref": "#/components/schemas/NonEmptyString"
-        },
-        "event_id": {
-          "$ref": "#/components/schemas/NonEmptyString"
-        },
-        "occurred_at": {
-          "$ref": "#/components/schemas/IsoDateTime"
-        },
-        "subscriber_uuid": {
-          "$ref": "#/components/schemas/NonEmptyString"
-        },
-        "test_id": {
-          "$ref": "#/components/schemas/NonEmptyString"
-        },
-        "value": {
-          "minimum": 0,
-          "type": "number"
-        },
-        "variant_id": {
-          "$ref": "#/components/schemas/NonEmptyString"
+        {
+          "$ref": "#/components/schemas/AbTestConversionRecordBaseInput__type-o1"
         }
-      },
-      "required": [
-        "event_id",
-        "test_id",
-        "variant_id",
-        "subscriber_uuid",
-        "event",
-        "occurred_at"
-      ],
-      "type": "object"
+      ]
     },
     "source": "typescript",
     "stage": "normalized"

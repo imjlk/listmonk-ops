@@ -145,16 +145,19 @@ export interface AbTestIdInput {
 	test_id: NonEmptyString;
 }
 
-export interface AbTestConversionRecordInput {
+interface AbTestConversionRecordBaseInput {
 	event_id: NonEmptyString;
 	test_id: NonEmptyString;
 	variant_id: NonEmptyString;
 	subscriber_uuid: NonEmptyString;
 	event: NonEmptyString;
-	value?: number & tags.Type<"float"> & tags.Minimum<0>;
-	currency?: NonEmptyString;
 	occurred_at: IsoDateTime;
 }
+
+export type AbTestConversionRecordInput = AbTestConversionRecordBaseInput & (
+	| { value: number & tags.Type<"float"> & tags.Minimum<0>; currency: NonEmptyString }
+	| { value?: never; currency?: never }
+);
 
 export interface AbTestConversionRecordOutput {
 	status: "created" | "duplicate";

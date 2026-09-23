@@ -853,6 +853,8 @@ export default defineGroup({
 						opens: result.opens,
 						clicks: result.clicks,
 						conversions: result.conversions,
+						revenue: result.revenue,
+						currency: result.currency,
 						open_rate: `${result.openRate.toFixed(2)}%`,
 						click_rate: `${result.clickRate.toFixed(2)}%`,
 						conversion_rate: `${result.conversionRate.toFixed(2)}%`,

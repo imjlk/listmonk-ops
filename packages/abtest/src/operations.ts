@@ -628,7 +628,7 @@ export async function executeGetAbTestOperation(
 	};
 }
 
-const recordAbTestConversionInputSchema = z.object({
+const recordAbTestConversionInputObjectSchema = z.object({
 	event_id: z.string().trim().min(1),
 	test_id: z.string().min(1),
 	variant_id: z.string().min(1),
@@ -638,6 +638,18 @@ const recordAbTestConversionInputSchema = z.object({
 	currency: z.string().min(1).optional(),
 	occurred_at: z.string().datetime({ offset: true }),
 });
+
+const recordAbTestConversionInputSchema = recordAbTestConversionInputObjectSchema.superRefine(
+	(input, context) => {
+		if ((input.value === undefined) !== (input.currency === undefined)) {
+			context.addIssue({
+				code: "custom",
+				path: ["currency"],
+				message: "value and currency must be provided together",
+			});
+		}
+	},
+);
 
 export async function executeRecordAbTestConversionOperation(
 	context: AbTestOperationContext,
@@ -1108,6 +1120,7 @@ export const recordAbTestConversionOperation = defineOperation({
 	title: "Record A/B test conversion",
 	description: "Record one attributed conversion event for a test variant and subscriber",
 	inputSchema: recordAbTestConversionInputSchema,
+	inputDependentRequired: { value: ["currency"], currency: ["value"] },
 	outputSchema: z.object({
 		status: z.enum(["created", "duplicate"]),
 		event_id: z.string(),

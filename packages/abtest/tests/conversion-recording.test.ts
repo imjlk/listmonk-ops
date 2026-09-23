@@ -6,7 +6,10 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { recordAbTestConversion } from "../src/conversion-recording";
 import { JsonFileConversionEventStore } from "../src/conversion-events";
 import { ListmonkMetricsCollector } from "../src/metrics";
-import { invokeRecordAbTestConversionOperation } from "../src/operations";
+import {
+	invokeRecordAbTestConversionOperation,
+	recordAbTestConversionOperation,
+} from "../src/operations";
 import { saveStoredAbTests } from "../src/persistence";
 import type { AbTest } from "../src/types";
 
@@ -62,6 +65,19 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
 }
 
 describe("A/B conversion recording", () => {
+	it("publishes and enforces the value/currency pairing", () => {
+		expect(recordAbTestConversionOperation.inputJsonSchema.dependentRequired).toEqual({
+			value: ["currency"], currency: ["value"],
+		});
+		const base = {
+			event_id: "event-1", test_id: "test-1", variant_id: "A",
+			subscriber_uuid: "subscriber-1", event: "purchase",
+			occurred_at: "2026-08-01T21:00:00+09:00",
+		};
+		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, value: 25 }).success).toBe(false);
+		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, currency: "USD" }).success).toBe(false);
+		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, value: 25, currency: "USD" }).success).toBe(true);
+	});
 	it("validates assignment and window, persists idempotently, and feeds analysis metrics", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "abtest-recording-"));
 		try {
@@ -71,6 +87,7 @@ describe("A/B conversion recording", () => {
 			const client = {
 				subscriber: { list: async () => {
 					subscriberCalls += 1;
+					if (subscriberCalls === 1) return { data: { results: [] } };
 					return { data: { results: [{ uuid: "subscriber-1" }] } };
 				} },
 				campaign: { getById: async () => ({ data: { sent: 10, views: 4, clicks: 2 } }) },
@@ -91,7 +108,7 @@ describe("A/B conversion recording", () => {
 			);
 			expect(recorded).toEqual({ status: "created", event_id: "purchase-1", test_id: "test-1" });
 			expect(await recordAbTestConversion(client, event, storePath)).toBe("duplicate");
-			expect(subscriberCalls).toBe(1);
+			expect(subscriberCalls).toBe(2);
 			await expect(recordAbTestConversion(client, makeEvent({ event: "signup" }), storePath)).rejects.toThrow("different conversion");
 			await expect(recordAbTestConversion(client, makeEvent({ eventId: "late", occurredAt: "2026-08-03T00:00:00.000Z" }), storePath)).rejects.toThrow("attribution window");
 			await expect(recordAbTestConversion(client, makeEvent({ eventId: "future", occurredAt: "2099-01-01T00:00:00.000Z" }), storePath)).rejects.toThrow("future");

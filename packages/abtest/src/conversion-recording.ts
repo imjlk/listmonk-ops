@@ -78,6 +78,7 @@ export async function recordAbTestConversion(
 	// provisioned variant list, including disabled subscribers who may convert
 	// after unsubscribing. An API failure must never be interpreted as absence.
 	let assigned = false;
+	let emptyPages = 0;
 	for (let page = 1; page <= MAX_ASSIGNMENT_PAGES; page += 1) {
 		const response = await client.subscriber.list({
 			query: { list_id: [mapping.listId], page, per_page: ASSIGNMENT_PAGE_SIZE },
@@ -93,6 +94,12 @@ export async function recordAbTestConversion(
 				"Cannot verify variant assignment: missing subscriber results",
 			);
 		}
+		if (subscribers.length === 0) {
+			emptyPages += 1;
+			if (emptyPages >= 2) break;
+			continue;
+		}
+		emptyPages = 0;
 		if (subscribers.some(
 			(subscriber) => subscriber.uuid === input.subscriberUuid,
 		)) {

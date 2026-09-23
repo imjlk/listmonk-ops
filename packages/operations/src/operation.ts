@@ -221,6 +221,8 @@ export function defineOperation<
 	title: string;
 	description: string;
 	inputSchema: InputSchema;
+	/** Cross-field requirements enforced by inputSchema and published to transports. */
+	inputDependentRequired?: Record<string, string[]>;
 	outputSchema: OutputSchema;
 	parseInput?(input: unknown): z.output<InputSchema>;
 	normalizeError?(error: unknown): OperationError;
@@ -241,6 +243,9 @@ export function defineOperation<
 		  }
 	)): OperationDefinition<Context, InputSchema, OutputSchema> {
 	const inputJsonSchema = toObjectJsonSchema(config.inputSchema, "input");
+	if (config.inputDependentRequired !== undefined) {
+		inputJsonSchema.dependentRequired = config.inputDependentRequired;
+	}
 	const outputJsonSchema = toObjectJsonSchema(config.outputSchema, "output");
 	if (config.spec !== undefined) {
 		assertRuntimeOperationProjection(config.spec, {
