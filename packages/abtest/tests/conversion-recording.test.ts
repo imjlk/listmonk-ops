@@ -113,6 +113,8 @@ describe("A/B conversion recording", () => {
 		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, value: 25 }).success).toBe(false);
 		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, currency: "USD" }).success).toBe(false);
 		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, value: 25, currency: "USD" }).success).toBe(true);
+		expect(recordAbTestConversionOperation.inputSchema.safeParse({ ...base, value: 25, currency: "US" }).success).toBe(false);
+		expect(recordAbTestConversionOperation.inputJsonSchema.properties?.currency).toMatchObject({ pattern: "^[A-Z]{3}$" });
 	});
 	it("validates assignment and window, persists idempotently, and feeds analysis metrics", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "abtest-recording-"));

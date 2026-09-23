@@ -155,7 +155,7 @@ interface AbTestConversionRecordBaseInput {
 }
 
 export type AbTestConversionRecordInput = AbTestConversionRecordBaseInput & (
-	| { value: number & tags.Type<"float"> & tags.Minimum<0>; currency: NonEmptyString }
+	| { value: number & tags.Type<"float"> & tags.Minimum<0>; currency: string & tags.Pattern<"^[A-Z]{3}$"> }
 	| { value?: never; currency?: never }
 );
 

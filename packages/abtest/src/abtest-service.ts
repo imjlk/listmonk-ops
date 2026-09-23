@@ -30,6 +30,7 @@ import type {
 	Variant,
 } from "./types";
 import { AbTestConflictError } from "./errors";
+import { getAbTestAttributionDeadline } from "./conversion-events";
 import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
 
 /**
@@ -1437,6 +1438,12 @@ export class AbTestService {
 		const test = await this.getTest(testId);
 		if (!test) {
 			throw new Error(`Test with ID ${testId} not found`);
+		}
+		const attributionDeadline = getAbTestAttributionDeadline(test);
+		if (attributionDeadline !== undefined && Date.now() < attributionDeadline) {
+			throw new Error(
+				`Test ${testId} is still within its attribution window; winner deployment must wait until it closes`,
+			);
 		}
 
 		// Only deploy winner for holdout tests

@@ -638,7 +638,7 @@ const recordAbTestConversionInputObjectSchema = z.object({
 	subscriber_uuid: z.string().regex(SUBSCRIBER_UUID_PATTERN),
 	event: z.string().trim().min(1),
 	value: z.number().finite().nonnegative().optional(),
-	currency: z.string().min(1).optional(),
+	currency: z.string().regex(/^[A-Z]{3}$/).optional(),
 	occurred_at: z.string().datetime({ offset: true }),
 });
 

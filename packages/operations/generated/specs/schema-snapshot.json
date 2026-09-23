@@ -31298,7 +31298,8 @@
               "additionalProperties": false,
               "properties": {
                 "currency": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "pattern": "^[A-Z]{3}$",
+                  "type": "string"
                 },
                 "event": {
                   "$ref": "#/components/schemas/NonEmptyString"

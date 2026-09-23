@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { AbTestService } from "../src/abtest-service";
 import { SimulatedMetricsCollector } from "../src/metrics";
+import { lockHypothesis } from "../src/hypothesis";
 import type { AbTest, TestResults } from "../src/types";
 
 function makeTest(): AbTest {
@@ -90,6 +91,35 @@ function integrationWith(
 }
 
 describe("abtest deploy-winner tag adoption", () => {
+	test("waits for the pre-registered attribution tail before manual deployment", async () => {
+		let creates = 0;
+		const service = new AbTestService(
+			integrationWith([], () => { creates += 1; return 512; }) as never,
+			new SimulatedMetricsCollector(new Map([["test-1", decisiveResults()]])),
+		);
+		const test = makeTest();
+		test.endsAt = new Date(Date.now() - 3_600_000).toISOString();
+		test.hypothesis = lockHypothesis({
+			objective: "Track purchases",
+			hypothesis: "Variant A improves conversion",
+			primaryMetric: { type: "conversion_rate", direction: "maximize" },
+			expectedLift: { kind: "relative", value: 0.1 },
+			owner: { id: "operator" },
+			experimentScope: {
+				channel: "email",
+				experimentFamilyKey: "conversion.test",
+				attributionWindowHours: 24,
+				exclusionWindowHours: 48,
+			},
+			createdAt: test.startedAt!,
+		}, test.startedAt!);
+		await service.hydrateTests([test]);
+
+		await expect(service.deployWinner(test.id)).rejects.toThrow("attribution window");
+		expect(creates).toBe(0);
+		expect((await service.getTest(test.id))?.status).toBe("analyzing");
+	});
+
 	test("adopts an already-deployed winner campaign instead of duplicating", async () => {
 		let creates = 0;
 		const integration = integrationWith(
