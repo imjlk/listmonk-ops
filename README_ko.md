@@ -1412,6 +1412,9 @@ exponential backoff로 최대 24회 재시도하며, enrollment list/get 결과�
 revision으로 `tx reconcile`을 실행하세요. `accepted` 결정 뒤에는 enrollment를
 `sent`로, TTL 경과와 발송자 중지를 확인한 `retry` 결정 뒤에는 `not_sent`로
 복구합니다.
+`pending` 재생이 반복되면 재시도 한도에서 종료시키지 않고 `ambiguous`로
+전환해 운영자 복구 경로를 유지합니다. 확인된 `accepted` sequence claim은
+enrollment 복구까지 유지해 worker가 재개돼도 중복 발송을 막습니다.
 
 기본 파일 저장소는 `~/.listmonk-ops/sequences.json`입니다. 여러 worker가
 동시에 처리할 때는 `LISTMONK_OPS_SEQUENCE_DATABASE_URL`을 설정하세요.

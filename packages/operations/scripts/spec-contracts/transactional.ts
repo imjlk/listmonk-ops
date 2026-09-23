@@ -59,14 +59,14 @@ export interface TransactionalSendOutput {
 }
 
 export interface TransactionalRecordsInput {
-	key?: IdempotencyKey;
+	key?: TransactionalRecordKey;
 	status?: "pending" | "accepted" | "failed" | "unknown";
 	limit?: number & tags.Type<"uint32"> & tags.Minimum<1> & tags.Maximum<100>;
 	cursor?: string & tags.MaxLength<256>;
 }
 
 export interface TransactionalRecordView {
-	key: IdempotencyKey;
+	key: TransactionalRecordKey;
 	status: "pending" | "accepted" | "failed" | "unknown";
 	payload_hash: string;
 	revision: string;
@@ -84,7 +84,7 @@ export interface TransactionalRecordsOutput {
 }
 
 export interface TransactionalReconcileInput {
-	key: IdempotencyKey;
+	key: TransactionalRecordKey;
 	expected_revision: NonEmptyString;
 	decision: "accepted" | "retry";
 	reason: string & tags.MinLength<10> & tags.MaxLength<500> & tags.Pattern<"^[^\\u0000-\\u001f\\u007f]+$">;
@@ -92,8 +92,14 @@ export interface TransactionalReconcileInput {
 }
 
 export interface TransactionalReconcileOutput {
-	key: IdempotencyKey;
+	key: TransactionalRecordKey;
 	decision: "accepted" | "retry";
 	reconciled_at: IsoDateTime;
 	revision?: string;
 }
+
+/** Internal sequence keys may exceed the public send-key limit. */
+export type TransactionalRecordKey = string &
+	tags.MinLength<1> &
+	tags.MaxLength<256> &
+	tags.Pattern<"^[A-Za-z0-9._:-]+$">;

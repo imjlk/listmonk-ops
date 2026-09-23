@@ -84,6 +84,35 @@ afterAll(async () => {
 });
 
 describe("Postgres sequence repository", () => {
+	postgresTest("protects verified sequence acceptance until enrollment recovery", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		const sql = postgres(databaseUrl, { max: 1, prepare: false });
+		const store = repositories[0]?.idempotencyStore;
+		if (!store?.reconcile || !store.forgetReconciliation) throw new Error("Postgres transactional recovery unavailable");
+		const key = `sequence:${randomUUID()}:revision:1:step:send`;
+		const now = () => new Date("2026-01-01T00:00:00.000Z");
+		const later = () => new Date("2026-01-03T00:00:00.000Z");
+		try {
+			const claim = await store.claim({ key, payloadHash: "payload", targetHash: "target", now });
+			if (claim.kind !== "new") throw new Error("expected new claim");
+			await store.reconcile({ key, targetHash: "target", expectedRevision: claim.record.claimToken, decision: "accepted", reason: "Provider logs confirm delivery", now });
+			expect((await store.claim({ key, payloadHash: "payload", targetHash: "target", now: later })).kind).toBe("replay");
+			expect((await store.load()).records[key]).toMatchObject({ status: "accepted" });
+			let deleteError: unknown;
+			try { await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key = ${key}`; } catch (error) { deleteError = error; }
+			expect(String(deleteError)).toContain("Ambiguous transactional claim deletion requires version 3 reconciliation");
+			await store.forgetReconciliation({ key, targetHash: "target" });
+			expect((await store.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
+			expect(Date.parse((await store.load()).records[key]!.expiresAt)).toBeLessThan(later().getTime());
+			const replacement = await store.claim({ key, payloadHash: "payload", targetHash: "target", now: later });
+			expect(replacement.kind).toBe("new");
+			if (replacement.kind === "new") await store.release({ key, claimToken: replacement.record.claimToken });
+		} finally {
+			await sql`DELETE FROM listmonk_ops.sequence_idempotency_reconciliations WHERE key = ${key}`;
+			await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key = ${key}`;
+			await sql.end({ timeout: 5 });
+		}
+	});
 	postgresTest("retains sequence recovery receipts beyond the direct-decision cap", async () => {
 		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
 		const sql = postgres(databaseUrl, { max: 1, prepare: false });
@@ -111,6 +140,8 @@ describe("Postgres sequence repository", () => {
 			const history = (await store.load()).reconciliations ?? [];
 			expect(history.some((decision) => decision.key === key && decision.decision === "retry")).toBe(true);
 			expect(history.filter((decision) => !decision.key.startsWith("sequence:")).length).toBeLessThanOrEqual(1_000);
+			await store.forgetReconciliation?.({ key, targetHash: "target" });
+			expect((await store.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
 		} finally {
 			await sql`DELETE FROM listmonk_ops.sequence_idempotency_reconciliations WHERE key = ${key} OR key LIKE ${prefix + "-%"}`;
 			await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key LIKE ${prefix + "-%"}`;

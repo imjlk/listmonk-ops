@@ -1380,8 +1380,9 @@
         "input": {
           "components": {
             "schemas": {
-              "IdempotencyKey": {
-                "maxLength": 128,
+              "TransactionalRecordKey": {
+                "description": "Internal sequence keys may exceed the public send-key limit.",
+                "maxLength": 256,
                 "minLength": 1,
                 "pattern": "^[A-Za-z0-9._:-]+$",
                 "type": "string"
@@ -1394,7 +1395,7 @@
                     "type": "string"
                   },
                   "key": {
-                    "$ref": "#/components/schemas/IdempotencyKey"
+                    "$ref": "#/components/schemas/TransactionalRecordKey"
                   },
                   "limit": {
                     "maximum": 100,
@@ -1432,7 +1433,7 @@
                 "type": "string"
               },
               "key": {
-                "$ref": "#/components/schemas/IdempotencyKey"
+                "$ref": "#/components/schemas/TransactionalRecordKey"
               },
               "limit": {
                 "maximum": 100,
@@ -1465,14 +1466,15 @@
         "output": {
           "components": {
             "schemas": {
-              "IdempotencyKey": {
-                "maxLength": 128,
-                "minLength": 1,
-                "pattern": "^[A-Za-z0-9._:-]+$",
-                "type": "string"
-              },
               "IsoDateTime": {
                 "format": "date-time",
+                "type": "string"
+              },
+              "TransactionalRecordKey": {
+                "description": "Internal sequence keys may exceed the public send-key limit.",
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
                 "type": "string"
               },
               "TransactionalRecordView": {
@@ -1488,7 +1490,7 @@
                     "$ref": "#/components/schemas/IsoDateTime"
                   },
                   "key": {
-                    "$ref": "#/components/schemas/IdempotencyKey"
+                    "$ref": "#/components/schemas/TransactionalRecordKey"
                   },
                   "payload_hash": {
                     "type": "string"
@@ -1610,12 +1612,6 @@
         "input": {
           "components": {
             "schemas": {
-              "IdempotencyKey": {
-                "maxLength": 128,
-                "minLength": 1,
-                "pattern": "^[A-Za-z0-9._:-]+$",
-                "type": "string"
-              },
               "NonEmptyString": {
                 "minLength": 1,
                 "type": "string"
@@ -1637,7 +1633,7 @@
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
                   "key": {
-                    "$ref": "#/components/schemas/IdempotencyKey"
+                    "$ref": "#/components/schemas/TransactionalRecordKey"
                   },
                   "quiesced": {
                     "type": "boolean"
@@ -1656,6 +1652,13 @@
                   "reason"
                 ],
                 "type": "object"
+              },
+              "TransactionalRecordKey": {
+                "description": "Internal sequence keys may exceed the public send-key limit.",
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
               }
             }
           },
@@ -1677,7 +1680,7 @@
                 "$ref": "#/components/schemas/NonEmptyString"
               },
               "key": {
-                "$ref": "#/components/schemas/IdempotencyKey"
+                "$ref": "#/components/schemas/TransactionalRecordKey"
               },
               "quiesced": {
                 "type": "boolean"
@@ -1703,12 +1706,6 @@
         "output": {
           "components": {
             "schemas": {
-              "IdempotencyKey": {
-                "maxLength": 128,
-                "minLength": 1,
-                "pattern": "^[A-Za-z0-9._:-]+$",
-                "type": "string"
-              },
               "IsoDateTime": {
                 "format": "date-time",
                 "type": "string"
@@ -1727,7 +1724,7 @@
                     ]
                   },
                   "key": {
-                    "$ref": "#/components/schemas/IdempotencyKey"
+                    "$ref": "#/components/schemas/TransactionalRecordKey"
                   },
                   "reconciled_at": {
                     "$ref": "#/components/schemas/IsoDateTime"
@@ -1742,6 +1739,13 @@
                   "reconciled_at"
                 ],
                 "type": "object"
+              },
+              "TransactionalRecordKey": {
+                "description": "Internal sequence keys may exceed the public send-key limit.",
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
               }
             }
           },
@@ -1760,7 +1764,7 @@
                 ]
               },
               "key": {
-                "$ref": "#/components/schemas/IdempotencyKey"
+                "$ref": "#/components/schemas/TransactionalRecordKey"
               },
               "reconciled_at": {
                 "$ref": "#/components/schemas/IsoDateTime"

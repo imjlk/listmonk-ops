@@ -1485,6 +1485,9 @@ stranded claim, inspect it with `tx records`, verify delivery independently,
 and use `tx reconcile` with its observed revision. Then resolve the enrollment
 as `sent` after an `accepted` decision, or as `not_sent` after a TTL-expired,
 quiesced `retry` decision.
+Repeated `pending` replays move the enrollment to `ambiguous` before the
+retry limit would make it terminal; a verified `accepted` sequence claim is
+retained until enrollment recovery, preventing a resumed worker from sending again.
 
 The default file store is `~/.listmonk-ops/sequences.json`. Set
 `LISTMONK_OPS_SEQUENCE_DATABASE_URL` for concurrent workers; Postgres uses

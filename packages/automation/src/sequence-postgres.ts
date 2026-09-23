@@ -326,7 +326,8 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				WHERE key = 'schema_version'
 			`;
 		}
-		if (storedVersion < 3) {
+		// Refresh the guard function even when version 3 already exists: a
+		// running older worker can otherwise delete an operator-accepted claim.
 			await transaction`
 				CREATE TABLE IF NOT EXISTS listmonk_ops.sequence_idempotency_reconciliations (
 					id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -344,7 +345,12 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				CREATE OR REPLACE FUNCTION listmonk_ops.guard_ambiguous_sequence_claim_delete()
 				RETURNS trigger LANGUAGE plpgsql AS $$
 				BEGIN
-					IF OLD.status IN ('pending', 'unknown')
+					IF (OLD.status IN ('pending', 'unknown')
+						OR (OLD.status = 'accepted' AND OLD.key LIKE 'sequence:%'
+							AND (
+								SELECT decision FROM listmonk_ops.sequence_idempotency_reconciliations
+								WHERE key = OLD.key ORDER BY id DESC LIMIT 1
+							) = 'accepted'))
 						AND current_setting('listmonk_ops.allow_ambiguous_claim_delete', true) IS DISTINCT FROM 'on'
 					THEN
 						RAISE EXCEPTION 'Ambiguous transactional claim deletion requires version 3 reconciliation';
@@ -353,6 +359,7 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				END;
 				$$
 			`;
+		if (storedVersion < 3) {
 			await transaction`
 				DROP TRIGGER IF EXISTS guard_ambiguous_sequence_claim_delete
 				ON listmonk_ops.sequence_idempotency_records
@@ -471,9 +478,16 @@ async function sweepExpiredIdempotencyRecords(
 	now: Date,
 ): Promise<void> {
 	await transaction`
-		DELETE FROM listmonk_ops.sequence_idempotency_records
-		WHERE expires_at < ${now}
-			AND status IN ('accepted', 'failed')
+		DELETE FROM listmonk_ops.sequence_idempotency_records AS record
+		WHERE record.expires_at < ${now}
+			AND record.status IN ('accepted', 'failed')
+			AND NOT (
+				record.status = 'accepted' AND record.key LIKE 'sequence:%'
+				AND COALESCE((
+					SELECT decision FROM listmonk_ops.sequence_idempotency_reconciliations
+					WHERE key = record.key ORDER BY id DESC LIMIT 1
+				) = 'accepted', false)
+			)
 	`;
 }
 
@@ -692,6 +706,17 @@ function createPostgresTransactionalIdempotencyStore(
 					)
 				`;
 				return { key: options.key, decision: options.decision, reconciledAt: now.toISOString(), ...(revision ? { revision } : {}) };
+			});
+		},
+		async forgetReconciliation(options) {
+			if (!options.key.startsWith("sequence:")) return;
+			await ready();
+			await sql.begin(async (transaction) => {
+				await lockIdempotencyStore(transaction);
+				await transaction`
+					DELETE FROM listmonk_ops.sequence_idempotency_reconciliations
+					WHERE key = ${options.key} AND target_hash = ${options.targetHash}
+				`;
 			});
 		},
 	};

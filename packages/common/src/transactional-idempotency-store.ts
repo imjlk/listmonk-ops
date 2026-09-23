@@ -123,6 +123,7 @@ export interface TransactionalIdempotencyStore {
 	}): Promise<void>;
 	load(): Promise<StoredTransactionalDocument>;
 	reconcile(options: TransactionalReconciliationOptions): Promise<TransactionalReconciliationResult>;
+	forgetReconciliation?(options: { key: string; targetHash: string }): Promise<void>;
 }
 
 export interface TransactionalReconciliationOptions {
@@ -374,12 +375,18 @@ function sweepExpiredRecords(
 	now: Date,
 ): { document: StoredTransactionalDocument; changed: boolean } {
 	const nowMs = now.getTime();
+	const sequenceDecisions = new Map<string, TransactionalReconciliationEvent>();
+	for (const event of document.reconciliations ?? []) {
+		if (isSequenceReconciliationKey(event.key)) sequenceDecisions.set(event.key, event);
+	}
 	const survivors: Record<string, TransactionalSendRecord> = Object.create(
 		null,
 	);
 	let changed = false;
 	for (const [key, record] of Object.entries(document.records)) {
-		if (record.status === "pending" || record.status === "unknown" || new Date(record.expiresAt).getTime() >= nowMs) {
+		if (record.status === "pending" || record.status === "unknown" ||
+			(record.status === "accepted" && sequenceDecisions.get(key)?.decision === "accepted") ||
+			new Date(record.expiresAt).getTime() >= nowMs) {
 			survivors[key] = record;
 		} else {
 			changed = true;
@@ -615,6 +622,23 @@ export async function reconcileTransactionalSend(options: TransactionalReconcili
 	});
 }
 
+/** Drop a sequence recovery receipt only after its enrollment has durably advanced. */
+export async function forgetSequenceReconciliation(options: { storePath?: string; key: string; targetHash: string }): Promise<void> {
+	if (!isSequenceReconciliationKey(options.key)) return;
+	const store = {
+		...createTransactionalStore(options.storePath),
+		skipUnchangedWrites: true,
+	};
+	await updateJsonFileStore<StoredTransactionalDocument, void>(store, (document) => {
+		const previous = document.reconciliations;
+		const remaining = previous?.filter(
+			(event) => event.key !== options.key || event.targetHash !== options.targetHash,
+		);
+		if (remaining?.length === previous?.length) return commitJsonFileStoreUpdate(document, undefined);
+		return commitJsonFileStoreUpdate({ ...document, reconciliations: remaining }, undefined);
+	});
+}
+
 /**
  * Convenience wrapper that exposes the file-backed claim/commit/release
  * triple behind the `TransactionalIdempotencyStore` interface used by the
@@ -634,6 +658,8 @@ export function createFileBackedTransactionalIdempotencyStore(
 		load: () => loadTransactionalDocument(storePath),
 		reconcile: (reconcileOptions) =>
 			reconcileTransactionalSend({ storePath, ...reconcileOptions }),
+		forgetReconciliation: (forgetOptions) =>
+			forgetSequenceReconciliation({ storePath, ...forgetOptions }),
 	};
 }
 

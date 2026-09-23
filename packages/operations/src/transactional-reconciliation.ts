@@ -16,16 +16,16 @@ import {
 	bindTransactionalReconcileOperationSpec,
 } from "./specs";
 
-const keySchema = z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9._:-]+$/);
+const keySchema = z.string().trim().min(1).max(256).regex(/^[A-Za-z0-9._:-]+$/);
 const recordStatusSchema = z.enum(["pending", "accepted", "failed", "unknown"]);
 const recordViewSchema = z.object({
 	key: keySchema,
 	status: recordStatusSchema,
 	payload_hash: z.string(),
 	revision: z.string(),
-	created_at: z.iso.datetime(),
-	updated_at: z.iso.datetime(),
-	expires_at: z.iso.datetime(),
+	created_at: z.iso.datetime({ offset: true }),
+	updated_at: z.iso.datetime({ offset: true }),
+	expires_at: z.iso.datetime({ offset: true }),
 	sent: z.boolean().optional(),
 	error_present: z.boolean(),
 });

@@ -270,6 +270,13 @@ async function executeSendStep(
 				now,
 			);
 		}
+		const sendKey = deterministicSendKey(claimed.enrollment);
+		const targetHash = computeTransactionalTargetHash(context.target ?? {});
+		const priorDecision = (await context.idempotencyStore.load()).reconciliations
+			?.slice().reverse().find((event) => event.key === sendKey && event.targetHash === targetHash);
+		// A verified acceptance must survive expiry of its ordinary replay record.
+		// The enrollment may still be pending when a stopped worker resumes.
+		if (priorDecision?.decision === "accepted") return transitionToNext(claimed, now);
 		const result = await sendTransactionalMessage(
 			{
 				client: context.client,
@@ -293,7 +300,7 @@ async function executeSendStep(
 				messenger: step.messenger,
 				subject: step.subject,
 				altbody: step.altBody,
-				idempotency_key: deterministicSendKey(claimed.enrollment),
+				idempotency_key: sendKey,
 			},
 		);
 		if (!result.sent) {
@@ -311,6 +318,13 @@ async function executeSendStep(
 	} catch (error) {
 		if (error instanceof TransactionalReconcileError) {
 			if (error.status === "pending") {
+				if (claimed.enrollment.retryCount + 1 >= SEQUENCE_RETRY_MAX_ATTEMPTS) {
+					return withoutLease(claimed.enrollment, {
+						status: "ambiguous",
+						retryCount: claimed.enrollment.retryCount + 1,
+						lastError: "Pending transactional claim requires operator reconciliation",
+					}, now);
+				}
 				return retryEnrollment(
 					claimed.enrollment,
 					now,
@@ -464,7 +478,17 @@ async function executeClaimedEnrollment(
 			step satisfies never;
 			throw new Error("Unsupported sequence step");
 	}
-	return context.repository.completeClaim(claimed.enrollment, next);
+	const completed = await context.repository.completeClaim(
+		claimed.enrollment,
+		next,
+	);
+	if (step.type === "send" && completed.status !== "ambiguous") {
+		await context.idempotencyStore.forgetReconciliation?.({
+			key: deterministicSendKey(claimed.enrollment),
+			targetHash: computeTransactionalTargetHash(context.target ?? {}),
+		});
+	}
+	return completed;
 }
 
 function countOutcome(
@@ -711,6 +735,10 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		);
 	}
 	const key = deterministicSendKey(enrollment);
+	const targetHash = computeTransactionalTargetHash(context.target ?? {});
+	const forgetReceipt = async () => context.idempotencyStore.forgetReconciliation?.(
+		{ key, targetHash },
+	);
 	const sentNext = () => {
 		const following = nextStep(revision, step.id);
 		return withoutLease(
@@ -730,9 +758,6 @@ export async function reconcileAmbiguousSequenceEnrollment(
 	const document = await context.idempotencyStore.load();
 	const record = document.records[key];
 	if (!record) {
-		const targetHash = context.target?.baseUrl && context.target.username
-			? computeTransactionalTargetHash(context.target)
-			: undefined;
 		const latestDecision = document.reconciliations?.slice().reverse().find(
 			(event) => event.key === key && event.targetHash === targetHash,
 		);
@@ -741,7 +766,13 @@ export async function reconcileAmbiguousSequenceEnrollment(
 			throw new Error(`Transactional idempotency record ${key} is missing`);
 		}
 		if (resolution === "sent" && latestDecision.decision === "accepted") {
-			return forceCompleteAmbiguous(context.repository, enrollment, sentNext());
+			const resolved = await forceCompleteAmbiguous(
+				context.repository,
+				enrollment,
+				sentNext(),
+			);
+			await forgetReceipt();
+			return resolved;
 		}
 		if (resolution !== "not_sent" || latestDecision.decision !== "retry") {
 			throw new Error(`Transactional idempotency record ${key} is missing`);
@@ -756,7 +787,13 @@ export async function reconcileAmbiguousSequenceEnrollment(
 			},
 			now,
 		);
-		return forceCompleteAmbiguous(context.repository, enrollment, next);
+		const resolved = await forceCompleteAmbiguous(
+			context.repository,
+			enrollment,
+			next,
+		);
+		await forgetReceipt();
+		return resolved;
 	}
 	if (record.status === "pending") {
 		throw new Error(
@@ -788,6 +825,7 @@ export async function reconcileAmbiguousSequenceEnrollment(
 				now: () => now,
 			});
 		}
+		await forgetReceipt();
 		return resolved;
 	}
 	const next = withoutLease(
@@ -810,6 +848,7 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		claimToken: record.claimToken,
 		now: () => now,
 	});
+	await forgetReceipt();
 	return resolved;
 }
 

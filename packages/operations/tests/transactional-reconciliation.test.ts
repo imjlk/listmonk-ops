@@ -104,3 +104,26 @@ test("keyset pages expose every retained ambiguous record beyond the first hundr
 	);
 	await expect(invokeTransactionalRecordsOperation(context, { cursor: "bad-cursor" })).rejects.toThrow("Invalid transactional record cursor");
 });
+
+test("inspects and reconciles long sequence keys with valid offset timestamps", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "lmops-reconcile-long-key-"));
+	directories.push(directory);
+	const storePath = join(directory, "transactional.json");
+	const target = { baseUrl: "http://localhost:9000/api", username: "operator" };
+	const key = `sequence:00000000-0000-4000-8000-000000000001:revision:123:step:${"x".repeat(80)}`;
+	const record = {
+		key, payloadHash: "payload", targetHash: computeTransactionalTargetHash(target),
+		status: "unknown", claimToken: "revision",
+		createdAt: "2026-01-01T09:00:00+09:00",
+		updatedAt: "2026-01-01T09:00:00+09:00",
+		expiresAt: "2026-01-02T09:00:00+09:00",
+	};
+	await writeFile(storePath, JSON.stringify({ version: 2, records: { [key]: record } }));
+	const context = { idempotencyStore: createFileBackedTransactionalIdempotencyStore({ storePath }), target };
+	const listed = await invokeTransactionalRecordsOperation(context, { key });
+	expect(listed.records).toMatchObject([{ key, created_at: record.createdAt }]);
+	await expect(invokeTransactionalReconcileOperation(context, {
+		key, expected_revision: record.claimToken, decision: "accepted",
+		reason: "Provider logs confirm delivery",
+	})).resolves.toMatchObject({ key, decision: "accepted" });
+});

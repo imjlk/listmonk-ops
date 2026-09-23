@@ -143,6 +143,8 @@ export interface TransactionalIdempotencyStore {
 		quiesced?: boolean;
 		now?: () => Date;
 	}): Promise<{ key: string; decision: "accepted" | "retry"; reconciledAt: string; revision?: string }>;
+	/** Called only after a sequence enrollment has durably left its ambiguous send step. */
+	forgetReconciliation?(options: { key: string; targetHash: string }): Promise<void>;
 }
 
 /**
