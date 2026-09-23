@@ -711,6 +711,22 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		);
 	}
 	const key = deterministicSendKey(enrollment);
+	const sentNext = () => {
+		const following = nextStep(revision, step.id);
+		return withoutLease(
+			enrollment,
+			following
+				? {
+						status: "pending",
+						retryCount: 0,
+						currentStepId: following.id,
+						nextRunAt: now.toISOString(),
+						lastError: undefined,
+					}
+				: { status: "completed", retryCount: 0, lastError: undefined },
+			now,
+		);
+	};
 	const document = await context.idempotencyStore.load();
 	const record = document.records[key];
 	if (!record) {
@@ -720,8 +736,14 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		const latestDecision = document.reconciliations?.slice().reverse().find(
 			(event) => event.key === key && event.targetHash === targetHash,
 		);
-		if (resolution !== "not_sent" || latestDecision?.decision !== "retry" ||
+		if (!latestDecision ||
 			Date.parse(latestDecision.reconciledAt) < Date.parse(enrollment.lastTransitionAt)) {
+			throw new Error(`Transactional idempotency record ${key} is missing`);
+		}
+		if (resolution === "sent" && latestDecision.decision === "accepted") {
+			return forceCompleteAmbiguous(context.repository, enrollment, sentNext());
+		}
+		if (resolution !== "not_sent" || latestDecision.decision !== "retry") {
 			throw new Error(`Transactional idempotency record ${key} is missing`);
 		}
 		const next = withoutLease(
@@ -752,24 +774,10 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		);
 	}
 	if (resolution === "sent") {
-		const following = nextStep(revision, step.id);
-		const next = withoutLease(
-			enrollment,
-			following
-				? {
-						status: "pending",
-						retryCount: 0,
-						currentStepId: following.id,
-						nextRunAt: now.toISOString(),
-						lastError: undefined,
-					}
-				: { status: "completed", retryCount: 0, lastError: undefined },
-			now,
-		);
 		const resolved = await forceCompleteAmbiguous(
 			context.repository,
 			enrollment,
-			next,
+			sentNext(),
 		);
 		if (record.status !== "accepted") {
 			await context.idempotencyStore.commit({

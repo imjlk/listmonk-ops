@@ -1599,6 +1599,38 @@ describe("sequence execution", () => {
 		)).toMatchObject({ status: "pending", currentStepId: "send" });
 	});
 
+	test("honors an accepted operator decision after its definitive record expires", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(createSequenceDefinition({
+			name: "accepted decision after expiry",
+			steps: [{ id: "send", type: "send", templateId: 9 }],
+		}, now));
+		const enrollment = await repository.createEnrollment(createSequenceEnrollment(
+			definition,
+			{ sequenceId: definition.id, subscriberId: 42 },
+			now,
+		));
+		const context = executionContext(repository, idempotencyStore, client({
+			send: async () => { throw new TypeError("fetch failed after dispatch"); },
+		}));
+		expect(await runSequenceTick(context, { now })).toMatchObject({ ambiguous: 1 });
+		const key = `sequence:${enrollment.id}:revision:1:step:send`;
+		const record = (await idempotencyStore.load()).records[key]!;
+		await idempotencyStore.reconcile!({
+			key,
+			targetHash: record.targetHash,
+			expectedRevision: record.claimToken,
+			decision: "accepted",
+			reason: "Provider logs confirm delivery",
+			now: () => now,
+		});
+		const later = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1_000);
+		await idempotencyStore.claim({ key: "unrelated-sweep", payloadHash: "other", targetHash: record.targetHash, now: () => later });
+		expect((await idempotencyStore.load()).records[key]).toBeUndefined();
+		expect(await reconcileAmbiguousSequenceEnrollment(context, enrollment.id, "sent", later)).toMatchObject({ status: "completed" });
+	});
+
 	test("commits an operator-confirmed ambiguous send before advancing", async () => {
 		const { repository, idempotencyStore } = await createStores();
 		let sends = 0;

@@ -15,7 +15,10 @@ import {
 } from "@listmonk-ops/automation";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { createListmonkClient } from "@listmonk-ops/openapi";
-import { assertOperationConfirmation } from "@listmonk-ops/operations";
+import {
+	assertOperationConfirmation,
+	type TransactionalIdempotencyStore,
+} from "@listmonk-ops/operations";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -186,6 +189,7 @@ export class ListmonkMCPServer {
 	private allowedHttpOrigins: Set<string>;
 	private webhookHandler: ReturnType<typeof createWebhookToolsHandler>;
 	private sequenceHandler: ReturnType<typeof createSequenceToolsHandler>;
+	private transactionalStore: TransactionalIdempotencyStore | undefined;
 
 	constructor(config: {
 		baseUrl: string;
@@ -233,11 +237,13 @@ export class ListmonkMCPServer {
 		this.webhookHandler = createWebhookToolsHandler({
 			store: this.webhookStoreOptions,
 		});
+		const sequenceRepository = getSequenceRepositoryFromEnvironment({
+			path: config.sequenceStorePath,
+			databaseUrl: config.sequenceDatabaseUrl,
+		});
+		this.transactionalStore = sequenceRepository.idempotencyStore;
 		this.sequenceHandler = createSequenceToolsHandler({
-			repository: getSequenceRepositoryFromEnvironment({
-				path: config.sequenceStorePath,
-				databaseUrl: config.sequenceDatabaseUrl,
-			}),
+			repository: sequenceRepository,
 			target: {
 				baseUrl: this.baseUrl,
 				username: this.username,
@@ -600,6 +606,7 @@ export class ListmonkMCPServer {
 				result = await handleTransactionalTools(operationRequest, client, {
 					baseUrl: this.baseUrl,
 					username: this.username,
+					idempotencyStore: this.transactionalStore,
 				});
 			} else if (toolNameSets.ops.has(name)) {
 				result = await handleOpsTools(operationRequest, client);
