@@ -36145,13 +36145,13 @@
         {
           "kind": "write",
           "resource": "experiment",
-          "reversible": true
+          "reversible": false
         }
       ],
       "id": "abtest.conversion.record",
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "projection": {

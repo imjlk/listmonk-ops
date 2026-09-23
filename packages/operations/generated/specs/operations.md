@@ -1289,7 +1289,7 @@ Record one attributed conversion event for a test variant and subscriber
 - MCP tool: `listmonk_abtest_conversion_record`
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:experiment`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.18.0`
 

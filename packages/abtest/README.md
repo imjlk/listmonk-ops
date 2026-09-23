@@ -116,7 +116,8 @@ non-negative value plus currency. Recording checks the launched test's
 attribution window and current variant-list membership. Identical event-ID
 retries are deduplicated; conflicting reuse is rejected. Analysis uses the
 number of unique converting subscribers as `conversions` and sums values as
-`revenue`. Retain variant lists until the attribution window closes.
+`revenue`. Recording is append-only and requires CLI `--confirm` or MCP
+`confirm: true`. Retain variant lists until the attribution window closes.
 
 If a remote mutation fails, local state is not committed but Listmonk may
 contain partial resources. If the local commit fails after the remote action,

@@ -37,6 +37,7 @@ export {
 	InMemoryConversionEventStore,
 	JsonFileConversionEventStore,
 	getConversionEventStorePath,
+	resolveConversionStorePath,
 	type ConversionEventInput,
 	type ConversionEventStore,
 	type VariantConversionAggregate,

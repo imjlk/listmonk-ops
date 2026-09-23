@@ -690,7 +690,7 @@ GET이며 자동 재시도하지 않습니다. `not_checked`는 자격 증명이
 `readiness.listmonk`가 true가 되지 않습니다. 대상 URL의 인라인 자격 증명,
 쿼리 문자열, 프래그먼트는 결과에서 제거합니다.
 
-134개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+135개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -699,8 +699,9 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-134개 계약은 독립적인 TypeScript/Typia 제품 계약이며 134개 전부가
-`stable`입니다. 바운스 패밀리(`bounces.list`, `bounces.get`,
+135개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 134개는
+`stable`이며 `abtest.conversion.record`는 experimental입니다. 안정 계약에는
+바운스 패밀리(`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), 캠페인 프리뷰/테스트 발송/애널리틱스
 오퍼레이션(`campaigns.preview`, `campaigns.test`, `campaigns.analytics`),
@@ -1094,7 +1095,7 @@ listmonk-cli abtest analyze --test-id <id>
 listmonk-cli abtest record-conversion \
   --event-id order-123 --test-id <id> --variant-id <variant-id> \
   --subscriber-uuid <uuid> --event purchase --value 25 --currency USD \
-  --occurred-at 2026-09-23T12:00:00Z
+  --occurred-at 2026-09-23T12:00:00Z --confirm
 listmonk-cli abtest recommend-sample-size \
   --lists 123,456 --test-group-percentage 10 --variant-count 2
 listmonk-cli abtest deploy-winner --test-id <id> --confirm
@@ -1127,7 +1128,9 @@ timer용). `--dry-run true`로 상태 변경 없이 미리보기할 수 있습�
 `LISTMONK_OPS_ABTEST_CONVERSION_STORE`로 바꿀 수 있습니다. 저장 내용은 UUID,
 이벤트명, 시각, 선택적 금액·통화이며 이메일·이름은 저장하지 않습니다.
 분석은 변형별 고유 전환 구독자 수와 이벤트 금액 합계를 사용합니다. 새 이벤트의
-배정을 검증할 수 있도록 귀속 기간 동안 변형 목록을 유지해야 합니다.
+배정을 검증할 수 있도록 귀속 기간 동안 변형 목록을 유지해야 합니다. 기록은
+추가만 가능하므로 CLI는 `--confirm`, MCP는 매 이벤트에 `confirm: true`가
+필요합니다.
 
 MCP에서도 A/B 테스트 라이프사이클 도구를 제공합니다.
 

@@ -629,14 +629,14 @@ export async function executeGetAbTestOperation(
 }
 
 const recordAbTestConversionInputSchema = z.object({
-	event_id: z.string().min(1),
+	event_id: z.string().trim().min(1),
 	test_id: z.string().min(1),
 	variant_id: z.string().min(1),
 	subscriber_uuid: z.string().min(1),
 	event: z.string().min(1),
 	value: z.number().finite().nonnegative().optional(),
 	currency: z.string().min(1).optional(),
-	occurred_at: z.string().datetime(),
+	occurred_at: z.string().datetime({ offset: true }),
 });
 
 export async function executeRecordAbTestConversionOperation(
@@ -1061,13 +1061,6 @@ const createSafety = {
 	openWorldHint: true,
 } as const;
 
-const mutationSafety = {
-	readOnlyHint: false,
-	destructiveHint: false,
-	idempotentHint: true,
-	openWorldHint: true,
-} as const;
-
 const destructiveSafety = {
 	readOnlyHint: false,
 	destructiveHint: true,
@@ -1120,7 +1113,7 @@ export const recordAbTestConversionOperation = defineOperation({
 		event_id: z.string(),
 		test_id: z.string(),
 	}),
-	safety: mutationSafety,
+	safety: destructiveSafety,
 	mcp: {
 		name: "listmonk_abtest_conversion_record",
 		legacySuccessText: (output) => jsonValue(output),

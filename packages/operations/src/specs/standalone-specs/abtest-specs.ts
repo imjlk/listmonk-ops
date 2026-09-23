@@ -105,8 +105,8 @@ export const abTestConversionRecordOperationSpec = defineOperationSpec({
 		input: abTestConversionRecordInputContract,
 		output: abTestConversionRecordOutputContract,
 	},
-	effects: [{ kind: "write", resource: "experiment", reversible: true }],
-	policy: { confirmation: "never", audit: "required", dryRun: false },
+	effects: [{ kind: "write", resource: "experiment", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
 		kind: "safe",
 		reason: "The event ID deduplicates identical retries and rejects conflicting payloads.",

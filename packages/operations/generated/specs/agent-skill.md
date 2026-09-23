@@ -1488,7 +1488,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Record A/B test conversion (`abtest.conversion.record`)
 
-Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `never`; retry: `safe`.
+Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `required`; retry: `safe`.
 
 Use when: An external signup or purchase must be attributed to an A/B test variant.
 

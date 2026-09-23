@@ -5,7 +5,7 @@ import {
 	updateJsonFileStore,
 	type JsonFileStore,
 } from "@listmonk-ops/common";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 /**
  * Transport-neutral conversion event store for A/B test attribution.
@@ -99,9 +99,16 @@ function sanitizeConversionEvent(input: ConversionEventInput): ConversionEventIn
 	};
 }
 
+export function resolveConversionStorePath(testStorePath?: string): string {
+	const overriddenPath = process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE?.trim();
+	if (overriddenPath) return overriddenPath;
+	return testStorePath === undefined
+		? join(getListmonkDataDirectory(), "abtest-conversions.json")
+		: join(dirname(testStorePath), "abtest-conversions.json");
+}
+
 export function getConversionEventStorePath(): string {
-	return process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE?.trim() ||
-		join(getListmonkDataDirectory(), "abtest-conversions.json");
+	return resolveConversionStorePath();
 }
 
 /** Atomic, locked event journal shared by CLI and MCP processes. */

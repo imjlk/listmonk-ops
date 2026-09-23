@@ -1154,7 +1154,7 @@ listmonk-cli abtest analyze --test-id <id>
 listmonk-cli abtest record-conversion \
   --event-id order-123 --test-id <id> --variant-id <variant-id> \
   --subscriber-uuid <uuid> --event purchase --value 25 --currency USD \
-  --occurred-at 2026-09-23T12:00:00Z
+  --occurred-at 2026-09-23T12:00:00Z --confirm
 listmonk-cli abtest recommend-sample-size \
   --lists 123,456 --test-group-percentage 10 --variant-count 2
 listmonk-cli abtest deploy-winner --test-id <id> --confirm
@@ -1188,7 +1188,8 @@ set `LISTMONK_OPS_ABTEST_CONVERSION_STORE` to override its path. The store keeps
 UUIDs, event names, timestamps, and optional value/currency, without emails or
 names. Analysis counts unique converting subscribers per variant and sums
 event values as revenue. Keep the variant lists available until the attribution
-window closes so new events can be verified.
+window closes so new events can be verified. Recording is append-only, so CLI
+requires `--confirm` and MCP requires `confirm: true` for each event.
 
 MCP now also exposes A/B test lifecycle tools:
 

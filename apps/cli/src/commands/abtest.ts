@@ -667,7 +667,7 @@ export default defineGroup({
 				event: option(z.string().trim().min(1), { description: "Event name, such as purchase" }),
 				value: option(z.coerce.number().finite().nonnegative().optional(), { description: "Optional monetary value" }),
 				currency: option(z.string().trim().min(1).optional(), { description: "ISO 4217 currency when value is provided" }),
-				"occurred-at": option(z.string().datetime(), { description: "Event ISO timestamp" }),
+				"occurred-at": option(z.string().datetime({ offset: true }), { description: "Event ISO timestamp" }),
 			},
 			handler: async ({ flags, ...args }) => {
 				const result = await invokeCliRecordAbTestConversion(args, {

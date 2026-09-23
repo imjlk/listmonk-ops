@@ -1,5 +1,5 @@
 import { getListmonkDataDirectory } from "@listmonk-ops/common";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import {
 	commitJsonFileStoreUpdate,
@@ -12,6 +12,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { AbTestNotFoundError } from "./errors";
 export { AbTestConflictError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
+import { resolveConversionStorePath } from "./conversion-events";
 import { isStrictIsoTimestamp, verifyHypothesisChecksum } from "./hypothesis";
 import type { AbTest } from "./types";
 
@@ -796,9 +797,7 @@ function createHydratedExecutors(
 ): AbTestExecutors {
 	const executors = createAbTestExecutors(
 		client,
-		storePath === undefined
-			? undefined
-			: join(dirname(storePath), "abtest-conversions.json"),
+		resolveConversionStorePath(storePath),
 	);
 	executors.abTestService.hydrateTests(tests);
 	return executors;

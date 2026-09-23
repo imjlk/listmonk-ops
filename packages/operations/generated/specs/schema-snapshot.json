@@ -31451,7 +31451,7 @@
       },
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "retry": {

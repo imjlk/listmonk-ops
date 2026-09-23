@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import {
 	InMemoryConversionEventStore,
 	JsonFileConversionEventStore,
+	resolveConversionStorePath,
 	ConversionEventValidationError,
 	validateConversionEvent,
 	type ConversionEventInput,
@@ -172,6 +173,18 @@ describe("InMemoryConversionEventStore", () => {
 });
 
 describe("JsonFileConversionEventStore", () => {
+	it("honors the explicit conversion-store override even with a custom test store", () => {
+		const previous = process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE;
+		try {
+			delete process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE;
+			expect(resolveConversionStorePath("/tmp/custom/abtests.json")).toBe("/tmp/custom/abtest-conversions.json");
+			process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE = "/tmp/overridden-conversions.json";
+			expect(resolveConversionStorePath("/tmp/custom/abtests.json")).toBe("/tmp/overridden-conversions.json");
+		} finally {
+			if (previous === undefined) delete process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE;
+			else process.env.LISTMONK_OPS_ABTEST_CONVERSION_STORE = previous;
+		}
+	});
 	it("persists events across instances and deduplicates concurrent writes", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "abtest-conversions-"));
 		try {

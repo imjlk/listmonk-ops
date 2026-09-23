@@ -79,6 +79,7 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 		// fail-closed semantics (no partial results escape) while improving
 		// latency when multiple variants exist.
 		let conversionByVariant = new Map<string, Awaited<ReturnType<ConversionEventStore["aggregate"]>>[number]>();
+		let revenueCurrency: string | undefined;
 		try {
 			const aggregates = await this.conversionEvents?.aggregate(test.id) ?? [];
 			const currencies = new Set(
@@ -91,6 +92,7 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 					`A/B test ${test.id} contains mixed revenue currencies`,
 				);
 			}
+			revenueCurrency = currencies.values().next().value;
 			conversionByVariant = new Map(aggregates.map((aggregate) => [aggregate.variantId, aggregate]));
 		} catch (error) {
 			throw new AbTestMetricsUnavailableError(test.id, error);
@@ -125,8 +127,7 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 						opens,
 						clicks,
 						conversions,
-						...(aggregate?.currency === undefined ? {} : { revenue: aggregate.totalValue }),
-						...(aggregate?.currency === undefined ? {} : { currency: aggregate.currency }),
+						...(revenueCurrency === undefined ? {} : { revenue: aggregate?.totalValue ?? 0, currency: revenueCurrency }),
 						openRate: sampleSize > 0 ? (opens / sampleSize) * 100 : 0,
 						clickRate: sampleSize > 0 ? (clicks / sampleSize) * 100 : 0,
 						conversionRate: sampleSize > 0 ? (conversions / sampleSize) * 100 : 0,

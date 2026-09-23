@@ -1,8 +1,8 @@
-import { dirname, join } from "node:path";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	ConversionEventValidationError,
 	JsonFileConversionEventStore,
+	resolveConversionStorePath,
 	validateConversionEvent,
 	type ConversionEventInput,
 } from "./conversion-events";
@@ -20,10 +20,9 @@ export async function recordAbTestConversion(
 	storePath?: string,
 ): Promise<"created" | "duplicate"> {
 	validateConversionEvent(input);
-	const conversionPath = storePath === undefined
-		? undefined
-		: join(dirname(storePath), "abtest-conversions.json");
-	const conversionStore = new JsonFileConversionEventStore(conversionPath);
+	const conversionStore = new JsonFileConversionEventStore(
+		resolveConversionStorePath(storePath),
+	);
 	if (await conversionStore.hasEventId(input.eventId)) {
 		return conversionStore.record(input);
 	}

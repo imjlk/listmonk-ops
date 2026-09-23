@@ -56,7 +56,7 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
 		event: "purchase",
 		value: 25,
 		currency: "USD",
-		occurredAt: "2026-08-01T12:00:00.000Z",
+		occurredAt: "2026-08-01T21:00:00+09:00",
 		...overrides,
 	};
 }
@@ -79,7 +79,7 @@ describe("A/B conversion recording", () => {
 			const recorded = await invokeRecordAbTestConversionOperation(
 				{ client, storePath },
 				{
-					event_id: event.eventId,
+					event_id: ` ${event.eventId} `,
 					test_id: event.testId,
 					variant_id: event.variantId,
 					subscriber_uuid: event.subscriberUuid,
@@ -99,7 +99,7 @@ describe("A/B conversion recording", () => {
 			const conversions = new JsonFileConversionEventStore(join(directory, "abtest-conversions.json"));
 			const results = await new ListmonkMetricsCollector(client, conversions).collect(makeTest());
 			expect(results[0]).toMatchObject({ conversions: 1, revenue: 25, currency: "USD", conversionRate: 10 });
-			expect(results[1]).toMatchObject({ conversions: 0, conversionRate: 0 });
+			expect(results[1]).toMatchObject({ conversions: 0, conversionRate: 0, revenue: 0, currency: "USD" });
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}
