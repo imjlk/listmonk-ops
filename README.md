@@ -1190,7 +1190,9 @@ UUIDs, event names, timestamps, and optional value/currency, without emails or
 names. Analysis counts unique converting subscribers per variant and sums
 event values as revenue. Keep the variant lists available until the attribution
 window closes so new events can be verified. Recording is append-only, so CLI
-requires `--confirm` and MCP requires `confirm: true` for each event.
+requires `--confirm` and MCP requires `confirm: true` for each event. Automated
+`abtest run` and `abtest tick` wait for that attribution tail before analyzing
+or deploying a winner.
 
 MCP now also exposes A/B test lifecycle tools:
 

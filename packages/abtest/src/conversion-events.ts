@@ -6,6 +6,23 @@ import {
 	type JsonFileStore,
 } from "@listmonk-ops/common";
 import { dirname, join } from "node:path";
+import type { AbTest } from "./types";
+
+const DEFAULT_ATTRIBUTION_WINDOW_HOURS = 72;
+
+/** The last event time accepted by recording and automatic A/B progression. */
+export function getAbTestAttributionDeadline(
+	test: Pick<AbTest, "launchAt" | "startedAt" | "endsAt" | "hypothesis">,
+): number | undefined {
+	const start = test.launchAt ?? test.startedAt;
+	if (!start) return undefined;
+	const windowHours = test.hypothesis?.experimentScope.attributionWindowHours;
+	if (windowHours !== undefined) {
+		return new Date(test.endsAt ?? start).getTime() + windowHours * 3_600_000;
+	}
+	if (test.endsAt !== undefined) return new Date(test.endsAt).getTime();
+	return new Date(start).getTime() + DEFAULT_ATTRIBUTION_WINDOW_HOURS * 3_600_000;
+}
 
 /**
  * Transport-neutral conversion event store for A/B test attribution.
@@ -157,6 +174,13 @@ export class JsonFileConversionEventStore implements ConversionEventStore {
 				event.testId === input.testId && event.currency !== undefined && event.currency !== input.currency,
 			)) {
 				throw new ConversionEventValidationError(`A/B test ${input.testId} already records revenue in another currency`);
+			}
+			let totalValue = input.value ?? 0;
+			for (const event of document.events) {
+				if (event.testId === input.testId) totalValue += event.value ?? 0;
+				if (!Number.isFinite(totalValue)) {
+					throw new ConversionEventValidationError(`A/B test ${input.testId} revenue total would overflow`);
+				}
 			}
 			return commitJsonFileStoreUpdate(
 				{ version: 1 as const, events: [...document.events, sanitized] },
@@ -329,6 +353,15 @@ export class InMemoryConversionEventStore implements ConversionEventStore {
 			throw new ConversionEventValidationError(
 				`A/B test ${input.testId} already records revenue in another currency`,
 			);
+		}
+		let totalValue = input.value ?? 0;
+		for (const event of this.byTest.get(input.testId) ?? []) {
+			totalValue += event.value ?? 0;
+			if (!Number.isFinite(totalValue)) {
+				throw new ConversionEventValidationError(
+					`A/B test ${input.testId} revenue total would overflow`,
+				);
+			}
 		}
 
 		if (this.assignmentLookup) {

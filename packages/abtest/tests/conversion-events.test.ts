@@ -219,4 +219,16 @@ describe("JsonFileConversionEventStore", () => {
 			await rm(directory, { recursive: true, force: true });
 		}
 	});
+
+	it("rejects revenue that would make the aggregate non-finite", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "abtest-conversions-"));
+		try {
+			const store = new JsonFileConversionEventStore(join(directory, "events.json"));
+			await store.record(makeEvent({ eventId: "large-1", value: 1e308, currency: "USD" }));
+			await expect(store.record(makeEvent({ eventId: "large-2", subscriberUuid: "uuid-2", value: 1e308, currency: "USD" }))).rejects.toThrow("overflow");
+			expect((await store.aggregate("test-1"))[0]?.totalValue).toBe(1e308);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
 });

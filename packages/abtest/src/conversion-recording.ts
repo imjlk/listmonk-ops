@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	ConversionEventValidationError,
+	getAbTestAttributionDeadline,
 	JsonFileConversionEventStore,
 	resolveConversionStorePath,
 	validateConversionEvent,
@@ -9,7 +10,6 @@ import {
 import { withStoredAbTestExecutors } from "./persistence";
 import type { AbTest } from "./types";
 
-const DEFAULT_ATTRIBUTION_WINDOW_HOURS = 72;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const ASSIGNMENT_LOOKUP_TIMEOUT_MS = 30_000;
 export const SUBSCRIBER_UUID_PATTERN = /^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/;
@@ -58,27 +58,27 @@ async function verifyVariantAssignment(
 			"Cannot verify variant assignment: missing subscriber results",
 		);
 	}
-	return subscribers.some((subscriber) => subscriber.uuid === subscriberUuid);
+	return subscribers.some((subscriber) =>
+		typeof subscriber.uuid === "string" &&
+		subscriber.uuid.toLowerCase() === subscriberUuid,
+	);
 }
 
 function assertAttributionWindow(test: AbTest, occurredAt: string): void {
 	const start = test.launchAt ?? test.startedAt;
-	if (!start || !test.startedAt) {
+	if (
+		!start ||
+		!test.startedAt ||
+		test.status === "draft" ||
+		test.status === "testing" ||
+		test.status === "failed"
+	) {
 		throw new ConversionEventValidationError(
 			`A/B test ${test.id} has not launched`,
 		);
 	}
 	const startMs = new Date(start).getTime();
-	const windowHours = test.hypothesis?.experimentScope.attributionWindowHours;
-	let endMs: number;
-	if (windowHours !== undefined) {
-		const endBase = test.endsAt ?? start;
-		endMs = new Date(endBase).getTime() + windowHours * 3_600_000;
-	} else if (test.endsAt !== undefined) {
-		endMs = new Date(test.endsAt).getTime();
-	} else {
-		endMs = startMs + DEFAULT_ATTRIBUTION_WINDOW_HOURS * 3_600_000;
-	}
+	const endMs = getAbTestAttributionDeadline(test);
 	const occurredMs = new Date(occurredAt).getTime();
 	if (occurredMs > Date.now() + MAX_CLOCK_SKEW_MS) {
 		throw new ConversionEventValidationError(
@@ -87,6 +87,7 @@ function assertAttributionWindow(test: AbTest, occurredAt: string): void {
 	}
 	if (
 		!Number.isFinite(startMs) ||
+		endMs === undefined ||
 		!Number.isFinite(endMs) ||
 		occurredMs < startMs ||
 		occurredMs > endMs
@@ -105,6 +106,7 @@ export async function recordAbTestConversion(
 ): Promise<"created" | "duplicate"> {
 	const normalizedInput = {
 		...input,
+		event: typeof input.event === "string" ? input.event.trim() : input.event,
 		subscriberUuid: typeof input.subscriberUuid === "string"
 			? input.subscriberUuid.toLowerCase()
 			: input.subscriberUuid,

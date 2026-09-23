@@ -9,6 +9,8 @@ import { lockHypothesis } from "../src/hypothesis";
 import { ListmonkMetricsCollector } from "../src/metrics";
 import {
 	invokeRecordAbTestConversionOperation,
+	invokeRunAbTestOperation,
+	invokeTickAbTestsOperation,
 	recordAbTestConversionOperation,
 } from "../src/operations";
 import { loadStoredAbTests, saveStoredAbTests } from "../src/persistence";
@@ -66,6 +68,26 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
 	};
 }
 
+function makeLockedHypothesis(at: string) {
+	return lockHypothesis(
+		{
+			objective: "Track purchases",
+			hypothesis: "Variant A improves conversion",
+			primaryMetric: { type: "conversion_rate", direction: "maximize" },
+			expectedLift: { kind: "relative", value: 0.1 },
+			owner: { id: "operator" },
+			experimentScope: {
+				channel: "email",
+				experimentFamilyKey: "conversion.test",
+				attributionWindowHours: 24,
+				exclusionWindowHours: 48,
+			},
+			createdAt: at,
+		},
+		at,
+	);
+}
+
 describe("A/B conversion recording", () => {
 	let previousConversionStore: string | undefined;
 	beforeEach(() => {
@@ -101,7 +123,7 @@ describe("A/B conversion recording", () => {
 			const client = {
 				subscriber: { list: async (options: unknown) => {
 					subscriberQueries.push(options);
-					return { data: { results: [{ uuid: SUBSCRIBER_UUID }] } };
+					return { data: { results: [{ uuid: SUBSCRIBER_UUID.toUpperCase() }] } };
 				} },
 				campaign: { getById: async () => ({ data: { sent: 10, views: 4, clicks: 2 } }) },
 			} as unknown as ListmonkClient;
@@ -113,7 +135,7 @@ describe("A/B conversion recording", () => {
 					test_id: event.testId,
 					variant_id: event.variantId,
 					subscriber_uuid: event.subscriberUuid.toUpperCase(),
-					event: event.event,
+					event: ` ${event.event} `,
 					value: event.value,
 					currency: event.currency,
 					occurred_at: event.occurredAt,
@@ -144,21 +166,49 @@ describe("A/B conversion recording", () => {
 		try {
 			const storePath = join(directory, "abtests.json");
 			const test = makeTest();
-			test.hypothesis = lockHypothesis({
-				objective: "Track purchases", hypothesis: "Variant A improves conversion",
-				primaryMetric: { type: "conversion_rate", direction: "maximize" },
-				expectedLift: { kind: "relative", value: 0.1 },
-				owner: { id: "operator" },
-				experimentScope: {
-					channel: "email", experimentFamilyKey: "conversion.test",
-					attributionWindowHours: 24, exclusionWindowHours: 48,
-				},
-				createdAt: launchedAt,
-			}, launchedAt);
+			test.hypothesis = makeLockedHypothesis(launchedAt);
 			await saveStoredAbTests([test], storePath);
 			const client = { subscriber: { list: async () => ({ data: { results: [{ uuid: SUBSCRIBER_UUID }] } }) } } as unknown as ListmonkClient;
 			expect(await recordAbTestConversion(client, makeEvent({ occurredAt: "2026-08-02T12:00:00.000Z" }), storePath)).toBe("created");
 			await expect(recordAbTestConversion(client, makeEvent({ eventId: "after-tail", occurredAt: "2026-08-03T00:00:01.000Z" }), storePath)).rejects.toThrow("attribution window");
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("does not record a failed launch intent while status remains draft", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "abtest-draft-conversion-"));
+		try {
+			const storePath = join(directory, "abtests.json");
+			const test = makeTest();
+			test.status = "draft";
+			await saveStoredAbTests([test], storePath);
+			const client = { subscriber: { list: async () => { throw new Error("should not query Listmonk"); } } } as unknown as ListmonkClient;
+			await expect(recordAbTestConversion(client, makeEvent(), storePath)).rejects.toThrow("has not launched");
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("holds automatic analysis and tick previews until the attribution tail closes", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "abtest-analysis-tail-"));
+		try {
+			const storePath = join(directory, "abtests.json");
+			const test = makeTest();
+			test.launchAt = new Date(Date.now() - 4 * 3_600_000).toISOString();
+			test.startedAt = test.launchAt;
+			test.endsAt = new Date(Date.now() - 3_600_000).toISOString();
+			test.hypothesis = makeLockedHypothesis(test.launchAt);
+			await saveStoredAbTests([test], storePath);
+			const context = { client: {} as ListmonkClient, storePath };
+			expect((await invokeRunAbTestOperation(context, { test_id: test.id })).test.status).toBe("running");
+			const preview = await invokeTickAbTestsOperation(context, { dry_run: true });
+			expect(preview.results).toContainEqual(expect.objectContaining({
+				test_id: test.id, action: "dry-run:noop:running-before-attribution-deadline",
+			}));
+			test.status = "analyzing";
+			await saveStoredAbTests([test], storePath);
+			expect((await invokeRunAbTestOperation(context, { test_id: test.id })).test.status).toBe("analyzing");
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}

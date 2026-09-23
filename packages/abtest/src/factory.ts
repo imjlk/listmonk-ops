@@ -9,7 +9,10 @@ import {
 } from "./basic";
 import { ListmonkAbTestIntegration } from "./listmonk-integration";
 import { ListmonkMetricsCollector } from "./metrics";
-import { JsonFileConversionEventStore } from "./conversion-events";
+import {
+	getAbTestAttributionDeadline,
+	JsonFileConversionEventStore,
+} from "./conversion-events";
 import { cancelAbTest } from "./lifecycle";
 import { AbTestNotFoundError } from "./errors";
 import type {
@@ -266,20 +269,25 @@ export function createAbTestExecutors(
 			}
 			case "running": {
 				// A running test should only advance to analyzing after its
-				// endsAt has passed. If endsAt is not set (no durationHours),
+				// attribution tail has closed. If endsAt is not set (no durationHours),
 				// do NOT auto-advance — the operator must explicitly trigger
 				// analysis or set a duration. This prevents tick from marking
 				// experiments inconclusive/completed on the very next run
 				// after launch.
 				if (test.endsAt) {
 					const now = Date.now();
-					if (now >= new Date(test.endsAt).getTime()) {
+					const deadline = getAbTestAttributionDeadline(test);
+					if (deadline !== undefined && now >= deadline) {
 						return await abTestService.updateTestStatus(testId, "analyzing");
 					}
 				}
 				return test;
 			}
 			case "analyzing": {
+				const deadline = getAbTestAttributionDeadline(test);
+				if (test.hypothesis && deadline !== undefined && Date.now() < deadline) {
+					return test;
+				}
 				// Run analysis, then deploy the winner if configured for a
 				// holdout test, or mark inconclusive/completed based on the
 				// significance result. Full-split tests do not support
@@ -374,14 +382,26 @@ export function createAbTestExecutors(
 				if (
 					test.status === "running" &&
 					(!test.endsAt ||
-						Date.now() < new Date(test.endsAt).getTime())
+						Date.now() < (getAbTestAttributionDeadline(test) ?? Number.POSITIVE_INFINITY))
 				) {
 					results.push({
 						test_id: test.id,
 						status: test.status,
 						action: !test.endsAt
 							? "dry-run:noop:running-no-endsAt"
-							: "dry-run:noop:running-before-endsAt",
+							: test.hypothesis
+								? "dry-run:noop:running-before-attribution-deadline"
+								: "dry-run:noop:running-before-endsAt",
+					});
+				} else if (
+					test.status === "analyzing" &&
+					test.hypothesis &&
+					Date.now() < (getAbTestAttributionDeadline(test) ?? Number.POSITIVE_INFINITY)
+				) {
+					results.push({
+						test_id: test.id,
+						status: test.status,
+						action: "dry-run:noop:analyzing-before-attribution-deadline",
 					});
 				} else if (
 					test.status === "scheduled" &&

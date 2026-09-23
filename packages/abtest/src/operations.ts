@@ -636,7 +636,7 @@ const recordAbTestConversionInputObjectSchema = z.object({
 	test_id: z.string().min(1),
 	variant_id: z.string().min(1),
 	subscriber_uuid: z.string().regex(SUBSCRIBER_UUID_PATTERN),
-	event: z.string().min(1),
+	event: z.string().trim().min(1),
 	value: z.number().finite().nonnegative().optional(),
 	currency: z.string().min(1).optional(),
 	occurred_at: z.string().datetime({ offset: true }),

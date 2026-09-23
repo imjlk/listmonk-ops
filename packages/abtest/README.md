@@ -118,7 +118,8 @@ Listmonk lookup. Identical event-ID
 retries are deduplicated; conflicting reuse is rejected. Analysis uses the
 number of unique converting subscribers as `conversions` and sums values as
 `revenue`. Recording is append-only and requires CLI `--confirm` or MCP
-`confirm: true`. Retain variant lists until the attribution window closes.
+`confirm: true`. Automated run/tick waits until the attribution tail closes
+before analysis or winner deployment. Retain variant lists until that time.
 
 If a remote mutation fails, local state is not committed but Listmonk may
 contain partial resources. If the local commit fails after the remote action,
