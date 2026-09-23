@@ -1,5 +1,19 @@
 # @listmonk-ops/abtest
 
+## 0.9.0 — 2026-09-23
+
+### Minor changes
+
+- [5680a51](https://github.com/imjlk/listmonk-ops/commit/5680a518fee7bae6cf839afc9a0adb5e48197afb) Persist attributed A/B conversion events with idempotent CLI/MCP recording and measured conversion and revenue analysis. — Thanks @imjlk!
+
+### Patch changes
+
+- [911222f](https://github.com/imjlk/listmonk-ops/commit/911222f21037e9d3f6b7d9e8217d4b51c0053050) Separate public connectivity, authenticated API access, and selected scoped collection reads in shared CLI/MCP status diagnostics. Add status --check for automation, bound probe time and response size, and redact target URL secrets and remote error bodies.
+  
+  Use workspace references for internal OpenAPI dependencies so release planning updates their ranges with the new client version. — Thanks @imjlk!
+- [2848b54](https://github.com/imjlk/listmonk-ops/commit/2848b54d7cc9677a18a5c433aa43432525d74c80) Add shared CLI/MCP connection profiles with secret-free configuration provenance, environment or token-file credential references, and token reload between operations. Isolate default file-backed state by profile and expose config show / listmonk_config. — Thanks @imjlk!
+- Updated dependencies: common@0.7.0, openapi@0.10.0, operations@0.18.0
+
 ## 0.8.1 — 2026-09-22
 
 ### Patch changes

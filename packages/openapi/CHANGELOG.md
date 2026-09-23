@@ -1,5 +1,13 @@
 # @listmonk-ops/openapi
 
+## 0.10.0 — 2026-09-23
+
+### Minor changes
+
+- [911222f](https://github.com/imjlk/listmonk-ops/commit/911222f21037e9d3f6b7d9e8217d4b51c0053050) Separate public connectivity, authenticated API access, and selected scoped collection reads in shared CLI/MCP status diagnostics. Add status --check for automation, bound probe time and response size, and redact target URL secrets and remote error bodies.
+  
+  Use workspace references for internal OpenAPI dependencies so release planning updates their ranges with the new client version. — Thanks @imjlk!
+
 ## 0.9.0 — 2026-09-22
 
 ### Minor changes
