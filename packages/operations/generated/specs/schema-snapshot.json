@@ -1290,6 +1290,10 @@
             "TransactionalRecordsInput": {
               "additionalProperties": false,
               "properties": {
+                "cursor": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
                 "key": {
                   "$ref": "#/components/schemas/IdempotencyKey"
                 },
@@ -1324,6 +1328,10 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "cursor": {
+              "maxLength": 256,
+              "type": "string"
+            },
             "key": {
               "$ref": "#/components/schemas/IdempotencyKey"
             },
@@ -1427,6 +1435,9 @@
             "TransactionalRecordsOutput": {
               "additionalProperties": false,
               "properties": {
+                "next_cursor": {
+                  "type": "string"
+                },
                 "records": {
                   "items": {
                     "$ref": "#/components/schemas/TransactionalRecordView"
@@ -1450,6 +1461,9 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "next_cursor": {
+              "type": "string"
+            },
             "records": {
               "items": {
                 "$ref": "#/components/schemas/TransactionalRecordView"

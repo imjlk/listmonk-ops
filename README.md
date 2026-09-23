@@ -1104,9 +1104,13 @@ The wrapper:
 Inspect records for the selected Listmonk target with `listmonk-cli tx records
 --status unknown --format json` or MCP `listmonk_transactional_records`.
 These responses contain metadata, including an opaque `revision`, but no
-recipient, message body, or raw transport error. Check Listmonk, the delivery
-provider, or local Mailpit independently before deciding. To record verified
-delivery, run:
+recipient, message body, or raw transport error.
+Use the returned `next_cursor` with `tx records --cursor CURSOR` (or the MCP
+`cursor` input) to inspect every page. These local commands remain available
+when the API token file is unavailable; `--interactive` can select the same
+target that an earlier interactive send used.
+Check Listmonk, the delivery provider, or local Mailpit independently before
+deciding. To record verified delivery, run:
 
 ```bash
 listmonk-cli tx reconcile --key ORDER_KEY --expected-revision REVISION \

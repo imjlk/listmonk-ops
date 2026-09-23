@@ -543,7 +543,8 @@ export class ListmonkMCPServer {
 
 		try {
 			let client = this.client;
-			if (this.credentialProvider && !toolNameSets.catalog.has(name) && (!toolNameSets.discovery.has(name) || name === "listmonk_status")) {
+			const localTransactionalTool = name === "listmonk_transactional_records" || name === "listmonk_reconcile_transactional";
+			if (this.credentialProvider && !localTransactionalTool && !toolNameSets.catalog.has(name) && (!toolNameSets.discovery.has(name) || name === "listmonk_status")) {
 				const credential = await this.credentialProvider();
 				if (!credential) throw new Error("Missing Listmonk API credential");
 				client = createListmonkClient({ baseUrl: this.baseUrl, headers: { Authorization: `token ${this.username}:${credential}` } });

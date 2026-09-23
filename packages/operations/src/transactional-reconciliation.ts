@@ -33,10 +33,12 @@ const recordsInputSchema = z.object({
 	key: keySchema.optional(),
 	status: recordStatusSchema.optional(),
 	limit: z.coerce.number().int().min(1).max(100).default(50),
+	cursor: z.string().max(256).optional(),
 });
 const recordsOutputSchema = z.object({
 	records: z.array(recordViewSchema),
 	total: z.number().int().nonnegative(),
+	next_cursor: z.string().optional(),
 });
 const reconcileInputSchema = z.object({
 	key: keySchema,
@@ -84,16 +86,43 @@ function recordView(record: TransactionalSendRecord) {
 	};
 }
 
+function decodeRecordCursor(cursor: string): { updatedMs: number; key: string } {
+	const separator = cursor.indexOf("|");
+	const timestamp = cursor.slice(0, separator);
+	const key = cursor.slice(separator + 1);
+	const updatedMs = Date.parse(timestamp);
+	if (separator < 0 || !Number.isFinite(updatedMs) || new Date(updatedMs).toISOString() !== timestamp || !keySchema.safeParse(key).success) {
+		throw new OperationInputError("Invalid transactional record cursor");
+	}
+	return { updatedMs, key };
+}
+
+function compareRecordKeys(a: string, b: string): number {
+	if (a < b) return -1;
+	if (a > b) return 1;
+	return 0;
+}
+
 /** Inspect only metadata for the current Listmonk target; never return message contents or raw errors. */
 export async function listTransactionalRecords(context: TransactionalReconciliationContext, input: z.output<typeof recordsInputSchema>) {
 	const targetHash = currentTargetHash(context);
 	const document = await requireStore(context).load();
 	const matching = Object.values(document.records)
 		.filter((record) => record.targetHash === targetHash && (input.key === undefined || record.key === input.key) && (input.status === undefined || record.status === input.status))
-		.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || a.key.localeCompare(b.key));
+		.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || compareRecordKeys(a.key, b.key));
+	const cursor = input.cursor === undefined
+		? undefined
+		: decodeRecordCursor(input.cursor);
+	const following = cursor === undefined ? matching : matching.filter((record) => {
+		const updatedMs = Date.parse(record.updatedAt);
+		return updatedMs < cursor.updatedMs || (updatedMs === cursor.updatedMs && record.key > cursor.key);
+	});
+	const page = following.slice(0, input.limit);
+	const last = page.at(-1);
 	return {
-		records: matching.slice(0, input.limit).map(recordView),
+		records: page.map(recordView),
 		total: matching.length,
+		...(following.length > page.length && last ? { next_cursor: `${new Date(last.updatedAt).toISOString()}|${last.key}` } : {}),
 	};
 }
 

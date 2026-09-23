@@ -1045,6 +1045,10 @@ listmonk-cli tx send \
 선택한 Listmonk 대상의 기록은 `listmonk-cli tx records --status unknown
 --format json` 또는 MCP `listmonk_transactional_records`로 조회합니다. 응답에는
 불투명한 `revision` 등 메타데이터만 있고 수신자, 본문, 원본 전송 오류는 없습니다.
+반환된 `next_cursor`를 `tx records --cursor CURSOR` 또는 MCP `cursor` 입력에
+전달하면 다음 페이지를 조회합니다. API 토큰 파일을 읽을 수 없어도 이 로컬 명령은
+사용할 수 있습니다. 앞서 `--interactive`로 발송했다면 동일한 대상도 선택할 수
+있습니다.
 Listmonk, 발송 제공업체 로그 또는 로컬 Mailpit에서 배달 여부를 별도로 확인한
 뒤, 배달이 확인되면 다음처럼 판단을 기록합니다.
 

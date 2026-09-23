@@ -117,12 +117,22 @@ describe("Postgres sequence repository", () => {
 		await store.claim({ key, payloadHash: "migration-payload", targetHash: "target" });
 		let migrated: SequenceRepository | undefined;
 		try {
+			await sql`DROP TRIGGER IF EXISTS guard_ambiguous_sequence_claim_delete ON listmonk_ops.sequence_idempotency_records`;
 			await sql`DROP TABLE listmonk_ops.sequence_idempotency_reconciliations`;
 			await sql`UPDATE listmonk_ops.sequence_runtime_meta SET value = '2' WHERE key = 'schema_version'`;
 			migrated = createPostgresSequenceRepository({ connectionString: databaseUrl, maxConnections: 1 });
 			const document = await migrated.idempotencyStore!.load();
 			expect(document.records[key]?.status).toBe("pending");
 			expect(document.reconciliations).toEqual([]);
+			let deleteError: unknown;
+			try {
+				await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key = ${key}`;
+			} catch (error) {
+				deleteError = error;
+			}
+			expect(String(deleteError)).toContain("Ambiguous transactional claim deletion requires version 3 reconciliation");
+			await migrated.idempotencyStore!.reconcile!({ key, targetHash: "target", expectedRevision: document.records[key]!.claimToken, decision: "accepted", reason: "Verified delivery in provider logs" });
+			expect((await migrated.idempotencyStore!.load()).records[key]?.status).toBe("accepted");
 			const version = await sql<{ value: string }[]>`SELECT value FROM listmonk_ops.sequence_runtime_meta WHERE key = 'schema_version'`;
 			expect(version[0]?.value).toBe("3");
 		} finally {

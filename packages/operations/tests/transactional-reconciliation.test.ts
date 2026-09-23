@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -59,4 +59,48 @@ test("shared transactional operations inspect a target-bound redacted record and
 	expect((await loadStoredTransactionalDocument(storePath)).records["order-42"]?.sent).toBe(
 		true,
 	);
+});
+
+test("keyset pages expose every retained ambiguous record beyond the first hundred", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "lmops-reconcile-pages-"));
+	directories.push(directory);
+	const storePath = join(directory, "transactional.json");
+	const target = { baseUrl: "http://localhost:9000/api", username: "operator" };
+	const targetHash = computeTransactionalTargetHash(target);
+	const records = Object.fromEntries(
+		Array.from({ length: 105 }, (_, index) => {
+			const key = `order-${index}`;
+			return [
+				key,
+				{
+					key,
+					payloadHash: "payload",
+					targetHash,
+					status: "unknown",
+					claimToken: `revision-${index}`,
+					createdAt: "2026-01-01T00:00:00.000Z",
+					updatedAt: "2026-01-01T00:00:00.000Z",
+					expiresAt: "2026-01-02T00:00:00.000Z",
+				},
+			];
+		}),
+	);
+	await writeFile(storePath, JSON.stringify({ version: 2, records }));
+	const context = {
+		idempotencyStore: createFileBackedTransactionalIdempotencyStore({
+			storePath,
+		}),
+		target,
+	};
+	const first = await invokeTransactionalRecordsOperation(context, { limit: 100 });
+	expect(first.total).toBe(105);
+	expect(first.records).toHaveLength(100);
+	expect(first.next_cursor).toBeDefined();
+	const second = await invokeTransactionalRecordsOperation(context, { limit: 100, cursor: first.next_cursor });
+	expect(second.records).toHaveLength(5);
+	expect(second.next_cursor).toBeUndefined();
+	expect(new Set([...first.records, ...second.records].map((record) => record.key)).size).toBe(
+		105,
+	);
+	await expect(invokeTransactionalRecordsOperation(context, { cursor: "bad-cursor" })).rejects.toThrow("Invalid transactional record cursor");
 });

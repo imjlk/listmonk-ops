@@ -25,12 +25,12 @@ function shouldUseInteractivePrompt(args: ListmonkHandlerContext): boolean {
 	return interactive && Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }
 
-async function promptForCredentials(defaults: {
+async function promptForTarget(defaults: {
 	baseUrl: string;
 	username: string;
 	fixedTarget?: boolean;
-}): Promise<{ baseUrl: string; username: string; apiToken: string }> {
-	clack.intro("Listmonk authentication setup");
+}, title: string): Promise<{ baseUrl: string; username: string }> {
+	clack.intro(title);
 
 	const baseUrlResult = defaults.fixedTarget ? defaults.baseUrl : await clack.text({
 		message: "Listmonk API URL",
@@ -62,6 +62,21 @@ async function promptForCredentials(defaults: {
 		throw new Error("Prompt cancelled by user");
 	}
 
+	return {
+		baseUrl: normalizeApiUrl(baseUrlResult),
+		username: usernameResult.trim(),
+	};
+}
+
+async function promptForCredentials(defaults: {
+	baseUrl: string;
+	username: string;
+	fixedTarget?: boolean;
+}): Promise<{ baseUrl: string; username: string; apiToken: string }> {
+	const target = await promptForTarget(
+		defaults,
+		"Listmonk authentication setup",
+	);
 	const tokenResult = await clack.password({
 		message: "Listmonk API token",
 		mask: "*",
@@ -76,23 +91,24 @@ async function promptForCredentials(defaults: {
 
 	clack.outro("Credentials loaded for this command");
 
-	return {
-		baseUrl: normalizeApiUrl(baseUrlResult),
-		username: usernameResult.trim(),
-		apiToken: tokenResult.trim(),
-	};
+	return { ...target, apiToken: tokenResult.trim() };
 }
 
 export async function resolveListmonkSession(
 	args: ListmonkHandlerContext = {},
-	options: { requireAuth?: boolean } = {},
+	options: { requireAuth?: boolean; localOnly?: boolean } = {},
 ): Promise<ListmonkSession> {
 	const requireAuth = options.requireAuth ?? true;
 
 	const resolved = await resolveCliConfiguration();
 	let baseUrl = resolved.summary.baseUrl;
 	let username = resolved.summary.username;
-	let apiToken = await resolved.readCredential();
+	let apiToken: string | undefined;
+	try {
+		apiToken = await resolved.readCredential();
+	} catch (error) {
+		if (!options.localOnly) throw error;
+	}
 
 	if (!apiToken && requireAuth && shouldUseInteractivePrompt(args)) {
 		const prompted = await promptForCredentials({
@@ -103,6 +119,19 @@ export async function resolveListmonkSession(
 		baseUrl = prompted.baseUrl;
 		username = prompted.username;
 		apiToken = prompted.apiToken;
+	}
+	if (!apiToken && options.localOnly && shouldUseInteractivePrompt(args)) {
+		const selected = await promptForTarget(
+			{
+				baseUrl,
+				username,
+				fixedTarget: resolved.summary.profile !== undefined,
+			},
+			"Listmonk target selection",
+		);
+		baseUrl = selected.baseUrl;
+		username = selected.username;
+		clack.outro("Target selected for this command");
 	}
 
 	if (!apiToken) {

@@ -123,10 +123,13 @@ existing behavior until they are migrated.
   subscriber email or ID with optional template data, content type, messenger,
   sender, subject override, plain-text alternative, and custom headers
 - `listmonk_transactional_records` - Inspect redacted, target-bound send records
-  and their revision without exposing recipients or message contents
+  and their revision without exposing recipients or message contents. Pass its
+  `next_cursor` back as `cursor` to read later pages; no API token refresh is
+  needed for this local operation.
 - `listmonk_reconcile_transactional` - Record a verified delivery decision or
   explicitly unblock a later retry; requires `confirm: true`, a reason, and the
-  observed revision. It never sends a message.
+  observed revision. It never sends a message and does not refresh the Listmonk
+  API credential; MCP transport authorization and audit still apply.
 
 ### A/B Tests
 

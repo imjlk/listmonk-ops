@@ -62,6 +62,7 @@ export interface TransactionalRecordsInput {
 	key?: IdempotencyKey;
 	status?: "pending" | "accepted" | "failed" | "unknown";
 	limit?: number & tags.Type<"uint32"> & tags.Minimum<1> & tags.Maximum<100>;
+	cursor?: string & tags.MaxLength<256>;
 }
 
 export interface TransactionalRecordView {
@@ -79,6 +80,7 @@ export interface TransactionalRecordView {
 export interface TransactionalRecordsOutput {
 	records: TransactionalRecordView[];
 	total: number & tags.Type<"uint32">;
+	next_cursor?: string;
 }
 
 export interface TransactionalReconcileInput {

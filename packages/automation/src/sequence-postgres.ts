@@ -341,6 +341,28 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				)
 			`;
 			await transaction`
+				CREATE OR REPLACE FUNCTION listmonk_ops.guard_ambiguous_sequence_claim_delete()
+				RETURNS trigger LANGUAGE plpgsql AS $$
+				BEGIN
+					IF OLD.status IN ('pending', 'unknown')
+						AND current_setting('listmonk_ops.allow_ambiguous_claim_delete', true) IS DISTINCT FROM 'on'
+					THEN
+						RAISE EXCEPTION 'Ambiguous transactional claim deletion requires version 3 reconciliation';
+					END IF;
+					RETURN OLD;
+				END;
+				$$
+			`;
+			await transaction`
+				DROP TRIGGER IF EXISTS guard_ambiguous_sequence_claim_delete
+				ON listmonk_ops.sequence_idempotency_records
+			`;
+			await transaction`
+				CREATE TRIGGER guard_ambiguous_sequence_claim_delete
+				BEFORE DELETE ON listmonk_ops.sequence_idempotency_records
+				FOR EACH ROW EXECUTE FUNCTION listmonk_ops.guard_ambiguous_sequence_claim_delete()
+			`;
+			await transaction`
 				UPDATE listmonk_ops.sequence_runtime_meta
 				SET value = '3', updated_at = now()
 				WHERE key = 'schema_version'
@@ -558,6 +580,10 @@ function createPostgresTransactionalIdempotencyStore(
 			await sql.begin(async (transaction) => {
 				await lockIdempotencyStore(transaction);
 				await sweepExpiredIdempotencyRecords(transaction, now);
+				// A definitive pre-dispatch failure may release its own claim.
+				// Legacy workers cannot set this transaction-local bypass and are
+				// fenced by the migration trigger during rolling deployments.
+				await transaction`SELECT set_config('listmonk_ops.allow_ambiguous_claim_delete', 'on', true)`;
 				await transaction`
 					DELETE FROM listmonk_ops.sequence_idempotency_records
 					WHERE key = ${options.key}
@@ -631,6 +657,7 @@ function createPostgresTransactionalIdempotencyStore(
 						WHERE key = ${options.key} AND claim_token = ${options.expectedRevision}::uuid
 					`;
 				} else if (options.decision === "retry") {
+					await transaction`SELECT set_config('listmonk_ops.allow_ambiguous_claim_delete', 'on', true)`;
 					await transaction`
 						DELETE FROM listmonk_ops.sequence_idempotency_records
 						WHERE key = ${options.key} AND claim_token = ${options.expectedRevision}::uuid

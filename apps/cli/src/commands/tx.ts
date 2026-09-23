@@ -24,7 +24,6 @@ import {
 } from "../lib/command";
 import { parseJson, toErrorMessage } from "../lib/command-utils";
 import { resolveListmonkSession } from "../lib/listmonk";
-import { resolveCliConfiguration } from "../lib/configuration";
 
 type TransactionalOutput = Pick<typeof OutputUtils, "json" | "success">;
 
@@ -146,19 +145,26 @@ export async function handleSendTransactionalCommand({
 	}
 }
 
-async function handleRecordsCommand({ flags }: HandlerArgs<{ key?: string; status?: "pending" | "accepted" | "failed" | "unknown"; limit: number }>): Promise<void> {
-	const resolved = await resolveCliConfiguration();
+async function handleRecordsCommand(args: HandlerArgs<{ key?: string; status?: "pending" | "accepted" | "failed" | "unknown"; limit: number; cursor?: string }>): Promise<void> {
+	const session = await resolveListmonkSession(args, {
+		requireAuth: false,
+		localOnly: true,
+	});
 	getOutput().json(await invokeTransactionalRecordsOperation({
 		idempotencyStore: createFileBackedTransactionalIdempotencyStore(),
-		target: { baseUrl: resolved.summary.baseUrl, username: resolved.summary.username },
-	}, flags));
+		target: { baseUrl: session.baseUrl, username: session.username },
+	}, args.flags));
 }
 
-async function handleReconcileCommand({ flags }: HandlerArgs<{ key: string; "expected-revision": string; decision: "accepted" | "retry"; reason: string; quiesced?: boolean }>): Promise<void> {
-	const resolved = await resolveCliConfiguration();
+async function handleReconcileCommand(args: HandlerArgs<{ key: string; "expected-revision": string; decision: "accepted" | "retry"; reason: string; quiesced?: boolean }>): Promise<void> {
+	const session = await resolveListmonkSession(args, {
+		requireAuth: false,
+		localOnly: true,
+	});
+	const { flags } = args;
 	getOutput().json(await invokeTransactionalReconcileOperation({
 		idempotencyStore: createFileBackedTransactionalIdempotencyStore(),
-		target: { baseUrl: resolved.summary.baseUrl, username: resolved.summary.username },
+		target: { baseUrl: session.baseUrl, username: session.username },
 	}, {
 		key: flags.key,
 		expected_revision: flags["expected-revision"],
@@ -180,6 +186,7 @@ export default defineGroup({
 				key: option(z.string().optional(), { description: "Exact idempotency key" }),
 				status: option(z.enum(["pending", "accepted", "failed", "unknown"]).optional(), { description: "Filter by record status" }),
 				limit: option(z.coerce.number().int().min(1).max(100).default(50), { description: "Maximum records to show" }),
+				cursor: option(z.string().optional(), { description: "Cursor returned by the previous records page" }),
 			},
 			handler: handleRecordsCommand,
 		}),

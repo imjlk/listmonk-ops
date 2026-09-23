@@ -56,6 +56,35 @@ test("CLI config show exposes selected sources and isolated state without readin
 	expect(stdout).not.toContain("wrong-secret");
 });
 
+test("local transactional inspection remains available when the selected token file is missing", async () => {
+	const home = await mkdtemp(join(tmpdir(), "cli-tx-local-"));
+	directories.push(home);
+	const configFile = join(home, "profiles.json");
+	await writeFile(configFile, JSON.stringify({ schemaVersion: 1, profiles: { local: { baseUrl: "http://127.0.0.1:1/api", username: "operator", tokenFile: "missing-token" } } }));
+	const binary = process.env.CLI_TEST_EXECUTABLE?.trim();
+	const args = [
+		"tx",
+		"records",
+		"--profile=local",
+		"--config",
+		configFile,
+		"--format=json",
+	];
+	const child = Bun.spawn(
+		binary ? [binary, ...args] : ["bun", "src/index.ts", ...args],
+		{
+			cwd: cliDirectory,
+			env: { ...process.env, HOME: home },
+			stdout: "pipe",
+			stderr: "pipe",
+		},
+	);
+	const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+	expect(code).toBe(0);
+	expect(stderr).toBe("");
+	expect(JSON.parse(stdout)).toMatchObject({ records: [], total: 0 });
+});
+
 test("help remains available with an invalid configuration file", async () => {
 	const home = await mkdtemp(join(tmpdir(), "cli-profile-help-"));
 	directories.push(home);

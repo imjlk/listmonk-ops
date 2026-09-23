@@ -67,6 +67,9 @@ guide for the JSON format, precedence, path resolution, and rotation behavior.
 `tx records --format json` inspects redacted, target-bound transactional send
 records. `tx reconcile --key KEY --expected-revision REVISION --decision
 accepted|retry --reason TEXT --confirm` records a verified operator decision.
+Use `tx records --cursor CURSOR` to read later pages. Both local commands work
+without a readable API token; `--interactive` can select a previously prompted
+send target.
 The `retry` decision only unblocks a later explicit send and requires elapsed
 TTL plus `--quiesced` after stopping the sender. A verified `accepted` decision
 does not wait for TTL because it never dispatches mail.
