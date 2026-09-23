@@ -195,6 +195,8 @@ import type {
 	AbTestListInput,
 	AbTestListOutput,
 	AbTestIdInput,
+	AbTestConversionRecordInput,
+	AbTestConversionRecordOutput,
 	AbTestGetOutput,
 	AbTestCreateInput,
 	AbTestCreateOutput,
@@ -905,6 +907,12 @@ const contracts = {
 		typia.json.schema<AbTestListOutput>(),
 	),
 	abTestIdInputContract: contractSchema(typia.json.schema<AbTestIdInput>()),
+	abTestConversionRecordInputContract: contractSchema(
+		typia.json.schema<AbTestConversionRecordInput>(),
+	),
+	abTestConversionRecordOutputContract: contractSchema(
+		typia.json.schema<AbTestConversionRecordOutput>(),
+	),
 	abTestGetOutputContract: contractSchema(typia.json.schema<AbTestGetOutput>()),
 	abTestCreateOutputContract: contractSchema(
 		typia.json.schema<AbTestCreateOutput>(),

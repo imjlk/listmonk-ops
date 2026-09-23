@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
 	InMemoryConversionEventStore,
+	JsonFileConversionEventStore,
 	ConversionEventValidationError,
 	validateConversionEvent,
 	type ConversionEventInput,
@@ -71,13 +75,12 @@ describe("InMemoryConversionEventStore", () => {
 		expect(result).toBe("created");
 	});
 
-	it("returns duplicate for same eventId", async () => {
+	it("returns duplicate for an identical retry and rejects conflicting IDs", async () => {
 		const store = new InMemoryConversionEventStore();
 		await store.record(makeEvent({ eventId: "evt-1" }));
-		const result = await store.record(
-			makeEvent({ eventId: "evt-1", event: "different" }),
-		);
+		const result = await store.record(makeEvent({ eventId: "evt-1" }));
 		expect(result).toBe("duplicate");
+		await expect(store.record(makeEvent({ event: "different" }))).rejects.toThrow("different conversion");
 	});
 
 	it("aggregates events by variant", async () => {
@@ -165,5 +168,42 @@ describe("InMemoryConversionEventStore", () => {
 		expect(json).not.toContain("email");
 		expect(json).not.toContain("@");
 		expect(json).not.toContain("name");
+	});
+});
+
+describe("JsonFileConversionEventStore", () => {
+	it("persists events across instances and deduplicates concurrent writes", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "abtest-conversions-"));
+		try {
+			const path = join(directory, "events.json");
+			const first = new JsonFileConversionEventStore(path);
+			const second = new JsonFileConversionEventStore(path);
+			const results = await Promise.all([first.record(makeEvent()), second.record(makeEvent())]);
+			expect(results.sort()).toEqual(["created", "duplicate"]);
+			expect(await second.aggregate("test-1")).toMatchObject([
+				{
+					variantId: "A",
+					totalEvents: 1,
+					uniqueSubscribers: 1,
+				},
+			]);
+			await expect(second.record(makeEvent({ testId: "other" }))).rejects.toThrow("different conversion");
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("rejects cross-variant subscriber attribution and mixed revenue currencies", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "abtest-conversions-"));
+		try {
+			const store = new JsonFileConversionEventStore(
+				join(directory, "events.json"),
+			);
+			await store.record(makeEvent({ value: 10, currency: "USD" }));
+			await expect(store.record(makeEvent({ eventId: "other-variant", variantId: "B" }))).rejects.toThrow("another variant");
+			await expect(store.record(makeEvent({ eventId: "other-currency", subscriberUuid: "uuid-2", value: 10, currency: "KRW" }))).rejects.toThrow("another currency");
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
 	});
 });

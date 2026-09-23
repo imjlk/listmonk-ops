@@ -2865,6 +2865,33 @@
     {
       "edges": [
         {
+          "from": "packages/abtest/src/operations.ts#recordAbTestConversionOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestConversionRecordOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestConversionRecordOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestConversionRecordOperationSpec:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeRecordAbTestConversionOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeRecordAbTestConversionOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestConversionRecordOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestConversionRecordOperationSpec:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeRecordAbTestConversionOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeRecordAbTestConversionOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#recordAbTestConversionOperation:variable"
+      },
+      "operationId": "abtest.conversion.record"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/abtest/src/operations.ts#createAbTestOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestCreateOperationSpec:function"

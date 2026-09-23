@@ -138,6 +138,9 @@
             "conversions": {
               "type": "number"
             },
+            "currency": {
+              "type": "string"
+            },
             "openRate": {
               "type": "number"
             },
@@ -244,6 +247,164 @@
         }
       },
       "required": [
+        "test_id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestConversionRecordInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestConversionRecordInput": {
+          "additionalProperties": false,
+          "properties": {
+            "currency": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "event": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "event_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "occurred_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "subscriber_uuid": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "test_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "value": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "variant_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "event_id",
+            "test_id",
+            "variant_id",
+            "subscriber_uuid",
+            "event",
+            "occurred_at"
+          ],
+          "type": "object"
+        },
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "event": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "event_id": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "occurred_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "subscriber_uuid": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "test_id": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "value": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "variant_id": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [
+        "event_id",
+        "test_id",
+        "variant_id",
+        "subscriber_uuid",
+        "event",
+        "occurred_at"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestConversionRecordOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestConversionRecordOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "event_id": {
+              "type": "string"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "created"
+                },
+                {
+                  "const": "duplicate"
+                }
+              ]
+            },
+            "test_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "event_id",
+            "test_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "status": {
+          "oneOf": [
+            {
+              "const": "created"
+            },
+            {
+              "const": "duplicate"
+            }
+          ]
+        },
+        "test_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "event_id",
         "test_id"
       ],
       "type": "object"

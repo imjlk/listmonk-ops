@@ -1,5 +1,5 @@
 import { getListmonkDataDirectory } from "@listmonk-ops/common";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import {
 	commitJsonFileStoreUpdate,
@@ -792,8 +792,14 @@ export async function saveStoredAbTests(
 function createHydratedExecutors(
 	client: ListmonkClient,
 	tests: AbTest[],
+	storePath?: string,
 ): AbTestExecutors {
-	const executors = createAbTestExecutors(client);
+	const executors = createAbTestExecutors(
+		client,
+		storePath === undefined
+			? undefined
+			: join(dirname(storePath), "abtest-conversions.json"),
+	);
 	executors.abTestService.hydrateTests(tests);
 	return executors;
 }
@@ -806,14 +812,20 @@ export async function withStoredAbTestExecutors<Result>(
 	const store = createAbTestStore(options.storePath);
 	if (options.mode === "read") {
 		const persisted = await readJsonFileStore(store);
-		return action(createHydratedExecutors(client, persisted.tests));
+		return action(
+			createHydratedExecutors(client, persisted.tests, options.storePath),
+		);
 	}
 
 	let actionStarted = false;
 	let actionCompleted = false;
 	try {
 		return await updateJsonFileStore(store, async (persisted) => {
-			const executors = createHydratedExecutors(client, persisted.tests);
+			const executors = createHydratedExecutors(
+				client,
+				persisted.tests,
+				options.storePath,
+			);
 			actionStarted = true;
 			const result = await action(executors);
 			actionCompleted = true;

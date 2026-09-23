@@ -9,6 +9,7 @@ import {
 } from "./basic";
 import { ListmonkAbTestIntegration } from "./listmonk-integration";
 import { ListmonkMetricsCollector } from "./metrics";
+import { JsonFileConversionEventStore } from "./conversion-events";
 import { cancelAbTest } from "./lifecycle";
 import { AbTestNotFoundError } from "./errors";
 import type {
@@ -21,7 +22,10 @@ import type {
 import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
 
 // A/B Test command executors factory with Listmonk integration
-export function createAbTestExecutors(listmonkClient: ListmonkClient) {
+export function createAbTestExecutors(
+	listmonkClient: ListmonkClient,
+	conversionStorePath?: string,
+) {
 	// Create Listmonk integration
 	const listmonkIntegration = new ListmonkAbTestIntegration(listmonkClient);
 
@@ -29,7 +33,10 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 	// ListmonkMetricsCollector so production uses the same fail-closed
 	// collector that tests exercise, rather than the legacy
 	// collectTestResults path on the integration.
-	const metricsCollector = new ListmonkMetricsCollector(listmonkClient);
+	const metricsCollector = new ListmonkMetricsCollector(
+		listmonkClient,
+		new JsonFileConversionEventStore(conversionStorePath),
+	);
 	const abTestService = new AbTestService(
 		listmonkIntegration,
 		metricsCollector,

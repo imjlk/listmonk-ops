@@ -1486,6 +1486,20 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
+## Record A/B test conversion (`abtest.conversion.record`)
+
+Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `never`; retry: `safe`.
+
+Use when: An external signup or purchase must be attributed to an A/B test variant.
+
+Avoid when: The subscriber assignment or event ID is unknown.
+
+Prerequisites: `abtest.get`
+
+Verify with: `abtest.analyze`
+
+Retry guidance: Retry an identical event ID and payload; inspect a conflict before using a new ID.
+
 ## Create A/B test (`abtest.create`)
 
 Contract maturity: `stable`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `conditional`.

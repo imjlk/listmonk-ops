@@ -1091,6 +1091,10 @@ listmonk-cli abtest create ... --confirm
 listmonk-cli abtest launch --test-id <id> --confirm
 listmonk-cli abtest stop --test-id <id> --confirm
 listmonk-cli abtest analyze --test-id <id>
+listmonk-cli abtest record-conversion \
+  --event-id order-123 --test-id <id> --variant-id <variant-id> \
+  --subscriber-uuid <uuid> --event purchase --value 25 --currency USD \
+  --occurred-at 2026-09-23T12:00:00Z
 listmonk-cli abtest recommend-sample-size \
   --lists 123,456 --test-group-percentage 10 --variant-count 2
 listmonk-cli abtest deploy-winner --test-id <id> --confirm
@@ -1114,6 +1118,17 @@ timer용). `--dry-run true`로 상태 변경 없이 미리보기할 수 있습�
 조용히 무효화하지 못합니다. `abtest reconcile`은 로컬 드리프트를 보고하고
 `--repair --confirm`으로 수정할 수 있습니다.
 
+`record-conversion`은 발송 시작 이후, 사전 등록된 귀속 기간 안의 이벤트만
+기록합니다. 귀속 기간이 없으면 테스트 종료 시각, 그것도 없으면 72시간을
+적용합니다. 구독자가 해당 변형의 프로비저닝 목록에 있는지도 확인합니다.
+로컬 저장소 전체에서 이벤트 ID는 고유하며, 동일한 재시도는 `duplicate`를
+반환하고 같은 ID의 다른 내용은 거부합니다. CLI와 MCP는 원자적으로 기록하는
+`abtest-conversions.json`을 공유합니다. 경로는
+`LISTMONK_OPS_ABTEST_CONVERSION_STORE`로 바꿀 수 있습니다. 저장 내용은 UUID,
+이벤트명, 시각, 선택적 금액·통화이며 이메일·이름은 저장하지 않습니다.
+분석은 변형별 고유 전환 구독자 수와 이벤트 금액 합계를 사용합니다. 새 이벤트의
+배정을 검증할 수 있도록 귀속 기간 동안 변형 목록을 유지해야 합니다.
+
 MCP에서도 A/B 테스트 라이프사이클 도구를 제공합니다.
 
 ```text
@@ -1121,6 +1136,7 @@ listmonk_abtest_list
 listmonk_abtest_get
 listmonk_abtest_create
 listmonk_abtest_analyze
+listmonk_abtest_conversion_record
 listmonk_abtest_launch
 listmonk_abtest_stop
 listmonk_abtest_delete

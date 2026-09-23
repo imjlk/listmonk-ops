@@ -33644,6 +33644,9 @@
                   "conversions": {
                     "type": "number"
                   },
+                  "currency": {
+                    "type": "string"
+                  },
                   "openRate": {
                     "type": "number"
                   },

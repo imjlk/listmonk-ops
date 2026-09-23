@@ -1,5 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { AbTest, TestResults } from "./types";
+import type { ConversionEventStore } from "./conversion-events";
 
 /**
  * Metrics collection for A/B test analysis.
@@ -13,11 +14,8 @@ import type { AbTest, TestResults } from "./types";
  * that could be mistaken for a real signal.
  *
  * Conversion tracking is intentionally separated from click tracking. The
- * previous code copied `clicks` into `conversions`, which conflated two
- * different metrics and made "conversion rate" mean "click rate". Until a
- * dedicated conversion event store exists (planned PR-4), conversions are
- * reported as zero with an explicit note that conversion_rate is not yet
- * measured.
+ * previous code copied `clicks` into `conversions`; the production collector
+ * now reads a durable conversion event store instead.
  */
 
 export interface CampaignMapping {
@@ -55,15 +53,18 @@ export class AbTestMetricsUnavailableError extends Error {
  *
  * Reads `sent`, `views`, and `clicks` from each backing campaign. `opens`
  * maps to `views`, `clicks` to `clicks`, and the denominator is `sent`.
- * `conversions` is reported as 0 because conversion attribution requires a
- * dedicated event store that does not exist yet; callers must not treat
- * `conversionRate` as a measured signal until that lands.
+ * When an event store is configured, conversions count distinct subscriber
+ * UUIDs and revenue sums event values. Without a store, conversions are zero
+ * (primarily useful for isolated collector tests).
  *
  * If any campaign fetch fails, the entire collection throws
  * `AbTestMetricsUnavailableError`. No partial results are returned.
  */
 export class ListmonkMetricsCollector implements MetricsCollector {
-	constructor(private readonly client: ListmonkClient) {}
+	constructor(
+		private readonly client: ListmonkClient,
+		private readonly conversionEvents?: ConversionEventStore,
+	) {}
 
 	async collect(test: AbTest): Promise<TestResults[]> {
 		if (test.campaignMappings.length === 0) {
@@ -77,6 +78,23 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 		// and Promise.all rejects on the first failure, which preserves the
 		// fail-closed semantics (no partial results escape) while improving
 		// latency when multiple variants exist.
+		let conversionByVariant = new Map<string, Awaited<ReturnType<ConversionEventStore["aggregate"]>>[number]>();
+		try {
+			const aggregates = await this.conversionEvents?.aggregate(test.id) ?? [];
+			const currencies = new Set(
+				aggregates.map((aggregate) => aggregate.currency).filter(
+					(currency) => currency !== undefined,
+				),
+			);
+			if (currencies.size > 1) {
+				throw new Error(
+					`A/B test ${test.id} contains mixed revenue currencies`,
+				);
+			}
+			conversionByVariant = new Map(aggregates.map((aggregate) => [aggregate.variantId, aggregate]));
+		} catch (error) {
+			throw new AbTestMetricsUnavailableError(test.id, error);
+		}
 		const results = await Promise.all(
 			test.campaignMappings.map(async (mapping): Promise<TestResults> => {
 				try {
@@ -94,10 +112,12 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 					const sampleSize = campaign.sent ?? 0;
 					const opens = campaign.views ?? 0;
 					const clicks = campaign.clicks ?? 0;
-					// Conversions are NOT click-through. Until a conversion event
-					// store is wired in, conversions stay at zero so analysis does
-					// not mistake clicks for conversions.
-					const conversions = 0;
+					// Conversion events are separate from Listmonk click counts.
+					const aggregate = conversionByVariant.get(mapping.variantId);
+					const conversions = aggregate?.uniqueSubscribers ?? 0;
+					if (conversions > sampleSize) {
+						throw new Error(`variant ${mapping.variantId} has ${conversions} converters but only ${sampleSize} sent recipients`);
+					}
 
 					return {
 						variantId: mapping.variantId,
@@ -105,9 +125,11 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 						opens,
 						clicks,
 						conversions,
+						...(aggregate?.currency === undefined ? {} : { revenue: aggregate.totalValue }),
+						...(aggregate?.currency === undefined ? {} : { currency: aggregate.currency }),
 						openRate: sampleSize > 0 ? (opens / sampleSize) * 100 : 0,
 						clickRate: sampleSize > 0 ? (clicks / sampleSize) * 100 : 0,
-						conversionRate: 0,
+						conversionRate: sampleSize > 0 ? (conversions / sampleSize) * 100 : 0,
 					};
 				} catch (error) {
 					throw new AbTestMetricsUnavailableError(test.id, error);

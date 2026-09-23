@@ -204,6 +204,7 @@ describe("email operations specification", () => {
 			"ops.templates.registry-rollback",
 			"abtest.list",
 			"abtest.get",
+			"abtest.conversion.record",
 			"abtest.create",
 			"abtest.analyze",
 			"abtest.launch",
@@ -236,8 +237,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(134);
-		expect(new Set(operationIds).size).toBe(134);
+		expect(operationIds).toHaveLength(135);
+		expect(new Set(operationIds).size).toBe(135);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),

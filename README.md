@@ -699,7 +699,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 134 public shared operations now include a `spec` descriptor. Specs define
+All 135 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -708,8 +708,9 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 134 contracts are standalone TypeScript/Typia product contracts, and
-all 134 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
+All 135 contracts are standalone TypeScript/Typia product contracts. The
+existing 134 remain `stable`; `abtest.conversion.record` is experimental. The
+stable set includes the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and
 analytics operations (`campaigns.preview`, `campaigns.test`,
@@ -1150,6 +1151,10 @@ listmonk-cli abtest create ... --confirm
 listmonk-cli abtest launch --test-id <id> --confirm
 listmonk-cli abtest stop --test-id <id> --confirm
 listmonk-cli abtest analyze --test-id <id>
+listmonk-cli abtest record-conversion \
+  --event-id order-123 --test-id <id> --variant-id <variant-id> \
+  --subscriber-uuid <uuid> --event purchase --value 25 --currency USD \
+  --occurred-at 2026-09-23T12:00:00Z
 listmonk-cli abtest recommend-sample-size \
   --lists 123,456 --test-group-percentage 10 --variant-count 2
 listmonk-cli abtest deploy-winner --test-id <id> --confirm
@@ -1173,6 +1178,18 @@ preceding `abtest get` result into its revision options so an intervening tick
 cannot invalidate the approved state silently. `abtest reconcile` reports
 local drift and can repair with `--repair --confirm`.
 
+`record-conversion` accepts events only after launch, within the pre-registered
+attribution window (or the test's end time; 72 hours if neither is set), and
+for a subscriber still verifiable in the provisioned variant list. The event
+ID is globally unique in the local store: identical retries return
+`duplicate`, while a changed payload with the same ID is rejected. CLI and MCP
+share the atomic `abtest-conversions.json` store in the Listmonk data directory;
+set `LISTMONK_OPS_ABTEST_CONVERSION_STORE` to override its path. The store keeps
+UUIDs, event names, timestamps, and optional value/currency, without emails or
+names. Analysis counts unique converting subscribers per variant and sums
+event values as revenue. Keep the variant lists available until the attribution
+window closes so new events can be verified.
+
 MCP now also exposes A/B test lifecycle tools:
 
 ```text
@@ -1180,6 +1197,7 @@ listmonk_abtest_list
 listmonk_abtest_get
 listmonk_abtest_create
 listmonk_abtest_analyze
+listmonk_abtest_conversion_record
 listmonk_abtest_launch
 listmonk_abtest_stop
 listmonk_abtest_delete
