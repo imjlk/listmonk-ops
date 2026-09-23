@@ -5,10 +5,10 @@ set -euo pipefail
 # the single-file CLI bundle. Keep modest headroom above the reviewed baseline
 # while retaining the stricter compressed distribution budget below. Each
 # standalone contract migration adds a few KB of generated JSON.
-# Shared profile/configuration baseline: 1,889,039 bytes with CI Bun 1.4.2.
-MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1892500}"
-# Shared profile/configuration bundle measures 311,790 bytes compressed.
-MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-313000}"
+# Transactional reconciliation baseline: 1,910,285 bytes with Bun 1.4.2.
+MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1915000}"
+# Transactional reconciliation bundle measures 315,238 bytes compressed.
+MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-317000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"
 

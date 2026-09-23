@@ -42,7 +42,7 @@ describe("operations spec graph contracts", () => {
 	});
 
 	test("requires direct test anchors for every high-risk descriptor", () => {
-		expect(highRiskOperationSpecTestEdges).toHaveLength(4);
+		expect(highRiskOperationSpecTestEdges).toHaveLength(6);
 		expect(highRiskOperationSpecTestEdges).toEqual([
 			{
 				operationId: "campaigns.start",
@@ -61,6 +61,18 @@ describe("operations spec graph contracts", () => {
 				kind: "accesses",
 				from: "packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function",
 				to: "packages/operations/src/specs/high-risk.ts#transactionalSendOperationSpec:variable",
+			},
+			{
+				operationId: "transactional.list",
+				kind: "accesses",
+				from: "packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function",
+				to: "packages/operations/src/specs/high-risk.ts#transactionalRecordsOperationSpec:variable",
+			},
+			{
+				operationId: "transactional.reconcile",
+				kind: "accesses",
+				from: "packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function",
+				to: "packages/operations/src/specs/high-risk.ts#transactionalReconcileOperationSpec:variable",
 			},
 			{
 				operationId: "ops.campaign.preflight",

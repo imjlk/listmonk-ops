@@ -690,7 +690,7 @@ GET이며 자동 재시도하지 않습니다. `not_checked`는 자격 증명이
 `readiness.listmonk`가 true가 되지 않습니다. 대상 URL의 인라인 자격 증명,
 쿼리 문자열, 프래그먼트는 결과에서 제거합니다.
 
-132개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+134개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -699,7 +699,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-132개 계약은 독립적인 TypeScript/Typia 제품 계약이며 132개 전부가
+134개 계약은 독립적인 TypeScript/Typia 제품 계약이며 134개 전부가
 `stable`입니다. 바운스 패밀리(`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), 캠페인 프리뷰/테스트 발송/애널리틱스
@@ -1039,9 +1039,29 @@ listmonk-cli tx send \
 - 같은 키로 다른 payload가 들어오면 충돌로 거부합니다.
 - 타임아웃이나 연결 리셋 같은 모호한 전송 실패는 `unknown`으로 기록하고 자동
   재시도를 차단합니다. Listmonk와 멱등성 레코드를 확인한 뒤 수동으로
-  reconcile하세요.
+  reconcile하세요. `pending`과 `unknown` 레코드는 TTL이 지나도 유지되므로
+  시간 경과만으로 중복 발송이 허용되지 않습니다.
 
-저장소 경로 기본값은 `~/.listmonk-ops/transactional.json`이며
+선택한 Listmonk 대상의 기록은 `listmonk-cli tx records --status unknown
+--format json` 또는 MCP `listmonk_transactional_records`로 조회합니다. 응답에는
+불투명한 `revision` 등 메타데이터만 있고 수신자, 본문, 원본 전송 오류는 없습니다.
+Listmonk, 발송 제공업체 로그 또는 로컬 Mailpit에서 배달 여부를 별도로 확인한
+뒤, 배달이 확인되면 다음처럼 판단을 기록합니다.
+
+```bash
+listmonk-cli tx reconcile --key ORDER_KEY --expected-revision REVISION \
+  --decision accepted --reason "제공업체 로그에서 배달 확인" --confirm
+```
+
+배달되지 않았음을 확실히 확인했다면 `--decision retry`를 사용합니다. 이 명령은
+차단 기록만 제거하며 메일을 보내지 않습니다. 이후 같은 키로 명시적으로 다시
+발송할 수 있습니다. 재시도 결정이나 `pending` 기록에 대한 판단은 TTL 경과와
+기존 발송자 중지 확인을 요구하며 `--quiesced`도 필요합니다. MCP에서는 `listmonk_reconcile_transactional`에
+`confirm: true`를 전달합니다. 두 경로 모두 조회한 revision과 10~500자 사유가
+필수이며, 저장소는 대상과 revision을 원자적으로 확인하고 판단 이력을 보존합니다.
+기존 발송이 진행 중일 가능성이 있다면 재시도를 허용하지 마세요.
+
+저장소 경로 기본값은 `<resolved-data-directory>/transactional.json`이며
 `LISTMONK_OPS_TRANSACTIONAL_STORE`로 재정의할 수 있습니다.
 
 ## A/B 테스트 운영 명령

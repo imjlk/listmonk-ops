@@ -165,6 +165,60 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/transactional-reconciliation.ts#transactionalRecordsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/high-risk.ts#bindTransactionalRecordsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/high-risk.ts#bindTransactionalRecordsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/high-risk.ts#transactionalRecordsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/transactional-reconciliation.ts#invokeTransactionalRecordsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/transactional-reconciliation.ts#listTransactionalRecords:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/high-risk.ts#bindTransactionalRecordsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/high-risk.ts#transactionalRecordsOperationSpec:variable",
+        "executorNode": "packages/operations/src/transactional-reconciliation.ts#listTransactionalRecords:function",
+        "invokerNode": "packages/operations/src/transactional-reconciliation.ts#invokeTransactionalRecordsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/transactional-reconciliation.ts#transactionalRecordsOperation:variable"
+      },
+      "operationId": "transactional.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/transactional-reconciliation.ts#transactionalReconcileOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/high-risk.ts#bindTransactionalReconcileOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/high-risk.ts#bindTransactionalReconcileOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/high-risk.ts#transactionalReconcileOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/transactional-reconciliation.ts#invokeTransactionalReconcileOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/transactional-reconciliation.ts#reconcileTransactionalRecord:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/high-risk.ts#bindTransactionalReconcileOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/high-risk.ts#transactionalReconcileOperationSpec:variable",
+        "executorNode": "packages/operations/src/transactional-reconciliation.ts#reconcileTransactionalRecord:function",
+        "invokerNode": "packages/operations/src/transactional-reconciliation.ts#invokeTransactionalReconcileOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/transactional-reconciliation.ts#transactionalReconcileOperation:variable"
+      },
+      "operationId": "transactional.reconcile"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/automation/src/ops-operations.ts#campaignPreflightOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/high-risk.ts#bindCampaignPreflightOperationSpec:function"

@@ -56,6 +56,8 @@ import {
 	campaignPreflightOperationSpec,
 	campaignStartOperationSpec,
 	transactionalSendOperationSpec,
+	transactionalRecordsOperationSpec,
+	transactionalReconcileOperationSpec,
 } from "../src/specs/high-risk";
 import { assertTypeScriptContractCompatibility } from "../src/specs/schema-compatibility";
 import type { NormalizedContractSchema } from "../src/specs/json";
@@ -103,6 +105,14 @@ export function assertHighRiskOperationSpecContracts(): void {
 	assertOperationDescriptorIdentity(
 		transactionalSendOperationSpec,
 		"transactional.send",
+	);
+	assertOperationDescriptorIdentity(
+		transactionalRecordsOperationSpec,
+		"transactional.list",
+	);
+	assertOperationDescriptorIdentity(
+		transactionalReconcileOperationSpec,
+		"transactional.reconcile",
 	);
 	assertOperationDescriptorIdentity(
 		campaignPreflightOperationSpec,
@@ -226,8 +236,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(132);
-		expect(new Set(operationIds).size).toBe(132);
+		expect(operationIds).toHaveLength(134);
+		expect(new Set(operationIds).size).toBe(134);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -237,7 +247,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(132);
+		).toHaveLength(134);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(

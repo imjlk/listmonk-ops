@@ -87,6 +87,10 @@ import type {
 	TemplateUpdateInput,
 	TransactionalSendInput,
 	TransactionalSendOutput,
+	TransactionalRecordsInput,
+	TransactionalRecordsOutput,
+	TransactionalReconcileInput,
+	TransactionalReconcileOutput,
 	WebhookCreateInput,
 	WebhookCreateOutput,
 	WebhookDeleteInput,
@@ -504,6 +508,18 @@ const contracts = {
 	),
 	transactionalSendOutputContract: contractSchema(
 		typia.json.schema<TransactionalSendOutput>(),
+	),
+	transactionalRecordsInputContract: contractSchema(
+		typia.json.schema<TransactionalRecordsInput>(),
+	),
+	transactionalRecordsOutputContract: contractSchema(
+		typia.json.schema<TransactionalRecordsOutput>(),
+	),
+	transactionalReconcileInputContract: contractSchema(
+		typia.json.schema<TransactionalReconcileInput>(),
+	),
+	transactionalReconcileOutputContract: contractSchema(
+		typia.json.schema<TransactionalReconcileOutput>(),
 	),
 	sequenceValidateInputContract: contractSchema(
 		typia.json.schema<SequenceValidateInput>(),

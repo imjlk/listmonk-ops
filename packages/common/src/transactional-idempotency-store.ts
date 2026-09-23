@@ -18,7 +18,7 @@ export const DEFAULT_TRANSACTIONAL_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Soft cap on retained records. The store rejects new claims (rather than
- * evicting a live record) once this many unexpired records are present, so
+ * evicting a retained record) once this many records are present, so
  * a high-volume installation cannot silently break the idempotency
  * guarantee for an in-flight key.
  */
@@ -48,6 +48,16 @@ export interface TransactionalSendRecord {
 export interface StoredTransactionalDocument {
 	version: 1;
 	records: Record<string, TransactionalSendRecord>;
+	/** Bounded operator decisions, retained independently of send-record TTL. */
+	reconciliations?: TransactionalReconciliationEvent[];
+}
+
+export interface TransactionalReconciliationEvent {
+	key: string;
+	targetHash: string;
+	decision: "accepted" | "retry";
+	reason: string;
+	reconciledAt: string;
 }
 
 export type TransactionalClaimResult =
@@ -84,6 +94,26 @@ export interface TransactionalIdempotencyStore {
 		now?: () => Date;
 	}): Promise<void>;
 	load(): Promise<StoredTransactionalDocument>;
+	reconcile(options: TransactionalReconciliationOptions): Promise<TransactionalReconciliationResult>;
+}
+
+export interface TransactionalReconciliationOptions {
+	key: string;
+	targetHash: string;
+	expectedRevision: string;
+	decision: "accepted" | "retry";
+	reason: string;
+	/** Required for retry or pending decisions after TTL; confirms the sender stopped. */
+	quiesced?: boolean;
+	now?: () => Date;
+}
+
+export interface TransactionalReconciliationResult {
+	key: string;
+	decision: "accepted" | "retry";
+	reconciledAt: string;
+	/** Accepted records get a new revision; retry removes the old record. */
+	revision?: string;
 }
 
 const TRANSACTIONAL_STATUSES = new Set<TransactionalSendStatus>([
@@ -105,6 +135,16 @@ function isIsoTimestampValue(value: unknown): value is string {
 		) &&
 		!Number.isNaN(new Date(value).getTime())
 	);
+}
+
+function isReconciliationEvent(value: unknown): value is TransactionalReconciliationEvent {
+	return isRecordValue(value)
+		&& typeof value.key === "string" && value.key.length > 0
+		&& typeof value.targetHash === "string" && value.targetHash.length > 0
+		&& (value.decision === "accepted" || value.decision === "retry")
+		&& typeof value.reason === "string" && value.reason.trim().length >= 10 && value.reason.length <= 500
+		&& !/[\u0000-\u001f\u007f]/u.test(value.reason)
+		&& isIsoTimestampValue(value.reconciledAt);
 }
 
 /**
@@ -169,9 +209,15 @@ export function parseStoredTransactionalDocument(
 			);
 		}
 	}
+	if (value.reconciliations !== undefined && (!Array.isArray(value.reconciliations)
+		|| value.reconciliations.length > 1_000
+		|| value.reconciliations.some((event) => !isReconciliationEvent(event)))) {
+		throw new Error("Invalid transactional reconciliation history");
+	}
 	return {
 		version: 1,
 		records: value.records as Record<string, TransactionalSendRecord>,
+		...(value.reconciliations === undefined ? {} : { reconciliations: value.reconciliations as TransactionalReconciliationEvent[] }),
 	};
 }
 
@@ -255,9 +301,10 @@ function getOwnRecord(
 }
 
 /**
- * Drop expired records under the lock. Live records are NEVER evicted to
- * make room — when the survivor count would exceed the cap the caller
- * rejects the new claim instead (see `claimTransactionalSend`).
+ * Drop expired definitive outcomes under the lock. Pending and unknown
+ * dispatches may already have reached Listmonk, so time alone must never
+ * authorize another delivery with the same key. The operator must reconcile
+ * those records explicitly, even after their original TTL.
  */
 function sweepExpiredRecords(
 	document: StoredTransactionalDocument,
@@ -269,14 +316,14 @@ function sweepExpiredRecords(
 	);
 	let changed = false;
 	for (const [key, record] of Object.entries(document.records)) {
-		if (new Date(record.expiresAt).getTime() >= nowMs) {
+		if (record.status === "pending" || record.status === "unknown" || new Date(record.expiresAt).getTime() >= nowMs) {
 			survivors[key] = record;
 		} else {
 			changed = true;
 		}
 	}
 	return {
-		document: changed ? { version: 1, records: survivors } : document,
+		document: changed ? { ...document, records: survivors } : document,
 		changed,
 	};
 }
@@ -346,7 +393,7 @@ export async function claimTransactionalSend(options: {
 			Object.keys(records).length >= TRANSACTIONAL_STORE_MAX_RECORDS
 		) {
 			throw new TransactionalStoreCapacityError(
-				`Transactional idempotency store is at capacity (${TRANSACTIONAL_STORE_MAX_RECORDS} unexpired records). Increase the TTL sweep cadence, raise TRANSACTIONAL_STORE_MAX_RECORDS, or use a partitioned store.`,
+				`Transactional idempotency store is at capacity (${TRANSACTIONAL_STORE_MAX_RECORDS} retained records). Reconcile ambiguous sends, raise TRANSACTIONAL_STORE_MAX_RECORDS, or use a partitioned store.`,
 			);
 		}
 
@@ -363,7 +410,7 @@ export async function claimTransactionalSend(options: {
 		const nextRecords = copyRecords(records);
 		nextRecords[options.key] = record;
 		return commitJsonFileStoreUpdate(
-			{ version: 1, records: nextRecords },
+			{ ...swept.document, records: nextRecords },
 			{ kind: "new", record },
 		);
 	});
@@ -420,7 +467,7 @@ export async function commitTransactionalSend(options: {
 			const nextRecords = copyRecords(swept.document.records);
 			nextRecords[options.key] = updated;
 			return commitJsonFileStoreUpdate(
-				{ version: 1, records: nextRecords },
+				{ ...swept.document, records: nextRecords },
 				undefined,
 			);
 		},
@@ -453,11 +500,55 @@ export async function releaseTransactionalSend(options: {
 			const nextRecords = copyRecords(swept.document.records);
 			delete nextRecords[options.key];
 			return commitJsonFileStoreUpdate(
-				{ version: 1, records: nextRecords },
+				{ ...swept.document, records: nextRecords },
 				undefined,
 			);
 		},
 	);
+}
+
+/** Resolve an ambiguous claim under the same lock used for send and commit. */
+export async function reconcileTransactionalSend(options: TransactionalReconciliationOptions & { storePath?: string }): Promise<TransactionalReconciliationResult> {
+	if (options.reason.trim().length < 10 || options.reason.length > 500 || /[\u0000-\u001f\u007f]/u.test(options.reason)) {
+		throw new Error(
+			"A reconciliation reason of 10-500 printable characters is required",
+		);
+	}
+	const store = createTransactionalStore(options.storePath);
+	return updateJsonFileStore<StoredTransactionalDocument, TransactionalReconciliationResult>(store, (document) => {
+		const now = (options.now ?? (() => new Date()))();
+		const swept = sweepExpiredRecords(document, now);
+		const existing = getOwnRecord(swept.document.records, options.key);
+		if (!existing || existing.targetHash !== options.targetHash) throw new Error("Transactional record not found for this Listmonk target");
+		if (existing.claimToken !== options.expectedRevision) throw new Error("Transactional record changed; inspect it again before reconciling");
+		if (existing.status !== "pending" && existing.status !== "unknown") throw new Error("Only pending or unknown transactional records can be reconciled");
+		if ((existing.status === "pending" || options.decision === "retry") && (new Date(existing.expiresAt).getTime() >= now.getTime() || options.quiesced !== true)) {
+			throw new Error("Dispatch may still be active; wait past its TTL and attest that its sender has stopped");
+		}
+		const nextRecords = copyRecords(swept.document.records);
+		const result: TransactionalReconciliationResult = { key: options.key, decision: options.decision, reconciledAt: now.toISOString() };
+		if (options.decision === "accepted") {
+			const revision = newClaimToken();
+			nextRecords[options.key] = {
+				...existing, status: "accepted", sent: true, errorMessage: undefined,
+				claimToken: revision, updatedAt: now.toISOString(),
+				expiresAt: new Date(now.getTime() + DEFAULT_TRANSACTIONAL_TTL_MS).toISOString(),
+			};
+			result.revision = revision;
+		} else if (options.decision === "retry") {
+			delete nextRecords[options.key];
+		} else {
+			throw new Error("Invalid transactional reconciliation decision");
+		}
+		const event: TransactionalReconciliationEvent = {
+			key: options.key, targetHash: options.targetHash, decision: options.decision,
+			reason: options.reason, reconciledAt: now.toISOString(),
+		};
+		return commitJsonFileStoreUpdate({
+			...swept.document, records: nextRecords,
+			reconciliations: [...(swept.document.reconciliations ?? []), event].slice(-1_000),
+		}, result);
+	});
 }
 
 /**
@@ -477,6 +568,8 @@ export function createFileBackedTransactionalIdempotencyStore(
 		release: (releaseOptions) =>
 			releaseTransactionalSend({ storePath, ...releaseOptions }),
 		load: () => readJsonFileStore(createTransactionalStore(storePath)),
+		reconcile: (reconcileOptions) =>
+			reconcileTransactionalSend({ storePath, ...reconcileOptions }),
 	};
 }
 

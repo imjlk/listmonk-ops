@@ -21,6 +21,12 @@ import {
 	type TransactionalSendRecord,
 } from "./transactional-idempotency";
 import { TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE } from "./transactional-contract";
+import {
+	invokeTransactionalRecordsOperation,
+	invokeTransactionalReconcileOperation,
+	transactionalRecordsOperation,
+	transactionalReconcileOperation,
+} from "./transactional-reconciliation";
 
 export { TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE } from "./transactional-contract";
 
@@ -635,7 +641,7 @@ export async function sendTransactionalMessage(
 
 	if (claim.kind === "conflict") {
 		throw new OperationInputError(
-			`Idempotency key '${input.idempotency_key}' is already associated with a different payload or Listmonk target. Use a new key or remove idempotency_key to force a fresh send.`,
+			`Idempotency key '${input.idempotency_key}' is already associated with a different payload or Listmonk target. Inspect the original delivery before choosing a new key or sending again.`,
 		);
 	}
 
@@ -838,7 +844,11 @@ export async function invokeSendTransactionalOperation(
 	);
 }
 
-export const transactionalOperations = [sendTransactionalOperation] as const;
+export const transactionalOperations = [
+	sendTransactionalOperation,
+	transactionalRecordsOperation,
+	transactionalReconcileOperation,
+] as const;
 
 export const transactionalOperationCatalog = defineOperationCatalog({
 	id: "transactional",
@@ -853,14 +863,14 @@ export type TransactionalOperation = (typeof transactionalOperations)[number];
 export function getTransactionalOperationByMcpName(
 	name: string,
 ): TransactionalOperation | undefined {
-	return name === sendTransactionalOperation.mcp.name
-		? sendTransactionalOperation
-		: undefined;
+	return transactionalOperations.find(
+		(operation) => operation.mcp.name === name,
+	);
 }
 
 export interface TransactionalOperationInvocation {
 	operation: TransactionalOperation;
-	output: SendTransactionalOutput;
+	output: SendTransactionalOutput | Awaited<ReturnType<typeof invokeTransactionalRecordsOperation>> | Awaited<ReturnType<typeof invokeTransactionalReconcileOperation>>;
 }
 
 export async function invokeTransactionalOperationByMcpName(
@@ -873,6 +883,16 @@ export async function invokeTransactionalOperationByMcpName(
 			return {
 				operation: sendTransactionalOperation,
 				output: await invokeSendTransactionalOperation(context, input),
+			};
+		case transactionalRecordsOperation.mcp.name:
+			return {
+				operation: transactionalRecordsOperation,
+				output: await invokeTransactionalRecordsOperation(context, input),
+			};
+		case transactionalReconcileOperation.mcp.name:
+			return {
+				operation: transactionalReconcileOperation,
+				output: await invokeTransactionalReconcileOperation(context, input),
 			};
 		default:
 			return undefined;

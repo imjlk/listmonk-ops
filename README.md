@@ -699,7 +699,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 132 public shared operations now include a `spec` descriptor. Specs define
+All 134 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -708,8 +708,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 132 contracts are standalone TypeScript/Typia product contracts, and
-all 132 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
+All 134 contracts are standalone TypeScript/Typia product contracts, and
+all 134 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and
 analytics operations (`campaigns.preview`, `campaigns.test`,
@@ -1098,10 +1098,33 @@ The wrapper:
 - Rejects a different payload under the same key as a conflict.
 - Records an ambiguous transport failure (timeout, connection reset) as
   `unknown` and blocks automatic retry — inspect Listmonk and the idempotency
-  record, then reconcile manually.
+  record, then reconcile manually. `pending` and `unknown` records remain
+  blocked after their TTL; time alone never permits a second delivery.
 
-The store path defaults to `~/.listmonk-ops/transactional.json`; override it
-with `LISTMONK_OPS_TRANSACTIONAL_STORE`.
+Inspect records for the selected Listmonk target with `listmonk-cli tx records
+--status unknown --format json` or MCP `listmonk_transactional_records`.
+These responses contain metadata, including an opaque `revision`, but no
+recipient, message body, or raw transport error. Check Listmonk, the delivery
+provider, or local Mailpit independently before deciding. To record verified
+delivery, run:
+
+```bash
+listmonk-cli tx reconcile --key ORDER_KEY --expected-revision REVISION \
+  --decision accepted --reason "Verified delivery in provider logs" --confirm
+```
+
+If delivery definitely did not occur, choose `--decision retry` instead. This
+only removes the blocking claim; it does not send mail. The next explicit send
+with the same key can dispatch. Any retry decision, and any decision on a
+`pending` claim, requires its TTL to have passed and `--quiesced` after the
+sender has stopped. The MCP equivalent is
+`listmonk_reconcile_transactional` with `confirm: true`. Both surfaces require
+the observed revision and a 10–500 character reason; the store atomically
+checks the target and revision and retains a bounded decision history. Never
+approve retry while an earlier sender may still be active.
+
+The store path defaults to `<resolved-data-directory>/transactional.json`;
+override it with `LISTMONK_OPS_TRANSACTIONAL_STORE`.
 
 ## A/B Test Operations
 

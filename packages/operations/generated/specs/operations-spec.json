@@ -1829,6 +1829,476 @@
     {
       "agent": {
         "avoidWhen": [
+          "The send did not use an idempotency key."
+        ],
+        "prerequisites": [],
+        "related": [
+          "transactional.send",
+          "transactional.reconcile"
+        ],
+        "retryGuidance": "Repeat the inspection if the record revision changes before reconciliation.",
+        "useWhen": [
+          "Inspect an ambiguous transactional send before deciding whether to permit a retry."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "IdempotencyKey": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "TransactionalRecordsInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "$ref": "#/components/schemas/IdempotencyKey"
+                  },
+                  "limit": {
+                    "maximum": 100,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "accepted"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "unknown"
+                      }
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "$ref": "#/components/schemas/IdempotencyKey"
+              },
+              "limit": {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "status": {
+                "oneOf": [
+                  {
+                    "const": "accepted"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "pending"
+                  },
+                  {
+                    "const": "unknown"
+                  }
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IdempotencyKey": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "TransactionalRecordView": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "error_present": {
+                    "type": "boolean"
+                  },
+                  "expires_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "key": {
+                    "$ref": "#/components/schemas/IdempotencyKey"
+                  },
+                  "payload_hash": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
+                  },
+                  "sent": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "accepted"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "unknown"
+                      }
+                    ]
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "key",
+                  "status",
+                  "payload_hash",
+                  "revision",
+                  "created_at",
+                  "updated_at",
+                  "expires_at",
+                  "error_present"
+                ],
+                "type": "object"
+              },
+              "TransactionalRecordsOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "records": {
+                    "items": {
+                      "$ref": "#/components/schemas/TransactionalRecordView"
+                    },
+                    "type": "array"
+                  },
+                  "total": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "records",
+                  "total"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "records": {
+                "items": {
+                  "$ref": "#/components/schemas/TransactionalRecordView"
+                },
+                "type": "array"
+              },
+              "total": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "records",
+              "total"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Inspect redacted idempotency records for the selected Listmonk target.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "message"
+        }
+      ],
+      "id": "transactional.list",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/high-risk.ts#bindTransactionalRecordsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/high-risk.ts#transactionalRecordsOperationSpec:variable",
+          "executorNode": "packages/operations/src/transactional-reconciliation.ts#listTransactionalRecords:function",
+          "invokerNode": "packages/operations/src/transactional-reconciliation.ts#invokeTransactionalRecordsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/transactional-reconciliation.ts#transactionalRecordsOperation:variable"
+        },
+        "mcpName": "listmonk_transactional_records",
+        "openWorld": false
+      },
+      "resource": "message",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reads the local idempotency store without changing records or sending mail."
+      },
+      "since": "0.18.0",
+      "stability": "stable",
+      "title": "Inspect transactional send records",
+      "verb": "list"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Delivery has not been independently checked or a sender may still be in flight."
+        ],
+        "prerequisites": [
+          "transactional.list"
+        ],
+        "related": [
+          "transactional.send"
+        ],
+        "retryGuidance": "Inspect the record again; do not repeat a reconciliation or resend automatically.",
+        "useWhen": [
+          "An operator verified whether an ambiguous keyed send was delivered and recorded the evidence."
+        ],
+        "verifyWith": [
+          "transactional.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "IdempotencyKey": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "TransactionalReconcileInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "decision": {
+                    "oneOf": [
+                      {
+                        "const": "accepted"
+                      },
+                      {
+                        "const": "retry"
+                      }
+                    ]
+                  },
+                  "expected_revision": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "key": {
+                    "$ref": "#/components/schemas/IdempotencyKey"
+                  },
+                  "quiesced": {
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "maxLength": 500,
+                    "minLength": 10,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key",
+                  "expected_revision",
+                  "decision",
+                  "reason"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "decision": {
+                "oneOf": [
+                  {
+                    "const": "accepted"
+                  },
+                  {
+                    "const": "retry"
+                  }
+                ]
+              },
+              "expected_revision": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "key": {
+                "$ref": "#/components/schemas/IdempotencyKey"
+              },
+              "quiesced": {
+                "type": "boolean"
+              },
+              "reason": {
+                "maxLength": 500,
+                "minLength": 10,
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "expected_revision",
+              "decision",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IdempotencyKey": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "TransactionalReconcileOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "decision": {
+                    "oneOf": [
+                      {
+                        "const": "accepted"
+                      },
+                      {
+                        "const": "retry"
+                      }
+                    ]
+                  },
+                  "key": {
+                    "$ref": "#/components/schemas/IdempotencyKey"
+                  },
+                  "reconciled_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "revision": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key",
+                  "decision",
+                  "reconciled_at"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "decision": {
+                "oneOf": [
+                  {
+                    "const": "accepted"
+                  },
+                  {
+                    "const": "retry"
+                  }
+                ]
+              },
+              "key": {
+                "$ref": "#/components/schemas/IdempotencyKey"
+              },
+              "reconciled_at": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "revision": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "decision",
+              "reconciled_at"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Record an explicit operator delivery decision or permit a later retry without sending mail.",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "message",
+          "reversible": false
+        }
+      ],
+      "id": "transactional.reconcile",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/high-risk.ts#bindTransactionalReconcileOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/high-risk.ts#transactionalReconcileOperationSpec:variable",
+          "executorNode": "packages/operations/src/transactional-reconciliation.ts#reconcileTransactionalRecord:function",
+          "invokerNode": "packages/operations/src/transactional-reconciliation.ts#invokeTransactionalReconcileOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/transactional-reconciliation.ts#transactionalReconcileOperation:variable"
+        },
+        "mcpName": "listmonk_reconcile_transactional",
+        "openWorld": false
+      },
+      "resource": "message",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "A retry decision removes the blocking claim; inspect the current revision before any further action."
+      },
+      "since": "0.18.0",
+      "stability": "stable",
+      "title": "Reconcile transactional send record",
+      "verb": "reconcile"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The campaign does not yet have its final audience, content, sender, and delivery profile."
         ],
         "prerequisites": [

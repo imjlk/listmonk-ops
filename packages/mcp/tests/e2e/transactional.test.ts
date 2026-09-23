@@ -12,10 +12,73 @@ import {
 	type MailpitMessageSummary,
 } from "./mailpit.js";
 import { createMCPTestSuite } from "../mcp-helper.js";
-import { buildTestEmail, buildTestName, TEST_CONFIG } from "../setup.js";
+import {
+	buildTestEmail,
+	buildTestName,
+	MCP_TEST_TRANSACTIONAL_STORE_PATH,
+	TEST_CONFIG,
+} from "../setup.js";
+import {
+	claimTransactionalSend,
+	commitTransactionalSend,
+	computeTransactionalTargetHash,
+} from "@listmonk-ops/common";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 describe("Transactional MCP Tool", () => {
 	const { client, utils } = createMCPTestSuite();
+
+	test("CLI and MCP inspect one record and require confirmation for operator reconciliation", async () => {
+		const key = buildTestName("reconcile");
+		const claim = await claimTransactionalSend({
+			storePath: MCP_TEST_TRANSACTIONAL_STORE_PATH,
+			key,
+			payloadHash: "synthetic-payload-digest",
+			targetHash: computeTransactionalTargetHash({ baseUrl: TEST_CONFIG.baseUrl, username: TEST_CONFIG.username }),
+		});
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await commitTransactionalSend({ storePath: MCP_TEST_TRANSACTIONAL_STORE_PATH, key, claimToken: claim.record.claimToken, status: "unknown", errorMessage: "recipient data must not be shown" });
+		const mcpRecords = await client.callTool("listmonk_transactional_records", { key });
+		if (mcpRecords.isError) throw new Error(JSON.stringify(mcpRecords));
+		expect(mcpRecords.isError).toBeFalsy();
+		const mcpOutput = mcpRecords.structuredContent as { records: Array<{ key: string; revision: string; status: string }> };
+		expect(mcpOutput.records[0]).toMatchObject({ key, revision: claim.record.claimToken, status: "unknown" });
+		expect(JSON.stringify(mcpRecords)).not.toContain("recipient data");
+		const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+		const cli = Bun.spawn(["bun", "src/index.ts", "tx", "records", "--key", key, "--format=json"], {
+			cwd: `${root}/apps/cli`, env: process.env, stdout: "pipe", stderr: "pipe",
+		});
+		const [stdout, code] = await Promise.all([new Response(cli.stdout).text(), cli.exited]);
+		expect(code).toBe(0);
+		expect(JSON.parse(stdout).records).toEqual(mcpOutput.records);
+		const input = { key, expected_revision: claim.record.claimToken, decision: "accepted", reason: "Verified delivery in Mailpit" };
+		const blocked = await client.callTool("listmonk_reconcile_transactional", input);
+		expect(blocked.isError).toBe(true);
+		const reconciled = await client.callTool("listmonk_reconcile_transactional", { ...input, confirm: true });
+		expect(reconciled.isError).toBeFalsy();
+		expect((reconciled.structuredContent as { decision: string }).decision).toBe("accepted");
+		const retryKey = buildTestName("cli-reconcile");
+		const retryClaim = await claimTransactionalSend({
+			storePath: MCP_TEST_TRANSACTIONAL_STORE_PATH,
+			key: retryKey,
+			payloadHash: "retry-payload-digest",
+			targetHash: computeTransactionalTargetHash({ baseUrl: TEST_CONFIG.baseUrl, username: TEST_CONFIG.username }),
+			ttlMs: 1,
+			now: () => new Date(Date.now() - 1000),
+		});
+		if (retryClaim.kind !== "new") throw new Error("expected new claim");
+		await commitTransactionalSend({ storePath: MCP_TEST_TRANSACTIONAL_STORE_PATH, key: retryKey, claimToken: retryClaim.record.claimToken, status: "unknown" });
+		const command = ["bun", "src/index.ts", "tx", "reconcile", "--key", retryKey, "--expected-revision", retryClaim.record.claimToken, "--decision", "retry", "--reason", "Confirmed no delivery in Mailpit", "--quiesced", "--format=json"];
+		const blockedCli = Bun.spawn(command, { cwd: `${root}/apps/cli`, env: process.env, stdout: "pipe", stderr: "pipe" });
+		expect(await blockedCli.exited).not.toBe(0);
+		const confirmedCli = Bun.spawn([...command, "--confirm"], { cwd: `${root}/apps/cli`, env: process.env, stdout: "pipe", stderr: "pipe" });
+		const [confirmedText, confirmedCode] = await Promise.all([new Response(confirmedCli.stdout).text(), confirmedCli.exited]);
+		expect(confirmedCode).toBe(0);
+		expect(JSON.parse(confirmedText).decision).toBe("retry");
+		const afterRetry = await client.callTool("listmonk_transactional_records", { key: retryKey });
+		expect((afterRetry.structuredContent as { total: number }).total).toBe(0);
+	});
 
 	test("sends through the shared operation and delivers to Mailpit", async () => {
 		const recipient = buildTestEmail("transactional");

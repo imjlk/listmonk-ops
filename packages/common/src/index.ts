@@ -41,6 +41,7 @@ export {
 	newTransactionalIdempotencyKey,
 	parseStoredTransactionalDocument,
 	releaseTransactionalSend,
+	reconcileTransactionalSend,
 	TransactionalStoreCapacityError,
 	TRANSACTIONAL_STORE_MAX_RECORDS,
 	validateStoredTransactionalStore,
@@ -51,6 +52,9 @@ export type {
 	TransactionalIdempotencyStore,
 	TransactionalSendRecord,
 	TransactionalSendStatus,
+	TransactionalReconciliationOptions,
+	TransactionalReconciliationResult,
+	TransactionalReconciliationEvent,
 } from "./transactional-idempotency-store";
 export {
 	claimResourceCreate,

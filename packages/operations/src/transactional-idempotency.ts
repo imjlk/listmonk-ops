@@ -1,9 +1,9 @@
 import { OperationExecutionError } from "./operation";
 
 /**
- * Default time-to-live for an idempotency record. After this window the
- * record is considered stale and a new send with the same key is treated
- * as a fresh request (the operator is expected to have reconciled by then).
+ * Default time-to-live for a definitive idempotency outcome. Pending and
+ * unknown dispatches remain blocked after this window until an operator
+ * explicitly reconciles them.
  */
 export const DEFAULT_TRANSACTIONAL_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -59,6 +59,13 @@ export interface TransactionalSendRecord {
 export interface StoredTransactionalDocument {
 	version: 1;
 	records: Record<string, TransactionalSendRecord>;
+	reconciliations?: Array<{
+		key: string;
+		targetHash: string;
+		decision: "accepted" | "retry";
+		reason: string;
+		reconciledAt: string;
+	}>;
 }
 
 export type TransactionalClaimResult =
@@ -79,9 +86,9 @@ export type TransactionalClaimResult =
 export interface TransactionalIdempotencyStore {
 	/**
 	 * Atomically claim (or replay) an idempotency slot. Implementations
-	 * should also sweep expired records on each locked update, and reject
-	 * new claims once `TRANSACTIONAL_STORE_MAX_RECORDS` unexpired records
-	 * are retained.
+	 * should sweep only expired definitive outcomes on each locked update,
+	 * retaining pending/unknown records until explicit reconciliation. Reject
+	 * new claims once `TRANSACTIONAL_STORE_MAX_RECORDS` records are retained.
 	 */
 	claim(options: {
 		key: string;
@@ -122,6 +129,16 @@ export interface TransactionalIdempotencyStore {
 
 	/** Read the full document (for diagnostics/validation). */
 	load(): Promise<StoredTransactionalDocument>;
+	/** Atomically resolve an ambiguous record after an explicit operator decision. */
+	reconcile?(options: {
+		key: string;
+		targetHash: string;
+		expectedRevision: string;
+		decision: "accepted" | "retry";
+		reason: string;
+		quiesced?: boolean;
+		now?: () => Date;
+	}): Promise<{ key: string; decision: "accepted" | "retry"; reconciledAt: string; revision?: string }>;
 }
 
 /**
@@ -222,9 +239,15 @@ export function parseStoredTransactionalDocument(
 			);
 		}
 	}
+	if (value.reconciliations !== undefined && (!Array.isArray(value.reconciliations)
+		|| value.reconciliations.length > 1_000
+		|| value.reconciliations.some((event) => !isReconciliationEvent(event)))) {
+		throw new Error("Invalid transactional reconciliation history");
+	}
 	return {
 		version: 1,
 		records: value.records as Record<string, TransactionalSendRecord>,
+		...(value.reconciliations === undefined ? {} : { reconciliations: value.reconciliations as StoredTransactionalDocument["reconciliations"] }),
 	};
 }
 
@@ -240,6 +263,16 @@ function isIsoTimestampValue(value: unknown): value is string {
 		) &&
 		!Number.isNaN(new Date(value).getTime())
 	);
+}
+
+function isReconciliationEvent(value: unknown): boolean {
+	return isRecordValue(value)
+		&& typeof value.key === "string" && value.key.length > 0
+		&& typeof value.targetHash === "string" && value.targetHash.length > 0
+		&& (value.decision === "accepted" || value.decision === "retry")
+		&& typeof value.reason === "string" && value.reason.trim().length >= 10 && value.reason.length <= 500
+		&& !/[\u0000-\u001f\u007f]/u.test(value.reason)
+		&& isIsoTimestampValue(value.reconciledAt);
 }
 
 /**

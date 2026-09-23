@@ -71,6 +71,8 @@ describe("MCP Server Integration", () => {
 
 			// Transactional tools
 			expect(toolNames).toContain("listmonk_send_transactional");
+			expect(toolNames).toContain("listmonk_transactional_records");
+			expect(toolNames).toContain("listmonk_reconcile_transactional");
 			expect(toolNames).not.toContain("listmonk_get_transactional_message");
 
 		// Ops tools

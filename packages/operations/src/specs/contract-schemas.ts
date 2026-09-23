@@ -72,6 +72,10 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberBulkOutputContract: NormalizedContractSchema;
 	transactionalSendInputContract: NormalizedContractSchema;
 	transactionalSendOutputContract: NormalizedContractSchema;
+	transactionalRecordsInputContract: NormalizedContractSchema;
+	transactionalRecordsOutputContract: NormalizedContractSchema;
+	transactionalReconcileInputContract: NormalizedContractSchema;
+	transactionalReconcileOutputContract: NormalizedContractSchema;
 	sequenceValidateInputContract: NormalizedContractSchema;
 	sequenceValidateOutputContract: NormalizedContractSchema;
 	sequenceCreateInputContract: NormalizedContractSchema;
@@ -339,6 +343,10 @@ export const transactionalSendInputContract =
 	contracts.transactionalSendInputContract;
 export const transactionalSendOutputContract =
 	contracts.transactionalSendOutputContract;
+export const transactionalRecordsInputContract = contracts.transactionalRecordsInputContract;
+export const transactionalRecordsOutputContract = contracts.transactionalRecordsOutputContract;
+export const transactionalReconcileInputContract = contracts.transactionalReconcileInputContract;
+export const transactionalReconcileOutputContract = contracts.transactionalReconcileOutputContract;
 export const sequenceValidateInputContract =
 	contracts.sequenceValidateInputContract;
 export const sequenceValidateOutputContract =

@@ -57,3 +57,41 @@ export interface TransactionalSendOutput {
 	idempotency_key?: IdempotencyKey | undefined;
 	expires_at?: IsoDateTime | undefined;
 }
+
+export interface TransactionalRecordsInput {
+	key?: IdempotencyKey;
+	status?: "pending" | "accepted" | "failed" | "unknown";
+	limit?: number & tags.Type<"uint32"> & tags.Minimum<1> & tags.Maximum<100>;
+}
+
+export interface TransactionalRecordView {
+	key: IdempotencyKey;
+	status: "pending" | "accepted" | "failed" | "unknown";
+	payload_hash: string;
+	revision: string;
+	created_at: IsoDateTime;
+	updated_at: IsoDateTime;
+	expires_at: IsoDateTime;
+	sent?: boolean;
+	error_present: boolean;
+}
+
+export interface TransactionalRecordsOutput {
+	records: TransactionalRecordView[];
+	total: number & tags.Type<"uint32">;
+}
+
+export interface TransactionalReconcileInput {
+	key: IdempotencyKey;
+	expected_revision: NonEmptyString;
+	decision: "accepted" | "retry";
+	reason: string & tags.MinLength<10> & tags.MaxLength<500>;
+	quiesced?: boolean;
+}
+
+export interface TransactionalReconcileOutput {
+	key: IdempotencyKey;
+	decision: "accepted" | "retry";
+	reconciled_at: IsoDateTime;
+	revision?: string;
+}

@@ -78,6 +78,30 @@ Send a transactional email through Listmonk
 - Retry: `conditional`
 - Stability: `stable` since `0.7.0`
 
+## `transactional.list`
+
+Inspect redacted idempotency records for the selected Listmonk target.
+
+- Resource / verb: `message.list`
+- MCP tool: `listmonk_transactional_records`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:message`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.18.0`
+
+## `transactional.reconcile`
+
+Record an explicit operator delivery decision or permit a later retry without sending mail.
+
+- Resource / verb: `message.reconcile`
+- MCP tool: `listmonk_reconcile_transactional`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:message`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `stable` since `0.18.0`
+
 ## `ops.campaign.preflight`
 
 Run pre-send checks against a Listmonk campaign

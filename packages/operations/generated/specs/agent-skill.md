@@ -86,6 +86,34 @@ Verify with: none
 
 Retry guidance: Always provide a stable idempotency_key for agent retries; reconcile pending or unknown records instead of changing the key.
 
+## Inspect transactional send records (`transactional.list`)
+
+Contract maturity: `stable`; effects: `read:message`; confirmation: `never`; retry: `safe`.
+
+Use when: Inspect an ambiguous transactional send before deciding whether to permit a retry.
+
+Avoid when: The send did not use an idempotency key.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Repeat the inspection if the record revision changes before reconciliation.
+
+## Reconcile transactional send record (`transactional.reconcile`)
+
+Contract maturity: `stable`; effects: `write:message`; confirmation: `required`; retry: `unsafe`.
+
+Use when: An operator verified whether an ambiguous keyed send was delivered and recorded the evidence.
+
+Avoid when: Delivery has not been independently checked or a sender may still be in flight.
+
+Prerequisites: `transactional.list`
+
+Verify with: `transactional.list`
+
+Retry guidance: Inspect the record again; do not repeat a reconciliation or resend automatically.
+
 ## Run campaign preflight (`ops.campaign.preflight`)
 
 Contract maturity: `stable`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.

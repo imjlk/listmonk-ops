@@ -24,7 +24,7 @@ function clientWithTransactional(
 
 describe("transactional operation MCP adapter", () => {
 	test("publishes the shared schema and side-effect annotations", () => {
-		expect(transactionalTools).toHaveLength(1);
+		expect(transactionalTools).toHaveLength(3);
 		const tool = transactionalTools[0];
 		expect(tool?.title).toBe("Send transactional message");
 		expect(tool?.inputSchema.required).toEqual(["template_id"]);
@@ -46,6 +46,8 @@ describe("transactional operation MCP adapter", () => {
 			idempotentHint: false,
 			openWorldHint: true,
 		});
+		expect(transactionalTools[1]?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+		expect(transactionalTools[2]?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
 	});
 
 	test("returns structured output while preserving boolean text", async () => {

@@ -12,6 +12,7 @@ import {
 	isStoredTransactionalSendRecord,
 	loadStoredTransactionalDocument,
 	parseStoredTransactionalDocument,
+	reconcileTransactionalSend,
 	releaseTransactionalSend,
 	TransactionalStoreCapacityError,
 	TRANSACTIONAL_STORE_MAX_RECORDS,
@@ -93,6 +94,50 @@ describe("transactional idempotency file-backed store", () => {
 
 	afterEach(async () => {
 		await rm(tempDir, { recursive: true, force: true });
+	});
+
+	test("requires target and revision to reconcile an unknown record without dispatching", async () => {
+		const key = "ambiguous-order";
+		const claim = await claimTransactionalSend({ storePath, key, payloadHash: hashPayload(makePayload()), targetHash: DEFAULT_TARGET_HASH, now: fixedClock });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await commitTransactionalSend({ storePath, key, claimToken: claim.record.claimToken, status: "unknown", now: fixedClock });
+		const args = { storePath, key, targetHash: DEFAULT_TARGET_HASH, expectedRevision: claim.record.claimToken, decision: "accepted" as const, reason: "Confirmed delivery in Mailpit", now: fixedClock };
+		await expect(reconcileTransactionalSend({ ...args, targetHash: OTHER_TARGET_HASH })).rejects.toThrow("not found");
+		await expect(reconcileTransactionalSend({ ...args, expectedRevision: "stale" })).rejects.toThrow("changed");
+		const result = await reconcileTransactionalSend(args);
+		expect(result.decision).toBe("accepted");
+		const stored = await loadStoredTransactionalDocument(storePath);
+		expect(stored.records[key]).toMatchObject({ status: "accepted", sent: true, claimToken: result.revision });
+		expect(stored.reconciliations?.at(-1)).toMatchObject({ key, decision: "accepted", reason: "Confirmed delivery in Mailpit" });
+		await expect(reconcileTransactionalSend(args)).rejects.toThrow("changed");
+	});
+
+	test("requires an expired, quiesced pending claim before explicitly permitting a retry", async () => {
+		const key = "pending-order";
+		const claim = await claimTransactionalSend({ storePath, key, payloadHash: hashPayload(makePayload()), targetHash: DEFAULT_TARGET_HASH, ttlMs: 1, now: fixedClock });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		const args = { storePath, key, targetHash: DEFAULT_TARGET_HASH, expectedRevision: claim.record.claimToken, decision: "retry" as const, reason: "Confirmed no delivery in Mailpit" };
+		await expect(reconcileTransactionalSend({ ...args, quiesced: true, now: fixedClock })).rejects.toThrow("may still be active");
+		await expect(reconcileTransactionalSend({ ...args, now: () => new Date("2026-01-02T00:00:00Z") })).rejects.toThrow("may still be active");
+		const result = await reconcileTransactionalSend({ ...args, quiesced: true, now: () => new Date("2026-01-02T00:00:00Z") });
+		expect(result.decision).toBe("retry");
+		expect((await loadStoredTransactionalDocument(storePath)).records[key]).toBeUndefined();
+		await commitTransactionalSend({ storePath, key, claimToken: claim.record.claimToken, status: "accepted", now: () => new Date("2026-01-02T00:00:01Z") });
+		expect((await loadStoredTransactionalDocument(storePath)).records[key]).toBeUndefined();
+	});
+
+	test("requires elapsed TTL and a stopped sender before permitting retry after an unknown outcome", async () => {
+		const key = "unknown-order";
+		const claim = await claimTransactionalSend({ storePath, key, payloadHash: hashPayload(makePayload()), targetHash: DEFAULT_TARGET_HASH, ttlMs: 1, now: fixedClock });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await commitTransactionalSend({ storePath, key, claimToken: claim.record.claimToken, status: "unknown", now: fixedClock });
+		const args = { storePath, key, targetHash: DEFAULT_TARGET_HASH, expectedRevision: claim.record.claimToken, decision: "retry" as const, reason: "Verified no delivery in provider logs" };
+		await expect(reconcileTransactionalSend({ ...args, quiesced: true, now: fixedClock })).rejects.toThrow("may still be active");
+		await expect(reconcileTransactionalSend({ ...args, now: () => new Date("2026-01-02T00:00:00Z") })).rejects.toThrow("may still be active");
+		await expect(reconcileTransactionalSend({ ...args, quiesced: true, now: () => new Date("2026-01-02T00:00:00Z") })).resolves.toMatchObject({ decision: "retry" });
+		const replacement = await claimTransactionalSend({ storePath, key, payloadHash: hashPayload(makePayload()), targetHash: DEFAULT_TARGET_HASH, now: () => new Date("2026-01-02T00:00:01Z") });
+		expect(replacement.kind).toBe("new");
+		expect((await loadStoredTransactionalDocument(storePath)).reconciliations?.at(-1)).toMatchObject({ key, decision: "retry", reason: "Verified no delivery in provider logs" });
 	});
 
 	describe("getTransactionalStorePath", () => {
@@ -290,9 +335,9 @@ describe("transactional idempotency file-backed store", () => {
 			expect(second.kind).toBe("conflict");
 		});
 
-		test("treats an expired record as a fresh claim", async () => {
+		test("treats an expired accepted record as a fresh claim", async () => {
 			const payloadHash = hashPayload(makePayload());
-			await claimTransactionalSend({
+			const claim = await claimTransactionalSend({
 				storePath,
 				key: "order-1",
 				payloadHash,
@@ -300,6 +345,8 @@ describe("transactional idempotency file-backed store", () => {
 				ttlMs: 1,
 				now: () => new Date("2026-01-01T00:00:00.000Z"),
 			});
+			if (claim.kind !== "new") throw new Error("expected new claim");
+			await commitTransactionalSend({ storePath, key: "order-1", claimToken: claim.record.claimToken, status: "accepted", sent: true, now: () => new Date("2026-01-01T00:00:00.000Z") });
 
 			const later = () => new Date("2026-01-02T00:00:00.000Z");
 			const result = await claimTransactionalSend({
@@ -313,6 +360,19 @@ describe("transactional idempotency file-backed store", () => {
 			expect(result.kind).toBe("new");
 			if (result.kind === "new") {
 				expect(result.record.createdAt).toBe(later().toISOString());
+			}
+		});
+
+		test("retains expired pending and unknown records so a retry cannot silently resend", async () => {
+			const payloadHash = hashPayload(makePayload());
+			for (const status of ["pending", "unknown"] as const) {
+				const key = `order-${status}`;
+				const claim = await claimTransactionalSend({ storePath, key, payloadHash, targetHash: DEFAULT_TARGET_HASH, ttlMs: 1, now: () => new Date("2026-01-01T00:00:00.000Z") });
+				if (claim.kind !== "new") throw new Error("expected new claim");
+				if (status === "unknown") await commitTransactionalSend({ storePath, key, claimToken: claim.record.claimToken, status, now: () => new Date("2026-01-01T00:00:00.000Z") });
+				const replay = await claimTransactionalSend({ storePath, key, payloadHash, targetHash: DEFAULT_TARGET_HASH, now: () => new Date("2026-01-02T00:00:00.000Z") });
+				expect(replay.kind).toBe("replay");
+				if (replay.kind === "replay") expect(replay.record.status).toBe(status);
 			}
 		});
 
@@ -501,6 +561,7 @@ describe("transactional idempotency file-backed store", () => {
 			});
 			if (first.kind !== "new") throw new Error("expected new");
 			const staleToken = first.record.claimToken;
+			await commitTransactionalSend({ storePath, key: "order-1", claimToken: staleToken, status: "accepted", sent: true, now: () => new Date("2026-01-01T00:00:00.000Z") });
 
 			await claimTransactionalSend({
 				storePath,
@@ -830,7 +891,7 @@ describe("transactional idempotency file-backed store", () => {
 
 		test("purges expired records during a locked update", async () => {
 			const payloadHash = hashPayload(makePayload());
-			await claimTransactionalSend({
+			const expired = await claimTransactionalSend({
 				storePath,
 				key: "expired",
 				payloadHash,
@@ -838,6 +899,8 @@ describe("transactional idempotency file-backed store", () => {
 				ttlMs: 1,
 				now: () => new Date("2026-01-01T00:00:00.000Z"),
 			});
+			if (expired.kind !== "new") throw new Error("expected new claim");
+			await commitTransactionalSend({ storePath, key: "expired", claimToken: expired.record.claimToken, status: "accepted", sent: true, now: () => new Date("2026-01-01T00:00:00.000Z") });
 			await claimTransactionalSend({
 				storePath,
 				key: "fresh",

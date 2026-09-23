@@ -25,6 +25,12 @@ authentication results and signatures, routing and delivery trace metadata,
 and `ARC-*` / `Resent-*` fields remain transport-owned and are rejected before
 dispatch.
 
+`transactional.list` and `transactional.reconcile` share redacted inspection
+and explicit, target-bound operator recovery across CLI and MCP. Ambiguous
+`pending`/`unknown` claims persist past TTL. Reconciliation checks the observed
+record revision under the store lock, requires confirmation and a reason at
+the surface, and never dispatches mail itself.
+
 Release provisioning can plan one exact-name template with
 `reconcileTemplate`, or a versioned set with `reconcileTemplateManifest`.
 Planning is read-only by default; `{ apply: true }` or `ensureTemplate` applies

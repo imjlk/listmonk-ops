@@ -122,6 +122,11 @@ existing behavior until they are migrated.
 - `listmonk_send_transactional` - Send a transactional template to an existing
   subscriber email or ID with optional template data, content type, messenger,
   sender, subject override, plain-text alternative, and custom headers
+- `listmonk_transactional_records` - Inspect redacted, target-bound send records
+  and their revision without exposing recipients or message contents
+- `listmonk_reconcile_transactional` - Record a verified delivery decision or
+  explicitly unblock a later retry; requires `confirm: true`, a reason, and the
+  observed revision. It never sends a message.
 
 ### A/B Tests
 
