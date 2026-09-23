@@ -1,5 +1,16 @@
 # @listmonk-ops/automation
 
+## 0.8.3 — 2026-09-23
+
+### Patch changes
+
+- [39d096a](https://github.com/imjlk/listmonk-ops/commit/39d096a6a6cc84badab628c6474cadbea2ddb693) Add target-bound transactional record inspection and explicit audited operator reconciliation while retaining ambiguous claims past TTL in both file and Postgres stores. — Thanks @imjlk!
+- [911222f](https://github.com/imjlk/listmonk-ops/commit/911222f21037e9d3f6b7d9e8217d4b51c0053050) Separate public connectivity, authenticated API access, and selected scoped collection reads in shared CLI/MCP status diagnostics. Add status --check for automation, bound probe time and response size, and redact target URL secrets and remote error bodies.
+  
+  Use workspace references for internal OpenAPI dependencies so release planning updates their ranges with the new client version. — Thanks @imjlk!
+- [2848b54](https://github.com/imjlk/listmonk-ops/commit/2848b54d7cc9677a18a5c433aa43432525d74c80) Add shared CLI/MCP connection profiles with secret-free configuration provenance, environment or token-file credential references, and token reload between operations. Isolate default file-backed state by profile and expose config show / listmonk_config. — Thanks @imjlk!
+- Updated dependencies: common@0.7.0, openapi@0.10.0, operations@0.18.0
+
 ## 0.8.2 — 2026-09-22
 
 ### Patch changes

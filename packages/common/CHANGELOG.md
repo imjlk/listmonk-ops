@@ -1,5 +1,23 @@
 # @listmonk-ops/common
 
+## 0.7.0 — 2026-09-23
+
+### Minor changes
+
+- [39d096a](https://github.com/imjlk/listmonk-ops/commit/39d096a6a6cc84badab628c6474cadbea2ddb693) Add target-bound transactional record inspection and explicit audited operator reconciliation while retaining ambiguous claims past TTL in both file and Postgres stores. — Thanks @imjlk!
+- [2848b54](https://github.com/imjlk/listmonk-ops/commit/2848b54d7cc9677a18a5c433aa43432525d74c80) Add shared CLI/MCP connection profiles with secret-free configuration provenance, environment or token-file credential references, and token reload between operations. Isolate default file-backed state by profile and expose config show / listmonk_config. — Thanks @imjlk!
+
+### Patch changes
+
+- [ddc7535](https://github.com/imjlk/listmonk-ops/commit/ddc7535680fbf5a84f2a543071db6fe1f476e260) Upgrade operation contract generation to Typia 15 and align CI, native CLI builds, release publishing, and worker examples on Bun 1.4.2. Keep the TypeScript 5.9 OpenAPI compatibility pin and current ttsc 0.30.4 toolchain.
+  
+  Refresh GitHub release tooling and run native CLI contract tests before merge. The updated Sampo action regenerates Bun lockfiles directly instead of relying on the legacy install workaround.
+  
+  Write JSON output through the stdout stream so large catalog responses are fully drained before the CLI exits on Linux. — Thanks @imjlk!
+- [f70ca62](https://github.com/imjlk/listmonk-ops/commit/f70ca62f05ca2bb325485c88b8649efd050dbe80) Keep CLI machine output parseable: omit banners, serialize empty resource lists, and report bounded errors on stderr without runtime source dumps. Verify source and native binary output contracts.
+  
+  Route auxiliary diagnostics through the CLI boundary: JSON buffers one bounded stderr document; NDJSON streams bounded records with semantic levels. Long-running workers require NDJSON, human, or quiet mode. Rollback and cleanup failures never dump raw error stacks into machine output. — Thanks @imjlk!
+
 ## 0.6.1 — 2026-09-22
 
 ### Patch changes
