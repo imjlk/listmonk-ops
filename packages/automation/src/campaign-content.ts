@@ -40,9 +40,14 @@ export function isCampaignControlLink(url: URL): boolean {
 	if (/\/campaign\/[^/]+\/[^/]+\/px\.png$/u.test(path)) return true;
 	return [...url.searchParams.keys()].some((key) => {
 		const normalized = key.replace(/[-_.]/gu, "").toLowerCase();
-		return /(?:token|secret|password|passwd|signature|apikey|accesskey|jwt|otp)/u.test(normalized)
-			|| /^(?:auth|authorization|code|authcode|oauthcode|authorizationcode|verificationcode|resetcode|invitecode|key|sig)$/u.test(normalized);
+		return /^(?:(?:access|refresh|reset|session|auth|id|csrf|xsrf|verification|confirm|invite|api|client)?token|(?:api|client)?secret|(?:new|old|current)?password|passwd|signature|apikey|accesskey|jwt|auth|authorization|otp|(?:auth|oauth|authorization|verification|reset|invite|otp)?code|key|sig)$/u.test(
+			normalized,
+		);
 	});
+}
+
+function hasMeaningfulText(value: string): boolean {
+	return value.replace(/[\s\p{Default_Ignorable_Code_Point}]/gu, "").length > 0;
 }
 
 function hiddenElement(node: HtmlNode): boolean {
@@ -57,9 +62,7 @@ function hiddenElement(node: HtmlNode): boolean {
 
 function usableAnchorContent(node: HtmlNode): boolean {
 	if (hiddenElement(node)) return false;
-	if ("value" in node && node.nodeName === "#text") {
-		return node.value.replace(/[\s\p{Default_Ignorable_Code_Point}]/gu, "").length > 0;
-	}
+	if ("value" in node && node.nodeName === "#text") return hasMeaningfulText(node.value);
 	if ("tagName" in node && node.tagName === "img") {
 		return node.attrs.some(
 			(attribute) => attribute.name === "src" && attribute.value.trim().length > 0,
@@ -83,8 +86,9 @@ function renderedVisibleUrls(html: string): { anchors: string[]; text: string[] 
 				node.attrs.map((attribute) => [attribute.name, attribute.value]),
 			);
 			const href = attributes.get("href");
+			const label = attributes.get("aria-label");
 			if (href !== undefined && (
-				(attributes.get("aria-label")?.trim().length ?? 0) > 0
+				(label !== undefined && hasMeaningfulText(label))
 				|| node.childNodes.some(usableAnchorContent)
 			)) anchors.push(href);
 		}

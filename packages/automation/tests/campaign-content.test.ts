@@ -108,6 +108,12 @@ test("empty and hidden-only anchors cannot satisfy unsubscribe", () => {
 	expect(inspectRenderedCampaignContent(`<a href="${route}">\u200bLeave</a>`).hasUnsubscribeLink).toBe(
 		true,
 	);
+	expect(inspectRenderedCampaignContent(`<a href="${route}" aria-label="&#8203;"></a>`).hasUnsubscribeLink).toBe(
+		false,
+	);
+	expect(inspectRenderedCampaignContent(`<a href="${route}" aria-label="\u200bLeave"></a>`).hasUnsubscribeLink).toBe(
+		true,
+	);
 	expect(inspectRenderedCampaignContent(`<a href="${route}"><img src="/leave.png" alt="Leave"></a>`).hasUnsubscribeLink).toBe(
 		true,
 	);
@@ -136,6 +142,7 @@ test("credential and tracking links are never included in the link-check set", (
 		"https://example.test/download?api_key=secret",
 		"https://example.test/download?reset_token=secret",
 		"https://example.test/download?jwt=secret",
+		"https://example.test/download?auth_code=secret",
 	];
 	const result = inspectRenderedCampaignContent(
 		links.map((href) => `<a href="${href}">Link</a>`).join(""),
@@ -147,6 +154,9 @@ test("ordinary author and zipcode parameters remain eligible for link checks", (
 	const links = [
 		"https://example.test/article?author=alice",
 		"https://example.test/store?zipcode=10001",
+		"https://example.test/tools?tokenizer=word",
+		"https://example.test/team?secretary=amy",
+		"https://example.test/account?passwordless=true",
 	];
 	const result = inspectRenderedCampaignContent(
 		links.map((href) => `<a href="${href}">Link</a>`).join(""),
