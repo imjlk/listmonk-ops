@@ -52,7 +52,8 @@
 		"graph:view": "ttsc-graph view --cwd . --tsconfig tsconfig.graph.json",
 		"graph:openapi": "ttsc-graph --cwd . --tsconfig tsconfig.graph.openapi.json",
 		"graph:openapi:dump": "ttsc-graph dump --cwd . --tsconfig tsconfig.graph.openapi.json",
-		"graph:openapi:view": "ttsc-graph view --cwd . --tsconfig tsconfig.graph.openapi.json"
+		"graph:openapi:view": "ttsc-graph view --cwd . --tsconfig tsconfig.graph.openapi.json",
+		"test:built": "bash ./scripts/test-built-workspaces.sh"
 	},
 	"workspaces": {
 		"packages": [
