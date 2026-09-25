@@ -3,7 +3,13 @@ import { parse, type DefaultTreeAdapterMap } from "parse5";
 type HtmlNode = DefaultTreeAdapterMap["node"];
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const SUBSCRIPTION_PATH = new RegExp(`/subscription/${UUID}/${UUID}/?$`);
-const INERT_ELEMENTS = new Set(["script", "style", "template", "noscript"]);
+const INERT_ELEMENTS = new Set([
+	"head",
+	"script",
+	"style",
+	"template",
+	"noscript",
+]);
 export const MAX_RENDERED_CAMPAIGN_CHARACTERS = 2_000_000;
 
 function absoluteWebUrl(value: string): URL | undefined {

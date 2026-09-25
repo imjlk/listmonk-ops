@@ -62,13 +62,14 @@ test("plain campaigns validate the rendered native URL without HTML", async () =
 test("plain campaigns inspect visible text and usable rendered anchors", () => {
 	for (const html of [
 		`<!-- ${route} -->`, `<script>${route}</script>`, `<div hidden>${route}</div>`,
-		`<a href="${route}"></a>`,
+		`<a href="${route}"></a>`, `<head><title>${route}</title></head><body>Hello</body>`,
 	]) {
 		expect(inspectRenderedCampaignContent(html, "plain").hasUnsubscribeLink).toBe(false);
 	}
 	expect(inspectRenderedCampaignContent(`<div>Leave: ${route}</div>`, "plain").hasUnsubscribeLink).toBe(true);
 	expect(inspectRenderedCampaignContent(`<div>Leave: ${route.replace("https://", "HTTPS://")}</div>`, "plain").hasUnsubscribeLink).toBe(true);
 	expect(inspectRenderedCampaignContent(`<footer><a href="${route}">Leave</a></footer>`, "plain").hasUnsubscribeLink).toBe(true);
+	expect(inspectRenderedCampaignContent('<head><meta content="https://example.test/private"></head><body>Hello</body>', "plain").linksToCheck).toEqual([]);
 });
 test("plain preview anchor labels do not substitute for their href destinations", () => {
 	const result = inspectRenderedCampaignContent(
