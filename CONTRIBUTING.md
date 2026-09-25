@@ -191,3 +191,16 @@ Before starting the next task, update locally:
 git checkout main
 git pull --ff-only origin main
 ```
+
+## Reusing builds in CI
+
+After `bun run check` and `bun run build`, run `bun run test:built` to execute
+the same unit-test directories in separate package processes without rebuilding
+workspace dependencies. It rejects a missing build instead of silently testing
+stale or partial output. Keep using `bun run test` for standalone local checks;
+native CLI tests and the local-stack PostgreSQL/MCP integration jobs remain
+separate required coverage. Rebuild after source changes before using `test:built`.
+
+CI cancels superseded pull-request runs, but does not cancel main-branch runs.
+Smoke logs are uploaded only on failure and retained for seven days. Intermediate
+CLI release artifacts are retained for one day; GitHub Release assets are unchanged.

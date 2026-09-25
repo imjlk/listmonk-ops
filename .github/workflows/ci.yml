@@ -6,6 +6,13 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -44,7 +51,7 @@ jobs:
         run: bun run check:cli-pack-size
 
       - name: Run unit tests
-        run: bun run test
+        run: bun run test:built
 
       - name: Test native CLI binary
         run: bun run --cwd apps/cli test:binary
@@ -104,12 +111,13 @@ jobs:
           LISTMONK_OPS_WEBHOOK_DATABASE_URL: postgres://listmonk:listmonk@127.0.0.1:15432/listmonk
         run: bun run test:e2e
 
-      - name: Upload smoke artifacts
-        if: always()
+      - name: Upload smoke artifacts on failure
+        if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: local-stack-smoke
           path: /tmp/listmonk-ops-smoke
+          retention-days: 7
 
       - name: Dump compose logs on failure
         if: failure()
