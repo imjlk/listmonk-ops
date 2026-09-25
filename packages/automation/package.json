@@ -38,6 +38,7 @@
 		"@listmonk-ops/common": "workspace:^0.7.0",
 		"@listmonk-ops/openapi": "workspace:^0.10.0",
 		"@listmonk-ops/operations": "workspace:^0.18.0",
+		"parse5": "8.0.0",
 		"postgres": "3.4.9",
 		"zod": "4.6.5"
 	},

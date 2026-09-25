@@ -1,3 +1,7 @@
+import {
+	inspectRenderedCampaignContent,
+	isCampaignControlLink,
+} from "./campaign-content";
 import { pauseCampaign } from "@listmonk-ops/operations";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { lookup as dnsLookup } from "node:dns/promises";
@@ -67,11 +71,6 @@ async function checkLinksWithBoundedConcurrency(
 		results.push(...batchResults);
 	}
 	return results;
-}
-
-function collectBodyLinks(body: string): string[] {
-	const matches = body.match(/https?:\/\/[^\s"'<>()]+/g) || [];
-	return Array.from(new Set(matches));
 }
 
 /**
@@ -321,6 +320,13 @@ export async function checkLink(
 	status?: number;
 	error?: string;
 }> {
+	try {
+		if (isCampaignControlLink(new URL(url))) {
+			return { url, ok: false, error: "Blocked: campaign control link" };
+		}
+	} catch {
+		return { url, ok: false, error: "Blocked: invalid URL" };
+	}
 	// SSRF defense: reject private/internal hosts before fetching,
 	// including DNS resolution pinning.
 	const safety = await isSafeFetchUrlAsync(url);
@@ -440,6 +446,14 @@ async function followRedirects(
 		const location = response.headers.get("location")!;
 		response.body?.cancel().catch(() => {});
 		currentUrl = new URL(location, currentUrl).toString();
+		if (isCampaignControlLink(new URL(currentUrl))) {
+			return {
+				response,
+				currentUrl,
+				redirectCount,
+				error: "Redirect blocked: campaign control link",
+			};
+		}
 		const redirectSafety = await isSafeFetchUrlAsync(currentUrl);
 		if (!redirectSafety.safe) {
 			return {
@@ -510,34 +524,37 @@ export async function runCampaignPreflight(
 		});
 	}
 
-	if (body.toLowerCase().includes("unsubscribe")) {
-		checks.push({
-			id: "unsubscribe_link",
-			level: "pass",
-			message: "Unsubscribe marker found in body",
-		});
-	} else {
-		checks.push({
-			id: "unsubscribe_link",
-			level: "fail",
-			message: "Unsubscribe marker not found in body",
-		});
-	}
-
-	const openBraces = body.match(/{{/g)?.length ?? 0;
-	const closeBraces = body.match(/}}/g)?.length ?? 0;
-	if (openBraces === closeBraces) {
+	let renderedInspection: ReturnType<typeof inspectRenderedCampaignContent> | undefined;
+	try {
+		const rendered = unwrapResponseData(
+			await client.campaign.preview({ path: { id: campaignId } }),
+			"Failed to render campaign preview",
+		);
+		if (typeof rendered !== "string") throw new Error("Invalid campaign preview response");
+		renderedInspection = inspectRenderedCampaignContent(rendered, campaign.content_type);
 		checks.push({
 			id: "template_tokens",
 			level: "pass",
-			message: "Template token braces are balanced",
+			message: "Campaign and template rendered successfully for the preview subscriber",
 		});
-	} else {
+		checks.push({
+			id: "unsubscribe_link",
+			level: renderedInspection.hasUnsubscribeLink ? "pass" : "fail",
+			message: renderedInspection.hasUnsubscribeLink
+				? "Native unsubscribe link found in rendered campaign content"
+				: "Native unsubscribe link not found in rendered campaign content",
+		});
+	} catch {
+		// Preview errors can embed recipient or template content; do not echo them.
 		checks.push({
 			id: "template_tokens",
 			level: "fail",
-			message: "Template token braces are unbalanced",
-			details: { openBraces, closeBraces },
+			message: "Campaign preview failed or returned invalid content; inspect the preview in Listmonk",
+		});
+		checks.push({
+			id: "unsubscribe_link",
+			level: "fail",
+			message: "Unable to verify unsubscribe link without a valid rendered preview",
 		});
 	}
 
@@ -618,12 +635,15 @@ export async function runCampaignPreflight(
 	}
 
 	if (checkLinks) {
-		const links = collectBodyLinks(body).slice(0, 20);
+		const links = renderedInspection?.linksToCheck.slice(0, 20) ?? [];
 		if (links.length === 0) {
 			checks.push({
 				id: "link_health",
 				level: "warn",
-				message: "No http(s) links found in campaign body",
+				message: "No ordinary http(s) links to check in rendered campaign content (control links are skipped)",
+				details: {
+					skippedControlLinks: renderedInspection?.skippedControlLinks ?? 0,
+				},
 			});
 		} else {
 			const linkResults = await checkLinksWithBoundedConcurrency(
@@ -640,6 +660,7 @@ export async function runCampaignPreflight(
 						: `${linkResults.length} link(s) passed health check`,
 				details: {
 					checked: linkResults.length,
+					skippedControlLinks: renderedInspection?.skippedControlLinks ?? 0,
 					broken: brokenLinks,
 				},
 			});
