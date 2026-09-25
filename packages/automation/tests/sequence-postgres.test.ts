@@ -143,7 +143,7 @@ describe("Postgres sequence repository", () => {
 			expect(String(deleteError)).toContain("Ambiguous transactional claim deletion requires version 3 reconciliation");
 			await store.forgetReconciliation({ key, targetHash: "target" });
 			expect((await store.load()).reconciliations?.some((decision) => decision.key === key)).toBe(false);
-			expect(Date.parse((await store.load()).records[key]!.expiresAt)).toBeLessThan(later().getTime());
+			expect((await store.load()).records[key]).toBeUndefined();
 			const replacement = await store.claim({ key, payloadHash: "payload", targetHash: "target", now: later });
 			expect(replacement.kind).toBe("new");
 			if (replacement.kind === "new") await store.release({ key, claimToken: replacement.record.claimToken });
@@ -152,6 +152,24 @@ describe("Postgres sequence repository", () => {
 			await sql`DELETE FROM listmonk_ops.sequence_idempotency_records WHERE key = ${key}`;
 			await sql.end({ timeout: 5 });
 		}
+	});
+	postgresTest("retains ordinary accepted sequence sends across unrelated sweeps", async () => {
+		const store = repositories[0]?.idempotencyStore;
+		if (!store?.forgetReconciliation) throw new Error("Postgres transactional store unavailable");
+		const key = `sequence:${randomUUID()}:revision:1:step:send`;
+		const now = () => new Date("2026-01-01T00:00:00.000Z");
+		const later = () => new Date("2026-01-03T00:00:00.000Z");
+		const claim = await store.claim({ key, payloadHash: "payload", targetHash: "target", ttlMs: 1, now });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await store.commit({ key, claimToken: claim.record.claimToken, status: "accepted", sent: true, now });
+		const unrelatedKey = `unrelated-${randomUUID()}`;
+		const unrelated = await store.claim({ key: unrelatedKey, payloadHash: "other", targetHash: "target", now: later });
+		if (unrelated.kind === "new") await store.release({ key: unrelatedKey, claimToken: unrelated.record.claimToken });
+		expect((await store.load()).records[key]?.status).toBe("accepted");
+		expect(await store.get?.(key)).toMatchObject({ key, status: "accepted" });
+		expect(await store.get?.(`missing-${randomUUID()}`)).toBeUndefined();
+		await store.forgetReconciliation({ key, targetHash: "target" });
+		expect((await store.load()).records[key]).toBeUndefined();
 	});
 	postgresTest("retains sequence recovery receipts beyond the direct-decision cap", async () => {
 		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");

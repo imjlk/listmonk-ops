@@ -43,6 +43,11 @@ const sequenceSendStepSchema = z.object({
 	id: stepIdSchema,
 	type: z.literal(SEQUENCE_STEP_TYPES[0]),
 	templateId: z.number().int().positive(),
+	/** Every referenced list must currently permit receipt; absent retains legacy policy. */
+	consentListIds: z.array(z.number().int().positive().max(Number.MAX_SAFE_INTEGER))
+		.min(1).max(100)
+		.refine((ids) => new Set(ids).size === ids.length, "consent list ids must be unique")
+		.optional(),
 	fromEmail: transactionalFromEmailSchema.optional(),
 	data: jsonObjectSchema.optional(),
 	contentType: z.enum(["html", "markdown", "plain"]).optional(),

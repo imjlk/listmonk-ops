@@ -1,3 +1,7 @@
+import {
+	checkSequenceListConsent,
+	SequenceConsentLookupRetryError,
+} from "./sequence-consent";
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
@@ -25,7 +29,7 @@ import type {
 
 export interface SequenceExecutionContext {
 	repository: SequenceRepository;
-	client: Pick<ListmonkClient, "subscriber" | "transactional">;
+	client: Pick<ListmonkClient, "subscriber" | "transactional"> & Partial<Pick<ListmonkClient, "list">>;
 	idempotencyStore: TransactionalIdempotencyStore;
 	hashPayload: (serialized: string) => string;
 	target?: {
@@ -66,9 +70,19 @@ async function sweepRecoveredSequenceReceipts(context: SequenceExecutionContext,
 	if (!context.idempotencyStore.forgetReconciliation) return;
 	const last = lastReceiptSweep.get(context.repository);
 	if (last !== undefined && now.getTime() >= last && now.getTime() - last < SEQUENCE_RECEIPT_SWEEP_INTERVAL_MS) return;
-	const latestByKey = new Map<string, NonNullable<Awaited<ReturnType<TransactionalIdempotencyStore["load"]>>["reconciliations"]>[number]>();
-	for (const event of (await context.idempotencyStore.load()).reconciliations ?? []) {
+	const document = await context.idempotencyStore.load();
+	const latestByKey = new Map<string, { key: string; targetHash: string; decision: "accepted" | "retry" }>();
+	for (const event of document.reconciliations ?? []) {
 		if (event.key.startsWith("sequence:")) latestByKey.set(event.key, event);
+	}
+	for (const record of Object.values(document.records)) {
+		if (record.key.startsWith("sequence:") && record.status === "accepted") {
+			latestByKey.set(record.key, {
+				key: record.key,
+				targetHash: record.targetHash,
+				decision: "accepted",
+			});
+		}
 	}
 	for (const event of latestByKey.values()) {
 		const match = /^sequence:([0-9a-f-]{36}):revision:\d+:step:[A-Za-z0-9._:-]+$/i.exec(
@@ -284,28 +298,45 @@ async function executeSendStep(
 				now,
 			);
 		}
-		const subscriber = await getSubscriber(
-			{ client: context.client },
-			{ id: claimed.enrollment.subscriberId },
-		);
-		const cannotReceive = subscriberCannotReceive(
+		const sendKey = deterministicSendKey(claimed.enrollment);
+		const existing = context.idempotencyStore.get
+			? await context.idempotencyStore.get(sendKey)
+			: (await context.idempotencyStore.load()).records[sendKey];
+		const sameTarget = existing !== undefined &&
+			existing.targetHash === computeTransactionalTargetHash(context.target ?? {});
+		// A confirmed acknowledgement is durable even after the store's replay TTL.
+		// Reclaiming an expired accepted record would dispatch the message twice.
+		if (existing?.status === "accepted") return transitionToNext(claimed, now);
+		const needsReconciliation = existing?.status === "pending" || existing?.status === "unknown";
+		if (needsReconciliation && !sameTarget) {
+			return withoutLease(claimed.enrollment, {
+				status: "ambiguous",
+				lastError: "Sequence send has an unresolved claim for a different Listmonk target; operator reconciliation is required",
+			}, now);
+		}
+		if (!needsReconciliation) {
+			const subscriber = await getSubscriber(
+				{ client: context.client },
+				{ id: claimed.enrollment.subscriberId },
+			);
+			const cannotReceive = subscriberCannotReceive(
 			subscriber as {
 				status?: string;
 				lists?: Array<Record<string, unknown>>;
 			},
-		);
-		if (cannotReceive) {
-			return withoutLease(
-				claimed.enrollment,
-				{
-					status: "cancelled",
-					retryCount: 0,
-					lastError: `Sequence delivery cancelled because ${cannotReceive}`,
-				},
-				now,
-			);
+		) ?? await checkSequenceListConsent(context.client, subscriber, step.consentListIds);
+			if (cannotReceive) {
+				return withoutLease(
+					claimed.enrollment,
+					{
+						status: "cancelled",
+						retryCount: 0,
+						lastError: `Sequence delivery cancelled because ${cannotReceive}`,
+					},
+					now,
+				);
+			}
 		}
-		const sendKey = deterministicSendKey(claimed.enrollment);
 		const result = await sendTransactionalMessage(
 			{
 				client: context.client,
@@ -382,7 +413,7 @@ async function executeSendStep(
 				now,
 			);
 		}
-		if (isDefinitivePreDispatchError(error)) {
+		if (error instanceof SequenceConsentLookupRetryError || isDefinitivePreDispatchError(error)) {
 			return retryEnrollment(
 				claimed.enrollment,
 				now,

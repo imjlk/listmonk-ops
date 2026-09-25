@@ -5,9 +5,8 @@ set -euo pipefail
 # the single-file CLI bundle. Keep modest headroom above the reviewed baseline
 # while retaining the stricter compressed distribution budget below. Each
 # standalone contract migration adds a few KB of generated JSON.
-# Deliverability playbook baseline: 1,936,255 bytes unpacked.
+# Sequence consent and deliverability playbook contracts share this budget.
 MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1940000}"
-# The same bundle measures 321,208 bytes compressed.
 MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-323000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"

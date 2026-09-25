@@ -485,13 +485,7 @@ async function sweepExpiredIdempotencyRecords(
 		DELETE FROM listmonk_ops.sequence_idempotency_records AS record
 		WHERE record.expires_at < ${now}
 			AND record.status IN ('accepted', 'failed')
-			AND NOT (
-				record.status = 'accepted' AND record.key LIKE 'sequence:%'
-				AND COALESCE((
-					SELECT decision FROM listmonk_ops.sequence_idempotency_reconciliations
-					WHERE key = record.key ORDER BY id DESC LIMIT 1
-				) = 'accepted', false)
-			)
+			AND NOT (record.status = 'accepted' AND record.key LIKE 'sequence:%')
 	`;
 }
 
@@ -644,6 +638,14 @@ function createPostgresTransactionalIdempotencyStore(
 				})),
 			};
 		},
+		async get(key): Promise<TransactionalSendRecord | undefined> {
+			await ready();
+			const rows = await sql<IdempotencyRow[]>`
+				SELECT * FROM listmonk_ops.sequence_idempotency_records
+				WHERE key = ${key}
+			`;
+			return rows[0] ? toIdempotencyRecord(rows[0]) : undefined;
+		},
 		async reconcile(options) {
 			await ready();
 			if (options.reason.trim().length < 10 || options.reason.length > 500 || /[\u0000-\u001f\u007f]/u.test(options.reason)) {
@@ -720,6 +722,11 @@ function createPostgresTransactionalIdempotencyStore(
 				await transaction`
 					DELETE FROM listmonk_ops.sequence_idempotency_reconciliations
 					WHERE key = ${options.key} AND target_hash = ${options.targetHash}
+				`;
+				await transaction`
+					DELETE FROM listmonk_ops.sequence_idempotency_records
+					WHERE key = ${options.key} AND target_hash = ${options.targetHash}
+						AND status = 'accepted'
 				`;
 			});
 		},
