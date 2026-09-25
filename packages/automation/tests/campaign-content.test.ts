@@ -71,6 +71,17 @@ test("plain campaigns inspect visible text and usable rendered anchors", () => {
 	expect(inspectRenderedCampaignContent(`<footer><a href="${route}">Leave</a></footer>`, "plain").hasUnsubscribeLink).toBe(true);
 	expect(inspectRenderedCampaignContent('<head><meta content="https://example.test/private"></head><body>Hello</body>', "plain").linksToCheck).toEqual([]);
 });
+test("plain previews retain bracketed URLs without accepting hidden markup", () => {
+	expect(inspectRenderedCampaignContent(`Unsubscribe: <${route}>`, "plain").hasUnsubscribeLink).toBe(
+		true,
+	);
+	expect(inspectRenderedCampaignContent(`<!-- <${route}> --><p>Hello</p>`, "plain").hasUnsubscribeLink).toBe(
+		false,
+	);
+	expect(inspectRenderedCampaignContent(`<script>const url = "<${route}>";</script><p>Hello</p>`, "plain").hasUnsubscribeLink).toBe(
+		false,
+	);
+});
 test("plain preview anchor labels do not substitute for their href destinations", () => {
 	const result = inspectRenderedCampaignContent(
 		`<a href="https://example.test/page">${route}</a>`,

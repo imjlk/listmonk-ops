@@ -141,7 +141,10 @@ export function inspectRenderedCampaignContent(rendered: string, contentType?: s
 			"Campaign preview must be nonempty and at most 2000000 characters",
 		);
 	}
-	const visible = renderedVisibleUrls(rendered);
+	const parseInput = contentType === "plain"
+		? rendered.replace(/<(https?:\/\/[^\s<>"']+)>/giu, "&lt;$1&gt;")
+		: rendered;
+	const visible = renderedVisibleUrls(parseInput);
 	const candidates = contentType === "plain"
 		? [...visible.anchors, ...visible.text.flatMap((part) =>
 				(part.match(/https?:\/\/[^\s<>"']+/giu) ?? []).map((url) =>
