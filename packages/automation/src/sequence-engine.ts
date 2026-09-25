@@ -288,28 +288,33 @@ async function executeSendStep(
 				now,
 			);
 		}
-		const subscriber = await getSubscriber(
-			{ client: context.client },
-			{ id: claimed.enrollment.subscriberId },
-		);
-		const cannotReceive = subscriberCannotReceive(
+		const sendKey = deterministicSendKey(claimed.enrollment);
+		const existing = (await context.idempotencyStore.load()).records[sendKey];
+		const acceptedReplay = existing?.status === "accepted" &&
+			existing.targetHash === computeTransactionalTargetHash(context.target ?? {});
+		if (!acceptedReplay) {
+			const subscriber = await getSubscriber(
+				{ client: context.client },
+				{ id: claimed.enrollment.subscriberId },
+			);
+			const cannotReceive = subscriberCannotReceive(
 			subscriber as {
 				status?: string;
 				lists?: Array<Record<string, unknown>>;
 			},
 		) ?? await checkSequenceListConsent(context.client, subscriber, step.consentListIds);
-		if (cannotReceive) {
-			return withoutLease(
-				claimed.enrollment,
-				{
-					status: "cancelled",
-					retryCount: 0,
-					lastError: `Sequence delivery cancelled because ${cannotReceive}`,
-				},
-				now,
-			);
+			if (cannotReceive) {
+				return withoutLease(
+					claimed.enrollment,
+					{
+						status: "cancelled",
+						retryCount: 0,
+						lastError: `Sequence delivery cancelled because ${cannotReceive}`,
+					},
+					now,
+				);
+			}
 		}
-		const sendKey = deterministicSendKey(claimed.enrollment);
 		const result = await sendTransactionalMessage(
 			{
 				client: context.client,

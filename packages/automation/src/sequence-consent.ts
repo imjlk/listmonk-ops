@@ -13,7 +13,7 @@ export class SequenceConsentLookupRetryError extends Error {
 }
 
 function retryableListStatus(status: unknown): boolean {
-	return typeof status === "number" && (status === 429 || status >= 500);
+	return typeof status === "number" && (status === 408 || status === 429 || status >= 500);
 }
 
 /** Policy absence preserves legacy transactional use. A scoped send fails closed. */
@@ -51,9 +51,8 @@ export async function checkSequenceListConsent(
 			// safe to retry even when it cannot be classified as a send.
 			throw new SequenceConsentLookupRetryError();
 		}
-		if ("error" in response && retryableListStatus(
-			(response as { response?: { status?: unknown } }).response?.status,
-		)) {
+		const httpStatus = (response as { response?: { status?: unknown } }).response?.status;
+		if ("error" in response && (httpStatus === undefined || retryableListStatus(httpStatus))) {
 			throw new SequenceConsentLookupRetryError();
 		}
 		if ("error" in response || !("data" in response) || !response.data || response.data.id !== id) {

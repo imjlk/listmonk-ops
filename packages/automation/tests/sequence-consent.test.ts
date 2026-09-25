@@ -168,7 +168,7 @@ test("unclassified list transport exceptions also schedule a retry", async () =>
 	expect(enrollment.retryCount).toBe(1);
 	expect(f.sends()).toBe(0);
 });
-for (const status of [429, 503]) {
+for (const status of [408, 429, 503]) {
 	test(`retryable list HTTP ${status} responses keep the enrollment pending`, async () => {
 		const f = await fixture([{ id: 1, subscription_status: "unconfirmed" }], "single");
 		f.context.client.list.getById = async () => ({
@@ -182,6 +182,30 @@ for (const status of [429, 503]) {
 		expect(f.sends()).toBe(0);
 	});
 }
+test("statusless generated-client transport envelopes schedule a retry", async () => {
+	const f = await fixture([{ id: 1, subscription_status: "unconfirmed" }], "single");
+	f.context.client.list.getById = async () => ({ error: new Error("fetch failed"), response: undefined }) as never;
+	const tick = await runSequenceTick(f.context);
+	const enrollment = await f.repository.getEnrollment(tick.claimedIds[0]!);
+	expect(enrollment.status).toBe("pending");
+	expect(enrollment.retryCount).toBe(1);
+	expect(f.sends()).toBe(0);
+});
+test("an accepted send advances after a crash even if consent changes before recovery", async () => {
+	const f = await fixture([{ id: 1, subscription_status: "confirmed" }]);
+	const originalComplete = f.repository.completeClaim.bind(f.repository);
+	(f.repository as { completeClaim: unknown }).completeClaim = async () => { throw new Error("crash after send"); };
+	try {
+		await expect(runSequenceTick(f.context, { leaseMs: 1_000 })).rejects.toThrow();
+	} finally {
+		(f.repository as { completeClaim: unknown }).completeClaim = originalComplete;
+	}
+	expect(f.sends()).toBe(1);
+	f.state.lists = [{ id: 1, subscription_status: "unsubscribed" }];
+	const recovered = await runSequenceTick(f.context, { now: new Date(Date.now() + 2_000), leaseMs: 1_000 });
+	expect(recovered.advanced).toBe(1);
+	expect(f.sends()).toBe(1);
+});
 test("permission failures remain terminal when list consent cannot be verified", async () => {
 	const f = await fixture([{ id: 1, subscription_status: "unconfirmed" }], "single");
 	f.context.client.list.getById = async () => ({
