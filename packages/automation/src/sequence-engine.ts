@@ -1,4 +1,7 @@
-import { checkSequenceListConsent } from "./sequence-consent";
+import {
+	checkSequenceListConsent,
+	SequenceConsentLookupRetryError,
+} from "./sequence-consent";
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
@@ -383,7 +386,7 @@ async function executeSendStep(
 				now,
 			);
 		}
-		if (isDefinitivePreDispatchError(error)) {
+		if (error instanceof SequenceConsentLookupRetryError || isDefinitivePreDispatchError(error)) {
 			return retryEnrollment(
 				claimed.enrollment,
 				now,

@@ -11752,7 +11752,8 @@
                         },
                         "maxItems": 100,
                         "minItems": 1,
-                        "type": "array"
+                        "type": "array",
+                        "uniqueItems": true
                       },
                       "content_type": {
                         "oneOf": [
@@ -12152,7 +12153,8 @@
                         },
                         "maxItems": 100,
                         "minItems": 1,
-                        "type": "array"
+                        "type": "array",
+                        "uniqueItems": true
                       },
                       "content_type": {
                         "oneOf": [
@@ -12622,7 +12624,8 @@
                         },
                         "maxItems": 100,
                         "minItems": 1,
-                        "type": "array"
+                        "type": "array",
+                        "uniqueItems": true
                       },
                       "content_type": {
                         "oneOf": [

@@ -110,6 +110,7 @@ function buildSequenceStepSchema(
 			consent_list_ids: z.array(z.number().int().positive().max(Number.MAX_SAFE_INTEGER))
 				.min(1).max(100)
 				.refine((ids) => new Set(ids).size === ids.length, "consent_list_ids must be unique")
+				.meta({ uniqueItems: true })
 				.optional()
 				.describe("Require current consent on every listed mailing list before this send; single opt-in lists accept unconfirmed memberships"),
 			from_email: transactionalFromEmailSchema.optional(),

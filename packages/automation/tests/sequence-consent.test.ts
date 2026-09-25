@@ -20,6 +20,7 @@ import {
 import {
 	invokeSequenceCreateOperation,
 	invokeSequenceValidateOperation,
+	sequenceCreateOperation,
 } from "../src/sequence-operations";
 const directories: string[] = [];
 afterEach(async () => {
@@ -157,6 +158,35 @@ test("temporary list lookup outages schedule a retry instead of failing the enro
 	expect(enrollment.retryCount).toBe(1);
 	expect(tick.failed).toBe(0);
 	expect(f.sends()).toBe(0);
+});
+for (const status of [429, 503]) {
+	test(`retryable list HTTP ${status} responses keep the enrollment pending`, async () => {
+		const f = await fixture([{ id: 1, subscription_status: "unconfirmed" }], "single");
+		f.context.client.list.getById = async () => ({
+			error: { message: "temporary list failure" },
+			response: new Response(null, { status }),
+		}) as never;
+		const tick = await runSequenceTick(f.context);
+		const enrollment = await f.repository.getEnrollment(tick.claimedIds[0]!);
+		expect(enrollment.status).toBe("pending");
+		expect(enrollment.retryCount).toBe(1);
+		expect(f.sends()).toBe(0);
+	});
+}
+test("permission failures remain terminal when list consent cannot be verified", async () => {
+	const f = await fixture([{ id: 1, subscription_status: "unconfirmed" }], "single");
+	f.context.client.list.getById = async () => ({
+		error: { message: "forbidden" },
+		response: new Response(null, { status: 403 }),
+	}) as never;
+	const tick = await runSequenceTick(f.context);
+	expect(tick.failed).toBe(1);
+	expect(f.sends()).toBe(0);
+});
+test("the published sequence input schema requires unique consent list IDs", () => {
+	expect(JSON.stringify(sequenceCreateOperation.inputJsonSchema)).toContain(
+		'"uniqueItems":true',
+	);
 });
 test("shared operations preserve consent lists through persisted revisions", async () => {
  const f = await fixture([]);

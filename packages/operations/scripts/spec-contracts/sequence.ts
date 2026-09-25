@@ -30,7 +30,7 @@ export type SequenceStep =
 			type: "send";
 			template_id: ResourceId;
 			/** Require current consent on every listed mailing list before sending. Single opt-in accepts unconfirmed memberships. */
-			consent_list_ids?: (ResourceId[] & tags.MinItems<1> & tags.MaxItems<100>) | undefined;
+			consent_list_ids?: (ResourceId[] & tags.MinItems<1> & tags.MaxItems<100> & tags.UniqueItems) | undefined;
 			from_email?: TransactionalFromEmail | undefined;
 			data?: Record<string, unknown> | undefined;
 			content_type?: "html" | "markdown" | "plain" | undefined;

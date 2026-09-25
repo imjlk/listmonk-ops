@@ -6,6 +6,17 @@ type SubscriberConsentState = {
 	lists?: readonly Record<string, unknown>[] | undefined;
 };
 
+export class SequenceConsentLookupRetryError extends Error {
+	constructor() {
+		super("Temporary list lookup failure while verifying sequence consent");
+		this.name = "SequenceConsentLookupRetryError";
+	}
+}
+
+function retryableListStatus(status: unknown): boolean {
+	return typeof status === "number" && (status === 429 || status >= 500);
+}
+
 /** Policy absence preserves legacy transactional use. A scoped send fails closed. */
 export async function checkSequenceListConsent(
  client: Partial<Pick<ListmonkClient, "list">>,
@@ -33,12 +44,22 @@ export async function checkSequenceListConsent(
 		try {
 			response = await client.list.getById({ path: { list_id: id } });
 		} catch (error) {
+			if (retryableListStatus(
+				(error as { httpStatus?: unknown } | null)?.httpStatus,
+			)) {
+				throw new SequenceConsentLookupRetryError();
+			}
 			// A definitive connection/DNS failure happened before Listmonk could
 			// answer. Keep its code so the sequence engine schedules a retry.
 			if (error instanceof Error &&
 				typeof (error as { httpStatus?: unknown }).httpStatus !== "number" &&
 				isDefinitivePreDispatchError(error)) throw error;
 			throw new Error("Unable to verify the required list opt-in policy");
+		}
+		if ("error" in response && retryableListStatus(
+			(response as { response?: { status?: unknown } }).response?.status,
+		)) {
+			throw new SequenceConsentLookupRetryError();
 		}
 		if ("error" in response || !("data" in response) || !response.data || response.data.id !== id) {
 			throw new Error("Unable to verify the required list opt-in policy");
