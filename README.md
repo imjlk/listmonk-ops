@@ -1684,7 +1684,8 @@ template footer, instead of searching raw body words or counting braces. A nativ
 Listmonk subscription URL must appear in an HTML anchor (or as a URL in a plain
 text preview). Preview errors and empty/oversized content fail closed.
 
-Link health checks inspect ordinary rendered anchors only. Native subscription,
+Link health checks inspect ordinary rendered anchors and bare URLs in plain-text
+previews. Native subscription,
 opt-in and tracking routes, recognized authentication paths and credential-bearing
 query links are excluded; they are never visited by this check. Keep `check_links`
 disabled for messages containing custom action links whose behavior is unknown.

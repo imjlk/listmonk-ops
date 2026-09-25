@@ -102,7 +102,7 @@ test("plain sentence punctuation does not invalidate native unsubscribe URLs", (
 	);
 });
 test("empty and hidden-only anchors cannot satisfy unsubscribe", () => {
-	for (const html of [`<a href="${route}"></a>`, `<a href="${route}"><span hidden>Leave</span></a>`]) {
+	for (const html of [`<a href="${route}"></a>`, `<a href="${route}"><span hidden>Leave</span></a>`, `<div inert><a href="${route}">Leave</a></div>`]) {
 		expect(inspectRenderedCampaignContent(html).hasUnsubscribeLink).toBe(false);
 	}
 	expect(inspectRenderedCampaignContent(`<a href="${route}"><img src="/leave.png" alt="Leave"></a>`).hasUnsubscribeLink).toBe(
@@ -127,7 +127,7 @@ test("credential and tracking links are never included in the link-check set", (
 		route,
 		`${route}?manage=true`,
 		"https://newsletter.test/subscription/optin/id",
-		"https://newsletter.test/link/a/b/c",
+		"https://newsletter.test/link/00000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003",
 		"https://example.test/reset/token",
 		"https://example.test/action?token=secret",
 		"https://example.test/download?api_key=secret",
@@ -150,6 +150,12 @@ test("ordinary author and zipcode parameters remain eligible for link checks", (
 	);
 	expect(result.linksToCheck).toEqual(links);
 	expect(result.skippedControlLinks).toBe(0);
+});
+test("ordinary third-party link paths remain eligible for link checks", () => {
+	const href = "https://example.test/link/documentation";
+	expect(inspectRenderedCampaignContent(`<a href="${href}">Documentation</a>`).linksToCheck).toEqual(
+		[href],
+	);
 });
 test("redirects to control links are blocked before the target is fetched", async () => {
 	const original = globalThis.fetch;

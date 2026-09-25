@@ -3,6 +3,10 @@ import { parse, type DefaultTreeAdapterMap } from "parse5";
 type HtmlNode = DefaultTreeAdapterMap["node"];
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const SUBSCRIPTION_PATH = new RegExp(`/subscription/${UUID}/${UUID}/?$`);
+const TRACKING_LINK_PATH = new RegExp(
+	`(?:^|/)link/${UUID}/${UUID}/${UUID}/?$`,
+	"u",
+);
 const INERT_ELEMENTS = new Set([
 	"head",
 	"script",
@@ -31,7 +35,8 @@ export function isCampaignControlLink(url: URL): boolean {
 	} catch {
 		return true;
 	}
-	if (/(?:^|\/)(?:subscription|link|unsubscribe|optin|login|auth|oauth|reset|verify|confirm)(?:\/|$)/u.test(path)) return true;
+	if (/(?:^|\/)(?:subscription|unsubscribe|optin|login|auth|oauth|reset|verify|confirm)(?:\/|$)/u.test(path)) return true;
+	if (TRACKING_LINK_PATH.test(path)) return true;
 	if (/\/campaign\/[^/]+\/[^/]+\/px\.png$/u.test(path)) return true;
 	return [...url.searchParams.keys()].some((key) => {
 		const normalized = key.replace(/[-_.]/gu, "").toLowerCase();
@@ -45,7 +50,7 @@ function hiddenElement(node: HtmlNode): boolean {
 	const attributes = new Map(
 		node.attrs.map((attribute) => [attribute.name, attribute.value]),
 	);
-	return INERT_ELEMENTS.has(node.tagName) || attributes.has("hidden")
+	return INERT_ELEMENTS.has(node.tagName) || attributes.has("hidden") || attributes.has("inert")
 		|| attributes.get("aria-hidden") === "true"
 		|| /(?:display\s*:\s*none|visibility\s*:\s*hidden)/iu.test(attributes.get("style") ?? "");
 }
