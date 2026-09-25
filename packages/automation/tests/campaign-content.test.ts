@@ -4,7 +4,7 @@ import {
 	inspectRenderedCampaignContent,
 	MAX_RENDERED_CAMPAIGN_CHARACTERS,
 } from "../src/campaign-content";
-import { runCampaignPreflight } from "../src/campaign";
+import { checkLink, runCampaignPreflight } from "../src/campaign";
 const route = "https://newsletter.test/subscription/00000000-0000-0000-0000-000000000000/00000000-0000-0000-0000-000000000000";
 const anchor = `<a href="${route}">수신 거부</a>`;
 function fixture(rendered: unknown, body = "<p>Hello</p>", contentType = "html") {
@@ -59,6 +59,23 @@ test("plain campaigns validate the rendered native URL without HTML", async () =
  const result = await runCampaignPreflight(fixture(`Leave this list: ${route}`, "Hello", "plain"), 1);
  expect(check(result, "unsubscribe_link")?.level).toBe("pass");
 });
+test("plain campaigns inspect only visible preview text", () => {
+	for (const html of [
+		`<!-- ${route} -->`, `<script>${route}</script>`, `<div hidden>${route}</div>`,
+		`<a href="${route}">Leave</a>`,
+	]) {
+		expect(inspectRenderedCampaignContent(html, "plain").hasUnsubscribeLink).toBe(false);
+	}
+	expect(inspectRenderedCampaignContent(`<div>Leave: ${route}</div>`, "plain").hasUnsubscribeLink).toBe(true);
+});
+test("empty and hidden-only anchors cannot satisfy unsubscribe", () => {
+	for (const html of [`<a href="${route}"></a>`, `<a href="${route}"><span hidden>Leave</span></a>`]) {
+		expect(inspectRenderedCampaignContent(html).hasUnsubscribeLink).toBe(false);
+	}
+	expect(inspectRenderedCampaignContent(`<a href="${route}"><img src="/leave.png" alt="Leave"></a>`).hasUnsubscribeLink).toBe(
+		true,
+	);
+});
 test("comments, scripts, inert templates and explicitly hidden links cannot satisfy the check", () => {
  for (const html of [`<!-- ${anchor} -->`, `<script>${anchor}</script>`, `<template>${anchor}</template>`, `<div hidden>${anchor}</div>`, `<div style="display:none">${anchor}</div>`]) {
   expect(inspectRenderedCampaignContent(html).hasUnsubscribeLink).toBe(false);
@@ -80,12 +97,31 @@ test("credential and tracking links are never included in the link-check set", (
 		"https://newsletter.test/link/a/b/c",
 		"https://example.test/reset/token",
 		"https://example.test/action?token=secret",
+		"https://example.test/download?api_key=secret",
+		"https://example.test/download?reset_token=secret",
+		"https://example.test/download?jwt=secret",
 	];
 	const result = inspectRenderedCampaignContent(
 		links.map((href) => `<a href="${href}">Link</a>`).join(""),
 	);
 	expect(result.linksToCheck).toEqual([]);
 	expect(result.skippedControlLinks).toBe(links.length);
+});
+test("redirects to control links are blocked before the target is fetched", async () => {
+	const original = globalThis.fetch;
+	let requests = 0;
+	globalThis.fetch = (async () => {
+		requests++;
+		return new Response(null, { status: 302, headers: { location: route } });
+	}) as typeof fetch;
+	try {
+		const result = await checkLink("https://example.com/start", 5_000);
+		expect(result.ok).toBe(false);
+		expect(result.error).toContain("campaign control link");
+		expect(requests).toBe(1);
+	} finally {
+		globalThis.fetch = original;
+	}
 });
 test("raw words, unsupported schemes, URL credentials and unresolved expressions do not count", () => {
  for (const href of ["javascript:unsubscribe()", "{{ UnsubscribeURL }}", "mailto:unsubscribe@example.test", route.replace("https://", "https://user:pass@"), "https://example.test/unsubscribe"]) {

@@ -1,4 +1,7 @@
-import { inspectRenderedCampaignContent } from "./campaign-content";
+import {
+	inspectRenderedCampaignContent,
+	isCampaignControlLink,
+} from "./campaign-content";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { lookup as dnsLookup } from "node:dns/promises";
 
@@ -316,6 +319,13 @@ export async function checkLink(
 	status?: number;
 	error?: string;
 }> {
+	try {
+		if (isCampaignControlLink(new URL(url))) {
+			return { url, ok: false, error: "Blocked: campaign control link" };
+		}
+	} catch {
+		return { url, ok: false, error: "Blocked: invalid URL" };
+	}
 	// SSRF defense: reject private/internal hosts before fetching,
 	// including DNS resolution pinning.
 	const safety = await isSafeFetchUrlAsync(url);
@@ -435,6 +445,14 @@ async function followRedirects(
 		const location = response.headers.get("location")!;
 		response.body?.cancel().catch(() => {});
 		currentUrl = new URL(location, currentUrl).toString();
+		if (isCampaignControlLink(new URL(currentUrl))) {
+			return {
+				response,
+				currentUrl,
+				redirectCount,
+				error: "Redirect blocked: campaign control link",
+			};
+		}
 		const redirectSafety = await isSafeFetchUrlAsync(currentUrl);
 		if (!redirectSafety.safe) {
 			return {
