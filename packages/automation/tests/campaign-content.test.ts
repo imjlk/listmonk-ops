@@ -91,6 +91,16 @@ test("plain URL extraction preserves valid trailing path characters", () => {
 		["https://example.test/action!"],
 	);
 });
+test("plain sentence punctuation does not invalidate native unsubscribe URLs", () => {
+	for (const punctuation of [".", ",", ";", ").", "]."]) {
+		expect(inspectRenderedCampaignContent(`Unsubscribe: ${route}${punctuation}`, "plain").hasUnsubscribeLink).toBe(
+			true,
+		);
+	}
+	expect(inspectRenderedCampaignContent("Read https://example.test/action!", "plain").linksToCheck).toEqual(
+		["https://example.test/action!"],
+	);
+});
 test("empty and hidden-only anchors cannot satisfy unsubscribe", () => {
 	for (const html of [`<a href="${route}"></a>`, `<a href="${route}"><span hidden>Leave</span></a>`]) {
 		expect(inspectRenderedCampaignContent(html).hasUnsubscribeLink).toBe(false);

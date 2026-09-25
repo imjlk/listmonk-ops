@@ -109,6 +109,16 @@ function stripUnmatchedClosingDelimiters(value: string): string {
 	return value.slice(0, end);
 }
 
+function stripSurroundingUrlPunctuation(value: string): string {
+	let current = value;
+	let previous: string;
+	do {
+		previous = current;
+		current = stripUnmatchedClosingDelimiters(current.replace(/[.,;]+$/u, ""));
+	} while (current !== previous);
+	return current;
+}
+
 /** Inspect the server-rendered sample, without fetching links or executing HTML. */
 export function inspectRenderedCampaignContent(rendered: string, contentType?: string): {
 	hasUnsubscribeLink: boolean;
@@ -124,7 +134,7 @@ export function inspectRenderedCampaignContent(rendered: string, contentType?: s
 	const candidates = contentType === "plain"
 		? [...visible.anchors, ...visible.text.flatMap((part) =>
 				(part.match(/https?:\/\/[^\s<>"']+/giu) ?? []).map((url) =>
-					stripUnmatchedClosingDelimiters(url),
+					stripSurroundingUrlPunctuation(url),
 				),
 			)]
 		: visible.anchors;
