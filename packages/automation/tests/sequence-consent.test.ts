@@ -145,6 +145,19 @@ test("all configured lists are required, not just any list", async () => {
 test("unconfirmed memberships cannot rely on an absent list client", async () => {
  await expect(checkSequenceListConsent({}, { status: "enabled", lists: [{ id: 1, subscription_status: "unconfirmed" }] }, [1])).rejects.toThrow("list-read access");
 });
+test("temporary list lookup outages schedule a retry instead of failing the enrollment", async () => {
+	const f = await fixture([{ id: 1, subscription_status: "unconfirmed" }], "single");
+	f.context.client.list.getById = async () => {
+		const error = new Error("connect ECONNREFUSED");
+		throw error;
+	};
+	const tick = await runSequenceTick(f.context);
+	const enrollment = await f.repository.getEnrollment(tick.claimedIds[0]!);
+	expect(enrollment.status).toBe("pending");
+	expect(enrollment.retryCount).toBe(1);
+	expect(tick.failed).toBe(0);
+	expect(f.sends()).toBe(0);
+});
 test("shared operations preserve consent lists through persisted revisions", async () => {
  const f = await fixture([]);
  const result = await invokeSequenceCreateOperation({ repository: f.repository }, { name: "protected", steps: [

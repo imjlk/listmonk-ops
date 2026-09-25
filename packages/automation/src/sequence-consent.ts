@@ -1,4 +1,5 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { isDefinitivePreDispatchError } from "@listmonk-ops/operations";
 
 type SubscriberConsentState = {
 	status?: string | undefined;
@@ -31,7 +32,12 @@ export async function checkSequenceListConsent(
 		let response;
 		try {
 			response = await client.list.getById({ path: { list_id: id } });
-		} catch {
+		} catch (error) {
+			// A definitive connection/DNS failure happened before Listmonk could
+			// answer. Keep its code so the sequence engine schedules a retry.
+			if (error instanceof Error &&
+				typeof (error as { httpStatus?: unknown }).httpStatus !== "number" &&
+				isDefinitivePreDispatchError(error)) throw error;
 			throw new Error("Unable to verify the required list opt-in policy");
 		}
 		if ("error" in response || !("data" in response) || !response.data || response.data.id !== id) {
