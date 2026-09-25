@@ -1,5 +1,4 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { isDefinitivePreDispatchError } from "@listmonk-ops/operations";
 
 type SubscriberConsentState = {
 	status?: string | undefined;
@@ -44,17 +43,13 @@ export async function checkSequenceListConsent(
 		try {
 			response = await client.list.getById({ path: { list_id: id } });
 		} catch (error) {
-			if (retryableListStatus(
-				(error as { httpStatus?: unknown } | null)?.httpStatus,
-			)) {
-				throw new SequenceConsentLookupRetryError();
+			const httpStatus = (error as { httpStatus?: unknown } | null)?.httpStatus;
+			if (typeof httpStatus === "number" && !retryableListStatus(httpStatus)) {
+				throw new Error("Unable to verify the required list opt-in policy");
 			}
-			// A definitive connection/DNS failure happened before Listmonk could
-			// answer. Keep its code so the sequence engine schedules a retry.
-			if (error instanceof Error &&
-				typeof (error as { httpStatus?: unknown }).httpStatus !== "number" &&
-				isDefinitivePreDispatchError(error)) throw error;
-			throw new Error("Unable to verify the required list opt-in policy");
+			// This idempotent GET precedes dispatch, so any transport failure is
+			// safe to retry even when it cannot be classified as a send.
+			throw new SequenceConsentLookupRetryError();
 		}
 		if ("error" in response && retryableListStatus(
 			(response as { response?: { status?: unknown } }).response?.status,

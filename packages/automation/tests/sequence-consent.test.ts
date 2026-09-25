@@ -159,6 +159,15 @@ test("temporary list lookup outages schedule a retry instead of failing the enro
 	expect(tick.failed).toBe(0);
 	expect(f.sends()).toBe(0);
 });
+test("unclassified list transport exceptions also schedule a retry", async () => {
+	const f = await fixture([{ id: 1, subscription_status: "unconfirmed" }], "single");
+	f.context.client.list.getById = async () => { throw new Error("ECONNRESET while reading list"); };
+	const tick = await runSequenceTick(f.context);
+	const enrollment = await f.repository.getEnrollment(tick.claimedIds[0]!);
+	expect(enrollment.status).toBe("pending");
+	expect(enrollment.retryCount).toBe(1);
+	expect(f.sends()).toBe(0);
+});
 for (const status of [429, 503]) {
 	test(`retryable list HTTP ${status} responses keep the enrollment pending`, async () => {
 		const f = await fixture([{ id: 1, subscription_status: "unconfirmed" }], "single");
