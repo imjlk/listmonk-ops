@@ -70,9 +70,19 @@ async function sweepRecoveredSequenceReceipts(context: SequenceExecutionContext,
 	if (!context.idempotencyStore.forgetReconciliation) return;
 	const last = lastReceiptSweep.get(context.repository);
 	if (last !== undefined && now.getTime() >= last && now.getTime() - last < SEQUENCE_RECEIPT_SWEEP_INTERVAL_MS) return;
-	const latestByKey = new Map<string, NonNullable<Awaited<ReturnType<TransactionalIdempotencyStore["load"]>>["reconciliations"]>[number]>();
-	for (const event of (await context.idempotencyStore.load()).reconciliations ?? []) {
+	const document = await context.idempotencyStore.load();
+	const latestByKey = new Map<string, { key: string; targetHash: string; decision: "accepted" | "retry" }>();
+	for (const event of document.reconciliations ?? []) {
 		if (event.key.startsWith("sequence:")) latestByKey.set(event.key, event);
+	}
+	for (const record of Object.values(document.records)) {
+		if (record.key.startsWith("sequence:") && record.status === "accepted") {
+			latestByKey.set(record.key, {
+				key: record.key,
+				targetHash: record.targetHash,
+				decision: "accepted",
+			});
+		}
 	}
 	for (const event of latestByKey.values()) {
 		const match = /^sequence:([0-9a-f-]{36}):revision:\d+:step:[A-Za-z0-9._:-]+$/i.exec(
@@ -294,9 +304,14 @@ async function executeSendStep(
 			existing.targetHash === computeTransactionalTargetHash(context.target ?? {});
 		// A confirmed acknowledgement is durable even after the store's replay TTL.
 		// Reclaiming an expired accepted record would dispatch the message twice.
-		if (sameTarget && existing?.status === "accepted") return transitionToNext(claimed, now);
-		const needsReconciliation = sameTarget &&
-			(existing?.status === "pending" || existing?.status === "unknown");
+		if (existing?.status === "accepted") return transitionToNext(claimed, now);
+		const needsReconciliation = existing?.status === "pending" || existing?.status === "unknown";
+		if (needsReconciliation && !sameTarget) {
+			return withoutLease(claimed.enrollment, {
+				status: "ambiguous",
+				lastError: "Sequence send has an unresolved claim for a different Listmonk target; operator reconciliation is required",
+			}, now);
+		}
 		if (!needsReconciliation) {
 			const subscriber = await getSubscriber(
 				{ client: context.client },

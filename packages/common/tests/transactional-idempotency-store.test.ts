@@ -144,6 +144,20 @@ describe("transactional idempotency file-backed store", () => {
 		expect(history.filter((decision) => !decision.key.startsWith("sequence:"))).toHaveLength(1_000);
 	});
 
+	test("retains an accepted sequence send across unrelated expiry sweeps until enrollment cleanup", async () => {
+		const store = createFileBackedTransactionalIdempotencyStore({ storePath });
+		const key = "sequence:00000000-0000-4000-8000-000000000001:revision:1:step:send";
+		const claim = await store.claim({ key, payloadHash: "payload", targetHash: DEFAULT_TARGET_HASH, ttlMs: 1, now: fixedClock });
+		if (claim.kind !== "new") throw new Error("expected new claim");
+		await store.commit({ key, claimToken: claim.record.claimToken, status: "accepted", sent: true, now: fixedClock });
+		const later = () => new Date("2026-01-02T00:00:00.000Z");
+		await store.claim({ key: "unrelated", payloadHash: "other", targetHash: DEFAULT_TARGET_HASH, now: later });
+		expect((await store.load()).records[key]?.status).toBe("accepted");
+		expect((await store.claim({ key, payloadHash: "payload", targetHash: DEFAULT_TARGET_HASH, now: later })).kind).toBe("replay");
+		await store.forgetReconciliation?.({ key, targetHash: DEFAULT_TARGET_HASH });
+		expect((await store.load()).records[key]).toBeUndefined();
+	});
+
 	test("requires an expired, quiesced pending claim before explicitly permitting a retry", async () => {
 		const key = "pending-order";
 		const claim = await claimTransactionalSend({ storePath, key, payloadHash: hashPayload(makePayload()), targetHash: DEFAULT_TARGET_HASH, ttlMs: 1, now: fixedClock });

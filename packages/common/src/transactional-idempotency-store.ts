@@ -375,17 +375,13 @@ function sweepExpiredRecords(
 	now: Date,
 ): { document: StoredTransactionalDocument; changed: boolean } {
 	const nowMs = now.getTime();
-	const sequenceDecisions = new Map<string, TransactionalReconciliationEvent>();
-	for (const event of document.reconciliations ?? []) {
-		if (isSequenceReconciliationKey(event.key)) sequenceDecisions.set(event.key, event);
-	}
 	const survivors: Record<string, TransactionalSendRecord> = Object.create(
 		null,
 	);
 	let changed = false;
 	for (const [key, record] of Object.entries(document.records)) {
 		if (record.status === "pending" || record.status === "unknown" ||
-			(record.status === "accepted" && sequenceDecisions.get(key)?.decision === "accepted") ||
+			(record.status === "accepted" && isSequenceReconciliationKey(key)) ||
 			new Date(record.expiresAt).getTime() >= nowMs) {
 			survivors[key] = record;
 		} else {
@@ -622,7 +618,7 @@ export async function reconcileTransactionalSend(options: TransactionalReconcili
 	});
 }
 
-/** Drop a sequence recovery receipt only after its enrollment has durably advanced. */
+/** Drop a sequence recovery decision and accepted receipt only after its enrollment has durably advanced. */
 export async function forgetSequenceReconciliation(options: { storePath?: string; key: string; targetHash: string }): Promise<void> {
 	if (!isSequenceReconciliationKey(options.key)) return;
 	const store = {
@@ -634,8 +630,12 @@ export async function forgetSequenceReconciliation(options: { storePath?: string
 		const remaining = previous?.filter(
 			(event) => event.key !== options.key || event.targetHash !== options.targetHash,
 		);
-		if (remaining?.length === previous?.length) return commitJsonFileStoreUpdate(document, undefined);
-		return commitJsonFileStoreUpdate({ ...document, reconciliations: remaining }, undefined);
+		const record = getOwnRecord(document.records, options.key);
+		const removeAccepted = record?.status === "accepted" && record.targetHash === options.targetHash;
+		if (remaining?.length === previous?.length && !removeAccepted) return commitJsonFileStoreUpdate(document, undefined);
+		const records = removeAccepted ? copyRecords(document.records) : document.records;
+		if (removeAccepted) delete records[options.key];
+		return commitJsonFileStoreUpdate({ ...document, records, reconciliations: remaining }, undefined);
 	});
 }
 

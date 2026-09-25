@@ -1022,7 +1022,7 @@ describe("sequence execution", () => {
 			document.records[
 				`sequence:${enrollment.id}:revision:1:step:send`
 			],
-		).toMatchObject({ status: "accepted", sent: true });
+		).toBeUndefined();
 	});
 
 	test("executes independent claimed sends concurrently", async () => {
@@ -1781,7 +1781,7 @@ describe("sequence execution", () => {
 			(await idempotencyStore.load()).records[
 				`sequence:${enrollment.id}:revision:1:step:send`
 			];
-		expect(record).toMatchObject({ status: "accepted", sent: true });
+		expect(record).toBeUndefined();
 		expect(await runSequenceTick(context, { now })).toMatchObject({
 			completed: 1,
 		});
