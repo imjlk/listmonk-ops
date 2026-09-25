@@ -140,6 +140,17 @@ test("credential and tracking links are never included in the link-check set", (
 	expect(result.linksToCheck).toEqual([]);
 	expect(result.skippedControlLinks).toBe(links.length);
 });
+test("ordinary author and zipcode parameters remain eligible for link checks", () => {
+	const links = [
+		"https://example.test/article?author=alice",
+		"https://example.test/store?zipcode=10001",
+	];
+	const result = inspectRenderedCampaignContent(
+		links.map((href) => `<a href="${href}">Link</a>`).join(""),
+	);
+	expect(result.linksToCheck).toEqual(links);
+	expect(result.skippedControlLinks).toBe(0);
+});
 test("redirects to control links are blocked before the target is fetched", async () => {
 	const original = globalThis.fetch;
 	let requests = 0;

@@ -33,11 +33,11 @@ export function isCampaignControlLink(url: URL): boolean {
 	}
 	if (/(?:^|\/)(?:subscription|link|unsubscribe|optin|login|auth|oauth|reset|verify|confirm)(?:\/|$)/u.test(path)) return true;
 	if (/\/campaign\/[^/]+\/[^/]+\/px\.png$/u.test(path)) return true;
-	return [...url.searchParams.keys()].some((key) =>
-		/(?:token|secret|password|passwd|signature|apikey|accesskey|jwt|auth|otp|code|^key$|^sig$)/iu.test(
-			key.replace(/[-_.]/gu, ""),
-		),
-	);
+	return [...url.searchParams.keys()].some((key) => {
+		const normalized = key.replace(/[-_.]/gu, "").toLowerCase();
+		return /(?:token|secret|password|passwd|signature|apikey|accesskey|jwt|otp)/u.test(normalized)
+			|| /^(?:auth|authorization|code|authcode|oauthcode|authorizationcode|verificationcode|resetcode|invitecode|key|sig)$/u.test(normalized);
+	});
 }
 
 function hiddenElement(node: HtmlNode): boolean {
