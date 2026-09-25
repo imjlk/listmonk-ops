@@ -290,9 +290,14 @@ async function executeSendStep(
 		}
 		const sendKey = deterministicSendKey(claimed.enrollment);
 		const existing = (await context.idempotencyStore.load()).records[sendKey];
-		const acceptedReplay = existing?.status === "accepted" &&
+		const sameTarget = existing !== undefined &&
 			existing.targetHash === computeTransactionalTargetHash(context.target ?? {});
-		if (!acceptedReplay) {
+		// A confirmed acknowledgement is durable even after the store's replay TTL.
+		// Reclaiming an expired accepted record would dispatch the message twice.
+		if (sameTarget && existing?.status === "accepted") return transitionToNext(claimed, now);
+		const needsReconciliation = sameTarget &&
+			(existing?.status === "pending" || existing?.status === "unknown");
+		if (!needsReconciliation) {
 			const subscriber = await getSubscriber(
 				{ client: context.client },
 				{ id: claimed.enrollment.subscriberId },

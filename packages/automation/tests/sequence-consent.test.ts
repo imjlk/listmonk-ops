@@ -202,8 +202,32 @@ test("an accepted send advances after a crash even if consent changes before rec
 	}
 	expect(f.sends()).toBe(1);
 	f.state.lists = [{ id: 1, subscription_status: "unsubscribed" }];
+	// An expired accepted record must advance without reclaiming or redispatching.
+	f.context.idempotencyStore.claim = async () => { throw new Error("accepted send was reclaimed"); };
 	const recovered = await runSequenceTick(f.context, { now: new Date(Date.now() + 2_000), leaseMs: 1_000 });
 	expect(recovered.advanced).toBe(1);
+	expect(f.sends()).toBe(1);
+});
+test("a pending send is reconciled before changed consent can cancel it", async () => {
+	const f = await fixture([{ id: 1, subscription_status: "confirmed" }]);
+	const originalComplete = f.repository.completeClaim.bind(f.repository);
+	const originalCommit = f.context.idempotencyStore.commit.bind(
+		f.context.idempotencyStore,
+	);
+	(f.repository as { completeClaim: unknown }).completeClaim = async () => { throw new Error("crash after send"); };
+	f.context.idempotencyStore.commit = async () => { throw new Error("commit failed"); };
+	try {
+		await expect(runSequenceTick(f.context, { leaseMs: 1_000 })).rejects.toThrow();
+	} finally {
+		(f.repository as { completeClaim: unknown }).completeClaim = originalComplete;
+		f.context.idempotencyStore.commit = originalCommit;
+	}
+	expect(f.sends()).toBe(1);
+	f.state.lists = [{ id: 1, subscription_status: "unsubscribed" }];
+	const recovered = await runSequenceTick(f.context, { now: new Date(Date.now() + 2_000), leaseMs: 1_000 });
+	const enrollment = await f.repository.getEnrollment(recovered.claimedIds[0]!);
+	expect(enrollment.status).toBe("pending");
+	expect(enrollment.retryCount).toBe(1);
 	expect(f.sends()).toBe(1);
 });
 test("permission failures remain terminal when list consent cannot be verified", async () => {
