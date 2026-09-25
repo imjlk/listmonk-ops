@@ -73,16 +73,17 @@ Recovery operation: `abtest.get`
 
 ## `campaign.deliverability-guard` — Guard campaign deliverability
 
-Inspect a live campaign, evaluate deliverability metrics, pause on breach, and verify the resulting state.
+Inspect a live campaign, evaluate deliverability metrics, pause on bounce breach and optionally on mature engagement breach, and verify the resulting state.
 
 Inputs:
 
 - `campaign_id` (`number`, required): Listmonk campaign ID to guard
+- `pause_on_engagement_breach` (`boolean`, required): Explicitly allow pausing for open/click breaches after the observation gates; false pauses only for bounce breaches
 
 Steps:
 
 1. `inspect` → `campaigns.get` (none approval). Inspect the campaign and its current status. Guard: `status equals "running"`; on failure: Only guard campaigns that are currently running.
-2. `evaluate` → `ops.campaign.deliverability-guard` (human approval). Evaluate deliverability metrics and pause the campaign if thresholds are breached.
+2. `evaluate` → `ops.campaign.deliverability-guard` (human approval). Evaluate deliverability metrics and pause for bounce breaches or approved mature engagement breaches.
 3. `verify` → `campaigns.get` (none approval). Verify the campaign state after the guard decision.
 
 Recovery operation: `campaigns.get`

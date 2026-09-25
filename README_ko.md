@@ -1621,3 +1621,21 @@ docker compose logs -f db
 등록 당시 리비전에 고정돼 있어 정의를 수정해도 소급 적용되지 않습니다.
 기존 등록 건을 정지·정리하고 재등록 여부를 검토하세요. 구버전은 이 필드를
 강제하지 않으므로 모든 워커와 쓰기 클라이언트를 먼저 업그레이드해야 합니다.
+
+### 발송 품질 가드의 관찰 정책
+
+`ops guard --pause-on-breach`는 **running** 캠페인의 반송 기준 초과에만
+자동 정지를 적용합니다. 열람·클릭률 기준 초과는 기본적으로 경고이며,
+`--minimum-sent`(100건)와 `--minimum-observation-seconds`(3600초)를 모두
+충족한 후 평가합니다. `started_at`이 없거나 잘못됐거나 미래이면 참여율을
+평가하지 않습니다.
+
+참여율에 따른 자동 정지를 명시적으로 사용하려면
+`--pause-on-breach --pause-on-engagement-breach --confirm`을 지정합니다.
+MCP에서도 대응되는 `pause_on_breach`, `pause_on_engagement_breach`,
+`minimum_observation_seconds` 필드를 사용합니다. 정지 직전 캠페인 버전과
+공통 상태 전이 규칙을 재검사하며 scheduled 캠페인을 직접 정지하지 않습니다.
+`campaign.deliverability-guard` 플레이북은 불리언
+`pause_on_engagement_breach` 입력을 명시적으로 요구합니다. `false`면 반송
+기준 초과만 정지하고, `true`면 승인 후 관찰 조건을 충족한 열람·클릭 기준
+초과도 정지할 수 있습니다.

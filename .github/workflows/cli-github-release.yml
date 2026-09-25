@@ -76,6 +76,7 @@ jobs:
         with:
           name: cli-${{ matrix.platform }}-${{ matrix.arch }}
           path: release-assets/*.tar.gz
+          retention-days: 1
 
   release:
     needs: build

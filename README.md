@@ -1699,3 +1699,20 @@ enrollments remain pinned to their old revision; updating a definition protects
 new enrollments, not already-enrolled recipients. Pause/drain old enrollments and
 review re-enrollment before enabling newsletter automation. Upgrade every worker
 and writer before using the new field; older binaries do not enforce it.
+
+### Deliverability guard observation policy
+
+`ops guard --pause-on-breach` automatically pauses **running** campaigns for
+bounce breaches only. Open/click breaches remain advisory by default and are
+evaluated only after both `--minimum-sent` (100) and
+`--minimum-observation-seconds` (3600) are satisfied. Missing, invalid or future
+`started_at` values cannot authorize engagement evaluation.
+
+To deliberately enable engagement-based pausing, provide
+`--pause-on-breach --pause-on-engagement-breach --confirm`. MCP uses the matching
+`pause_on_breach`, `pause_on_engagement_breach` and
+`minimum_observation_seconds` fields. A pause rechecks the campaign revision and
+uses the shared lifecycle rules; scheduled campaigns are never directly paused.
+The `campaign.deliverability-guard` playbook requires an explicit boolean
+`pause_on_engagement_breach` input. Set it to `false` for bounce-only pausing or
+`true` to allow mature open/click breaches to pause after approval.

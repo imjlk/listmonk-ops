@@ -190,3 +190,16 @@ bun run ops:smoke
 git checkout main
 git pull --ff-only origin main
 ```
+
+## CI에서 빌드 결과 재사용
+
+`bun run check`와 `bun run build` 이후 `bun run test:built`를 실행하면
+워크스페이스 의존성을 다시 빌드하지 않고 같은 단위 테스트 디렉터리를
+패키지별 별도 프로세스로 검사합니다. 빌드 결과가 없으면 오류로 중단합니다.
+독립적인 로컬 검증에는 기존 `bun run test`를 사용하세요. 네이티브 CLI 검사와
+로컬 스택의 PostgreSQL/MCP 통합 검사는 별도로 유지됩니다. 소스를 수정했다면
+`test:built` 실행 전에 반드시 다시 빌드하세요.
+
+동일 PR의 이전 CI 실행만 취소하며 main 브랜치 실행은 취소하지 않습니다.
+스모크 로그는 실패 시에만 업로드하고 7일 보관합니다. CLI 릴리즈 전달용 중간
+아티팩트는 1일 보관하며 최종 GitHub Release 첨부 파일은 변경하지 않습니다.

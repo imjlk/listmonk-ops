@@ -317,13 +317,19 @@ export const campaignDeliverabilityGuardPlaybook = defineOperationPlaybook({
 	id: "campaign.deliverability-guard",
 	title: "Guard campaign deliverability",
 	goal:
-		"Inspect a live campaign, evaluate deliverability metrics, pause on breach, and verify the resulting state.",
+		"Inspect a live campaign, evaluate deliverability metrics, pause on bounce breach and optionally on mature engagement breach, and verify the resulting state.",
 	inputs: [
 		{
 			name: "campaign_id",
 			type: "number",
 			required: true,
 			description: "Listmonk campaign ID to guard",
+		},
+		{
+			name: "pause_on_engagement_breach",
+			type: "boolean",
+			required: true,
+			description: "Explicitly allow pausing for open/click breaches after the observation gates; false pauses only for bounce breaches",
 		},
 	],
 	steps: [
@@ -352,7 +358,7 @@ export const campaignDeliverabilityGuardPlaybook = defineOperationPlaybook({
 			operation: opsDeliverabilityGuardOperationSpec.id,
 			approval: "human",
 			description:
-				"Evaluate deliverability metrics and pause the campaign if thresholds are breached.",
+				"Evaluate deliverability metrics and pause for bounce breaches or approved mature engagement breaches.",
 			dependsOn: ["inspect"],
 			input: [
 				{
@@ -362,6 +368,10 @@ export const campaignDeliverabilityGuardPlaybook = defineOperationPlaybook({
 				{
 					parameter: "pause_on_breach",
 					source: { kind: "literal", value: true },
+				},
+				{
+					parameter: "pause_on_engagement_breach",
+					source: { kind: "playbook-input", name: "pause_on_engagement_breach" },
 				},
 			],
 		},

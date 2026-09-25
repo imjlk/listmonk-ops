@@ -1854,6 +1854,16 @@ describe("email operations specification", () => {
 
 	test("defines a guarded human-approved campaign start playbook", () => {
 		expect(emailOperationsSpec.playbooks).toHaveLength(7);
+		const deliverabilityPlaybook = emailOperationsSpec.playbooks.find(
+			(playbook) => playbook.id === "campaign.deliverability-guard",
+		);
+		expect(deliverabilityPlaybook?.inputs).toContainEqual(expect.objectContaining({
+			name: "pause_on_engagement_breach", type: "boolean", required: true,
+		}));
+		expect(deliverabilityPlaybook?.steps.find((step) => step.id === "evaluate")?.input).toContainEqual({
+			parameter: "pause_on_engagement_breach",
+			source: { kind: "playbook-input", name: "pause_on_engagement_breach" },
+		});
 		expect(emailOperationsSpec.playbooks).toContain(
 			campaignSafeStartPlaybook,
 		);
