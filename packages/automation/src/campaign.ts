@@ -703,6 +703,37 @@ function getBounceCount(payload: unknown): number {
 	return results.length;
 }
 
+function strictCampaignStartMs(value: unknown): number | undefined {
+	if (typeof value !== "string") return undefined;
+	const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/u.exec(
+		value,
+	);
+	if (!match) return undefined;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+	const daysInMonth = [
+		31,
+		leap ? 29 : 28,
+		31,
+		30,
+		31,
+		30,
+		31,
+		31,
+		30,
+		31,
+		30,
+		31,
+	];
+	if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]!
+		|| Number(match[4]) > 23 || Number(match[5]) > 59 || Number(match[6]) > 59
+		|| (match[8] !== undefined && (Number(match[8]) > 23 || Number(match[9]) > 59))) return undefined;
+	const parsed = Date.parse(value);
+	return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export async function evaluateDeliverabilityGuard(
 	client: ListmonkClient,
 	campaignId: number,
@@ -743,8 +774,8 @@ export async function evaluateDeliverabilityGuard(
 	const openRate = sent > 0 ? views / sent : 0;
 	const clickRate = sent > 0 ? clicks / sent : 0;
 
-	const startedAt = Date.parse(campaign.started_at ?? "");
-	const engagementReady = sent >= minimumSent && Number.isFinite(startedAt)
+	const startedAt = strictCampaignStartMs(campaign.started_at);
+	const engagementReady = sent >= minimumSent && startedAt !== undefined
 		&& now.getTime() - startedAt >= minimumObservationSeconds * 1_000;
 	const bounceBreach = bounceRate > thresholds.bounceRate;
 	const engagementBreach = engagementReady && (openRate < thresholds.openRate || clickRate < thresholds.clickRate);

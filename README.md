@@ -1690,3 +1690,6 @@ To deliberately enable engagement-based pausing, provide
 `pause_on_breach`, `pause_on_engagement_breach` and
 `minimum_observation_seconds` fields. A pause rechecks the campaign revision and
 uses the shared lifecycle rules; scheduled campaigns are never directly paused.
+The `campaign.deliverability-guard` playbook requires an explicit boolean
+`pause_on_engagement_breach` input. Set it to `false` for bounce-only pausing or
+`true` to allow mature open/click breaches to pause after approval.

@@ -44476,7 +44476,7 @@
       "title": "Safely advance one A/B test"
     },
     {
-      "goal": "Inspect a live campaign, evaluate deliverability metrics, pause on breach, and verify the resulting state.",
+      "goal": "Inspect a live campaign, evaluate deliverability metrics, pause on bounce breach and optionally on mature engagement breach, and verify the resulting state.",
       "id": "campaign.deliverability-guard",
       "inputs": [
         {
@@ -44484,6 +44484,12 @@
           "name": "campaign_id",
           "required": true,
           "type": "number"
+        },
+        {
+          "description": "Explicitly allow pausing for open/click breaches after the observation gates; false pauses only for bounce breaches",
+          "name": "pause_on_engagement_breach",
+          "required": true,
+          "type": "boolean"
         }
       ],
       "recoveryOperation": "campaigns.get",
@@ -44516,7 +44522,7 @@
           "dependsOn": [
             "inspect"
           ],
-          "description": "Evaluate deliverability metrics and pause the campaign if thresholds are breached.",
+          "description": "Evaluate deliverability metrics and pause for bounce breaches or approved mature engagement breaches.",
           "id": "evaluate",
           "input": [
             {
@@ -44531,6 +44537,13 @@
               "source": {
                 "kind": "literal",
                 "value": true
+              }
+            },
+            {
+              "parameter": "pause_on_engagement_breach",
+              "source": {
+                "kind": "playbook-input",
+                "name": "pause_on_engagement_breach"
               }
             }
           ],

@@ -72,7 +72,13 @@ test("engagement opt-in alone cannot authorize a pause", async () => {
  await evaluateDeliverabilityGuard(f.client, 1, { now: () => now, pauseOnEngagementBreach: true });
  expect(f.pauses()).toBe(0);
 });
-for (const started_at of [undefined, "invalid", "2026-09-25T13:00:00Z"]) {
+for (const started_at of [
+	undefined,
+	"invalid",
+	"0",
+	"2026-02-30T00:00:00Z",
+	"2026-09-25T13:00:00Z",
+]) {
 	test(`unknown or future start does not authorize engagement: ${started_at}`, async () => {
   const f = fixture({ started_at });
   const result = await evaluateDeliverabilityGuard(f.client, 1, { ...observe, pauseOnEngagementBreach: true });

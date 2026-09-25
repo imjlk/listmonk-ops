@@ -1613,3 +1613,7 @@ docker compose logs -f db
 MCP에서도 대응되는 `pause_on_breach`, `pause_on_engagement_breach`,
 `minimum_observation_seconds` 필드를 사용합니다. 정지 직전 캠페인 버전과
 공통 상태 전이 규칙을 재검사하며 scheduled 캠페인을 직접 정지하지 않습니다.
+`campaign.deliverability-guard` 플레이북은 불리언
+`pause_on_engagement_breach` 입력을 명시적으로 요구합니다. `false`면 반송
+기준 초과만 정지하고, `true`면 승인 후 관찰 조건을 충족한 열람·클릭 기준
+초과도 정지할 수 있습니다.
