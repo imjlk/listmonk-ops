@@ -70,6 +70,18 @@ test("plain campaigns inspect visible text and usable rendered anchors", () => {
 	expect(inspectRenderedCampaignContent(`<div>Leave: ${route.replace("https://", "HTTPS://")}</div>`, "plain").hasUnsubscribeLink).toBe(true);
 	expect(inspectRenderedCampaignContent(`<footer><a href="${route}">Leave</a></footer>`, "plain").hasUnsubscribeLink).toBe(true);
 });
+test("plain URL extraction preserves valid trailing path characters", () => {
+	const url = "https://example.test/wiki/Function_(mathematics)";
+	expect(inspectRenderedCampaignContent(`Read ${url}`, "plain").linksToCheck).toEqual(
+		[url],
+	);
+	expect(inspectRenderedCampaignContent(`Read (${url})`, "plain").linksToCheck).toEqual(
+		[url],
+	);
+	expect(inspectRenderedCampaignContent("Read https://example.test/action!", "plain").linksToCheck).toEqual(
+		["https://example.test/action!"],
+	);
+});
 test("empty and hidden-only anchors cannot satisfy unsubscribe", () => {
 	for (const html of [`<a href="${route}"></a>`, `<a href="${route}"><span hidden>Leave</span></a>`]) {
 		expect(inspectRenderedCampaignContent(html).hasUnsubscribeLink).toBe(false);

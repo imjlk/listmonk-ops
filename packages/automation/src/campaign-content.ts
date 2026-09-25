@@ -80,6 +80,24 @@ function renderedVisibleUrls(html: string): { anchors: string[]; text: string[] 
 	return { anchors, text };
 }
 
+function stripUnmatchedClosingDelimiters(value: string): string {
+	const balance: Record<string, number> = { ")": 0, "]": 0, "}": 0 };
+	const closingFor: Record<string, string> = { "(": ")", "[": "]", "{": "}" };
+	for (const character of value) {
+		const closing = closingFor[character];
+		if (closing) balance[closing]! += 1;
+		else if (character in balance) balance[character]! -= 1;
+	}
+	let end = value.length;
+	while (end > 0) {
+		const closing = value[end - 1]!;
+		if (!(closing in balance) || balance[closing]! >= 0) break;
+		balance[closing]! += 1;
+		end--;
+	}
+	return value.slice(0, end);
+}
+
 /** Inspect the server-rendered sample, without fetching links or executing HTML. */
 export function inspectRenderedCampaignContent(rendered: string, contentType?: string): {
 	hasUnsubscribeLink: boolean;
@@ -95,7 +113,7 @@ export function inspectRenderedCampaignContent(rendered: string, contentType?: s
 	const candidates = contentType === "plain"
 		? [...visible.anchors, ...visible.text.flatMap((part) =>
 				(part.match(/https?:\/\/[^\s<>"']+/giu) ?? []).map((url) =>
-					url.replace(/[.,;!?)]*$/u, ""),
+					stripUnmatchedClosingDelimiters(url),
 				),
 			)]
 		: visible.anchors;
