@@ -51,6 +51,7 @@ describe("ops operation MCP adapter", () => {
 	test("invokes the shared preflight and returns structured output", async () => {
 		const client = {
 			campaign: {
+				preview: async () => ({ data: '<p>Campaign</p><a href="https://newsletter.test/subscription/00000000-0000-0000-0000-000000000000/00000000-0000-0000-0000-000000000000">Leave list</a>' }),
 				getById: async () => ({
 					data: {
 						id: 42,

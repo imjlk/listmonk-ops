@@ -107,6 +107,7 @@ describe("automation operation registry", () => {
 	test("executes a preflight through the shared context", async () => {
 		const client = {
 			campaign: {
+				preview: async () => ({ data: '<p>Campaign</p><a href="https://newsletter.test/subscription/00000000-0000-0000-0000-000000000000/00000000-0000-0000-0000-000000000000">Leave list</a>' }),
 				getById: async () => ({
 					data: {
 						id: 42,
