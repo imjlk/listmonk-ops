@@ -102,9 +102,12 @@ test("plain sentence punctuation does not invalidate native unsubscribe URLs", (
 	);
 });
 test("empty and hidden-only anchors cannot satisfy unsubscribe", () => {
-	for (const html of [`<a href="${route}"></a>`, `<a href="${route}"><span hidden>Leave</span></a>`, `<div inert><a href="${route}">Leave</a></div>`]) {
+	for (const html of [`<a href="${route}"></a>`, `<a href="${route}"><span hidden>Leave</span></a>`, `<div inert><a href="${route}">Leave</a></div>`, `<a href="${route}">&#8203;</a>`, `<a href="${route}">\u00ad\ufe0f</a>`]) {
 		expect(inspectRenderedCampaignContent(html).hasUnsubscribeLink).toBe(false);
 	}
+	expect(inspectRenderedCampaignContent(`<a href="${route}">\u200bLeave</a>`).hasUnsubscribeLink).toBe(
+		true,
+	);
 	expect(inspectRenderedCampaignContent(`<a href="${route}"><img src="/leave.png" alt="Leave"></a>`).hasUnsubscribeLink).toBe(
 		true,
 	);

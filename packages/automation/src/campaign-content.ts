@@ -57,7 +57,9 @@ function hiddenElement(node: HtmlNode): boolean {
 
 function usableAnchorContent(node: HtmlNode): boolean {
 	if (hiddenElement(node)) return false;
-	if ("value" in node && node.nodeName === "#text") return node.value.trim().length > 0;
+	if ("value" in node && node.nodeName === "#text") {
+		return node.value.replace(/[\s\p{Default_Ignorable_Code_Point}]/gu, "").length > 0;
+	}
 	if ("tagName" in node && node.tagName === "img") {
 		return node.attrs.some(
 			(attribute) => attribute.name === "src" && attribute.value.trim().length > 0,
