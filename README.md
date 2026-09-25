@@ -1676,3 +1676,26 @@ docker compose logs -f db
 ```bash
 ./setup-smtp.sh
 ```
+
+### List-scoped sequence consent
+
+Add `consent_list_ids` to each newsletter send step in the JSON passed to
+`sequences create/update` (MCP uses the same step schema):
+
+```json
+{"id":"newsletter","type":"send","template_id":1,"consent_list_ids":[42]}
+```
+
+Every listed membership must currently permit delivery. Unsubscribed or missing
+membership cancels the enrollment before sending; an unrelated subscribed list
+cannot substitute for it. Confirmed members are eligible; unconfirmed members
+are eligible only when a fresh list lookup reports single opt-in. Unknown policy
+or missing list-read permission fails closed. Global suppression always wins.
+This check runs before every send, including later steps after enrollment.
+
+**Migration:** policy absence retains legacy transactional behavior; old sequences
+are not silently assigned a mailing purpose. Add the scope explicitly. Existing
+enrollments remain pinned to their old revision; updating a definition protects
+new enrollments, not already-enrolled recipients. Pause/drain old enrollments and
+review re-enrollment before enabling newsletter automation. Upgrade every worker
+and writer before using the new field; older binaries do not enforce it.

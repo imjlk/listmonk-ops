@@ -16856,6 +16856,15 @@
                 "altbody": {
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
+                "consent_list_ids": {
+                  "description": "Require current consent on every listed mailing list before sending. Single opt-in accepts unconfirmed memberships.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "maxItems": 100,
+                  "minItems": 1,
+                  "type": "array"
+                },
                 "content_type": {
                   "oneOf": [
                     {
@@ -19314,6 +19323,15 @@
                 "altbody": {
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
+                "consent_list_ids": {
+                  "description": "Require current consent on every listed mailing list before sending. Single opt-in accepts unconfirmed memberships.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "maxItems": 100,
+                  "minItems": 1,
+                  "type": "array"
+                },
                 "content_type": {
                   "oneOf": [
                     {
@@ -19732,6 +19750,15 @@
               "properties": {
                 "altbody": {
                   "$ref": "#/components/schemas/NonEmptyString"
+                },
+                "consent_list_ids": {
+                  "description": "Require current consent on every listed mailing list before sending. Single opt-in accepts unconfirmed memberships.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "maxItems": 100,
+                  "minItems": 1,
+                  "type": "array"
                 },
                 "content_type": {
                   "oneOf": [

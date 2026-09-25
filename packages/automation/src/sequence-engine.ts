@@ -1,3 +1,4 @@
+import { checkSequenceListConsent } from "./sequence-consent";
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
@@ -25,7 +26,7 @@ import type {
 
 export interface SequenceExecutionContext {
 	repository: SequenceRepository;
-	client: Pick<ListmonkClient, "subscriber" | "transactional">;
+	client: Pick<ListmonkClient, "subscriber" | "transactional"> & Partial<Pick<ListmonkClient, "list">>;
 	idempotencyStore: TransactionalIdempotencyStore;
 	hashPayload: (serialized: string) => string;
 	target?: {
@@ -293,7 +294,7 @@ async function executeSendStep(
 				status?: string;
 				lists?: Array<Record<string, unknown>>;
 			},
-		);
+		) ?? await checkSequenceListConsent(context.client, subscriber, step.consentListIds);
 		if (cannotReceive) {
 			return withoutLease(
 				claimed.enrollment,
