@@ -67,6 +67,7 @@ test("plain campaigns inspect visible text and usable rendered anchors", () => {
 		expect(inspectRenderedCampaignContent(html, "plain").hasUnsubscribeLink).toBe(false);
 	}
 	expect(inspectRenderedCampaignContent(`<div>Leave: ${route}</div>`, "plain").hasUnsubscribeLink).toBe(true);
+	expect(inspectRenderedCampaignContent(`<div>Leave: ${route.replace("https://", "HTTPS://")}</div>`, "plain").hasUnsubscribeLink).toBe(true);
 	expect(inspectRenderedCampaignContent(`<footer><a href="${route}">Leave</a></footer>`, "plain").hasUnsubscribeLink).toBe(true);
 });
 test("empty and hidden-only anchors cannot satisfy unsubscribe", () => {
@@ -139,7 +140,8 @@ test("link-check mode does not fetch the rendered unsubscribe URL", async () => 
  globalThis.fetch = (async () => { requests++; return new Response(null, { status: 200 }); }) as typeof fetch;
  try {
   const result = await runCampaignPreflight(fixture(anchor), 1, { checkLinks: true });
-  expect(check(result, "unsubscribe_link")?.level).toBe("pass");
+		expect(check(result, "unsubscribe_link")?.level).toBe("pass");
+		expect(check(result, "link_health")?.details).toMatchObject({ skippedControlLinks: 1 });
 		expect(requests).toBe(0);
  } finally { globalThis.fetch = original; }
 });

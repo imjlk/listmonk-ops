@@ -640,6 +640,9 @@ export async function runCampaignPreflight(
 				id: "link_health",
 				level: "warn",
 				message: "No ordinary http(s) links to check in rendered campaign content (control links are skipped)",
+				details: {
+					skippedControlLinks: renderedInspection?.skippedControlLinks ?? 0,
+				},
 			});
 		} else {
 			const linkResults = await checkLinksWithBoundedConcurrency(
