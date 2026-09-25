@@ -59,14 +59,15 @@ test("plain campaigns validate the rendered native URL without HTML", async () =
  const result = await runCampaignPreflight(fixture(`Leave this list: ${route}`, "Hello", "plain"), 1);
  expect(check(result, "unsubscribe_link")?.level).toBe("pass");
 });
-test("plain campaigns inspect only visible preview text", () => {
+test("plain campaigns inspect visible text and usable rendered anchors", () => {
 	for (const html of [
 		`<!-- ${route} -->`, `<script>${route}</script>`, `<div hidden>${route}</div>`,
-		`<a href="${route}">Leave</a>`,
+		`<a href="${route}"></a>`,
 	]) {
 		expect(inspectRenderedCampaignContent(html, "plain").hasUnsubscribeLink).toBe(false);
 	}
 	expect(inspectRenderedCampaignContent(`<div>Leave: ${route}</div>`, "plain").hasUnsubscribeLink).toBe(true);
+	expect(inspectRenderedCampaignContent(`<footer><a href="${route}">Leave</a></footer>`, "plain").hasUnsubscribeLink).toBe(true);
 });
 test("empty and hidden-only anchors cannot satisfy unsubscribe", () => {
 	for (const html of [`<a href="${route}"></a>`, `<a href="${route}"><span hidden>Leave</span></a>`]) {

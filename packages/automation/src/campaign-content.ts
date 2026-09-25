@@ -93,11 +93,11 @@ export function inspectRenderedCampaignContent(rendered: string, contentType?: s
 	}
 	const visible = renderedVisibleUrls(rendered);
 	const candidates = contentType === "plain"
-		? visible.text.flatMap((part) =>
+		? [...visible.anchors, ...visible.text.flatMap((part) =>
 				(part.match(/https?:\/\/[^\s<>"']+/gu) ?? []).map((url) =>
 					url.replace(/[.,;!?)]*$/u, ""),
 				),
-			)
+			)]
 		: visible.anchors;
 	const urls = [...new Set(candidates)].map(absoluteWebUrl).filter(
 		(url): url is URL => url !== undefined,
