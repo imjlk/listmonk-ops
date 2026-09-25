@@ -1,3 +1,4 @@
+import { pauseCampaign } from "@listmonk-ops/operations";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { lookup as dnsLookup } from "node:dns/promises";
 
@@ -657,6 +658,8 @@ export async function runCampaignPreflight(
 	};
 }
 
+export const DEFAULT_ENGAGEMENT_OBSERVATION_SECONDS = 3_600;
+
 export interface DeliverabilityGuardOptions {
 	bounceThreshold?: number;
 	openRateThreshold?: number;
@@ -664,6 +667,11 @@ export interface DeliverabilityGuardOptions {
 	pauseOnBreach?: boolean;
 	/** Minimum sent count before engagement breaches are evaluated (default 100). */
 	minimumSent?: number;
+	/** Minimum campaign age before evaluating engagement (default one hour). */
+	minimumObservationSeconds?: number;
+	/** Engagement remains advisory unless both pause flags are explicit. */
+	pauseOnEngagementBreach?: boolean;
+	now?: () => Date;
 }
 
 export interface DeliverabilityGuardResult {
@@ -706,6 +714,13 @@ export async function evaluateDeliverabilityGuard(
 		clickRate: options.clickRateThreshold ?? 0.01,
 	};
 	const minimumSent = options.minimumSent ?? 100;
+	const minimumObservationSeconds = options.minimumObservationSeconds ?? DEFAULT_ENGAGEMENT_OBSERVATION_SECONDS;
+	if (!Number.isInteger(minimumObservationSeconds) || minimumObservationSeconds < 1 || minimumObservationSeconds > 31_536_000) {
+		throw new RangeError(
+			"minimumObservationSeconds must be between 1 and 31536000",
+		);
+	}
+	const now = options.now?.() ?? new Date();
 	const campaign = await getCampaign(client, campaignId);
 	const campaignName = campaign.name?.trim() || `Campaign ${campaignId}`;
 	const sent = Math.max(0, Number(campaign.sent || 0));
@@ -728,39 +743,44 @@ export async function evaluateDeliverabilityGuard(
 	const openRate = sent > 0 ? views / sent : 0;
 	const clickRate = sent > 0 ? clicks / sent : 0;
 
+	const startedAt = Date.parse(campaign.started_at ?? "");
+	const engagementReady = sent >= minimumSent && Number.isFinite(startedAt)
+		&& now.getTime() - startedAt >= minimumObservationSeconds * 1_000;
+	const bounceBreach = bounceRate > thresholds.bounceRate;
+	const engagementBreach = engagementReady && (openRate < thresholds.openRate || clickRate < thresholds.clickRate);
 	const breaches: string[] = [];
-	if (bounceRate > thresholds.bounceRate) {
+	if (bounceBreach) {
 		breaches.push(
 			`Bounce rate ${(bounceRate * 100).toFixed(2)}% is above ${(thresholds.bounceRate * 100).toFixed(2)}%`,
 		);
 	}
 
-	// Engagement breaches (open/click rate) only evaluated when enough sends
-	// have accumulated. Low-volume early sends produce noisy rates.
-	if (sent >= minimumSent && openRate < thresholds.openRate) {
+	// Wait for both volume and observation time. Missing/future timestamps
+	// cannot authorize engagement actions, and engagement is advisory by default.
+	if (engagementReady && openRate < thresholds.openRate) {
 		breaches.push(
 			`Open rate ${(openRate * 100).toFixed(2)}% is below ${(thresholds.openRate * 100).toFixed(2)}%`,
 		);
 	}
 
-	if (sent >= minimumSent && clickRate < thresholds.clickRate) {
+	if (engagementReady && clickRate < thresholds.clickRate) {
 		breaches.push(
 			`Click rate ${(clickRate * 100).toFixed(2)}% is below ${(thresholds.clickRate * 100).toFixed(2)}%`,
 		);
 	}
 
 	let paused = false;
-	if (
-		options.pauseOnBreach &&
-		breaches.length > 0 &&
-		(status === "running" || status === "scheduled")
-	) {
-		await unwrapResponseData(
-			await client.campaign.updateStatus({
-				path: { id: campaignId },
-				body: { status: "paused" },
-			}),
-			`Failed to pause campaign ${campaignId}`,
+	if (options.pauseOnBreach && status === "running"
+		&& (bounceBreach || (options.pauseOnEngagementBreach && engagementBreach))) {
+		if (!campaign.updated_at?.trim()) {
+			throw new Error(
+				"Cannot pause campaign without an observed updated_at revision",
+			);
+		}
+		// Reuse the shared legal-transition and revision checks; never bypass them.
+		await pauseCampaign(
+			{ client },
+			{ id: campaignId, expected_updated_at: campaign.updated_at },
 		);
 		paused = true;
 	}
@@ -769,7 +789,7 @@ export async function evaluateDeliverabilityGuard(
 		campaignId,
 		campaignName,
 		status,
-		checkedAt: new Date().toISOString(),
+		checkedAt: now.toISOString(),
 		metrics: {
 			sent,
 			toSend,
