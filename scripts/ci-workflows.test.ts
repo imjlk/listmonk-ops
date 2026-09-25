@@ -13,6 +13,9 @@ test("CI reuses the full build without removing binary or integration coverage",
 	expect(workflow).toContain("sequence-postgres.test.ts");
 	expect(workflow).toContain("bun run test:e2e");
 	expect(workflow).toContain(
+		"group: ci-${{ github.event.pull_request.number || github.run_id }}",
+	);
+	expect(workflow).toContain(
 		"cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
 	);
 });
