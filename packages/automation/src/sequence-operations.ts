@@ -52,7 +52,7 @@ import {
 
 export interface SequenceOperationContext {
 	repository?: SequenceRepository;
-	client?: Pick<ListmonkClient, "subscriber" | "transactional">;
+	client?: Pick<ListmonkClient, "subscriber" | "transactional"> & Partial<Pick<ListmonkClient, "list">>;
 	idempotencyStore?: TransactionalIdempotencyStore;
 	hashPayload?: (serialized: string) => string;
 	target?: {
@@ -107,6 +107,12 @@ function buildSequenceStepSchema(
 			id: stepIdInput,
 			type: z.literal("send"),
 			template_id: templateIdSchema,
+			consent_list_ids: z.array(z.number().int().positive().max(Number.MAX_SAFE_INTEGER))
+				.min(1).max(100)
+				.refine((ids) => new Set(ids).size === ids.length, "consent_list_ids must be unique")
+				.meta({ uniqueItems: true })
+				.optional()
+				.describe("Require current consent on every listed mailing list before this send; single opt-in lists accept unconfirmed memberships"),
 			from_email: transactionalFromEmailSchema.optional(),
 			data: z.record(z.string(), z.unknown()).optional(),
 			content_type: contentTypeSchema.optional(),
@@ -412,6 +418,7 @@ function toInternalStep(
 				id: step.id,
 				type: step.type,
 				templateId: step.template_id,
+				consentListIds: step.consent_list_ids,
 				fromEmail: step.from_email,
 				data: step.data,
 				contentType: step.content_type,

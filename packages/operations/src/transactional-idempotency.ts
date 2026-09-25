@@ -133,6 +133,8 @@ export interface TransactionalIdempotencyStore {
 
 	/** Read the full document (for diagnostics/validation). */
 	load(): Promise<StoredTransactionalDocument>;
+	/** Read one record without scanning reconciliation history when supported. */
+	get?(key: string): Promise<TransactionalSendRecord | undefined>;
 	/** Atomically resolve an ambiguous record after an explicit operator decision. */
 	reconcile?(options: {
 		key: string;
@@ -143,7 +145,7 @@ export interface TransactionalIdempotencyStore {
 		quiesced?: boolean;
 		now?: () => Date;
 	}): Promise<{ key: string; decision: "accepted" | "retry"; reconciledAt: string; revision?: string }>;
-	/** Called only after a sequence enrollment has durably left its ambiguous send step. */
+	/** Called after a sequence enrollment has durably left its send step; removes its reconciliation event and accepted receipt. */
 	forgetReconciliation?(options: { key: string; targetHash: string }): Promise<void>;
 }
 

@@ -1693,3 +1693,43 @@ This is a sample-render check, not a guarantee for all subscriber-specific
 conditional branches, CSS visibility or custom unsubscribe services. It verifies
 native route presence, not the ownership/reachability of a remote unsubscribe
 endpoint. It does not create a durable approval token or make later sends atomic.
+
+### List-scoped sequence consent
+
+Add `consent_list_ids` to each newsletter send step in the JSON passed to
+`sequences create/update` (MCP uses the same step schema):
+
+```json
+{"id":"newsletter","type":"send","template_id":1,"consent_list_ids":[42]}
+```
+
+Every listed membership must currently permit delivery. Unsubscribed or missing
+membership cancels the enrollment before sending; an unrelated subscribed list
+cannot substitute for it. Confirmed members are eligible; unconfirmed members
+are eligible only when a fresh list lookup reports single opt-in. Unknown policy
+or missing list-read permission fails closed. Global suppression always wins.
+This check runs before every send, including later steps after enrollment.
+
+**Migration:** policy absence retains legacy transactional behavior; old sequences
+are not silently assigned a mailing purpose. Add the scope explicitly. Existing
+enrollments remain pinned to their old revision; updating a definition protects
+new enrollments, not already-enrolled recipients. Pause/drain old enrollments and
+review re-enrollment before enabling newsletter automation. Upgrade every worker
+and writer before using the new field; older binaries do not enforce it.
+
+### Deliverability guard observation policy
+
+`ops guard --pause-on-breach` automatically pauses **running** campaigns for
+bounce breaches only. Open/click breaches remain advisory by default and are
+evaluated only after both `--minimum-sent` (100) and
+`--minimum-observation-seconds` (3600) are satisfied. Missing, invalid or future
+`started_at` values cannot authorize engagement evaluation.
+
+To deliberately enable engagement-based pausing, provide
+`--pause-on-breach --pause-on-engagement-breach --confirm`. MCP uses the matching
+`pause_on_breach`, `pause_on_engagement_breach` and
+`minimum_observation_seconds` fields. A pause rechecks the campaign revision and
+uses the shared lifecycle rules; scheduled campaigns are never directly paused.
+The `campaign.deliverability-guard` playbook requires an explicit boolean
+`pause_on_engagement_breach` input. Set it to `false` for bounce-only pausing or
+`true` to allow mature open/click breaches to pause after approval.
