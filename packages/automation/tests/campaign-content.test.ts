@@ -70,6 +70,14 @@ test("plain campaigns inspect visible text and usable rendered anchors", () => {
 	expect(inspectRenderedCampaignContent(`<div>Leave: ${route.replace("https://", "HTTPS://")}</div>`, "plain").hasUnsubscribeLink).toBe(true);
 	expect(inspectRenderedCampaignContent(`<footer><a href="${route}">Leave</a></footer>`, "plain").hasUnsubscribeLink).toBe(true);
 });
+test("plain preview anchor labels do not substitute for their href destinations", () => {
+	const result = inspectRenderedCampaignContent(
+		`<a href="https://example.test/page">${route}</a>`,
+		"plain",
+	);
+	expect(result.hasUnsubscribeLink).toBe(false);
+	expect(result.linksToCheck).toEqual(["https://example.test/page"]);
+});
 test("plain URL extraction preserves valid trailing path characters", () => {
 	const url = "https://example.test/wiki/Function_(mathematics)";
 	expect(inspectRenderedCampaignContent(`Read ${url}`, "plain").linksToCheck).toEqual(

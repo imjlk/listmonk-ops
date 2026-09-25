@@ -56,13 +56,15 @@ function usableAnchorContent(node: HtmlNode): boolean {
 }
 
 function renderedVisibleUrls(html: string): { anchors: string[]; text: string[] } {
-	const pending: HtmlNode[] = [parse(html)];
+	const pending: Array<{ node: HtmlNode; insideAnchor: boolean }> = [
+		{ node: parse(html), insideAnchor: false },
+	];
 	const anchors: string[] = [];
 	const text: string[] = [];
 	while (pending.length > 0) {
-		const node = pending.pop()!;
+		const { node, insideAnchor } = pending.pop()!;
 		if (hiddenElement(node)) continue;
-		if ("value" in node && node.nodeName === "#text") text.push(node.value);
+		if (!insideAnchor && "value" in node && node.nodeName === "#text") text.push(node.value);
 		if ("tagName" in node && node.tagName === "a") {
 			const attributes = new Map(
 				node.attrs.map((attribute) => [attribute.name, attribute.value]),
@@ -74,7 +76,10 @@ function renderedVisibleUrls(html: string): { anchors: string[]; text: string[] 
 			)) anchors.push(href);
 		}
 		if ("childNodes" in node) {
-			for (let index = node.childNodes.length - 1; index >= 0; index--) pending.push(node.childNodes[index]!);
+			for (let index = node.childNodes.length - 1; index >= 0; index--) pending.push({
+				node: node.childNodes[index]!,
+				insideAnchor: insideAnchor || ("tagName" in node && node.tagName === "a"),
+			});
 		}
 	}
 	return { anchors, text };
