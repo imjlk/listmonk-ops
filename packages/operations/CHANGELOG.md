@@ -1,5 +1,19 @@
 # @listmonk-ops/operations
 
+## 0.19.0 — 2026-09-25
+
+### Fixed
+
+- [78ceaa7](https://github.com/imjlk/listmonk-ops/commit/78ceaa71fd91d0c346a2b2357713c27cf26ea8a4) Require an observation window for engagement metrics, make engagement pauses explicit, and reuse revision-checked campaign lifecycle transitions. — Thanks @imjlk!
+
+### Added
+
+- [8c6157c](https://github.com/imjlk/listmonk-ops/commit/8c6157cc3ec2c1eaaf41ef619205042f839598c9) Add explicit per-send mailing-list consent checks to sequences while preserving single opt-in and legacy transactional behavior. Retain accepted sequence receipts until the enrollment advances so delayed recovery cannot dispatch twice. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: common@0.7.1
+
 ## 0.18.0 — 2026-09-23
 
 ### Minor changes
