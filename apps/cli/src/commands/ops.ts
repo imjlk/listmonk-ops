@@ -102,7 +102,13 @@ export default defineGroup({
 					},
 				),
 				"pause-on-breach": option(z.coerce.boolean().default(false), {
-					description: "Pause running/scheduled campaign on breach",
+					description: "Pause a running campaign on bounce breaches",
+				}),
+				"minimum-observation-seconds": option(z.coerce.number().int().min(1).max(31_536_000).default(3_600), {
+					description: "Minimum campaign age before evaluating engagement",
+				}),
+				"pause-on-engagement-breach": option(z.coerce.boolean().default(false), {
+					description: "Also pause on engagement breaches; requires --pause-on-breach",
 				}),
 				"minimum-sent": option(z.coerce.number().int().positive().default(100), {
 					description: "Minimum sent count before engagement breaches",
@@ -119,6 +125,8 @@ export default defineGroup({
 							open_threshold: flags["open-threshold"],
 							click_threshold: flags["click-threshold"],
 							minimum_sent: flags["minimum-sent"],
+							minimum_observation_seconds: flags["minimum-observation-seconds"],
+							pause_on_engagement_breach: flags["pause-on-engagement-breach"],
 							pause_on_breach: flags["pause-on-breach"],
 						},
 					);

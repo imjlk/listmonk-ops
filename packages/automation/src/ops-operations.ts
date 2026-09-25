@@ -110,9 +110,15 @@ const deliverabilityGuardInputSchema = z.object({
 	minimum_sent: positiveIntegerInput
 		.default(100)
 		.describe("Minimum sent count before engagement breaches are evaluated"),
+	minimum_observation_seconds: positiveIntegerInput
+		.refine((value) => value <= 31_536_000, "minimum_observation_seconds must be at most 31536000")
+		.default(3_600)
+		.describe("Minimum campaign age before engagement evaluation; missing start time skips engagement"),
+	pause_on_engagement_breach: booleanInput.default(false)
+		.describe("Also pause on observed engagement breaches when pause_on_breach is true"),
 	pause_on_breach: booleanInput
 		.default(false)
-		.describe("Pause a running or scheduled campaign when breached"),
+		.describe("Pause a running campaign for bounce breaches; engagement requires explicit opt-in"),
 });
 
 // The object root is required by the operation schema system; the
@@ -559,6 +565,8 @@ export async function executeDeliverabilityGuardOperation(
 		openRateThreshold: input.open_threshold,
 		clickRateThreshold: input.click_threshold,
 		minimumSent: input.minimum_sent,
+		minimumObservationSeconds: input.minimum_observation_seconds,
+		pauseOnEngagementBreach: input.pause_on_engagement_breach,
 		pauseOnBreach: input.pause_on_breach,
 	});
 }

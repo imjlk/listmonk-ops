@@ -28568,6 +28568,12 @@
                   "minimum": 0,
                   "type": "number"
                 },
+                "minimum_observation_seconds": {
+                  "description": "Minimum campaign age before engagement evaluation. Defaults to 3600 seconds.",
+                  "maximum": 31536000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
                 "minimum_sent": {
                   "$ref": "#/components/schemas/PositiveInteger",
                   "description": "Minimum sent count before engagement breaches are evaluated. Defaults to 100."
@@ -28579,7 +28585,11 @@
                   "type": "number"
                 },
                 "pause_on_breach": {
-                  "description": "Pause a running or scheduled campaign when breached. Defaults to false.",
+                  "description": "Pause a running campaign for bounce breaches. Defaults to false.",
+                  "type": "boolean"
+                },
+                "pause_on_engagement_breach": {
+                  "description": "Also pause on engagement breaches when pause_on_breach is true. Defaults to false.",
                   "type": "boolean"
                 }
               },
@@ -28619,6 +28629,12 @@
               "minimum": 0,
               "type": "number"
             },
+            "minimum_observation_seconds": {
+              "description": "Minimum campaign age before engagement evaluation. Defaults to 3600 seconds.",
+              "maximum": 31536000,
+              "minimum": 1,
+              "type": "integer"
+            },
             "minimum_sent": {
               "$ref": "#/components/schemas/PositiveInteger",
               "description": "Minimum sent count before engagement breaches are evaluated. Defaults to 100."
@@ -28630,7 +28646,11 @@
               "type": "number"
             },
             "pause_on_breach": {
-              "description": "Pause a running or scheduled campaign when breached. Defaults to false.",
+              "description": "Pause a running campaign for bounce breaches. Defaults to false.",
+              "type": "boolean"
+            },
+            "pause_on_engagement_breach": {
+              "description": "Also pause on engagement breaches when pause_on_breach is true. Defaults to false.",
               "type": "boolean"
             }
           },

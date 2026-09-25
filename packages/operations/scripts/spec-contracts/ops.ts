@@ -117,7 +117,11 @@ export interface DeliverabilityGuardInput {
 		tags.Maximum<1>;
 	/** Minimum sent count before engagement breaches are evaluated. Defaults to 100. */
 	minimum_sent?: PositiveInteger;
-	/** Pause a running or scheduled campaign when breached. Defaults to false. */
+	/** Minimum campaign age before engagement evaluation. Defaults to 3600 seconds. */
+	minimum_observation_seconds?: number & tags.Type<"int32"> & tags.Minimum<1> & tags.Maximum<31536000>;
+	/** Also pause on engagement breaches when pause_on_breach is true. Defaults to false. */
+	pause_on_engagement_breach?: boolean;
+	/** Pause a running campaign for bounce breaches. Defaults to false. */
 	pause_on_breach?: boolean;
 }
 
