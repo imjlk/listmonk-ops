@@ -133,6 +133,8 @@ export interface TransactionalIdempotencyStore {
 
 	/** Read the full document (for diagnostics/validation). */
 	load(): Promise<StoredTransactionalDocument>;
+	/** Read one record without scanning reconciliation history when supported. */
+	get?(key: string): Promise<TransactionalSendRecord | undefined>;
 	/** Atomically resolve an ambiguous record after an explicit operator decision. */
 	reconcile?(options: {
 		key: string;

@@ -153,6 +153,8 @@ describe("transactional idempotency file-backed store", () => {
 		const later = () => new Date("2026-01-02T00:00:00.000Z");
 		await store.claim({ key: "unrelated", payloadHash: "other", targetHash: DEFAULT_TARGET_HASH, now: later });
 		expect((await store.load()).records[key]?.status).toBe("accepted");
+		expect(await store.get?.(key)).toMatchObject({ key, status: "accepted" });
+		expect(await store.get?.("missing")).toBeUndefined();
 		expect((await store.claim({ key, payloadHash: "payload", targetHash: DEFAULT_TARGET_HASH, now: later })).kind).toBe("replay");
 		await store.forgetReconciliation?.({ key, targetHash: DEFAULT_TARGET_HASH });
 		expect((await store.load()).records[key]).toBeUndefined();

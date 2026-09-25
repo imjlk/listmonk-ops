@@ -166,6 +166,8 @@ describe("Postgres sequence repository", () => {
 		const unrelated = await store.claim({ key: unrelatedKey, payloadHash: "other", targetHash: "target", now: later });
 		if (unrelated.kind === "new") await store.release({ key: unrelatedKey, claimToken: unrelated.record.claimToken });
 		expect((await store.load()).records[key]?.status).toBe("accepted");
+		expect(await store.get?.(key)).toMatchObject({ key, status: "accepted" });
+		expect(await store.get?.(`missing-${randomUUID()}`)).toBeUndefined();
 		await store.forgetReconciliation({ key, targetHash: "target" });
 		expect((await store.load()).records[key]).toBeUndefined();
 	});

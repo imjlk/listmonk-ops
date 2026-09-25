@@ -299,7 +299,9 @@ async function executeSendStep(
 			);
 		}
 		const sendKey = deterministicSendKey(claimed.enrollment);
-		const existing = (await context.idempotencyStore.load()).records[sendKey];
+		const existing = context.idempotencyStore.get
+			? await context.idempotencyStore.get(sendKey)
+			: (await context.idempotencyStore.load()).records[sendKey];
 		const sameTarget = existing !== undefined &&
 			existing.targetHash === computeTransactionalTargetHash(context.target ?? {});
 		// A confirmed acknowledgement is durable even after the store's replay TTL.

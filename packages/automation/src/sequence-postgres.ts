@@ -638,6 +638,14 @@ function createPostgresTransactionalIdempotencyStore(
 				})),
 			};
 		},
+		async get(key): Promise<TransactionalSendRecord | undefined> {
+			await ready();
+			const rows = await sql<IdempotencyRow[]>`
+				SELECT * FROM listmonk_ops.sequence_idempotency_records
+				WHERE key = ${key}
+			`;
+			return rows[0] ? toIdempotencyRecord(rows[0]) : undefined;
+		},
 		async reconcile(options) {
 			await ready();
 			if (options.reason.trim().length < 10 || options.reason.length > 500 || /[\u0000-\u001f\u007f]/u.test(options.reason)) {

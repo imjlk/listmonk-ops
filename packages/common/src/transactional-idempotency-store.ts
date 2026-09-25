@@ -122,6 +122,7 @@ export interface TransactionalIdempotencyStore {
 		now?: () => Date;
 	}): Promise<void>;
 	load(): Promise<StoredTransactionalDocument>;
+	get?(key: string): Promise<TransactionalSendRecord | undefined>;
 	reconcile(options: TransactionalReconciliationOptions): Promise<TransactionalReconciliationResult>;
 	forgetReconciliation?(options: { key: string; targetHash: string }): Promise<void>;
 }
@@ -656,6 +657,8 @@ export function createFileBackedTransactionalIdempotencyStore(
 		release: (releaseOptions) =>
 			releaseTransactionalSend({ storePath, ...releaseOptions }),
 		load: () => loadTransactionalDocument(storePath),
+		get: async (key) =>
+			getOwnRecord((await loadTransactionalDocument(storePath)).records, key),
 		reconcile: (reconcileOptions) =>
 			reconcileTransactionalSend({ storePath, ...reconcileOptions }),
 		forgetReconciliation: (forgetOptions) =>

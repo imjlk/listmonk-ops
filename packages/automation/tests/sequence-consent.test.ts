@@ -110,6 +110,15 @@ test("single opt-in unconfirmed memberships remain eligible", async () => {
  expect((await runSequenceTick(f.context)).advanced).toBe(1);
 	expect(f.sends()).toBe(1);
 });
+test("sequence sends use a keyed idempotency read", async () => {
+	const f = await fixture([{ id: 1, subscription_status: "confirmed" }]);
+	const store = f.context.idempotencyStore;
+	const originalGet = store.get!.bind(store);
+	let keyedReads = 0;
+	store.get = async (key) => { keyedReads++; return originalGet(key); };
+	expect((await runSequenceTick(f.context)).advanced).toBe(1);
+	expect(keyedReads).toBe(1);
+});
 test("double opt-in unconfirmed memberships cannot send", async () => {
  const f = await fixture([{ id: 1, subscription_status: "unconfirmed" }], "double");
  expect((await runSequenceTick(f.context)).cancelled).toBe(1);
