@@ -1,6 +1,6 @@
 {
 	"name": "@listmonk-ops/operations",
-	"version": "0.18.0",
+	"version": "0.19.0",
 	"type": "module",
 	"description": "Shared typed operations for listmonk-ops CLI and MCP adapters",
 	"sideEffects": false,
@@ -46,7 +46,7 @@
 		"prepublishOnly": "bun run build && bun run test"
 	},
 	"dependencies": {
-		"@listmonk-ops/common": "workspace:^0.7.0",
+		"@listmonk-ops/common": "workspace:^0.7.1",
 		"@listmonk-ops/openapi": "workspace:^0.10.0",
 		"zod": "4.6.5"
 	},

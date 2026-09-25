@@ -1,5 +1,16 @@
 # @listmonk-ops/cli
 
+## 0.17.1 — 2026-09-25
+
+### Fixed
+
+- [9135a5b](https://github.com/imjlk/listmonk-ops/commit/9135a5bcb9a85f338ac8eedb653d5025db456459) Validate server-rendered campaign content and real unsubscribe anchors, with conservative control-link exclusions. — Thanks @imjlk!
+- [78ceaa7](https://github.com/imjlk/listmonk-ops/commit/78ceaa71fd91d0c346a2b2357713c27cf26ea8a4) Require an observation window for engagement metrics, make engagement pauses explicit, and reuse revision-checked campaign lifecycle transitions. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.9.1, automation@0.9.0, common@0.7.1, operations@0.19.0
+
 ## 0.17.0 — 2026-09-23
 
 ### Minor changes

@@ -1,5 +1,15 @@
 # @listmonk-ops/mcp
 
+## 0.16.1 — 2026-09-25
+
+### Fixed
+
+- [9135a5b](https://github.com/imjlk/listmonk-ops/commit/9135a5bcb9a85f338ac8eedb653d5025db456459) Validate server-rendered campaign content and real unsubscribe anchors, with conservative control-link exclusions. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.9.1, automation@0.9.0, common@0.7.1, operations@0.19.0
+
 ## 0.16.0 — 2026-09-23
 
 ### Minor changes

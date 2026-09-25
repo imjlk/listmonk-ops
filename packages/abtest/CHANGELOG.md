@@ -1,5 +1,11 @@
 # @listmonk-ops/abtest
 
+## 0.9.1 — 2026-09-25
+
+### Patch changes
+
+- Updated dependencies: common@0.7.1, operations@0.19.0
+
 ## 0.9.0 — 2026-09-23
 
 ### Minor changes
