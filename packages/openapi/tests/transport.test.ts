@@ -93,6 +93,49 @@ describe("resilient fetch deadline", () => {
 		expect(signal?.aborted).toBe(false);
 	});
 
+	test("detaches fallback abort listeners when an unread body times out", async () => {
+		const nativeAny = AbortSignal.any;
+		Object.defineProperty(AbortSignal, "any", {
+			value: undefined,
+			configurable: true,
+			writable: true,
+		});
+		try {
+			const caller = new AbortController();
+			const removed: string[] = [];
+			const removeListener = caller.signal.removeEventListener.bind(
+				caller.signal,
+			);
+			caller.signal.removeEventListener = ((
+				type: string,
+				listener: EventListenerOrEventListenerObject,
+				options?: boolean | EventListenerOptions,
+			) => {
+				removed.push(type);
+				removeListener(type, listener, options);
+			}) as typeof caller.signal.removeEventListener;
+			const resilientFetch = createResilientFetch({
+				timeoutMs: 20,
+				retries: 0,
+				baseFetch: async () => new Response(new ReadableStream()),
+			});
+
+			// The body is deliberately never read or cancelled.
+			await resilientFetch("https://listmonk.test/api/lists", {
+				signal: caller.signal,
+			});
+			await Bun.sleep(80);
+
+			expect(removed).toContain("abort");
+		} finally {
+			Object.defineProperty(AbortSignal, "any", {
+				value: nativeAny,
+				configurable: true,
+				writable: true,
+			});
+		}
+	});
+
 	test("cancels the discarded body of a retried 5xx response", async () => {
 		let cancelled = 0;
 		let calls = 0;

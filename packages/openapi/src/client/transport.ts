@@ -271,12 +271,6 @@ export function createResilientFetch(options: {
 
 		for (let attempt = 0; attempt < maxAttempts; attempt++) {
 			const timeoutController = new AbortController();
-			const timeoutHandle = setTimeout(
-				() => timeoutController.abort(createTimeoutError(timeoutMs)),
-				timeoutMs,
-			);
-			unrefTimer(timeoutHandle);
-
 			const mergedSignals = mergeAbortSignals(
 				requestSignal,
 				timeoutController.signal,
@@ -288,6 +282,13 @@ export function createResilientFetch(options: {
 				mergedSignals.cleanup();
 				clearTimeout(timeoutHandle);
 			};
+			const timeoutHandle = setTimeout(() => {
+				timeoutController.abort(createTimeoutError(timeoutMs));
+				// Past the deadline even a body that is never read must not keep
+				// fallback abort listeners attached to the caller's signal.
+				release();
+			}, timeoutMs);
+			unrefTimer(timeoutHandle);
 			let handedOff = false;
 
 			try {
@@ -319,7 +320,15 @@ export function createResilientFetch(options: {
 				}
 
 				handedOff = true;
-				return releaseWhenBodySettles(response, release);
+				try {
+					return releaseWhenBodySettles(response, release);
+				} catch (error) {
+					// A body that cannot be wrapped must still free the attempt
+					// and its connection.
+					release();
+					await discardBody(response);
+					throw error;
+				}
 			} catch (error) {
 				if (error instanceof ListmonkRedirectError) {
 					throw error;
