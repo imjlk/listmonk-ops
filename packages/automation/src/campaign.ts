@@ -773,14 +773,13 @@ export async function evaluateDeliverabilityGuard(
 		);
 	}
 	const now = options.now?.() ?? new Date();
-	const campaign = await getCampaign(client, campaignId);
-	const campaignName = campaign.name?.trim() || `Campaign ${campaignId}`;
-	const sent = Math.max(0, Number(campaign.sent || 0));
-	const toSend = Math.max(0, Number(campaign.to_send || 0));
-	const views = Math.max(0, Number(campaign.views || 0));
-	const clicks = Math.max(0, Number(campaign.clicks || 0));
-	const status = campaign.status || "unknown";
-
+	// List the bounces before reading the campaign. Listmonk only ever adds to
+	// a running campaign's sent count, so a count read after the listing is at
+	// least as new as the bounce count: sends that land during a slow listing
+	// can only lower the rate. A sent count read before the listing would pair
+	// an old denominator with newer bounces and could pause a healthy fast
+	// send. Every metric, breach and the pause decision below come from this
+	// single post-listing snapshot.
 	const bounceResponse = await client.bounce.list({
 		campaign_id: campaignId,
 		per_page: "all",
@@ -791,6 +790,13 @@ export async function evaluateDeliverabilityGuard(
 			`Failed to list bounces for campaign ${campaignId}`,
 		),
 	);
+	const campaign = await getCampaign(client, campaignId);
+	const campaignName = campaign.name?.trim() || `Campaign ${campaignId}`;
+	const sent = Math.max(0, Number(campaign.sent || 0));
+	const toSend = Math.max(0, Number(campaign.to_send || 0));
+	const views = Math.max(0, Number(campaign.views || 0));
+	const clicks = Math.max(0, Number(campaign.clicks || 0));
+	const status = campaign.status || "unknown";
 	const bounceRate = sent > 0 ? bounces / sent : 0;
 	const openRate = sent > 0 ? views / sent : 0;
 	const clickRate = sent > 0 ? clicks / sent : 0;
@@ -822,18 +828,21 @@ export async function evaluateDeliverabilityGuard(
 	}
 
 	let paused = false;
+	// A campaign that is no longer running at the post-listing read is
+	// reported with its current status instead of being paused.
 	if (options.pauseOnBreach && status === "running"
 		&& (bounceBreach || (options.pauseOnEngagementBreach && engagementBreach))) {
-		if (!campaign.updated_at?.trim()) {
-			throw new Error(
-				"Cannot pause campaign without an observed updated_at revision",
-			);
-		}
-		// Reuse the shared legal-transition and revision checks; never bypass them.
-		await pauseCampaign(
-			{ client },
-			{ id: campaignId, expected_updated_at: campaign.updated_at },
-		);
+		// Bind this protective pause to that observed `running` status, not to
+		// the updated_at revision. Listmonk 6.2 bumps a running campaign's
+		// updated_at on every subscriber batch fetch and sent-count flush (and
+		// running campaigns cannot be edited), so the revision can move before
+		// the write while the campaign keeps sending — exactly when a fast,
+		// high-bounce send must stop. The shared lifecycle transition still
+		// re-reads the campaign right before the write: `running` is the only
+		// legal pause source, an already paused campaign is an idempotent
+		// no-op, and any other status fails closed without a status write.
+		// Never bypass it with a raw status update.
+		await pauseCampaign({ client }, { id: campaignId });
 		paused = true;
 	}
 

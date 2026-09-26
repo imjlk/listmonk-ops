@@ -1650,9 +1650,21 @@ Listmonk 기본 구독 관리 경로가 있어야 통과합니다. 미리보기 
 참여율에 따른 자동 정지를 명시적으로 사용하려면
 `--pause-on-breach --pause-on-engagement-breach --confirm`을 지정합니다.
 MCP에서도 대응되는 `pause_on_breach`, `pause_on_engagement_breach`,
-`minimum_observation_seconds` 필드를 사용합니다. 정지 직전 캠페인 버전과
-공통 상태 전이 규칙을 재검사하며 scheduled 캠페인을 직접 정지하지 않습니다.
+`minimum_observation_seconds` 필드를 사용합니다.
 `campaign.deliverability-guard` 플레이북은 불리언
 `pause_on_engagement_breach` 입력을 명시적으로 요구합니다. `false`면 반송
 기준 초과만 정지하고, `true`면 승인 후 관찰 조건을 충족한 열람·클릭 기준
 초과도 정지할 수 있습니다.
+
+가드는 캠페인을 읽기 전에 반송 목록을 먼저 조회하므로, 반송률의 분모인
+`sent`가 반송 수보다 오래된 값이 되지 않습니다. 보고하는 지표와 기준 초과
+목록, 정지 판단은 모두 이 한 번의 조회에서 나오며, 그 시점에 이미 running이
+아닌 캠페인은 정지하지 않고 현재 상태로 보고합니다. 가드의 정지는 캠페인
+버전이 아니라 이렇게 관찰한 `running` 상태에 묶입니다. Listmonk는 발송 중인
+캠페인의 `updated_at`을 발송 배치마다 갱신하므로, 버전 일치를 요구하면 반송이
+빠르게 쌓이는 발송에서 정지가 자주 실패하기 때문입니다. 공통 상태 전이 규칙이
+쓰기 직전에 캠페인을 다시 읽어, 여전히 running이면 정지하고 이미 paused이면
+아무것도 하지 않으며, 그 순간 finished나 cancelled가 됐으면 상태 변경 요청
+없이 실패합니다. scheduled 캠페인은 직접 정지하지 않습니다. 수동
+`campaigns pause --expected-updated-at`은 정확한 버전 검사를 그대로 유지하므로,
+발송 중인 캠페인은 이 옵션 없이 정지하세요.

@@ -923,6 +923,14 @@ export async function startCampaign(
  * Transition a campaign into the `paused` status. Reads the current
  * campaign first and rejects the transition if the state machine does not
  * permit it. Returns the campaign id and the new status.
+ *
+ * `running` is the only legal source and an already-paused campaign is an
+ * idempotent no-op. A supplied `expected_updated_at` stays an exact match,
+ * but Listmonk 6.2 advances a running campaign's `updated_at` on every
+ * subscriber batch fetch and sent-count flush, so it usually mismatches
+ * while the campaign is still sending. Protective callers that must stop a
+ * sending campaign (such as the deliverability guard) omit it and rely on
+ * this fresh running-status check instead.
  */
 export async function pauseCampaign(
 	ctx: CampaignOperationContext,
