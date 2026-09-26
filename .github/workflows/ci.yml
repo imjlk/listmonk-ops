@@ -50,6 +50,9 @@ jobs:
       - name: Check CLI package size
         run: bun run check:cli-pack-size
 
+      - name: Verify npm-installed CLI package
+        run: bun run check:cli-npm-install
+
       - name: Run unit tests
         run: bun run test:built
 

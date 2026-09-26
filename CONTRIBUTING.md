@@ -126,6 +126,28 @@ TypeScript 7.
 For VS Code, install the recommended `samchon.ttsc` extension. The checked-in
 workspace settings use it for TypeScript format-on-save.
 
+### Published npm package shape
+
+npm users install the Bun-bundled CLI together with the `@listmonk-ops/*`
+packages it depends on. Every published bundle keeps those workspace
+dependencies external so each package is loaded once and `instanceof` checks
+work across packages; only the native binary build inlines them. Runtime
+packages never depend or peer on `typescript`, including `packages/openapi`,
+whose TypeScript 5.9 runtime is a development dependency for code generation.
+`bun test scripts` enforces these rules.
+
+After `bun run build`, verify the installed shape with:
+
+```bash
+bun run check:cli-npm-install
+```
+
+It packs the CLI and its workspace dependencies with `bun pm pack` as the
+release workflow does, installs the tarballs into a temporary npm project, and
+runs the installed `listmonk-cli` offline. Third-party dependencies come from
+the configured npm registry or cache, and the check is skipped when npm is not
+installed. CI runs it after the workspace build.
+
 ### TypeScript code graph
 
 `@ttsc/graph` is available to coding agents and for local architecture

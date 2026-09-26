@@ -127,6 +127,28 @@ peer 해석을 OpenAPI 패키지 안에 격리합니다. 이 패키지의 `build
 VS Code에서는 추천 확장인 `samchon.ttsc`를 설치하세요. 저장소의 워크스페이스
 설정은 TypeScript 저장 시 포맷에 이 확장을 사용합니다.
 
+### npm 배포 패키지 형태
+
+npm 사용자는 Bun으로 번들링한 CLI와 CLI가 의존하는 `@listmonk-ops/*` 패키지를
+함께 설치합니다. 모든 배포 번들은 이 워크스페이스 의존성을 external로 유지해
+각 패키지를 한 번만 로드하고 패키지 간 `instanceof` 검사가 동작하도록 합니다.
+네이티브 바이너리 빌드만 이 패키지들을 함께 포함합니다. 런타임 패키지는
+`typescript`를 dependency나 peer dependency로 선언하지 않으며,
+`packages/openapi`의 TypeScript 5.9 런타임도 코드 생성용 개발 의존성입니다.
+`bun test scripts`가 이 규칙을 검사합니다.
+
+`bun run build` 이후 다음 명령으로 설치 결과를 검증합니다.
+
+```bash
+bun run check:cli-npm-install
+```
+
+이 명령은 릴리즈 워크플로와 같은 방식으로 `bun pm pack`을 사용해 CLI와
+워크스페이스 의존성을 패킹하고, 임시 npm 프로젝트에 tarball을 설치한 뒤 설치된
+`listmonk-cli`를 오프라인으로 실행합니다. 서드파티 의존성은 설정된 npm
+레지스트리나 캐시에서 가져오며, npm이 설치되어 있지 않으면 검사를 건너뜁니다.
+CI는 워크스페이스 빌드 후 이 검사를 실행합니다.
+
 ### TypeScript 코드 그래프
 
 `@ttsc/graph`는 코딩 에이전트와 로컬 아키텍처 탐색에서 바로 사용할 수
