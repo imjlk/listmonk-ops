@@ -8,7 +8,7 @@ This package is designed for automation and orchestration use-cases:
 - deliverability guard evaluation
 - template registry sync/promotion/rollback
 - segment drift snapshot and comparison
-- subscriber hygiene targeting
+- subscriber hygiene targeting by profile staleness (see below)
 - daily digest generation
 - signed outbound event webhooks with a durable delivery outbox
 - revisioned headless email sequences with durable enrollments and workers
@@ -21,6 +21,31 @@ failure summaries, and hygiene samples retain only masked email addresses.
 The one intentional exception is the hygiene echo set: numeric subscriber
 ids are returned so the reviewed dry-run candidates can be echoed verbatim
 for the destructive run; emails and other identifiers stay masked.
+
+## Subscriber hygiene semantics
+
+`runSubscriberHygiene()` treats a subscriber as inactive when the profile's
+`updated_at` is older than `inactivityDays`. Listmonk advances `updated_at` only
+on profile edits and API blocklisting; sends, opens, clicks, opt-in
+confirmations, unsubscribes, and list additions leave it untouched. The
+threshold therefore measures profile staleness, not engagement, and an engaged
+reader whose profile was never edited is selected too.
+
+Candidates must still hold a membership Listmonk would deliver to (see
+`membershipPermitsDelivery()`): not unsubscribed, and confirmed on a double
+opt-in list. With `sourceListIds`, only memberships on those lists count.
+`loadListOptinModes()` reads opt-in modes from the list endpoint, and
+unconfirmed memberships on lists the token cannot read fail closed.
+
+Mutations count as applied only on Listmonk's explicit `data: true`
+acknowledgement. Error responses (which the client returns rather than throws)
+and missing acknowledgements increment `failedSubscribers` and add bounded
+`errors` summaries such as `list_add http_403`; remote error text is never
+copied.
+
+Sunset blocklisting is irreversible for list subscriptions. Listmonk marks
+every membership unsubscribed, and removing the blocklist does not restore
+them.
 
 ## Installation
 

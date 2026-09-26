@@ -208,7 +208,9 @@ atomic 교체, 프로세스 간 쓰기 잠금을 사용합니다. 따라서 CLI�
 출력, 자격 증명, 원격 오류 텍스트는 저장하지 않고 실행 메타데이터만 보관합니다.
 공개 자동화 결과에도 같은 경계를 적용합니다. Webhook 전송 실패는 제한된 오류
 코드로 투영하고, 구독자 bulk/hygiene 및 template registry 실패에서는 원격 오류
-텍스트를 제거합니다. Hygiene sample은 마스킹된 이메일만 유지하고 구독자 ID는
+텍스트를 제거합니다(hygiene은 `failedSubscribers`를 집계하고 실패한 효과마다
+`http_<status>`, `request_failed`, `negative_acknowledgement` 코드로만
+요약합니다). Hygiene sample은 마스킹된 이메일만 유지하고 구독자 ID는
 노출하지 않습니다.
 
 ## 워크스페이스 명령어
@@ -927,15 +929,16 @@ dry-run이 선택된 각 구독자의 원본 `updated_at` 관측값을
 `subscriberIds`와 병렬인 `subscriberUpdatedAt` 배열로 보고하면 파괴적
 실행이 그 값을 순서대로 짝지어 `subscriber_guards`(CLI
 `--subscriber-guards`)로 실습니다. Listmonk는 이 워크플로가
-수행하는 변경 자체(리스트 추가와 blocklist)에서 updated_at을
-앞당기므로, 이 가드가 spec의 졸업 기준이 요구한 구독자별 지속적 완료
-신호입니다 — 가드된 파괴적 재시도는 첫 시도가 이미 건드린 모든 구독자와
-외부에서 변경되거나 자격에 재진입한 구독자를 건너뛰고 echo된 집합 중
-미진행 항목만 실행합니다. Listmonk에 조건부 변경이 없어 가드는
-check-then-act 읽기이므로 해당 경우는 subscribers.list 검증을 동반하는
-reconcile로 분류하고, 부분 적용된 구독자(리스트 추가는 성공, blocklist는
-실패)는 이동한 타임스탬프를 반영한 새 dry-run 관측으로 복구되며 이미
-존재하는 멤버십은 구조적으로 건너뛰고, updated_at이 없으면 토큰을
+blocklist할 때 updated_at을 앞당기므로(리스트 추가는 updated_at을 바꾸지
+않으며, 이미 존재하는 대상 멤버십은 대신 구조적으로 건너뜁니다), 이
+가드가 spec의 졸업 기준이 요구한 구독자별 지속적 완료 신호입니다 —
+가드된 파괴적 재시도는 첫 시도가 blocklist한 모든 구독자와 외부에서
+프로필이 변경된 구독자를 건너뛰고 echo된 집합 중 미진행 항목만
+실행합니다. Listmonk에 조건부 변경이 없어 가드는 check-then-act
+읽기이므로 해당 경우는 subscribers.list 검증을 동반하는 reconcile로
+분류하고, 부분 적용된 구독자(리스트 추가는 성공, blocklist는 실패)는
+`failedSubscribers`에 집계되며 가드된 재시도나 새 dry-run으로 복구되고
+이미 존재하는 멤버십은 구조적으로 건너뛰며, updated_at이 없으면 토큰을
 조작하는 대신 실행이 실패합니다. dry-run은 자명하게 safe이고, 가드 없는
 파괴적 실행은 정직하게 unsafe로 유지됩니다. 현재 stable baseline은 104개이며, experimental
 descriptor는 없습니다.
@@ -1262,6 +1265,9 @@ listmonk-cli ops guard --campaign-id 123 --pause-on-breach true --confirm
 # 3) 구독자 위생 관리 (프리뷰)
 listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --confirm
 # 파괴적 실행에는 dry-run이 보고한 --subscriber-ids를 echo합니다.
+# "비활성"은 프로필 updated_at이 오래되었다는 뜻이지 열람/클릭이 멈췄다는
+# 뜻이 아니며, sunset blocklist는 리스트 구독 측면에서 되돌릴 수 없습니다
+# (아래 참고).
 
 # 4) 세그먼트 드리프트 스냅샷
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
@@ -1280,6 +1286,24 @@ listmonk-cli ops templates-rollback --template-id 10 --confirm
 # 6) 데일리 다이제스트
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 ```
+
+`ops hygiene`은 프로필 `updated_at`이 `--inactivity-days`보다 오래된 enabled
+구독자를 선택합니다. Listmonk는 프로필 수정과 API blocklist에서만
+`updated_at`을 앞당기며 발송, 열람, 클릭, opt-in 확인, 구독 취소, 리스트
+추가는 이 값을 바꾸지 않습니다. 따라서 이 기준은 독자가 참여를 멈춘 기간이
+아니라 아무도 프로필을 수정하지 않은 기간을 측정하며, 프로필이 한 번도
+수정되지 않은 활발한 독자도 선택됩니다. 후보는 또한 Listmonk가 실제로
+발송할 멤버십(구독 취소 상태가 아니며, double opt-in 리스트에서는
+confirmed; `--source-list-ids`를 지정하면 해당 리스트 중 하나)을 여전히
+보유해야 하므로, 모든 리스트에서 구독 취소한 구독자는 winback 리스트에
+추가되지 않습니다. Opt-in 방식은 list 엔드포인트에서 읽으며, 토큰이 읽을
+수 없는 리스트의 unconfirmed 멤버십은 fail-closed로 제외됩니다. Winback은
+후보를 `--target-list-id`에 unconfirmed 멤버로 추가하며, single opt-in
+리스트는 이 멤버에게도 발송합니다. **Sunset blocklist는 리스트 구독 측면에서
+되돌릴 수 없습니다:** Listmonk는 모든 멤버십을 구독 취소로 바꾸며 blocklist를
+해제해도 복원되지 않습니다. 파괴적 실행 결과는 `processedSubscribers`(모든
+변경이 Listmonk에서 확인됨)와 `failedSubscribers`(오류 응답 또는 확인 누락,
+리스트 추가 후 blocklist가 실패한 구독자 포함)를 보고합니다.
 
 프리플라이트 링크 검사는 private/internal 호스트(loopback, private
 CIDR, link-local, 클라우드 metadata IP)를 차단하며 redirect를 수동으로

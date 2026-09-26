@@ -151,7 +151,7 @@ existing behavior until they are migrated.
 
 - `listmonk_ops_preflight` - Run campaign preflight gate checks
 - `listmonk_ops_deliverability_guard` - Evaluate deliverability guard and optional pause
-- `listmonk_ops_subscriber_hygiene` - Run winback/sunset hygiene workflow
+- `listmonk_ops_subscriber_hygiene` - Run winback/sunset hygiene for deliverable subscribers whose profile `updated_at` is stale (not engagement-based; sunset blocklisting is irreversible for list subscriptions)
 - `listmonk_ops_segment_drift` - Snapshot list sizes and detect drift
 - `listmonk_ops_template_registry_sync` - Sync template registry versions
 - `listmonk_ops_template_registry_history` - Get template version history
