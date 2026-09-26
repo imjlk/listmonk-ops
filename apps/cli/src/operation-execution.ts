@@ -61,10 +61,13 @@ export class UnknownCliOperationError extends Error {
  * is the global `--confirm` flag, so the message says how to satisfy it.
  */
 export class CliOperationConfirmationRequiredError extends OperationConfirmationRequiredError {
-	public constructor(operationId: string) {
+	public constructor(operationId: string, options?: ErrorOptions) {
 		super(operationId);
 		this.name = "CliOperationConfirmationRequiredError";
 		this.message = `${this.message}; rerun with --confirm`;
+		if (options && "cause" in options) {
+			this.cause = options.cause;
+		}
 	}
 }
 
@@ -276,7 +279,9 @@ export async function executeCliOperation<Result>(config: {
 			}
 		}
 		throw error instanceof OperationConfirmationRequiredError
-			? new CliOperationConfirmationRequiredError(error.operationId)
+			? new CliOperationConfirmationRequiredError(error.operationId, {
+					cause: error,
+				})
 			: error;
 	}
 

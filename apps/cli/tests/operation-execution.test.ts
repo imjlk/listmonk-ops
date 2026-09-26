@@ -108,6 +108,12 @@ describe("CLI operation execution safety", () => {
 			message:
 				"Operation campaigns.delete requires explicit confirmation; rerun with --confirm",
 		});
+		const cause = (error as Error).cause;
+		expect(cause).toBeInstanceOf(OperationConfirmationRequiredError);
+		expect(cause).not.toBeInstanceOf(CliOperationConfirmationRequiredError);
+		expect(cause).toMatchObject({
+			message: "Operation campaigns.delete requires explicit confirmation",
+		});
 	});
 
 	test("records successful and failed writes without storing remote error text", async () => {
