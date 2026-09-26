@@ -1193,7 +1193,7 @@ describe("transactional idempotency file-backed store", () => {
 			expect(error.message).toBe(
 				[
 					"Transactional idempotency store is at capacity: 10000 retained records (limit 10000: 9990 accepted, 5 failed, 3 pending, 2 unknown), so new keyed sends are rejected instead of evicting a record.",
-					"Accepted and failed records free their slots when their idempotency TTL expires (24 hours by default); pending and unknown records remain until an operator reconciles them with `listmonk-cli tx records` and `listmonk-cli tx reconcile` (MCP: listmonk_transactional_records and listmonk_reconcile_transactional).",
+					"Failed records, and accepted records of direct sends, free their slots when their idempotency TTL expires (24 hours by default); accepted sequence-step receipts are released once their enrollment advances. Pending and unknown records remain until an operator reconciles them with `listmonk-cli tx records` and `listmonk-cli tx reconcile` (MCP: listmonk_transactional_records and listmonk_reconcile_transactional).",
 					"To retain more records, raise LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS.",
 				].join(" "),
 			);
