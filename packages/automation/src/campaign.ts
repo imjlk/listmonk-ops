@@ -824,16 +824,17 @@ export async function evaluateDeliverabilityGuard(
 	let paused = false;
 	if (options.pauseOnBreach && status === "running"
 		&& (bounceBreach || (options.pauseOnEngagementBreach && engagementBreach))) {
-		if (!campaign.updated_at?.trim()) {
-			throw new Error(
-				"Cannot pause campaign without an observed updated_at revision",
-			);
-		}
-		// Reuse the shared legal-transition and revision checks; never bypass them.
-		await pauseCampaign(
-			{ client },
-			{ id: campaignId, expected_updated_at: campaign.updated_at },
-		);
+		// Bind this protective pause to the campaign's observed `running`
+		// status, not to its updated_at revision. Listmonk 6.2 bumps a running
+		// campaign's updated_at on every subscriber batch fetch and sent-count
+		// flush (and running campaigns cannot be edited), so a revision read
+		// before the bounce listing is routinely stale while the campaign is
+		// sending — exactly when a fast, high-bounce send must stop. The shared
+		// lifecycle transition still re-reads the campaign right before the
+		// write: `running` is the only legal pause source, an already paused
+		// campaign is an idempotent no-op, and any other status fails closed
+		// without a status write. Never bypass it with a raw status update.
+		await pauseCampaign({ client }, { id: campaignId });
 		paused = true;
 	}
 

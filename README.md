@@ -1729,8 +1729,17 @@ evaluated only after both `--minimum-sent` (100) and
 To deliberately enable engagement-based pausing, provide
 `--pause-on-breach --pause-on-engagement-breach --confirm`. MCP uses the matching
 `pause_on_breach`, `pause_on_engagement_breach` and
-`minimum_observation_seconds` fields. A pause rechecks the campaign revision and
-uses the shared lifecycle rules; scheduled campaigns are never directly paused.
+`minimum_observation_seconds` fields.
 The `campaign.deliverability-guard` playbook requires an explicit boolean
 `pause_on_engagement_breach` input. Set it to `false` for bounce-only pausing or
 `true` to allow mature open/click breaches to pause after approval.
+
+A guard pause is bound to the observed `running` status rather than the
+campaign revision: Listmonk advances a running campaign's `updated_at` on every
+send batch, so a revision match would routinely fail during a fast, high-bounce
+send. The shared lifecycle rules re-read the campaign immediately before the
+write. A still-running campaign is paused, an already paused campaign is a
+no-op, and a campaign that has meanwhile finished or been cancelled fails closed
+without a status write. Scheduled campaigns are never directly paused. Manual
+`campaigns pause --expected-updated-at` keeps its exact revision check, so omit
+the flag to pause a campaign that is still sending.

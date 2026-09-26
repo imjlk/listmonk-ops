@@ -1367,6 +1367,37 @@ describe("shared CRUD resource operations", () => {
 		expect(updateStatus).not.toHaveBeenCalled();
 	});
 
+	test("an explicit pause revision stays exact while the status-bound pause proceeds", async () => {
+		// Listmonk advances a running campaign's updated_at with every send
+		// batch. A caller-supplied expected_updated_at keeps failing closed;
+		// omitting it binds the pause to the fresh running status, which is
+		// what the deliverability guard relies on.
+		const getById = mock(async () => ({
+			data: { id: 3, status: "running", updated_at: "2026-07-30T10:00:05Z" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		await expect(
+			invokePauseCampaignOperation(
+				campaignContext({ getById, updateStatus }),
+				{ id: 3, expected_updated_at: "2026-07-30T10:00:00Z" },
+			),
+		).rejects.toThrow("changed after preflight");
+		expect(updateStatus).not.toHaveBeenCalled();
+
+		await expect(
+			invokePauseCampaignOperation(
+				campaignContext({ getById, updateStatus }),
+				{ id: 3 },
+			),
+		).resolves.toEqual({ id: 3, status: "paused" });
+		expect(updateStatus).toHaveBeenCalledTimes(1);
+		expect(updateStatus).toHaveBeenCalledWith({
+			path: { id: 3 },
+			body: { status: "paused" },
+		});
+	});
+
 	test("rejects cancel/pause on non-running campaigns per Listmonk 6.2.0", async () => {
 		// `scheduled` cannot be cancelled or paused; the server returns 400.
 		const getById = mock(async () => ({
