@@ -606,8 +606,8 @@ listmonk-cli bounces prune --no-dry-run --bounce-ids 5,6,7 --confirm
 캠페인 상태 전이는 Listmonk 6.2의 상태 규칙에 따라 클라이언트에서 검증합니다
 (`draft → scheduled/running`, `running → paused/cancelled`,
 `paused → running/scheduled/cancelled`, `finished`/`cancelled`는 종단 상태).
-Listmonk는 `scheduled` 캠페인을 `send_at`에 직접 시작하므로 일찍 시작하려면 먼저
-`draft`로 예약을 해제해야 하며, deliverability guard가 일시정지한 캠페인은 바로
+Listmonk는 `scheduled` 캠페인을 `send_at`에 직접 시작하므로 일찍 보내려면
+`campaigns update`로 `send_at`을 비워 `draft`로 되돌린 뒤 시작해야 하며, deliverability guard가 일시정지한 캠페인은 바로
 취소할 수 있습니다. 구독자 일괄 작업은 ID를 청크
 단위(기본 500개)로 나누며 `--dry-run`, `--max-items`,
 `--continue-on-error`를 지원합니다. 미디어 업로드는 MIME 허용 목록과

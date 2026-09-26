@@ -1010,7 +1010,7 @@ describe("shared CRUD resource operations", () => {
 				campaignContext({ getById: statusOf("scheduled"), updateStatus }),
 				{ id: 10 },
 			),
-		).rejects.toThrow(/unschedule it to draft/);
+		).rejects.toThrow(/clear its send_at/);
 		await expect(
 			invokeCancelCampaignOperation(
 				campaignContext({ getById: statusOf("draft"), updateStatus }),

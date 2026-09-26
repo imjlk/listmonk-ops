@@ -15,7 +15,7 @@ export const campaignResource = defineOperationResourceSpec({
 	states: ["draft", "scheduled", "running", "paused", "finished", "cancelled"],
 	transitions: {
 		draft: ["scheduled", "running"],
-		scheduled: ["running"],
+		scheduled: [],
 		running: ["paused", "cancelled"],
 		paused: ["running", "scheduled", "cancelled"],
 		finished: [],
