@@ -181,19 +181,22 @@ than every stored version, or that raced a promotion or rollback, is still
 recorded but never moves the active version. The template name reported by
 history, promotion, and rollback follows the same rule, so it is the live
 template's name even after promoting an older version. Promotion and rollback
-activate the version they write and record, as `lastWrite`, the template Listmonk's
-update response returned: Listmonk can normalize a write (an empty
-campaign-template subject becomes the template name), and that stored content
-still counts as the written version rather than drift. An unpinned rollback
-re-reads the live template inside the registry lock, resolves it with the same
-rule (`resolveTemplateLiveVersion()`), and writes the version captured
-immediately before it (`selectTemplateRollbackTarget()`). Live content that
-matches neither the active version nor the latest capture raises
+activate the version they write. Listmonk 6.2 stores a non-transactional
+template's name as its subject on every update, so that rewrite
+(`normalizeTemplateSnapshotForWrite()`) still counts as the written version;
+any other difference does not. Listmonk also keeps a template's `body_source`
+when an update omits it or sends it empty or null, so promotion and rollback
+refuse to write a version without one over a live template that has one
+instead of leaving a mix of both versions. An unpinned rollback re-reads the
+live template inside the registry lock, resolves it with the same rule
+(`resolveTemplateLiveVersion()`), and writes the version captured immediately
+before it (`selectTemplateRollbackTarget()`). Live content that matches
+neither the active version nor the latest capture raises
 `TemplateRegistryDriftError` instead of guessing a target: sync first, or pin
 `toVersionId` to the version preceding the active one to overwrite it
-explicitly. `lastWrite` is an optional field, so existing schema version 1
-stores load unchanged; a stale active version left by earlier releases is
-resolved from the live content and corrected by the next sync.
+explicitly. Existing schema version 1 stores load unchanged; a stale active
+version left by earlier releases is resolved from the live content and
+corrected by the next sync.
 
 ## Outbound Webhook Foundation
 

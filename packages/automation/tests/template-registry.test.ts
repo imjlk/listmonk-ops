@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	normalizeTemplateSnapshotForWrite,
 	resolveTemplateLiveVersion,
 	selectTemplateRollbackTarget,
 	TemplateRegistryDriftError,
@@ -59,27 +60,6 @@ describe("resolveTemplateLiveVersion", () => {
 		).toMatchObject({ status: "latest", version: { versionId: "v4" } });
 	});
 
-	test("matches a written version by what Listmonk stored for the write", () => {
-		const record = {
-			activeVersionId: "v2",
-			lastWrite: { versionId: "v2", remoteHash: "hash-b-normalized" },
-			versions: history,
-		};
-		expect(
-			resolveTemplateLiveVersion(record, "hash-b-normalized"),
-		).toMatchObject({ status: "active", version: { versionId: "v2" } });
-		// A write observation only ever vouches for the version written.
-		expect(
-			resolveTemplateLiveVersion(
-				{
-					...record,
-					lastWrite: { versionId: "v1", remoteHash: "hash-b-normalized" },
-				},
-				"hash-b-normalized",
-			),
-		).toEqual({ status: "drifted", matchingVersionIds: ["v1"] });
-	});
-
 	test("reports drift instead of placing content only older versions hold", () => {
 		expect(resolveTemplateLiveVersion(templateRecord("v4"), "hash-a")).toEqual(
 			{ status: "drifted", matchingVersionIds: ["v1", "v3"] },
@@ -87,6 +67,44 @@ describe("resolveTemplateLiveVersion", () => {
 		expect(resolveTemplateLiveVersion(templateRecord("v4"), "hash-z")).toEqual(
 			{ status: "drifted", matchingVersionIds: [] },
 		);
+	});
+});
+
+describe("normalizeTemplateSnapshotForWrite", () => {
+	const campaign = {
+		id: 7,
+		name: "Newsletter",
+		type: "campaign",
+		subject: "",
+		body: "<p>body</p>",
+	};
+
+	test("stores a non-transactional template's name as its subject", () => {
+		expect(normalizeTemplateSnapshotForWrite(campaign)).toEqual({
+			...campaign,
+			subject: "Newsletter",
+		});
+		const visual = {
+			...campaign,
+			type: "campaign_visual",
+			subject: "Custom",
+			bodySource: '{"blocks":[]}',
+		};
+		expect(normalizeTemplateSnapshotForWrite(visual)).toEqual({
+			...visual,
+			subject: "Newsletter",
+		});
+	});
+
+	test("keeps transactional and already-normalized snapshots as they are", () => {
+		const transactional = {
+			...campaign,
+			type: "tx",
+			subject: "Your receipt",
+		};
+		expect(normalizeTemplateSnapshotForWrite(transactional)).toBe(transactional);
+		const normalized = { ...campaign, subject: "Newsletter" };
+		expect(normalizeTemplateSnapshotForWrite(normalized)).toBe(normalized);
 	});
 });
 

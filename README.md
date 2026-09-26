@@ -1646,9 +1646,12 @@ A template's active registry version is the stored version whose content is
 live in Listmonk. `templates-sync` records the live content: it keeps an active
 version that already holds it (for example, an older version you promoted),
 activates the latest capture when that matches, and otherwise records a new
-version and activates it. Promote and rollback activate the version they write
-and remember the content Listmonk stored for it, because Listmonk can normalize
-a write (an empty campaign-template subject becomes the template name).
+version and activates it. Promote and rollback activate the version they write;
+Listmonk stores a non-transactional template's name as its subject on every
+update, and the registry still treats that as the written version. Because
+Listmonk keeps a template's `body_source` when an update omits or clears it,
+promote and rollback refuse to write a version without one over a live template
+that has one instead of leaving a mix of both versions.
 An unpinned rollback re-reads the live template inside the registry lock and
 writes the version captured immediately before the live one. When the live
 content matches neither the active version nor the latest capture — it changed

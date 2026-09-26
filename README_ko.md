@@ -1561,8 +1561,11 @@ single opt-in 리스트는 이 멤버에게도 발송합니다. 대상 리스트
 `templates-sync`는 live 내용을 기록합니다. 활성 버전이 이미 그 내용을 담고
 있으면(예: 승격한 이전 버전) 그대로 두고, 최신 capture와 일치하면 그 버전을
 활성화하며, 그 외에는 새 버전을 기록해 활성화합니다. promote와 rollback은 자신이
-쓴 버전을 활성화하고 Listmonk가 저장한 내용도 기억합니다. Listmonk는 쓰기를
-정규화할 수 있기 때문입니다(빈 campaign template subject는 template 이름이 됨).
+쓴 버전을 활성화합니다. Listmonk는 업데이트마다 transactional이 아닌 template의
+subject를 template 이름으로 저장하며, registry는 이를 여전히 쓴 버전으로
+취급합니다. Listmonk는 업데이트가 `body_source`를 생략하거나 비워도 기존 값을
+유지하므로, promote와 rollback은 `body_source`가 있는 live 템플릿 위에 그것이 없는
+버전을 쓰지 않고 거부합니다(두 버전이 섞인 상태를 남기지 않음).
 핀 없는 rollback은 registry lock 안에서 live 템플릿을 다시 읽어 live 버전
 직전에 capture된 버전을 씁니다. live 내용이 활성 버전과도
 최신 capture와도 일치하지 않으면(마지막 sync 이후 registry 밖에서 변경됨)

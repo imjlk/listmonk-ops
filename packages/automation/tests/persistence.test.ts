@@ -61,18 +61,26 @@ function createTemplateRemote(templateId: number, body: string) {
 }
 
 /**
- * Mimics Listmonk 6.2 template updates: an empty campaign-template subject
- * is stored as the template name, and the response returns the stored
- * template.
+ * Mimics Listmonk 6.2 campaign-template updates as observed on a local 6.2
+ * instance: the name is stored as the subject, and a body_source sent
+ * omitted, empty, or null keeps the stored one. A freshly created template
+ * still has an empty subject.
  */
-function createNormalizingTemplateRemote(templateId: number, body: string) {
-	const remote = { subject: "", body, writes: [] as string[] };
+function createListmonkTemplateRemote(templateId: number, body: string) {
+	const remote = {
+		name: "Registry",
+		subject: "",
+		body,
+		bodySource: null as string | null,
+		writes: [] as string[],
+	};
 	const stored = () => ({
 		id: templateId,
-		name: "Registry",
+		name: remote.name,
 		type: "campaign",
 		subject: remote.subject,
 		body: remote.body,
+		body_source: remote.bodySource,
 	});
 	const client = {
 		template: {
@@ -80,11 +88,15 @@ function createNormalizingTemplateRemote(templateId: number, body: string) {
 			update: async ({
 				body: update,
 			}: {
-				body: { name: string; subject: string; body: string };
+				body: { name: string; body: string; body_source?: string | null };
 			}) => {
 				remote.writes.push(update.body);
-				remote.subject = update.subject || update.name;
+				remote.name = update.name;
+				remote.subject = update.name;
 				remote.body = update.body;
+				if (update.body_source) {
+					remote.bodySource = update.body_source;
+				}
 				return { data: stored() };
 			},
 		},
@@ -1476,10 +1488,7 @@ describe("template registry active version", () => {
 
 	test("recognizes a written version after Listmonk normalizes it", async () => {
 		await useTemporaryStores();
-		const { remote, client } = createNormalizingTemplateRemote(
-			30,
-			"<p>v1</p>",
-		);
+		const { remote, client } = createListmonkTemplateRemote(30, "<p>v1</p>");
 		await syncTemplateRegistry(client, { templateIds: [30] });
 		// A manifest apply edits the template; Listmonk stores the name as the
 		// subject the v1 capture left empty.
@@ -1491,8 +1500,8 @@ describe("template registry active version", () => {
 
 		const rolled = await rollbackTemplateVersion(client, 30);
 		expect(rolled.versionId).toBe(v1);
-		// The live v1 content no longer hashes to its snapshot, yet the
-		// registry knows its own write produced it: nothing reads as drift.
+		// The live v1 content no longer hashes to its snapshot, but Listmonk
+		// stores every update's name as the subject: nothing reads as drift.
 		expect(remote.subject).toBe("Registry");
 		await expect(rollbackTemplateVersion(client, 30)).rejects.toThrow(
 			"Template 30 has no previous version to roll back to",
@@ -1509,19 +1518,76 @@ describe("template registry active version", () => {
 		expect(remote.writes).toEqual(["<p>v1</p>"]);
 	});
 
-	test("rejects a malformed stored write observation", async () => {
-		const { templateStorePath } = await useTemporaryStores();
-		const { client } = createTemplateRemote(31, "<p>v1</p>");
-		await syncTemplateRegistry(client, { templateIds: [31] });
-		const store = JSON.parse(await readFile(templateStorePath, "utf8")) as {
-			templates: Record<string, Record<string, unknown>>;
-		};
-		store.templates["31"]!.lastWrite = { versionId: 31 };
-		await writeFile(templateStorePath, `${JSON.stringify(store)}\n`, "utf8");
+	test("refuses to write a version whose missing body_source Listmonk would keep", async () => {
+		await useTemporaryStores();
+		const { remote, client } = createListmonkTemplateRemote(32, "<p>v1</p>");
+		await syncTemplateRegistry(client, { templateIds: [32] });
+		// Saved from the visual builder, which adds a body_source.
+		remote.bodySource = '{"blocks":[]}';
+		remote.subject = remote.name;
+		await editAndSync(remote, client, 32, "<p>v2</p>");
+		const history = await getTemplateRegistryHistory(32);
+		const v1 = versionIdFor(history, "<p>v1</p>");
 
-		await expect(getTemplateRegistryHistory(31)).rejects.toThrow(
-			"template 31 failed schema validation",
+		// Listmonk would keep v2's builder source beside v1's body — a state
+		// neither version had — so every registry write path refuses it.
+		for (const attempt of [
+			() => rollbackTemplateVersion(client, 32),
+			() => rollbackTemplateVersion(client, 32, { toVersionId: v1 }),
+			() => promoteTemplateVersion(client, 32, v1),
+			() => promoteTemplateVersion(client, 32, v1, { force: true }),
+		]) {
+			await expect(attempt()).rejects.toThrow(
+				/has no body_source, but the live template has one/,
+			);
+		}
+		expect(remote.writes).toEqual([]);
+		expect(await getTemplateRegistryHistory(32)).toEqual(history);
+	});
+
+	test("does not treat other write differences as the written version", async () => {
+		await useTemporaryStores();
+		let body = "<p>v1</p>\n";
+		const stored = () => ({
+			id: 33,
+			name: "Receipt",
+			type: "tx",
+			subject: "Your receipt",
+			body,
+		});
+		const client = {
+			template: {
+				getById: async () => ({ data: stored() }),
+				// A write difference the registry does not know Listmonk makes.
+				update: async ({ body: update }: { body: { body: string } }) => {
+					body = update.body.trimEnd();
+					return { data: stored() };
+				},
+			},
+		} as unknown as ListmonkClient;
+		await syncTemplateRegistry(client, { templateIds: [33] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [33] });
+		const v1 = versionIdFor(
+			await getTemplateRegistryHistory(33),
+			"<p>v1</p>\n",
 		);
+		expect(await rollbackTemplateVersion(client, 33)).toMatchObject({
+			versionId: v1,
+		});
+		expect(body).toBe("<p>v1</p>");
+
+		// Only the verified subject normalization counts as the written
+		// version, so this stored content is not v1: a pinned retry re-applies
+		// it instead of reporting a no-op, and a sync records what is live.
+		expect(
+			await rollbackTemplateVersion(client, 33, { toVersionId: v1 }),
+		).toMatchObject({ rolledBack: true });
+		await Bun.sleep(2);
+		expect(
+			await syncTemplateRegistry(client, { templateIds: [33] }),
+		).toMatchObject({ createdVersions: 1 });
 	});
 
 	test("shares the live-version semantics with the CLI and MCP operations", async () => {

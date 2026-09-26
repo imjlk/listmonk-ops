@@ -35,18 +35,6 @@ export interface TemplateRegistryVersion {
 	snapshot: TemplateVersionSnapshot;
 }
 
-/**
- * What Listmonk stored for the registry's last write of a template. Listmonk
- * can normalize a template on write — it replaces an empty campaign-template
- * subject with the template name — so the live content of a written version
- * may not hash to its stored snapshot.
- */
-export interface TemplateRegistryLastWrite {
-	versionId: string;
-	/** Hash of the template Listmonk's update response returned. */
-	remoteHash: string;
-}
-
 export interface TemplateRegistryTemplateRecord {
 	templateId: number;
 	templateName: string;
@@ -63,11 +51,6 @@ export interface TemplateRegistryTemplateRecord {
 	 * can tell an untouched registry from one that went A → X → A.
 	 */
 	headRevision?: number;
-	/**
-	 * The registry's last remote write, so the written version still
-	 * matches its live content after Listmonk normalized it.
-	 */
-	lastWrite?: TemplateRegistryLastWrite;
 	versions: TemplateRegistryVersion[];
 }
 
@@ -208,16 +191,6 @@ function isTemplateRegistryVersion(
 	);
 }
 
-function isTemplateRegistryLastWrite(
-	value: unknown,
-): value is TemplateRegistryLastWrite {
-	return (
-		isRecord(value) &&
-		typeof value.versionId === "string" &&
-		typeof value.remoteHash === "string"
-	);
-}
-
 function isTemplateRegistryRecord(
 	value: unknown,
 ): value is TemplateRegistryTemplateRecord {
@@ -233,8 +206,6 @@ function isTemplateRegistryRecord(
 			(typeof value.headRevision === "number" &&
 				Number.isInteger(value.headRevision) &&
 				value.headRevision >= 0)) &&
-		(value.lastWrite === undefined ||
-			isTemplateRegistryLastWrite(value.lastWrite)) &&
 		Array.isArray(value.versions) &&
 		value.versions.length > 0 &&
 		value.versions.every(isTemplateRegistryVersion)
@@ -310,19 +281,35 @@ export type TemplateLiveVersionResolution =
 	  }>;
 
 /**
+ * The snapshot Listmonk stores when the registry writes `snapshot`. Verified
+ * against Listmonk 6.2: an update stores a non-transactional template's name
+ * as its subject. That is the only rewrite accepted as the written version;
+ * any other difference — such as a body_source Listmonk kept — is a
+ * different version. Returns `snapshot` itself when the write stores it
+ * unchanged.
+ */
+export function normalizeTemplateSnapshotForWrite(
+	snapshot: TemplateVersionSnapshot,
+): TemplateVersionSnapshot {
+	if (snapshot.type === "tx" || snapshot.subject === snapshot.name) {
+		return snapshot;
+	}
+	return { ...snapshot, subject: snapshot.name };
+}
+
+/**
  * Whether live content with `liveHash` is `version`'s content: its stored
- * snapshot, or what Listmonk stored when the registry last wrote it.
+ * snapshot, or what Listmonk stores when that snapshot is written.
  */
 function versionHoldsLiveContent(
-	record: Pick<TemplateRegistryTemplateRecord, "lastWrite">,
 	version: TemplateRegistryVersion,
 	liveHash: string,
 ): boolean {
-	return (
-		version.hash === liveHash ||
-		(record.lastWrite?.versionId === version.versionId &&
-			record.lastWrite.remoteHash === liveHash)
-	);
+	if (version.hash === liveHash) {
+		return true;
+	}
+	const written = normalizeTemplateSnapshotForWrite(version.snapshot);
+	return written !== version.snapshot && createTemplateHash(written) === liveHash;
 }
 
 /**
@@ -338,33 +325,24 @@ function versionHoldsLiveContent(
  * new.
  */
 export function resolveTemplateLiveVersion(
-	record: Pick<
-		TemplateRegistryTemplateRecord,
-		"activeVersionId" | "lastWrite" | "versions"
-	>,
+	record: Pick<TemplateRegistryTemplateRecord, "activeVersionId" | "versions">,
 	liveHash: string,
 ): TemplateLiveVersionResolution {
 	const history = [...record.versions].sort(compareTemplateVersions);
 	const activeVersion = history.find(
 		(version) => version.versionId === record.activeVersionId,
 	);
-	if (
-		activeVersion &&
-		versionHoldsLiveContent(record, activeVersion, liveHash)
-	) {
+	if (activeVersion && versionHoldsLiveContent(activeVersion, liveHash)) {
 		return { status: "active", version: activeVersion };
 	}
 	const latestVersion = history.at(-1);
-	if (
-		latestVersion &&
-		versionHoldsLiveContent(record, latestVersion, liveHash)
-	) {
+	if (latestVersion && versionHoldsLiveContent(latestVersion, liveHash)) {
 		return { status: "latest", version: latestVersion };
 	}
 	return {
 		status: "drifted",
 		matchingVersionIds: history
-			.filter((version) => versionHoldsLiveContent(record, version, liveHash))
+			.filter((version) => versionHoldsLiveContent(version, liveHash))
 			.map((version) => version.versionId),
 	};
 }
@@ -381,7 +359,7 @@ export function resolveTemplateLiveVersion(
 export function selectTemplateRollbackTarget(
 	record: Pick<
 		TemplateRegistryTemplateRecord,
-		"templateId" | "activeVersionId" | "lastWrite" | "versions"
+		"templateId" | "activeVersionId" | "versions"
 	>,
 	liveHash: string,
 	toVersionId?: string,
@@ -687,25 +665,37 @@ export async function getTemplateRegistryHistory(templateId: number): Promise<{
 }
 
 /**
- * What Listmonk stored for a registry write, read from its update response,
- * which returns the stored template. Reading it from the response keeps the
- * observation atomic with the write. Undefined when the response carries no
- * template for this id, so version hashes alone decide what is live.
+ * Read the live template at most once per registry transaction, so every
+ * check inside the store lock works from the same observation.
  */
-function readTemplateWrite(
-	data: unknown,
+function createLiveTemplateReader(
+	client: ListmonkClient,
 	templateId: number,
-	versionId: string,
-): TemplateRegistryLastWrite | undefined {
-	if (!isRecord(data) || toPositiveInt(data.id) !== templateId) {
-		return undefined;
-	}
-	return {
-		versionId,
-		remoteHash: createTemplateHash(
-			createTemplateSnapshot(data as Template, templateId),
-		),
+): () => Promise<Template> {
+	let liveTemplate: Promise<Template> | undefined;
+	return () => {
+		liveTemplate ??= getTemplateById(client, templateId);
+		return liveTemplate;
 	};
+}
+
+/**
+ * Listmonk 6.2 keeps a template's body_source when an update omits it or
+ * sends it empty or null, so a version without one cannot be restored over
+ * a live template that has one: the write would pair the version's body with
+ * the live visual-builder source, a state no stored version holds. Refuse
+ * before writing instead of reporting that hybrid as the restored version.
+ */
+function assertTemplateVersionRestorable(
+	templateId: number,
+	version: TemplateRegistryVersion,
+	liveTemplate: Template,
+): void {
+	if (!version.snapshot.bodySource && liveTemplate.body_source) {
+		throw new Error(
+			`Template ${templateId} version ${version.versionId} has no body_source, but the live template has one; Listmonk keeps a body_source that an update omits or clears, so writing this version would pair its body with a different visual source. Promote a version that has a body_source, or change the template in Listmonk.`,
+		);
+	}
 }
 
 // Call only from a JSON store transaction. The lock intentionally spans the
@@ -717,6 +707,7 @@ async function promoteTemplateVersionInStore(
 	templateId: number,
 	versionId: string,
 	store: TemplateRegistryStore,
+	readLiveTemplate: () => Promise<Template>,
 ): Promise<TemplatePromoteResult> {
 	const record = store.templates[String(templateId)];
 	if (!record) {
@@ -731,6 +722,11 @@ async function promoteTemplateVersionInStore(
 			`Version ${versionId} not found for template ${templateId}`,
 		);
 	}
+	assertTemplateVersionRestorable(
+		templateId,
+		targetVersion,
+		await readLiveTemplate(),
+	);
 
 	const response = await client.template.update({
 		path: { id: templateId },
@@ -760,7 +756,6 @@ async function promoteTemplateVersionInStore(
 	record.activeVersionId = versionId;
 	// The write restored this version's name in Listmonk.
 	record.templateName = targetVersion.snapshot.name;
-	record.lastWrite = readTemplateWrite(response.data, templateId, versionId);
 	store.templates[String(templateId)] = record;
 
 	return {
@@ -828,10 +823,11 @@ export async function promoteTemplateVersion(
 		async (
 			store,
 		): Promise<TemplateRemoteMutationOutcome<TemplatePromoteResult>> => {
+			const readLiveTemplate = createLiveTemplateReader(client, templateId);
 			// Hash check inside the lock so concurrent promotions cannot
 			// both pass the check before either acquires the lock.
 			if (!options?.force && options?.expectedRemoteHash) {
-				const remoteTemplate = await getTemplateById(client, templateId);
+				const remoteTemplate = await readLiveTemplate();
 				const remoteHash = createTemplateHash({
 					id: toPositiveInt(remoteTemplate.id) || templateId,
 					name: remoteTemplate.name || "",
@@ -859,11 +855,11 @@ export async function promoteTemplateVersion(
 					(version) => version.versionId === versionId,
 				);
 				if (activeVersion) {
-					const remoteTemplate = await getTemplateById(client, templateId);
+					const remoteTemplate = await readLiveTemplate();
 					const remoteHash = createTemplateHash(
 						createTemplateSnapshot(remoteTemplate, templateId),
 					);
-					if (versionHoldsLiveContent(record, activeVersion, remoteHash)) {
+					if (versionHoldsLiveContent(activeVersion, remoteHash)) {
 						return {
 							result: {
 								templateId,
@@ -886,6 +882,7 @@ export async function promoteTemplateVersion(
 					templateId,
 					versionId,
 					store,
+					readLiveTemplate,
 				),
 				remoteMutated: true,
 			};
@@ -963,13 +960,14 @@ export async function rollbackTemplateVersion(
 				);
 			}
 
+			const readLiveTemplate = createLiveTemplateReader(client, templateId);
 			// Remote drift pin: same locked hash check as promotion, so a
 			// template mutated outside the registry cannot be rolled back
 			// over silently. Listmonk offers no conditional update, so this
 			// stays a best-effort pre-check — an external writer can still
 			// interleave between this GET and the update PUT below.
 			if (options.expectedRemoteHash !== undefined) {
-				const remoteTemplate = await getTemplateById(client, templateId);
+				const remoteTemplate = await readLiveTemplate();
 				const remoteHash = createTemplateHash({
 					id: toPositiveInt(remoteTemplate.id) || templateId,
 					name: remoteTemplate.name || "",
@@ -1000,16 +998,17 @@ export async function rollbackTemplateVersion(
 					(version) => version.versionId === options.toVersionId,
 				);
 				if (targetVersion) {
-					const remoteTemplate = await getTemplateById(client, templateId);
+					const remoteTemplate = await readLiveTemplate();
 					const remoteHash = createTemplateHash(
 						createTemplateSnapshot(remoteTemplate, templateId),
 					);
-					if (!versionHoldsLiveContent(record, targetVersion, remoteHash)) {
+					if (!versionHoldsLiveContent(targetVersion, remoteHash)) {
 						const promoted = await promoteTemplateVersionInStore(
 							client,
 							templateId,
 							targetVersion.versionId,
 							store,
+							readLiveTemplate,
 						);
 						return {
 							result: { ...promoted, rolledBack: true },
@@ -1039,7 +1038,7 @@ export async function rollbackTemplateVersion(
 			// pinned target must still be the resolved previous version, so a
 			// retry after the registry moved fails instead of silently rolling
 			// to a different version.
-			const remoteTemplate = await getTemplateById(client, templateId);
+			const remoteTemplate = await readLiveTemplate();
 			const targetVersion = selectTemplateRollbackTarget(
 				record,
 				createTemplateHash(createTemplateSnapshot(remoteTemplate, templateId)),
@@ -1051,6 +1050,7 @@ export async function rollbackTemplateVersion(
 				templateId,
 				targetVersion.versionId,
 				store,
+				readLiveTemplate,
 			);
 			return { result: { ...promoted, rolledBack: true }, remoteMutated: true };
 		},
