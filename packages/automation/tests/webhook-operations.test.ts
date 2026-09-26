@@ -939,5 +939,25 @@ describe("webhook shared operations", () => {
 				}),
 			).rejects.toThrow();
 		}
+		for (const url of ["https://localhost./hooks", "https://hooks.localhost/hooks"]) {
+			const policyError = `Outbound webhook URL is unsafe: Host ${new URL(url).hostname} is private/internal`;
+			await expect(
+				invokeWebhookCreateOperation(context, {
+					name: url,
+					url,
+					secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_PRIMARY",
+					event_filters: ["operation.*"],
+				}),
+			).rejects.toThrow(policyError);
+			await expect(
+				invokeWebhookUpdateOperation(context, {
+					id: "03b73791-da72-43eb-89e0-b0b803081618",
+					url,
+				}),
+			).rejects.toThrow(policyError);
+		}
+		expect(await invokeWebhookListOperation(context, {})).toEqual({
+			endpoints: [],
+		});
 	});
 });

@@ -215,7 +215,8 @@ Only the environment-variable name in
 `secretRef` is persisted. Dispatch resolves its value at runtime, sends no
 redirects, revalidates public HTTPS destination addresses, and pins the
 validated address into the TLS connection to prevent DNS rebinding between
-validation and delivery.
+validation and delivery. Endpoint URLs that name `localhost`, `localhost.`, or
+`*.localhost` are rejected when an endpoint is created or updated.
 If a hostname has multiple validated addresses, dispatch tries them in order
 within the endpoint timeout. Audited CLI and MCP executions are projected into
 `operation.*` events automatically after the durable metadata-only audit write;

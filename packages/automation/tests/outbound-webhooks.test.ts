@@ -112,6 +112,30 @@ describe("outbound webhook endpoint registry", () => {
 		}
 	});
 
+	test("rejects localhost names at create and update with the host policy error", async () => {
+		const path = await createStorePath();
+		for (const url of [
+			"https://localhost./hook",
+			"https://hooks.localhost/hook",
+			"https://HOOKS.LOCALHOST./hook",
+		]) {
+			await expect(createEndpoint(path, { name: url, url })).rejects.toThrow(
+				`Outbound webhook URL is unsafe: Host ${new URL(url).hostname} is private/internal`,
+			);
+		}
+		const endpoint = await createEndpoint(path);
+		await expect(
+			updateOutboundWebhookEndpoint(
+				endpoint.id,
+				{ url: "https://hooks.localhost/hook" },
+				{ path },
+			),
+		).rejects.toThrow(
+			"Outbound webhook URL is unsafe: Host hooks.localhost is private/internal",
+		);
+		expect(await listOutboundWebhookEndpoints({ path })).toEqual([endpoint]);
+	});
+
 	test("rejects duplicate names and unknown event filters", async () => {
 		const path = await createStorePath();
 		await createEndpoint(path);

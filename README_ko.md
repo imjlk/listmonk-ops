@@ -1281,13 +1281,14 @@ listmonk-cli ops templates-rollback --template-id 10 --confirm
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 ```
 
-프리플라이트 링크 검사는 private/internal 호스트(loopback, private
-CIDR, link-local, 클라우드 metadata IP)를 차단하며 redirect를 수동으로
-팔로우하며 각 hop마다 재검증합니다. 각 hop은 DNS를 한 번만 조회하고 HTTP(S)
-연결을 검증된 주소에 고정하므로, DNS rebinding으로 검사 요청을 내부 주소로 돌릴
-수 없습니다. DNS 조회에 실패한 호스트는 검증 불가(unverifiable)로 보고하며
-요청을 보내지 않습니다. 깨진 링크 상세에는 정책 사유, 상태 코드, 로컬 오류
-코드만 담고 원격 오류 문구는 포함하지 않습니다. 템플릿 promote는 `--expected-remote-hash`로
+프리플라이트 링크 검사는 private/internal 호스트(loopback,
+`localhost`/`*.localhost` 이름, private CIDR, link-local, 클라우드 metadata IP)를
+차단하며 redirect를 수동으로 팔로우하며 각 hop마다 재검증합니다. 각 hop은 DNS를
+한 번만 조회하고 HTTP(S) 연결을 검증된 주소에 고정하므로, DNS rebinding으로
+검사 요청을 내부 주소로 돌릴 수 없습니다. DNS 조회에 실패한 호스트는 검증
+불가(unverifiable)로 보고하며 요청을 보내지 않습니다. 깨진 링크 상세에는 정책
+사유, 상태 코드, 로컬 오류 코드만 담고 원격 오류 문구는 포함하지 않습니다.
+템플릿 promote는 `--expected-remote-hash`로
 optimistic concurrency를 지원합니다. MCP/CLI operation 출력은 더 이상
 절대 파일시스템 경로를 노출하지 않습니다.
 
@@ -1386,7 +1387,8 @@ dry-run이며, 파괴적 실행은 dry-run이 보고한 정확한 delivery 집�
 timestamp(`--before`)를 그대로 전달합니다. 확인된 삭제가 현재 시계로 흔들리지
 않고 retry도 아무것도 추가로 삭제하지 않습니다.
 
-자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용합니다.
+자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용하며,
+`localhost`, `localhost.`, `*.localhost` 이름은 endpoint 생성·수정 시 거부합니다.
 Dispatch 시 DNS/IP가 전역 라우팅 가능한 주소인지 다시 확인하고, 검증된 주소를
 차례로 시도하면서 각 HTTPS 연결에 고정하며 redirect는 허용하지 않습니다.
 `webhooks tick`을 scheduler에서 실행하거나 heartbeat를 기록하는

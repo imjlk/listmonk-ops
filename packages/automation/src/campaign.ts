@@ -220,14 +220,27 @@ function isPublicIpv6(address: bigint): boolean {
 }
 
 /**
- * Returns true for literal addresses that are not globally routable. Despite
- * the historical name, this deliberately blocks all special-purpose ranges,
- * including documentation, benchmarking, multicast, and reserved space.
- * Non-literal hostnames are resolved and checked separately.
+ * RFC 6761 reserves `localhost` and every `*.localhost` name for loopback. A
+ * trailing root dot (`localhost.`) names the same host.
+ */
+function isLocalhostName(host: string): boolean {
+	let end = host.length;
+	while (end > 0 && host.charCodeAt(end - 1) === 0x2e) {
+		end -= 1;
+	}
+	const name = host.slice(0, end);
+	return name === "localhost" || name.endsWith(".localhost");
+}
+
+/**
+ * Returns true for loopback names and literal addresses that are not globally
+ * routable. Despite the historical name, this deliberately blocks all
+ * special-purpose ranges, including documentation, benchmarking, multicast,
+ * and reserved space. Other hostnames are resolved and checked separately.
  */
 export function isPrivateHost(hostname: string): boolean {
 	const host = hostname.replace(/^\[|\]$/gu, "").toLowerCase();
-	if (host === "localhost") {
+	if (isLocalhostName(host)) {
 		return true;
 	}
 	const ipv4 = parseIpv4Address(host);
