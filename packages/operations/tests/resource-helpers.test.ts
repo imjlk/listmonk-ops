@@ -78,5 +78,18 @@ describe("isResourceMissingError", () => {
 			),
 		).toBe(false);
 		expect(isResourceMissingError(new Error("Subscriber not found"))).toBe(false);
+		// Untyped callers cannot turn the label into a pattern.
+		expect(
+			isResourceMissingError(
+				responseError(400, "Subscriber (42: ) not found"),
+				"subscriber(" as never,
+			),
+		).toBe(false);
+		expect(
+			isResourceMissingError(
+				responseError(400, "Subscriber (42: ) not found"),
+				"constructor" as never,
+			),
+		).toBe(false);
 	});
 });

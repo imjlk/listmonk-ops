@@ -66,14 +66,31 @@ export class ResourceResponseError extends Error {
 
 const NOT_FOUND_MESSAGE = /\bnot found\b/i;
 
+const RESOURCE_LABELS = [
+	"template",
+	"campaign",
+	"list",
+	"subscriber",
+	"bounce",
+	"media",
+] as const;
+
 /** Listmonk resources whose "<Resource> not found" answers can be scoped. */
-export type ResourceLabel =
-	| "template"
-	| "campaign"
-	| "list"
-	| "subscriber"
-	| "bounce"
-	| "media";
+export type ResourceLabel = (typeof RESOURCE_LABELS)[number];
+
+// Listmonk's answer is "<Resource> not found", optionally with the lookup key
+// ("Subscriber (42: ) not found", or "Bounce 7 not found" from a local lookup),
+// so the label must directly precede "not found": "Subscriber list not found"
+// is a list miss, not a subscriber miss. Compiled once per known label.
+const LABELLED_NOT_FOUND: ReadonlyMap<string, RegExp> = new Map(
+	RESOURCE_LABELS.map((label) => [
+		label,
+		new RegExp(
+			`\\b${label}\\b(?:\\s*\\([^)]*\\)|\\s+#?\\d+)?\\s+not found\\b`,
+			"i",
+		),
+	]),
+);
 
 /**
  * Whether a lookup failed because the resource does not exist. Listmonk 6.2
@@ -102,14 +119,8 @@ export function isResourceMissingError(
 			? error.message
 			: toResourceErrorMessage(error.cause);
 	if (resource === undefined) return NOT_FOUND_MESSAGE.test(message);
-	// Listmonk's answer is "<Resource> not found", optionally with the lookup
-	// key ("Subscriber (42: ) not found", or "Bounce 7 not found" from a local
-	// lookup), so the label must directly precede "not found": "Subscriber
-	// list not found" is a list miss, not a subscriber miss.
-	return new RegExp(
-		`\\b${resource}\\b(?:\\s*\\([^)]*\\)|\\s+#?\\d+)?\\s+not found\\b`,
-		"i",
-	).test(message);
+	// An unknown label (possible only from untyped callers) never matches.
+	return LABELLED_NOT_FOUND.get(resource)?.test(message) === true;
 }
 
 export function toResourceErrorMessage(error: unknown): string {
