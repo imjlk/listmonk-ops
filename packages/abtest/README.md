@@ -250,9 +250,10 @@ if (analysis.winner && test.testing_mode === "holdout") {
 winner has not been deployed yet (`resolveWinnerDeployment`). Any other status
 — an operator stop (`cancelled`), a finalized no-decision (`inconclusive`),
 `failed`, or a test that has not reached analysis — throws
-`AbTestInvalidStatusError` before any analysis or Listmonk call; its
-`toStructuredDetails()` carries `test_id`, `status`, and `allowed_statuses`,
-which the CLI and MCP adapters surface. A completed test that already records
+`AbTestInvalidStatusError` before any analysis or Listmonk call. Its message
+names the status and the reason, and its `toStructuredDetails()` carries
+`test_id`, `status`, and `allowed_statuses`, which MCP error results append
+as details. A completed test that already records
 `winnerCampaignId` returns without delivering to the holdout again, while a
 winner campaign already tagged `winner:deployed` after a lost local commit is
 still adopted instead of duplicated.

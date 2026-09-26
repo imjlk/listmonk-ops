@@ -1298,11 +1298,12 @@ timer용). `--dry-run true`로 상태 변경 없이 미리보기할 수 있습�
 `abtest deploy-winner`(MCP `listmonk_abtest_deploy_winner`)는 `analyzing`
 테스트, 또는 유의한 승자를 아직 배포하지 않은 `completed` 테스트에서만
 배포합니다. `cancelled`, `inconclusive`, `failed` 테스트나 아직 분석 단계에
-이르지 않은 테스트는 분석이나 Listmonk 호출 전에 `AbTestInvalidStatusError`
-(구조화된 `test_id`, `status`, `allowed_statuses` 정보 포함)로 거부되므로,
-CLI나 MCP 호출 한 번으로 운영자의 중지나 확정된 무결론 결과를 뒤집을 수
-없습니다. 승자 campaign이 이미 기록된 테스트에서 다시 실행하면 아무 작업도
-하지 않으며 holdout에 두 번 발송하지 않습니다.
+이르지 않은 테스트는 분석이나 Listmonk 호출 전에 `AbTestInvalidStatusError`로
+거부되므로, CLI나 MCP 호출 한 번으로 운영자의 중지나 확정된 무결론 결과를
+뒤집을 수 없습니다. 오류 메시지에는 상태와 사유가 표시되며, MCP 오류
+결과에는 `test_id`, `status`, `allowed_statuses` 세부 정보도 포함됩니다.
+승자 campaign이 이미 기록된 테스트에서 다시 실행하면 아무 작업도 하지 않으며
+holdout에 두 번 발송하지 않습니다.
 
 MCP에서도 A/B 테스트 라이프사이클 도구를 제공합니다.
 

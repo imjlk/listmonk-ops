@@ -1364,10 +1364,11 @@ attribution tail before analyzing or deploying a winner.
 an `analyzing` test, or from a `completed` test whose significant winner has
 not been deployed yet. A `cancelled`, `inconclusive`, or `failed` test, or one
 that has not reached analysis, is refused with `AbTestInvalidStatusError`
-(structured `test_id`, `status`, and `allowed_statuses` details) before any
-analysis or Listmonk call, so one CLI or MCP call cannot override an operator
-stop or a finalized no-decision. Repeating it for a test that already records
-its winner campaign is a no-op and never delivers to the holdout twice.
+before any analysis or Listmonk call, so one CLI or MCP call cannot override an
+operator stop or a finalized no-decision. The error names the status and the
+reason; MCP error results also carry `test_id`, `status`, and
+`allowed_statuses` details. Repeating it for a test that already records its
+winner campaign is a no-op and never delivers to the holdout twice.
 
 MCP now also exposes A/B test lifecycle tools:
 
