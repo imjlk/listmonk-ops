@@ -1348,6 +1348,8 @@ export function createPostgresSequenceRepository(
 		async getRuntimeHealth(options): Promise<SequenceRuntimeHealth> {
 			await ready();
 			const nowIso = options.now.toISOString();
+			// One cutoff keeps the running and stale buckets disjoint.
+			const staleCutoff = sql`${nowIso}::timestamptz - ${options.workerStaleMs} * interval '1 millisecond'`;
 			const dueCondition = sql`
 				status IN ('pending', 'running', 'waiting')
 				AND next_run_at <= ${nowIso}::timestamptz
@@ -1383,12 +1385,11 @@ export function createPostgresSequenceRepository(
 				`,
 				sql<WorkerHealthRow[]>`
 					SELECT
-						count(*) FILTER (WHERE status = 'running')::int AS running,
 						count(*) FILTER (
-							WHERE status = 'running'
-								AND heartbeat_at <
-									${nowIso}::timestamptz -
-									${options.workerStaleMs} * interval '1 millisecond'
+							WHERE status = 'running' AND heartbeat_at >= ${staleCutoff}
+						)::int AS running,
+						count(*) FILTER (
+							WHERE status = 'running' AND heartbeat_at < ${staleCutoff}
 						)::int AS stale,
 						count(*) FILTER (WHERE status = 'stopped')::int AS stopped,
 						count(*) FILTER (WHERE status = 'failed')::int AS failed,
@@ -1428,10 +1429,10 @@ export function createPostgresSequenceRepository(
 			return {
 				store: "postgres",
 				schemaVersion: SEQUENCE_POSTGRES_SCHEMA_VERSION,
-				healthy:
-					workers.stale === 0 &&
-					(enrollments.due === 0 ||
-						workers.running > workers.stale),
+				// Same rule as the file store and the webhook runtime:
+				// `running` counts fresh workers only, and stale records do not
+				// fail health while a fresh worker covers due enrollments.
+				healthy: enrollments.due === 0 || workers.running > 0,
 				checkedAt: nowIso,
 				definitions,
 				enrollments: {

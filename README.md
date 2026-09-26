@@ -1334,6 +1334,7 @@ listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --co
 # Echo --subscriber-ids from the dry run for the destructive execution.
 
 # 4) Segment drift snapshot
+# An unchanged count never alerts, even with both thresholds at 0.
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
 # Use --baseline-mode lookback-mean to compare against the lookback
 # window average instead of the previous snapshot. Pass a stable
@@ -1520,8 +1521,11 @@ The default file store is `~/.listmonk-ops/sequences.json`. Set
 schema initialization. It also stores transactional idempotency claims in the
 same database so every worker observes one shared send decision.
 `sequences status` reports due work, ambiguity, leases,
-and running/stale/stopped/failed worker health. Old worker records are pruned
-after the retention window. Sequence create/revise/enroll/pause/resume and
+and running/stale/stopped/failed worker health. As with the webhook runtime,
+`running` counts only workers with a fresh heartbeat, a crashed worker's record
+is reported as `stale`, and the runtime stays healthy while a fresh worker
+covers due work (it is unhealthy only when due work has no fresh worker). Old
+worker records are pruned after the retention window. Sequence create/revise/enroll/pause/resume and
 operator reconciliation also project typed `sequence.*` outbound events.
 
 ## Provider and Deliverability Doctor
