@@ -1,4 +1,7 @@
-import { getListmonkDataDirectory } from "@listmonk-ops/common";
+import {
+	getListmonkDataDirectory,
+	resolveConfiguredPath,
+} from "@listmonk-ops/common";
 import { join } from "node:path";
 
 export type RecordValue = Record<string, unknown>;
@@ -40,14 +43,21 @@ export function toDate(value: string | undefined): Date | undefined {
 	return date;
 }
 
+/**
+ * Explicit overrides follow the shared path rule (`~/` expansion, relative
+ * paths from the home directory) so CLI and MCP processes with different
+ * working directories use the same files.
+ */
 export function getOpsStorePaths() {
 	const dataDirectory = join(getListmonkDataDirectory(), "ops");
+	const segmentStore = process.env.LISTMONK_OPS_SEGMENT_STORE?.trim();
+	const templateRegistry = process.env.LISTMONK_OPS_TEMPLATE_REGISTRY?.trim();
 	return {
-		segmentStorePath:
-			process.env.LISTMONK_OPS_SEGMENT_STORE?.trim() ||
-			join(dataDirectory, "segment-drift.json"),
-		templateRegistryPath:
-			process.env.LISTMONK_OPS_TEMPLATE_REGISTRY?.trim() ||
-			join(dataDirectory, "template-registry.json"),
+		segmentStorePath: segmentStore
+			? resolveConfiguredPath(segmentStore)
+			: join(dataDirectory, "segment-drift.json"),
+		templateRegistryPath: templateRegistry
+			? resolveConfiguredPath(templateRegistry)
+			: join(dataDirectory, "template-registry.json"),
 	};
 }

@@ -66,4 +66,20 @@ describe("normalizeListmonkApiUrl", () => {
 			normalizeListmonkApiUrl("https://host/api#section"),
 		).toThrow(/must not include a query string or fragment/);
 	});
+
+	test("rejects a bare trailing ? or # that URL search/hash report as empty", () => {
+		// Accepting these would send requests to `/api?/lists` and hash a
+		// different idempotency target than the same instance without them.
+		for (const url of [
+			"https://h/api?",
+			"https://h/api#",
+			"http://h?#",
+			"http://h:9000/api?",
+			"  https://h/api#  ",
+		]) {
+			expect(() => normalizeListmonkApiUrl(url)).toThrow(
+				/must not include a query string or fragment/,
+			);
+		}
+	});
 });

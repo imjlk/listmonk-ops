@@ -49,17 +49,67 @@ interface ProfileDocument {
 const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+export interface ConfiguredPathOptions {
+	/** Anchor for a relative path. Defaults to the home directory. */
+	baseDirectory?: string;
+	homeDirectory?: string;
+}
+
+/**
+ * The one rule for user-configured paths: surrounding whitespace is ignored,
+ * a leading `~` or `~/` expands to the home directory (MCP client JSON
+ * configs are not shell-expanded), absolute paths are kept as written, and
+ * relative paths resolve from `baseDirectory` — the home directory unless the
+ * caller anchors them to a profile file or an explicit command-line cwd.
+ * Anchoring environment paths to the home directory rather than
+ * `process.cwd()` keeps a CLI run from any directory and an MCP server started
+ * elsewhere on the same state files. A blank value is rejected rather than
+ * resolved to the anchor directory itself; callers treat blank settings as
+ * unset before calling.
+ */
+export function resolveConfiguredPath(
+	value: string,
+	options: ConfiguredPathOptions = {},
+): string {
+	const home = options.homeDirectory ?? homedir();
+	const trimmed = value.trim();
+	if (trimmed === "") throw new Error("Configured path must not be blank");
+	if (trimmed === "~") return home;
+	if (trimmed.startsWith("~/")) return resolve(home, trimmed.slice(2));
+	return isAbsolute(trimmed)
+		? trimmed
+		: resolve(options.baseDirectory ?? home, trimmed);
+}
+
 export function getListmonkDataDirectory(): string {
 	const selected = process.env.LISTMONK_OPS_DATA_DIR?.trim();
 	return selected
-		? resolve(homedir(), selected)
+		? resolveConfiguredPath(selected)
 		: join(homedir(), ".listmonk-ops");
 }
 
-function filePath(value: string, base: string, home: string): string {
-	if (value === "~") return home;
-	if (value.startsWith("~/")) return resolve(home, value.slice(2));
-	return isAbsolute(value) ? value : resolve(base, value);
+const FILE_ERROR_DESCRIPTIONS: Readonly<Record<string, string>> = {
+	ENOENT: "file does not exist",
+	EACCES: "permission denied",
+	EPERM: "permission denied",
+	ENOTDIR: "a parent path is not a directory",
+	ELOOP: "too many symbolic links",
+};
+
+function fileErrorCode(error: unknown): string | undefined {
+	return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+		? error.code
+		: undefined;
+}
+
+/** ` (ENOENT: file does not exist)` for an errno failure; never file contents. */
+function describeFileError(error: unknown): string {
+	const code = fileErrorCode(error);
+	if (code === undefined) return "";
+	const description = FILE_ERROR_DESCRIPTIONS[code];
+	return description === undefined
+		? ` (${code})`
+		: ` (${code}: ${description})`;
 }
 
 /** Bound allocation and reject non-regular files without blocking on a FIFO. */
@@ -68,8 +118,11 @@ async function readConfigurationFile(path: string, limit: number, label: string,
 	try {
 		handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
 	} catch (error) {
-		if (optional && typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return undefined;
-		throw new Error(`Unable to open ${label}`);
+		if (optional && fileErrorCode(error) === "ENOENT") return undefined;
+		throw new Error(
+			`Unable to open ${label} ${path}${describeFileError(error)}`,
+			{ cause: error },
+		);
 	}
 	try {
 		const stat = await handle.stat();
@@ -90,8 +143,12 @@ async function readConfigurationFile(path: string, limit: number, label: string,
 		return new TextDecoder("utf-8", { fatal: true }).decode(
 			buffer.subarray(0, size),
 		);
-	} catch {
-		throw new Error(`Unable to read ${label}: expected a bounded regular file`);
+	} catch (error) {
+		// Only the path and errno code are reported; the contents never are.
+		throw new Error(
+			`Unable to read ${label} ${path}${describeFileError(error)}: expected a bounded regular file`,
+			{ cause: error },
+		);
 	} finally {
 		await handle.close();
 	}
@@ -152,6 +209,25 @@ function parseProfiles(content: string): ProfileDocument {
 		...(typeof value.defaultProfile === "string" ? { defaultProfile: value.defaultProfile } : {}),
 	};
 }
+/** Name the requested profile and the ones that exist; never echo an invalid name. */
+function describeMissingProfile(input: {
+	name: string;
+	selectedBy?: string;
+	configFile: string;
+	configFileFound: boolean;
+	available: readonly string[];
+}): string {
+	const origin = input.selectedBy === undefined
+		? ""
+		: ` (selected by ${input.selectedBy})`;
+	if (!PROFILE_NAME.test(input.name)) {
+		return `Requested Listmonk profile name${origin} is invalid: use 1-64 letters, digits, "_", or "-", starting with a letter or digit`;
+	}
+	const requested = `Requested Listmonk profile "${input.name}"${origin} does not exist`;
+	if (!input.configFileFound) return `${requested}: no profile configuration file was found at ${input.configFile}`;
+	if (input.available.length === 0) return `${requested}: ${input.configFile} defines no profiles`;
+	return `${requested} in ${input.configFile}; available profiles: ${[...input.available].sort().join(", ")}`;
+}
 function credentialValue(value: string | undefined): string | undefined {
 	if (value === undefined || value.trim() === "") return undefined;
 	const normalized = value.trim();
@@ -170,10 +246,9 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 	const home = options.homeDirectory ?? homedir();
 	const cwd = options.workingDirectory ?? process.cwd();
 	const configuredPath = options.configFile ?? (env.LISTMONK_OPS_CONFIG?.trim() || undefined);
-	const path = filePath(
+	const path = resolveConfiguredPath(
 		configuredPath ?? join(home, ".listmonk-ops", "config.json"),
-		cwd,
-		home,
+		{ baseDirectory: cwd, homeDirectory: home },
 	);
 	const content = await readConfigurationFile(
 		path,
@@ -185,7 +260,17 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 		? { schemaVersion: 1 as const, profiles: {} as Record<string, Profile> }
 		: parseProfiles(content);
 	const profileName = options.profile ?? (env.LISTMONK_OPS_PROFILE?.trim() || undefined) ?? document.defaultProfile;
-	if (profileName !== undefined && (!PROFILE_NAME.test(profileName) || !Object.hasOwn(document.profiles, profileName))) throw new Error("Requested Listmonk profile does not exist");
+	if (profileName !== undefined && (!PROFILE_NAME.test(profileName) || !Object.hasOwn(document.profiles, profileName))) {
+		// A valid defaultProfile always exists, so the name came from the
+		// caller or from LISTMONK_OPS_PROFILE (possibly via a Bun-loaded .env).
+		throw new Error(describeMissingProfile({
+			name: profileName,
+			...(options.profile === undefined ? { selectedBy: "LISTMONK_OPS_PROFILE" } : {}),
+			configFile: path,
+			configFileFound: content !== undefined,
+			available: Object.keys(document.profiles),
+		}));
+	}
 	const profile = profileName === undefined
 		? undefined
 		: document.profiles[profileName];
@@ -221,7 +306,10 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 		source: { kind: "default" },
 	};
 	const selectFile = (value: string, selectedSource: ConfigurationSource, base: string) => {
-		const reference = filePath(value, base, home);
+		const reference = resolveConfiguredPath(value, {
+			baseDirectory: base,
+			homeDirectory: home,
+		});
 		authentication = { kind: "token", source: selectedSource, reference };
 		readCredential = async () => {
 			const token = credentialValue(await readConfigurationFile(reference, 16_384, "Listmonk token file"));
@@ -255,10 +343,10 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 			0,
 			16,
 		);
-		dataDirectory = profile.dataDirectory === undefined ? join(home, ".listmonk-ops", "profiles", `${profileName}-${identity}`) : filePath(profile.dataDirectory, dirname(path), home);
+		dataDirectory = profile.dataDirectory === undefined ? join(home, ".listmonk-ops", "profiles", `${profileName}-${identity}`) : resolveConfiguredPath(profile.dataDirectory, { baseDirectory: dirname(path), homeDirectory: home });
 		dataSource = profile.dataDirectory === undefined ? { kind: "default" } : source("dataDirectory");
 	} else {
-		dataDirectory = env.LISTMONK_OPS_DATA_DIR?.trim() ? filePath(env.LISTMONK_OPS_DATA_DIR, home, home) : join(home, ".listmonk-ops");
+		dataDirectory = env.LISTMONK_OPS_DATA_DIR?.trim() ? resolveConfiguredPath(env.LISTMONK_OPS_DATA_DIR, { homeDirectory: home }) : join(home, ".listmonk-ops");
 		dataSource = env.LISTMONK_OPS_DATA_DIR?.trim() ? { kind: "environment", name: "LISTMONK_OPS_DATA_DIR" } : { kind: "default" };
 	}
 	return {

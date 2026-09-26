@@ -89,6 +89,10 @@ export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry
 export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 # Optional: override the transactional idempotency store
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
+# Optional: raise the transactional record cap for the file and sequence
+# PostgreSQL stores (direct keyed sends are retained for their TTL; unresolved
+# pending/unknown claims until reconciled)
+# export LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS=10000
 # Optional: override the keyed resource-create idempotency store
 export LISTMONK_OPS_RESOURCE_CREATE_STORE="$HOME/.listmonk-ops/ops/resource-creates.json"
 # Optional: raise the store's soft record cap (bindings are durable replays
@@ -107,6 +111,23 @@ export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
 # Optional: versioned provider profile JSON for read-only diagnostics
 export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
+
+Path-valued variables (`LISTMONK_OPS_DATA_DIR`, `LISTMONK_API_TOKEN_FILE`,
+`LISTMONK_OPS_AUDIT_STORE`, `LISTMONK_OPS_TRANSACTIONAL_STORE`,
+`LISTMONK_OPS_RESOURCE_CREATE_STORE`, `LISTMONK_OPS_SEGMENT_STORE`,
+`LISTMONK_OPS_TEMPLATE_REGISTRY`, `LISTMONK_OPS_SEQUENCE_STORE`, and
+`LISTMONK_OPS_WEBHOOK_STORE`) ignore surrounding whitespace, expand a leading
+`~` or `~/` (MCP client JSON configurations are not shell-expanded), and resolve
+relative values from the home directory, never the working directory. A CLI run
+from any directory and an MCP server launched elsewhere therefore share the same
+state files.
+
+File-backed stores serialize writers with a sibling `<store>.lock` file. A lock
+whose owner is confirmed dead on the same host is recovered automatically, but a
+lock recorded under another hostname (for example after a container is recreated
+or a laptop's hostname changes) is never removed automatically. When a lock wait
+times out, the error names the lock file and its recorded owner (pid, host, and
+age); delete that lock file only after confirming the owning process is gone.
 
 You can create/manage tokens in the Listmonk admin UI.
 
@@ -1139,6 +1160,16 @@ Without a sequence database, the store path defaults to
 `LISTMONK_OPS_TRANSACTIONAL_STORE`. Inspection may create or migrate this
 store. Version 1 files migrate to version 2 on the next store access; older binaries reject version 2 instead of
 silently discarding unresolved claims or decision history.
+
+Both stores retain at most 10,000 records by default. Accepted and failed direct
+sends stay for their 24-hour TTL, accepted sequence-step receipts until their
+enrollment advances, and pending or unknown claims until reconciled. At the cap,
+a new keyed send fails with an error that reports the retained counts by status
+instead of evicting a record; replays of retained keys still work.
+Reconcile ambiguous claims, or set `LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS`
+to a larger positive integer when an installation makes more keyed sends per TTL
+window. Every claim rewrites the whole file store, so prefer the sequence
+PostgreSQL store for sustained high volume.
 
 ## A/B Test Operations
 

@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveListmonkConfiguration } from "../src/configuration";
+import {
+	getListmonkDataDirectory,
+	resolveConfiguredPath,
+	resolveListmonkConfiguration,
+} from "../src/configuration";
 
 const directories: string[] = [];
 async function fixture(profiles?: Record<string, unknown>, defaultProfile?: string) {
@@ -31,7 +35,144 @@ afterEach(async () => {
 	await Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
+async function rejection(promise: Promise<unknown>): Promise<Error> {
+	try {
+		await promise;
+	} catch (error) {
+		if (error instanceof Error) return error;
+		throw error;
+	}
+	throw new Error("expected the promise to reject");
+}
+
+function withDataDirectoryEnvironment<T>(value: string, action: () => T): T {
+	const previous = process.env.LISTMONK_OPS_DATA_DIR;
+	process.env.LISTMONK_OPS_DATA_DIR = value;
+	try {
+		return action();
+	} finally {
+		if (previous === undefined) delete process.env.LISTMONK_OPS_DATA_DIR;
+		else process.env.LISTMONK_OPS_DATA_DIR = previous;
+	}
+}
+
+describe("resolveConfiguredPath", () => {
+	const homeDirectory = join(tmpdir(), "configured-path-home");
+
+	test("expands ~ and ~/ against the home directory", () => {
+		expect(resolveConfiguredPath("~", { homeDirectory })).toBe(homeDirectory);
+		expect(resolveConfiguredPath("~/lm-state", { homeDirectory })).toBe(
+			join(homeDirectory, "lm-state"),
+		);
+		// Only the current user's home is expanded; ~user stays a relative name.
+		expect(resolveConfiguredPath("~other/x", { homeDirectory })).toBe(
+			join(homeDirectory, "~other", "x"),
+		);
+	});
+
+	test("resolves relative paths from the home directory unless anchored elsewhere", () => {
+		expect(resolveConfiguredPath("state/tx.json", { homeDirectory })).toBe(
+			join(homeDirectory, "state", "tx.json"),
+		);
+		const baseDirectory = join(tmpdir(), "configured-path-base");
+		expect(
+			resolveConfiguredPath("token", { homeDirectory, baseDirectory }),
+		).toBe(join(baseDirectory, "token"));
+		// `~/` always means home, whatever the relative anchor.
+		expect(
+			resolveConfiguredPath("~/token", { homeDirectory, baseDirectory }),
+		).toBe(join(homeDirectory, "token"));
+	});
+
+	test("keeps absolute paths as written and ignores surrounding whitespace", () => {
+		expect(resolveConfiguredPath(" /srv/lm ", { homeDirectory })).toBe(
+			"/srv/lm",
+		);
+		expect(resolveConfiguredPath("\t~/lm-state \n", { homeDirectory })).toBe(
+			join(homeDirectory, "lm-state"),
+		);
+		expect(resolveConfiguredPath("  relative  ", { homeDirectory })).toBe(
+			join(homeDirectory, "relative"),
+		);
+	});
+
+	test("rejects a blank path instead of resolving to the anchor directory", async () => {
+		for (const value of ["", "   ", "\n\t"]) {
+			expect(() => resolveConfiguredPath(value, { homeDirectory })).toThrow(
+				"Configured path must not be blank",
+			);
+		}
+		const options = await fixture();
+		await expect(
+			resolveListmonkConfiguration({ ...options, configFile: "  " }),
+		).rejects.toThrow("Configured path must not be blank");
+		await expect(
+			resolveListmonkConfiguration({
+				homeDirectory: options.homeDirectory,
+				env: {},
+				tokenFile: " ",
+			}),
+		).rejects.toThrow("Configured path must not be blank");
+	});
+
+	test("defaults to the process home directory", () => {
+		expect(resolveConfiguredPath("~/lm-state")).toBe(
+			join(homedir(), "lm-state"),
+		);
+		expect(resolveConfiguredPath("lm-state")).toBe(join(homedir(), "lm-state"));
+	});
+});
+
 describe("shared Listmonk configuration", () => {
+	test("resolves LISTMONK_OPS_DATA_DIR identically with and without a resolved configuration", async () => {
+		const { homeDirectory } = await fixture();
+		const cases = [
+			{ value: "~/lm-state", expected: (home: string) => join(home, "lm-state") },
+			{ value: "lm-state", expected: (home: string) => join(home, "lm-state") },
+			{ value: "  ~/padded  ", expected: (home: string) => join(home, "padded") },
+			{ value: " /srv/lm ", expected: () => "/srv/lm" },
+		];
+		for (const { value, expected } of cases) {
+			const resolved = await resolveListmonkConfiguration({
+				homeDirectory,
+				workingDirectory: tmpdir(),
+				env: { LISTMONK_OPS_DATA_DIR: value },
+			});
+			expect(resolved.summary.dataDirectory).toBe(expected(homeDirectory));
+			expect(
+				withDataDirectoryEnvironment(value, () => getListmonkDataDirectory()),
+			).toBe(expected(homedir()));
+		}
+	});
+
+	test("rejects a configured API URL with a bare query or fragment delimiter", async () => {
+		const { homeDirectory } = await fixture();
+		for (const url of ["http://h:9000/api?", "https://h/api#"]) {
+			await expect(
+				resolveListmonkConfiguration({
+					homeDirectory,
+					env: { LISTMONK_API_URL: url },
+				}),
+			).rejects.toThrow("without credentials, query, or fragment");
+		}
+	});
+
+	test("trims token-file references and expands ~/ from the environment", async () => {
+		const options = await fixture();
+		await writeFile(join(options.homeDirectory, "token"), "file-secret\n");
+		for (const value of ["  ~/token  ", ` ${join(options.homeDirectory, "token")} `]) {
+			const resolved = await resolveListmonkConfiguration({
+				homeDirectory: options.homeDirectory,
+				workingDirectory: tmpdir(),
+				env: { LISTMONK_API_TOKEN_FILE: value },
+			});
+			expect(resolved.summary.authentication.reference).toBe(
+				join(options.homeDirectory, "token"),
+			);
+			expect(await resolved.readCredential()).toBe("file-secret");
+		}
+	});
+
 	test("preserves legacy env defaults and reports sources without authentication values", async () => {
 		const fixtureOptions = await fixture();
 		const options = {
@@ -137,6 +278,93 @@ describe("shared Listmonk configuration", () => {
 			await writeFile(options.configFile, JSON.stringify({ schemaVersion: 1, profiles: { one: { baseUrl: "https://one.test", username: "test", ...addition } } }));
 			await expect(resolveListmonkConfiguration(options)).rejects.toThrow("Invalid Listmonk profile entry");
 		}
+	});
+
+	test("names the requested profile, its origin, and the available profiles", async () => {
+		const options = await fixture({
+			two: { baseUrl: "https://two.test", username: "test" },
+			one: { baseUrl: "https://one.test", username: "test" },
+		});
+		await expect(
+			resolveListmonkConfiguration({ ...options, profile: "prod" }),
+		).rejects.toThrow(
+			`Requested Listmonk profile "prod" does not exist in ${options.configFile}; available profiles: one, two`,
+		);
+		await expect(
+			resolveListmonkConfiguration({
+				...options,
+				env: { LISTMONK_OPS_PROFILE: "prod" },
+			}),
+		).rejects.toThrow(
+			'Requested Listmonk profile "prod" (selected by LISTMONK_OPS_PROFILE) does not exist',
+		);
+		// An invalid name is described, not echoed.
+		const invalid = await rejection(
+			resolveListmonkConfiguration({ ...options, profile: "../../etc/passwd" }),
+		);
+		expect(invalid.message).toContain(
+			"Requested Listmonk profile name is invalid",
+		);
+		expect(invalid.message).not.toContain("passwd");
+
+		await writeFile(
+			options.configFile,
+			JSON.stringify({ schemaVersion: 1, profiles: {} }),
+		);
+		await expect(
+			resolveListmonkConfiguration({ ...options, profile: "prod" }),
+		).rejects.toThrow(`${options.configFile} defines no profiles`);
+
+		const empty = await fixture();
+		await expect(
+			resolveListmonkConfiguration({
+				homeDirectory: empty.homeDirectory,
+				env: {},
+				profile: "prod",
+			}),
+		).rejects.toThrow(
+			`no profile configuration file was found at ${join(empty.homeDirectory, ".listmonk-ops", "config.json")}`,
+		);
+	});
+
+	test("names the file and errno code when a configuration or token file cannot be opened", async () => {
+		const options = await fixture();
+		const missingConfig = join(options.homeDirectory, "absent.json");
+		await expect(
+			resolveListmonkConfiguration({ ...options, configFile: missingConfig }),
+		).rejects.toThrow(
+			`Unable to open Listmonk profile configuration ${missingConfig} (ENOENT: file does not exist)`,
+		);
+
+		const tokenFile = join(options.homeDirectory, "token");
+		const resolved = await resolveListmonkConfiguration({
+			homeDirectory: options.homeDirectory,
+			env: {},
+			tokenFile,
+		});
+		const missing = await rejection(resolved.readCredential());
+		expect(missing.message).toBe(
+			`Unable to open Listmonk token file ${tokenFile} (ENOENT: file does not exist)`,
+		);
+		expect(missing.cause).toMatchObject({ code: "ENOENT" });
+
+		// Root can read a mode-000 file, so only non-root runs can observe EACCES.
+		if (process.getuid?.() !== 0) {
+			await writeFile(tokenFile, "private-token-value\n");
+			await chmod(tokenFile, 0o000);
+			const denied = await rejection(resolved.readCredential());
+			await chmod(tokenFile, 0o600);
+			expect(denied.message).toBe(
+				`Unable to open Listmonk token file ${tokenFile} (EACCES: permission denied)`,
+			);
+			expect(denied.message).not.toContain("private-token-value");
+		}
+
+		await rm(tokenFile, { force: true });
+		await mkdir(tokenFile);
+		await expect(resolved.readCredential()).rejects.toThrow(
+			`Unable to read Listmonk token file ${tokenFile}: expected a bounded regular file`,
+		);
 	});
 
 	test("rejects oversized, empty, malformed, and non-regular authentication files", async () => {

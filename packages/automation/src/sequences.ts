@@ -1,4 +1,7 @@
-import { getListmonkDataDirectory } from "@listmonk-ops/common";
+import {
+	getListmonkDataDirectory,
+	resolveConfiguredPath,
+} from "@listmonk-ops/common";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import {
@@ -539,11 +542,12 @@ function parseStore(value: unknown): SequenceStore {
 	};
 }
 
+/** Overrides follow the shared home-anchored path rule, like other stores. */
 export function getSequenceStorePath(): string {
-	return (
-		process.env.LISTMONK_OPS_SEQUENCE_STORE?.trim() ||
-		join(getListmonkDataDirectory(), "sequences.json")
-	);
+	const overridden = process.env.LISTMONK_OPS_SEQUENCE_STORE?.trim();
+	return overridden
+		? resolveConfiguredPath(overridden)
+		: join(getListmonkDataDirectory(), "sequences.json");
 }
 
 export function createSequenceStore(

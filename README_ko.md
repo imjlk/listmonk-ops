@@ -89,6 +89,9 @@ export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry
 export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 # 선택: 트랜잭션 멱등성(idempotency) 저장소 경로 재정의
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
+# 선택: 파일 저장소와 sequence PostgreSQL 저장소의 트랜잭션 레코드 상한 상향
+# (직접 키 기반 발송은 TTL 동안, 미확정 pending/unknown claim은 재조정할 때까지 보존)
+# export LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS=10000
 # 선택: 키 기반 resource-create 멱등성 저장소 경로 재정의
 export LISTMONK_OPS_RESOURCE_CREATE_STORE="$HOME/.listmonk-ops/ops/resource-creates.json"
 # 선택: 저장소 레코드 상한 상향(바인딩은 자동 만료가 없는 지속 재생 매핑이며,
@@ -107,6 +110,24 @@ export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
 # 선택: 읽기 전용 진단에 사용할 versioned provider profile JSON
 export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
+
+경로 값을 받는 변수(`LISTMONK_OPS_DATA_DIR`, `LISTMONK_API_TOKEN_FILE`,
+`LISTMONK_OPS_AUDIT_STORE`, `LISTMONK_OPS_TRANSACTIONAL_STORE`,
+`LISTMONK_OPS_RESOURCE_CREATE_STORE`, `LISTMONK_OPS_SEGMENT_STORE`,
+`LISTMONK_OPS_TEMPLATE_REGISTRY`, `LISTMONK_OPS_SEQUENCE_STORE`,
+`LISTMONK_OPS_WEBHOOK_STORE`)는 앞뒤 공백을 무시하고, 맨 앞의 `~` 또는 `~/`를
+홈 디렉터리로 확장하며(MCP 클라이언트 JSON 설정은 셸 확장을 거치지 않습니다),
+상대 경로는 실행 디렉터리가 아닌 홈 디렉터리를 기준으로 해석합니다. 따라서
+어느 디렉터리에서 실행한 CLI와 다른 위치에서 시작한 MCP 서버도 같은 상태
+파일을 공유합니다.
+
+파일 기반 저장소는 옆에 두는 `<store>.lock` 파일로 쓰기를 직렬화합니다. 같은
+호스트에서 소유 프로세스가 종료된 것이 확인된 잠금은 자동으로 복구하지만, 다른
+호스트 이름으로 기록된 잠금(예: 컨테이너를 다시 만들었거나 노트북의 호스트
+이름이 바뀐 경우)은 자동으로 제거하지 않습니다. 잠금 대기 시간이 초과되면 오류
+메시지에 잠금 파일 경로와 기록된 소유자(pid, 호스트, 경과 시간)가 표시됩니다.
+소유 프로세스가 더 이상 실행 중이지 않음을 확인한 뒤에만 해당 잠금 파일을
+삭제하세요.
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
 
@@ -1080,6 +1101,17 @@ Sequence 데이터베이스를 사용하지 않을 때 저장소 경로 기본�
 저장소를 생성하거나 마이그레이션할 수 있습니다. Version 1 파일은
 다음 저장소 접근에서 version 2로 이전됩니다. 이전 바이너리는 version 2를
 거부하므로 미확정 claim이나 판단 이력을 조용히 삭제하지 않습니다.
+
+두 저장소 모두 기본적으로 최대 10,000개의 레코드를 보존합니다. 직접 발송의
+accepted와 failed 레코드는 24시간 TTL 동안, accepted sequence 단계 영수증은
+enrollment가 다음 단계로 진행될 때까지, pending과 unknown claim은 재조정할
+때까지 남습니다. 상한에 도달하면 레코드를 제거하는 대신 새 키 기반 발송이
+상태별 보존 개수를 알려 주는 오류와 함께 실패하며, 이미 보존된 키의 재생은 계속
+동작합니다.
+미확정 claim을 재조정하거나, TTL 기간 동안 더 많은 키 기반 발송이 필요하면
+`LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS`를 더 큰 양의 정수로 설정하세요.
+파일 저장소는 claim마다 전체 파일을 다시 쓰므로, 지속적인 대량 발송에는
+sequence PostgreSQL 저장소를 권장합니다.
 
 ## A/B 테스트 운영 명령
 

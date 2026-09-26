@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
-
-const POSTGRES_UUID_TYPE_OID = 2950;
+import {
+	createTransactionalStoreCapacityError,
+	getTransactionalStoreMaxRecords,
+} from "@listmonk-ops/common";
 import {
 	DEFAULT_TRANSACTIONAL_TTL_MS,
-	TRANSACTIONAL_STORE_MAX_RECORDS,
 	type StoredTransactionalDocument,
 	type TransactionalClaimResult,
 	type TransactionalIdempotencyStore,
 	type TransactionalSendRecord,
+	type TransactionalSendStatus,
 } from "@listmonk-ops/operations";
 import postgres, { type Sql, type TransactionSql } from "postgres";
 import {
@@ -27,6 +29,8 @@ import {
 	validateSequenceSteps,
 	canonicalStepsJson,
 } from "./sequences";
+
+const POSTGRES_UUID_TYPE_OID = 2950;
 
 export const SEQUENCE_POSTGRES_SCHEMA_VERSION = 3;
 
@@ -521,10 +525,20 @@ function createPostgresTransactionalIdempotencyStore(
 					SELECT count(*)::integer AS count
 					FROM listmonk_ops.sequence_idempotency_records
 				`;
-				if ((countRows[0]?.count ?? 0) >= TRANSACTIONAL_STORE_MAX_RECORDS) {
-					throw new Error(
-						`Transactional idempotency store reached its ${TRANSACTIONAL_STORE_MAX_RECORDS}-record capacity`,
-					);
+				// Same cap, override, and diagnostics as the file store.
+				const limit = getTransactionalStoreMaxRecords();
+				if ((countRows[0]?.count ?? 0) >= limit) {
+					const statusRows = await transaction<
+						{ status: TransactionalSendStatus; count: number }[]
+					>`
+						SELECT status, count(*)::integer AS count
+						FROM listmonk_ops.sequence_idempotency_records
+						GROUP BY status
+					`;
+					const counts: Partial<Record<TransactionalSendStatus, number>> =
+						{};
+					for (const row of statusRows) counts[row.status] = row.count;
+					throw createTransactionalStoreCapacityError(limit, counts);
 				}
 				const createdAt = now.toISOString();
 				const record: TransactionalSendRecord = {

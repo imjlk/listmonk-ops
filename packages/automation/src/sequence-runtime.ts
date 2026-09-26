@@ -38,7 +38,9 @@ export function getSequenceRepositoryFromEnvironment(
 ): SequenceRepository {
 	const path =
 		options.path ??
-		(process.env[SEQUENCE_STORE_PATH_ENV]?.trim() || undefined);
+		(process.env[SEQUENCE_STORE_PATH_ENV]?.trim()
+			? getSequenceStorePath()
+			: undefined);
 	const databaseUrl =
 		options.databaseUrl ??
 		(process.env[SEQUENCE_DATABASE_URL_ENV]?.trim() || undefined);
