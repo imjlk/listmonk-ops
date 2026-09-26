@@ -116,6 +116,18 @@ describe("shared Listmonk configuration", () => {
 		}
 	});
 
+	test("rejects a configured API URL with a bare query or fragment delimiter", async () => {
+		const { homeDirectory } = await fixture();
+		for (const url of ["http://h:9000/api?", "https://h/api#"]) {
+			await expect(
+				resolveListmonkConfiguration({
+					homeDirectory,
+					env: { LISTMONK_API_URL: url },
+				}),
+			).rejects.toThrow("without credentials, query, or fragment");
+		}
+	});
+
 	test("trims token-file references and expands ~/ from the environment", async () => {
 		const options = await fixture();
 		await writeFile(join(options.homeDirectory, "token"), "file-secret\n");
