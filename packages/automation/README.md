@@ -32,10 +32,12 @@ threshold therefore measures profile staleness, not engagement, and an engaged
 reader whose profile was never edited is selected too.
 
 Candidates must still hold a membership Listmonk would deliver to (see
-`membershipPermitsDelivery()`): not unsubscribed, and confirmed on a double
-opt-in list. With `sourceListIds`, only memberships on those lists count.
+`membershipPermitsDelivery()`): confirmed on any list, or unconfirmed on a
+single opt-in list; an unsubscribed membership never counts. With
+`sourceListIds`, only memberships on those lists count.
 `loadListOptinModes()` reads opt-in modes from the list endpoint, and
-unconfirmed memberships on lists the token cannot read fail closed.
+unconfirmed memberships on lists the token cannot read fail closed; the
+result's `errors` warns how many subscribers that skipped.
 
 Mutations count as applied only on Listmonk's explicit `data: true`
 acknowledgement. Error responses (which the client returns rather than throws)

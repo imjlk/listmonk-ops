@@ -1365,13 +1365,14 @@ and API blocklisting — sends, opens, clicks, opt-in confirmations,
 unsubscribes, and list additions leave it untouched — so the threshold
 measures how long nobody modified a profile, not how long a reader has been
 disengaged: an engaged reader whose profile was never edited is selected too.
-A candidate must also still hold a membership Listmonk would deliver to (not
-unsubscribed, and confirmed on a double opt-in list; with `--source-list-ids`,
-on one of those lists), so a subscriber who unsubscribed everywhere is never
-added to a winback list. Opt-in modes come from the list endpoint, and
-unconfirmed memberships on lists the token cannot read fail closed. Winback
-adds candidates to `--target-list-id` as unconfirmed members, which a single
-opt-in list delivers to. **Sunset blocklisting is irreversible for list
+A candidate must also still hold a membership Listmonk would deliver to —
+confirmed on any list, or unconfirmed on a single opt-in list, and on one of
+the `--source-list-ids` lists when given — so a subscriber who unsubscribed
+everywhere is never added to a winback list. Opt-in modes come from the list
+endpoint, and unconfirmed memberships on lists the token cannot read fail
+closed; the run warns how many subscribers that skipped. Winback adds
+candidates to `--target-list-id` (required with `--no-dry-run`) as unconfirmed
+members, which a single opt-in list delivers to. **Sunset blocklisting is irreversible for list
 subscriptions:** Listmonk marks every membership unsubscribed, and removing the
 blocklist does not restore them. Destructive results report
 `processedSubscribers` (every mutation acknowledged by Listmonk) and

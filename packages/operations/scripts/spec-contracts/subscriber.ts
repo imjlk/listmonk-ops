@@ -187,11 +187,12 @@ export type SubscriberHygieneInput =
 			inactivity_days?: PositiveInteger;
 			/**
 			 * Only memberships on these lists count; a candidate needs one
-			 * Listmonk would deliver to (not unsubscribed, and confirmed on a
-			 * double opt-in list). Without it, any list counts.
+			 * Listmonk would deliver to: confirmed on any list, or unconfirmed
+			 * on a single opt-in list (never unsubscribed). Without it, any
+			 * list counts.
 			 */
 			source_list_ids?: ResourceId[];
-			/** List to add selected subscribers to; required for winback. New memberships start unconfirmed. */
+			/** List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed. */
 			target_list_id?: ResourceId;
 			/**
 			 * Blocklist sunset candidates. Irreversible for list subscriptions:
@@ -219,11 +220,12 @@ export type SubscriberHygieneInput =
 			inactivity_days?: PositiveInteger;
 			/**
 			 * Only memberships on these lists count; a candidate needs one
-			 * Listmonk would deliver to (not unsubscribed, and confirmed on a
-			 * double opt-in list). Without it, any list counts.
+			 * Listmonk would deliver to: confirmed on any list, or unconfirmed
+			 * on a single opt-in list (never unsubscribed). Without it, any
+			 * list counts.
 			 */
 			source_list_ids?: ResourceId[];
-			/** List to add selected subscribers to; required for winback. New memberships start unconfirmed. */
+			/** List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed. */
 			target_list_id?: ResourceId;
 			/**
 			 * Blocklist sunset candidates. Irreversible for list subscriptions:

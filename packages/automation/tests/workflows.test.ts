@@ -400,11 +400,11 @@ describe("automation workflows", () => {
 
 	test("selects only hygiene candidates whose memberships permit delivery", async () => {
 		const listAdds: Array<{ id: number; body: unknown }> = [];
-		let listReads = 0;
+		const listQueries: unknown[] = [];
 		const client = createWorkflowClient({
 			list: {
-				list: async () => {
-					listReads += 1;
+				list: async (options: unknown) => {
+					listQueries.push(options);
 					return {
 						data: {
 							results: [
@@ -470,7 +470,12 @@ describe("automation workflows", () => {
 		});
 		expect(preview.subscriberIds).toEqual([203, 204]);
 		expect(preview.candidateSubscribers).toBe(2);
-		expect(listReads).toBe(1);
+		// One read of the full list rows, which carry the opt-in mode.
+		expect(listQueries).toEqual([{ query: { per_page: "all" } }]);
+		// The unreadable list fails closed, but visibly.
+		expect(preview.errors).toEqual([
+			"Warning: 1 subscriber skipped because an unconfirmed membership's list opt-in mode could not be read",
+		]);
 
 		// A library consumer echoing an ineligible id still cannot add the
 		// unsubscribed subscriber to the winback list.

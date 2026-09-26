@@ -1293,13 +1293,14 @@ listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 추가는 이 값을 바꾸지 않습니다. 따라서 이 기준은 독자가 참여를 멈춘 기간이
 아니라 아무도 프로필을 수정하지 않은 기간을 측정하며, 프로필이 한 번도
 수정되지 않은 활발한 독자도 선택됩니다. 후보는 또한 Listmonk가 실제로
-발송할 멤버십(구독 취소 상태가 아니며, double opt-in 리스트에서는
-confirmed; `--source-list-ids`를 지정하면 해당 리스트 중 하나)을 여전히
-보유해야 하므로, 모든 리스트에서 구독 취소한 구독자는 winback 리스트에
-추가되지 않습니다. Opt-in 방식은 list 엔드포인트에서 읽으며, 토큰이 읽을
-수 없는 리스트의 unconfirmed 멤버십은 fail-closed로 제외됩니다. Winback은
-후보를 `--target-list-id`에 unconfirmed 멤버로 추가하며, single opt-in
-리스트는 이 멤버에게도 발송합니다. **Sunset blocklist는 리스트 구독 측면에서
+발송할 멤버십(어느 리스트에서든 confirmed이거나, single opt-in 리스트에서
+unconfirmed이며, `--source-list-ids`를 지정하면 해당 리스트 중 하나)을
+여전히 보유해야 하므로, 모든 리스트에서 구독 취소한 구독자는 winback
+리스트에 추가되지 않습니다. Opt-in 방식은 list 엔드포인트에서 읽으며,
+토큰이 읽을 수 없는 리스트의 unconfirmed 멤버십은 fail-closed로 제외되고
+실행 결과가 그로 인해 제외된 구독자 수를 경고합니다. Winback은 후보를
+`--target-list-id`(`--no-dry-run`에 필수)에 unconfirmed 멤버로 추가하며,
+single opt-in 리스트는 이 멤버에게도 발송합니다. **Sunset blocklist는 리스트 구독 측면에서
 되돌릴 수 없습니다:** Listmonk는 모든 멤버십을 구독 취소로 바꾸며 blocklist를
 해제해도 복원되지 않습니다. 파괴적 실행 결과는 `processedSubscribers`(모든
 변경이 Listmonk에서 확인됨)와 `failedSubscribers`(오류 응답 또는 확인 누락,

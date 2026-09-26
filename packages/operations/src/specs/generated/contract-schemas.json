@@ -21921,7 +21921,7 @@
                   ]
                 },
                 "source_list_ids": {
-                  "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to (not unsubscribed, and confirmed on a\ndouble opt-in list). Without it, any list counts.",
+                  "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to: confirmed on any list, or unconfirmed\non a single opt-in list (never unsubscribed). Without it, any\nlist counts.",
                   "items": {
                     "$ref": "#/components/schemas/ResourceId"
                   },
@@ -21938,7 +21938,7 @@
                 },
                 "target_list_id": {
                   "$ref": "#/components/schemas/ResourceId",
-                  "description": "List to add selected subscribers to; required for winback. New memberships start unconfirmed."
+                  "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
                 }
               },
               "required": [],
@@ -21974,7 +21974,7 @@
                   ]
                 },
                 "source_list_ids": {
-                  "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to (not unsubscribed, and confirmed on a\ndouble opt-in list). Without it, any list counts.",
+                  "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to: confirmed on any list, or unconfirmed\non a single opt-in list (never unsubscribed). Without it, any\nlist counts.",
                   "items": {
                     "$ref": "#/components/schemas/ResourceId"
                   },
@@ -22000,7 +22000,7 @@
                 },
                 "target_list_id": {
                   "$ref": "#/components/schemas/ResourceId",
-                  "description": "List to add selected subscribers to; required for winback. New memberships start unconfirmed."
+                  "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
                 }
               },
               "required": [
@@ -22047,7 +22047,7 @@
               ]
             },
             "source_list_ids": {
-              "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to (not unsubscribed, and confirmed on a\ndouble opt-in list). Without it, any list counts.",
+              "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to: confirmed on any list, or unconfirmed\non a single opt-in list (never unsubscribed). Without it, any\nlist counts.",
               "items": {
                 "$ref": "#/components/schemas/ResourceId"
               },
@@ -22064,7 +22064,7 @@
             },
             "target_list_id": {
               "$ref": "#/components/schemas/ResourceId",
-              "description": "List to add selected subscribers to; required for winback. New memberships start unconfirmed."
+              "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
             }
           },
           "required": [],
@@ -22100,7 +22100,7 @@
               ]
             },
             "source_list_ids": {
-              "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to (not unsubscribed, and confirmed on a\ndouble opt-in list). Without it, any list counts.",
+              "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to: confirmed on any list, or unconfirmed\non a single opt-in list (never unsubscribed). Without it, any\nlist counts.",
               "items": {
                 "$ref": "#/components/schemas/ResourceId"
               },
@@ -22126,7 +22126,7 @@
             },
             "target_list_id": {
               "$ref": "#/components/schemas/ResourceId",
-              "description": "List to add selected subscribers to; required for winback. New memberships start unconfirmed."
+              "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
             }
           },
           "required": [

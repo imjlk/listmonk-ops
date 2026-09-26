@@ -136,12 +136,12 @@ const subscriberHygieneInputSchema = z
 			.array(positiveIntegerInput)
 			.optional()
 			.describe(
-				"Only memberships on these lists count; a candidate needs one Listmonk would deliver to (not unsubscribed, and confirmed on a double opt-in list). Without it, any list counts",
+				"Only memberships on these lists count; a candidate needs one Listmonk would deliver to: confirmed on any list, or unconfirmed on a single opt-in list (never unsubscribed). Without it, any list counts",
 			),
 		target_list_id: positiveIntegerInput
 			.optional()
 			.describe(
-				"List to add selected subscribers to (required for winback). New memberships start unconfirmed, which a single opt-in list delivers to; an existing unsubscribed membership stays unsubscribed",
+				"List to add selected subscribers to (required when a winback run sets dry_run to false). New memberships start unconfirmed, which a single opt-in list delivers to; an existing unsubscribed membership stays unsubscribed",
 			),
 		blocklist: booleanInput
 			.default(false)
