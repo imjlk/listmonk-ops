@@ -1283,7 +1283,11 @@ listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 
 프리플라이트 링크 검사는 private/internal 호스트(loopback, private
 CIDR, link-local, 클라우드 metadata IP)를 차단하며 redirect를 수동으로
-팔로우하며 각 hop마다 재검증합니다. 템플릿 promote는 `--expected-remote-hash`로
+팔로우하며 각 hop마다 재검증합니다. 각 hop은 DNS를 한 번만 조회하고 HTTP(S)
+연결을 검증된 주소에 고정하므로, DNS rebinding으로 검사 요청을 내부 주소로 돌릴
+수 없습니다. DNS 조회에 실패한 호스트는 검증 불가(unverifiable)로 보고하며
+요청을 보내지 않습니다. 깨진 링크 상세에는 정책 사유, 상태 코드, 로컬 오류
+코드만 담고 원격 오류 문구는 포함하지 않습니다. 템플릿 promote는 `--expected-remote-hash`로
 optimistic concurrency를 지원합니다. MCP/CLI operation 출력은 더 이상
 절대 파일시스템 경로를 노출하지 않습니다.
 

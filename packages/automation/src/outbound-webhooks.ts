@@ -5,8 +5,6 @@ import {
 	randomUUID,
 	timingSafeEqual,
 } from "node:crypto";
-import { lookup as dnsLookup } from "node:dns/promises";
-import { isIP } from "node:net";
 import { join } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
@@ -23,11 +21,12 @@ import type {
 	OperationResourceKind,
 } from "@listmonk-ops/operations/specs";
 import { z } from "zod";
-import { isPrivateHost, isSafeFetchUrl } from "./campaign";
 import {
-	postPinnedHttpsWebhookWithFallback,
-	type ResolvedWebhookAddress,
-} from "./webhook-transport";
+	isSafeFetchUrl,
+	type PublicHostResolution,
+	resolvePublicHostAddresses,
+} from "./campaign";
+import { postPinnedHttpsWebhookWithFallback } from "./webhook-transport";
 
 export const OUTBOUND_WEBHOOK_STORE_VERSION = 2;
 export const OUTBOUND_WEBHOOK_EVENT_SCHEMA_VERSION = 1;
@@ -2492,55 +2491,6 @@ async function resolveWithTimeout<T>(
 	}
 }
 
-type WebhookAddressResolution =
-	| Readonly<{
-			safe: true;
-			addresses: readonly ResolvedWebhookAddress[];
-	  }>
-	| Readonly<{
-			safe: false;
-			reason: string;
-	  }>;
-
-async function resolvePublicWebhookAddresses(
-	url: string,
-): Promise<WebhookAddressResolution> {
-	const parsed = new URL(url);
-	const staticSafety = isSafeFetchUrl(url);
-	if (!staticSafety.safe) {
-		return {
-			safe: false,
-			reason: staticSafety.reason ?? "URL is not public",
-		};
-	}
-	const hostname = parsed.hostname.replace(/^\[|\]$/gu, "");
-	const literalFamily = isIP(hostname);
-	const addresses =
-		literalFamily === 0
-			? await dnsLookup(hostname, {
-					all: true,
-					verbatim: true,
-				})
-			: [{ address: hostname, family: literalFamily }];
-	if (addresses.length === 0) {
-		throw new Error(`Endpoint host has no DNS addresses: ${hostname}`);
-	}
-	const normalized = addresses
-		.map(({ address, family }) => ({
-			address,
-			family: family === 6 ? (6 as const) : (4 as const),
-		}))
-		.sort((left, right) => left.family - right.family);
-	const blocked = normalized.find(({ address }) => isPrivateHost(address));
-	if (blocked) {
-		return {
-			safe: false,
-			reason: `Host ${hostname} resolves to private/internal address ${blocked.address}`,
-		};
-	}
-	return { safe: true, addresses: normalized };
-}
-
 async function deliverClaimedWebhook(
 	claimed: ClaimedOutboundWebhookDelivery,
 	options: Readonly<{
@@ -2581,10 +2531,10 @@ async function deliverClaimedWebhook(
 		};
 	}
 	const startedAt = Date.now();
-	let addressResolution: WebhookAddressResolution;
+	let addressResolution: PublicHostResolution;
 	try {
 		addressResolution = await resolveWithTimeout(
-			resolvePublicWebhookAddresses(endpoint.url),
+			resolvePublicHostAddresses(endpoint.url),
 			endpoint.timeoutMs,
 			"Endpoint DNS validation timed out",
 		);

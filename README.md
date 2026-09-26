@@ -1355,7 +1355,11 @@ listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 
 Preflight link checking now blocks private/internal hosts (loopback,
 private CIDRs, link-local, cloud metadata IPs) and follows redirects
-manually with per-hop revalidation. Template promote supports
+manually with per-hop revalidation. Each hop is resolved once and its HTTP(S)
+connection is pinned to the validated addresses, so DNS rebinding cannot steer
+a check to an internal address. A host that cannot be resolved is reported as
+unverifiable and is never fetched. Broken-link details contain policy reasons,
+status codes, and local error codes, not remote error text. Template promote supports
 optimistic concurrency via `--expected-remote-hash`. MCP/CLI operation outputs
 no longer expose absolute filesystem paths.
 

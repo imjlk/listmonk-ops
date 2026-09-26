@@ -68,6 +68,14 @@ const digest = await generateDailyDigest(client);
 console.log(preflight.summary, guard.allowLaunch, digest.generatedAt);
 ```
 
+With `checkLinks`, each ordinary rendered link is requested with HEAD (GET
+after a 405/501) and at most five manually followed redirects. Every hop is
+revalidated, resolved once, and connected only to the validated public
+addresses through the same pinned transport as webhook delivery. Hosts that
+cannot be resolved are reported as unverifiable and never fetched, and failures
+report policy reasons, status codes, and local error codes instead of remote
+error text.
+
 ## Provider and deliverability diagnostics
 
 Set `LISTMONK_OPS_PROVIDER_CONFIG` to a versioned JSON document containing
