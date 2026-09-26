@@ -1223,9 +1223,22 @@ send results. Summary of the current behavior:
   The previous `Math.floor` equal split ignored variant percentages and
   dropped leftover recipients.
 - **Paginated audience resolution**: each source list is paginated with the
-  `list_id` server filter, deduplicated by UUID, and filtered to
-  `status === "enabled"`. This replaces summing `subscriber_count` (which
-  double-counted) and the `per_page: "all"` fetch-then-client-filter.
+  `list_id` server filter and deduplicated by UUID. This replaces summing
+  `subscriber_count` (which double-counted) and the `per_page: "all"`
+  fetch-then-client-filter.
+- **Source-list consent**: a subscriber joins the audience only when its
+  top-level `status` is `enabled` and its membership in a source list still
+  permits delivery under Listmonk's campaign rule — `unsubscribed`
+  memberships are excluded, double opt-in lists require `confirmed`, and
+  single opt-in lists accept `unconfirmed` or `confirmed`. A subscriber in
+  several source lists qualifies through any of them. Each list's opt-in mode
+  is read from `GET /lists/{id}`, so the API user needs read access to every
+  source list; an unreadable list, an unknown opt-in mode, or a member
+  without a recognizable membership fails the resolution before any list is
+  created instead of guessing. Create-time validation, sample-size
+  recommendation, and holdout/full-split provisioning all share this rule.
+  New audience snapshots record `eligibilityPolicyVersion: 2`; tests stored
+  with legacy version 1 snapshots still load.
 - **Fail-closed metrics**: a Listmonk fetch failure throws
   `AbTestMetricsUnavailableError` instead of falling back to `Math.random()`
   mock data. Clicks are no longer copied into conversions.

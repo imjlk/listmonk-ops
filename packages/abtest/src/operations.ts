@@ -26,6 +26,7 @@ import {
 	bindAbTestTickOperationSpec,
 } from "@listmonk-ops/operations/specs";
 import { z } from "zod";
+import { AUDIENCE_ELIGIBILITY_POLICY_VERSIONS } from "./audience";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError } from "./errors";
 import { withStoredAbTestExecutors } from "./persistence";
@@ -190,7 +191,11 @@ const abTestSchema = z.object({
 			sourceListIds: z.array(z.number().int().positive()),
 			subscriberCount: z.number().int().nonnegative(),
 			subscriberChecksum: z.string(),
-			eligibilityPolicyVersion: z.literal(1),
+			// Version 1 (status-only) snapshots persisted before per-list
+			// consent was enforced still parse; new snapshots are version 2.
+			eligibilityPolicyVersion: z.literal(
+				AUDIENCE_ELIGIBILITY_POLICY_VERSIONS,
+			),
 		})
 		.optional(),
 	assignmentManifest: assignmentManifestSchema.optional(),

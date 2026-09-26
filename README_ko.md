@@ -1161,8 +1161,19 @@ A/B 테스트 도메인은 발송 결과를 왜곡할 수 있는 여러 정확�
   으로 계산하여 항상 audience 총합과 일치합니다. 이전 `Math.floor` 동등 분할은
   variant 백분율을 무시하고 남은 구독자를 유실했습니다.
 - **페이지네이션된 audience 조회**: `list_id` 서버 필터로 페이지 단위 조회 후
-  UUID로 dedupe하고 `status === "enabled"` 구독자만 포함합니다. `subscriber_count`
-  합산(중복 계산)과 `per_page: "all"` 후 클라이언트 필터를 대체합니다.
+  UUID로 dedupe합니다. `subscriber_count` 합산(중복 계산)과 `per_page: "all"` 후
+  클라이언트 필터를 대체합니다.
+- **소스 리스트 수신 동의**: 구독자의 최상위 `status`가 `enabled`이고 소스 리스트
+  멤버십이 Listmonk 캠페인 발송 규칙상 여전히 발송을 허용할 때만 audience에
+  포함합니다. `unsubscribed` 멤버십은 제외하고, 더블 옵트인 리스트는 `confirmed`만,
+  단일 옵트인 리스트는 `unconfirmed`/`confirmed`를 허용합니다. 여러 소스 리스트에
+  속한 구독자는 그중 하나라도 허용하면 포함됩니다. 옵트인 방식은
+  `GET /lists/{id}`로 확인하므로 API 사용자에게 모든 소스 리스트 읽기 권한이
+  필요하며, 리스트를 읽을 수 없거나 옵트인 방식을 알 수 없거나 멤버십을 확인할 수
+  없는 구독자가 있으면 추측하지 않고 리스트 생성 전에 조회를 실패시킵니다. 생성 시
+  검증, 표본 크기 추천, holdout/full-split 프로비저닝이 모두 같은 규칙을 사용합니다.
+  새 audience 스냅샷은 `eligibilityPolicyVersion: 2`를 기록하며, 버전 1 스냅샷으로
+  저장된 기존 테스트도 그대로 불러옵니다.
 - **Fail-closed metrics**: Listmonk 조회 실패 시 `Math.random()` mock으로
   떨어지지 않고 `AbTestMetricsUnavailableError`를 던집니다. clicks를 conversions으로
   복사하지 않습니다.

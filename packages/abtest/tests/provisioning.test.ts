@@ -240,6 +240,14 @@ describe("segmentSubscribersForHoldout stratification", () => {
 		return subscribers;
 	}
 
+	// Source list 1 is single opt-in, so its unconfirmed members are
+	// deliverable.
+	const sourceListReader = async ({
+		path,
+	}: {
+		path: { list_id: number };
+	}) => ({ data: { id: path.list_id, optin: "single" } });
+
 	test("warns and falls back when a member lacks an email", async () => {
 		const audience = makeAudience();
 		audience[0] = { ...audience[0], email: "" };
@@ -284,6 +292,8 @@ describe("segmentSubscribersForHoldout stratification", () => {
 				},
 			},
 			list: {
+				// The audience resolver reads the source list's opt-in mode.
+				getById: sourceListReader,
 				create: async ({ body }: { body: { name: string; tags?: string[] } }) => {
 					const id = nextListId;
 					nextListId += 1;
@@ -339,7 +349,7 @@ describe("segmentSubscribersForHoldout stratification", () => {
 					sourceListIds: [1],
 					subscriberCount: eligible.length,
 					subscriberChecksum: result.audienceSnapshot.subscriberChecksum,
-					eligibilityPolicyVersion: 1,
+					eligibilityPolicyVersion: 2,
 				},
 				members: eligible,
 				variants: [
@@ -404,6 +414,7 @@ describe("segmentSubscribersForHoldout stratification", () => {
 				},
 			},
 			list: {
+				getById: sourceListReader,
 				create: async ({ body }: { body: { name: string; tags?: string[] } }) => {
 					const id = nextListId;
 					nextListId += 1;
@@ -549,5 +560,119 @@ describe("segmentSubscribersForHoldout stratification", () => {
 				a.groupKey < b.groupKey ? -1 : a.groupKey > b.groupKey ? 1 : 0,
 			),
 		);
+	});
+});
+
+describe("source-list consent across recipient-selection paths", () => {
+	type MembershipStatus = "unconfirmed" | "confirmed" | "unsubscribed";
+
+	// Shaped like Listmonk v6.2 `GET /subscribers?list_id=` rows: memberships
+	// live in `lists[]`, never in the top-level subscriber status.
+	function member(
+		id: number,
+		status: "enabled" | "disabled" | "blocklisted",
+		memberships: Record<number, MembershipStatus>,
+	) {
+		return {
+			id,
+			uuid: `consent-uuid-${id}`,
+			email: `consent${id}@example.com`,
+			name: `Consent ${id}`,
+			status,
+			lists: Object.entries(memberships).map(([listId, subscription]) => ({
+				id: Number(listId),
+				subscription_status: subscription,
+				status: "active",
+			})),
+		};
+	}
+
+	// List 1 is single opt-in; list 2 is double opt-in.
+	const audience = [
+		member(1, "enabled", { 1: "unconfirmed" }),
+		member(2, "enabled", { 1: "unsubscribed" }),
+		member(3, "enabled", { 2: "unconfirmed" }),
+		member(4, "enabled", { 2: "confirmed" }),
+		member(5, "blocklisted", { 1: "unsubscribed" }),
+		member(6, "disabled", { 1: "confirmed" }),
+		member(7, "enabled", { 1: "unsubscribed", 2: "confirmed" }),
+	];
+	const consentingIds = [1, 4, 7];
+	const variants = [
+		{ id: "variant-a", name: "A", percentage: 50, contentOverrides: {} },
+		{ id: "variant-b", name: "B", percentage: 50, contentOverrides: {} },
+	];
+
+	function createConsentClient() {
+		const addedIds: number[] = [];
+		let nextListId = 9001;
+		const client = {
+			subscriber: {
+				list: async ({ query }: { query?: { list_id?: number[] } }) => {
+					const listId = query?.list_id?.[0];
+					const results = audience.filter((subscriber) =>
+						subscriber.lists.some((entry) => entry.id === listId),
+					);
+					return {
+						data: { results, total: results.length, per_page: 500, page: 1 },
+					};
+				},
+				manageLists: async ({ body }: { body: { ids: number[] } }) => {
+					addedIds.push(...body.ids);
+					return { data: true };
+				},
+			},
+			list: {
+				getById: async ({ path }: { path: { list_id: number } }) => ({
+					data: {
+						id: path.list_id,
+						optin: path.list_id === 2 ? "double" : "single",
+					},
+				}),
+				create: async ({ body }: { body: { name: string } }) => {
+					const id = nextListId;
+					nextListId += 1;
+					return { data: { id, name: body.name } };
+				},
+			},
+		} as unknown as ListmonkClient;
+		return { client, addedIds };
+	}
+
+	test("holdout provisioning adds only consenting members to variant and holdout lists", async () => {
+		const { client, addedIds } = createConsentClient();
+		const integration = new ListmonkAbTestIntegration(client);
+		const result = await integration.segmentSubscribersForHoldout(
+			[1, 2],
+			variants,
+			50,
+			{ testId: "consent-test", assignmentSeed: "consent-seed" },
+		);
+
+		expect([...addedIds].sort((a, b) => a - b)).toEqual(consentingIds);
+		expect(result.testGroupSize + result.holdoutGroupSize).toBe(
+			consentingIds.length,
+		);
+		expect(result.audienceSnapshot.subscriberCount).toBe(consentingIds.length);
+		expect(result.audienceSnapshot.eligibilityPolicyVersion).toBe(2);
+	});
+
+	test("audience totals and the full-split path apply the same consent rule", async () => {
+		const { client, addedIds } = createConsentClient();
+		const integration = new ListmonkAbTestIntegration(client);
+
+		// Create-time validation and sample-size recommendation size the
+		// audience through getTotalSubscribers.
+		expect(await integration.getTotalSubscribers([1, 2])).toBe(
+			consentingIds.length,
+		);
+		expect(
+			(await integration.getAllSubscribers([1, 2]))
+				.map((subscriber) => subscriber.id)
+				.sort((a, b) => a - b),
+		).toEqual(consentingIds);
+
+		await integration.segmentSubscribers([1, 2], variants, "consent-split");
+		expect([...addedIds].sort((a, b) => a - b)).toEqual(consentingIds);
 	});
 });

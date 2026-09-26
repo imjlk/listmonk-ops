@@ -30,6 +30,17 @@ import type { AbTest } from "../src/types";
 
 let tempDir: string | undefined;
 
+/**
+ * Source list 1 as Listmonk v6.2 reports it to the audience resolver: a
+ * single opt-in list whose programmatically added members are unconfirmed.
+ */
+const SOURCE_MEMBERSHIP = { id: 1, subscription_status: "unconfirmed" };
+const readSingleOptInList = async ({
+	path,
+}: {
+	path: { list_id: number };
+}) => ({ data: { id: path.list_id, optin: "single" } });
+
 function createFixture(status: AbTest["status"]): AbTest {
 	const now = new Date("2026-01-01T00:00:00.000Z");
 	return {
@@ -156,6 +167,40 @@ describe("A/B test operation registry", () => {
 		expect(result.tests[0]?.variants[0]?.contentOverrides.sendTime).toBe(
 			"2026-01-01T00:00:00.000Z",
 		);
+	});
+
+	test("serializes legacy and current audience snapshot policy versions", async () => {
+		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-snapshot-"));
+		const storePath = join(tempDir, "abtests.json");
+		const snapshot = {
+			capturedAt: "2026-01-01T00:00:00.000Z",
+			sourceListIds: [1],
+			subscriberCount: 100,
+			subscriberChecksum: "audience-checksum",
+		};
+		const legacy = {
+			...createFixture("draft"),
+			id: "test-legacy-snapshot",
+			audienceSnapshot: { ...snapshot, eligibilityPolicyVersion: 1 as const },
+		};
+		const current = {
+			...createFixture("completed"),
+			id: "test-current-snapshot",
+			audienceSnapshot: { ...snapshot, eligibilityPolicyVersion: 2 as const },
+		};
+		await saveStoredAbTests([legacy, current], storePath);
+		const context = { client: {} as ListmonkClient, storePath };
+
+		const legacyOutput = await invokeGetAbTestOperation(context, {
+			test_id: legacy.id,
+		});
+		const currentOutput = await invokeGetAbTestOperation(context, {
+			test_id: current.id,
+		});
+		expect(legacyOutput.test.audienceSnapshot?.eligibilityPolicyVersion).toBe(1);
+		expect(
+			currentOutput.test.audienceSnapshot?.eligibilityPolicyVersion,
+		).toBe(2);
 	});
 
 	test("publishes optional create defaults, numeric bounds, and product-only inputs", () => {
@@ -414,6 +459,7 @@ test("repeats recorded launches and completed stops as no-ops", async () => {
 								uuid: "33333333-3333-4333-8333-333333333333",
 								email: "member@example.com",
 								status: "enabled",
+								lists: [SOURCE_MEMBERSHIP],
 							},
 						],
 					},
@@ -421,6 +467,7 @@ test("repeats recorded launches and completed stops as no-ops", async () => {
 				manageLists: async () => ({ data: true }),
 			},
 			list: {
+				getById: readSingleOptInList,
 				list: async () => ({
 					data: {
 						// Both lists created by the first attempt are
@@ -517,6 +564,7 @@ test("resumes an ambiguous create from its persisted intent", async () => {
 							uuid: "22222222-2222-4222-8222-222222222222",
 							email: "member@example.com",
 							status: "enabled",
+							lists: [SOURCE_MEMBERSHIP],
 						},
 					],
 				},
@@ -524,6 +572,7 @@ test("resumes an ambiguous create from its persisted intent", async () => {
 			manageLists: async () => ({ data: true }),
 		},
 		list: {
+			getById: readSingleOptInList,
 			list: async () => ({ data: { results: [] } }),
 			create: async ({ body }: { body?: { name?: string } }) => ({
 				data: { id: 800 + Math.floor(Math.random() * 100), name: body?.name },
@@ -625,6 +674,7 @@ test("replays an identical create through its derived replay key", async () => {
 							uuid: "11111111-1111-4111-8111-111111111111",
 							email: "member@example.com",
 							status: "enabled",
+							lists: [SOURCE_MEMBERSHIP],
 						},
 					],
 				},
@@ -632,6 +682,7 @@ test("replays an identical create through its derived replay key", async () => {
 			manageLists: async () => ({ data: true }),
 		},
 		list: {
+			getById: readSingleOptInList,
 			list: async () => ({ data: { results: [] } }),
 			create: async ({ body }: { body?: { name?: string } }) => ({
 				data: { id: 900 + Math.floor(Math.random() * 100), name: body?.name },
