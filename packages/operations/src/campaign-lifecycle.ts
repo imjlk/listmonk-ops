@@ -8,8 +8,9 @@ import { CAMPAIGN_SEND_AT_PATTERN } from "./campaign-send-at";
  *
  * - `scheduled` from `draft` or `paused` (and only with a `send_at`);
  * - `running` from `draft` or `paused` — a `scheduled` campaign is started
- *   by Listmonk's scheduler at `send_at`, and starting it early needs an
- *   unschedule (`scheduled → draft`) first;
+ *   by Listmonk's scheduler at `send_at`; to send it earlier, clear its
+ *   `send_at` with `campaigns.update` (Listmonk then returns it to `draft`)
+ *   and start it;
  * - `paused` from `running`;
  * - `cancelled` from `running` or `paused`, so a campaign paused by the
  *   deliverability guard can still be cancelled. A `draft` or `scheduled`
@@ -98,7 +99,7 @@ function transitionHint(
 	target: CampaignLifecycleTarget,
 ): string {
 	if (current === "scheduled" && target === "running") {
-		return "; Listmonk starts a scheduled campaign at its send_at, so unschedule it to draft before starting it early";
+		return "; Listmonk starts a scheduled campaign at its send_at, so to send earlier clear its send_at with campaigns update (it returns to draft) and start it";
 	}
 	if (
 		(current === "draft" || current === "scheduled") &&

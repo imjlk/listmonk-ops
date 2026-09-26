@@ -44783,9 +44783,7 @@
           "paused",
           "cancelled"
         ],
-        "scheduled": [
-          "running"
-        ]
+        "scheduled": []
       }
     },
     {
