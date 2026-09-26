@@ -20,12 +20,36 @@ import {
 export const DEFAULT_TRANSACTIONAL_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Soft cap on retained records. The store rejects new claims (rather than
- * evicting a retained record) once this many records are present, so
- * a high-volume installation cannot silently break the idempotency
- * guarantee for an in-flight key.
+ * Default soft cap on retained records. The store rejects new claims
+ * (rather than evicting a retained record) once this many records are
+ * present, so a high-volume installation cannot silently break the
+ * idempotency guarantee for an in-flight key. Every keyed send is retained
+ * for its TTL, so installations above this many keyed sends per TTL window
+ * raise the cap with `LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS`.
  */
 export const TRANSACTIONAL_STORE_MAX_RECORDS = 10_000;
+
+export const TRANSACTIONAL_STORE_MAX_RECORDS_ENV =
+	"LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS";
+
+/**
+ * The effective record cap, shared by the file store and the Postgres
+ * sequence claim store. A blank value keeps the default; anything other than
+ * a positive integer is rejected rather than silently disabling the cap.
+ */
+export function getTransactionalStoreMaxRecords(): number {
+	const raw = process.env[TRANSACTIONAL_STORE_MAX_RECORDS_ENV]?.trim();
+	if (!raw) {
+		return TRANSACTIONAL_STORE_MAX_RECORDS;
+	}
+	const parsed = /^[0-9]+$/.test(raw) ? Number(raw) : Number.NaN;
+	if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+		throw new Error(
+			`${TRANSACTIONAL_STORE_MAX_RECORDS_ENV} must be a positive integer (received '${raw}')`,
+		);
+	}
+	return parsed;
+}
 
 const TRANSACTIONAL_STORE_LOCK_TIMEOUT_MS = 30_000;
 
@@ -261,11 +285,59 @@ export function parseStoredTransactionalDocument(
 	};
 }
 
+/** Retained records per status when a store reached its cap. */
+export type TransactionalStoreOccupancy = Readonly<
+	Record<TransactionalSendStatus, number>
+>;
+
 export class TransactionalStoreCapacityError extends Error {
-	constructor(message: string) {
+	readonly limit?: number;
+	readonly occupancy?: TransactionalStoreOccupancy;
+
+	constructor(
+		message: string,
+		details?: { limit: number; occupancy: TransactionalStoreOccupancy },
+	) {
 		super(message);
 		this.name = "TransactionalStoreCapacityError";
+		this.limit = details?.limit;
+		this.occupancy = details?.occupancy;
 	}
+}
+
+/**
+ * The capacity error both backends raise: the counts that explain why the
+ * store is full and the remedies an operator can actually apply.
+ */
+export function createTransactionalStoreCapacityError(
+	limit: number,
+	counts: Partial<Record<TransactionalSendStatus, number>>,
+): TransactionalStoreCapacityError {
+	const occupancy: TransactionalStoreOccupancy = {
+		pending: counts.pending ?? 0,
+		accepted: counts.accepted ?? 0,
+		failed: counts.failed ?? 0,
+		unknown: counts.unknown ?? 0,
+	};
+	const retained =
+		occupancy.pending + occupancy.accepted + occupancy.failed + occupancy.unknown;
+	const ttlHours = DEFAULT_TRANSACTIONAL_TTL_MS / (60 * 60 * 1000);
+	return new TransactionalStoreCapacityError(
+		[
+			`Transactional idempotency store is at capacity: ${retained} retained records (limit ${limit}: ${occupancy.accepted} accepted, ${occupancy.failed} failed, ${occupancy.pending} pending, ${occupancy.unknown} unknown), so new keyed sends are rejected instead of evicting a record.`,
+			`Accepted and failed records free their slots when their idempotency TTL expires (${ttlHours} hours by default); pending and unknown records remain until an operator reconciles them with \`listmonk-cli tx records\` and \`listmonk-cli tx reconcile\` (MCP: listmonk_transactional_records and listmonk_reconcile_transactional).`,
+			`To retain more records, raise ${TRANSACTIONAL_STORE_MAX_RECORDS_ENV}.`,
+		].join(" "),
+		{ limit, occupancy },
+	);
+}
+
+function countRecordsByStatus(
+	records: Record<string, TransactionalSendRecord>,
+): Record<TransactionalSendStatus, number> {
+	const counts = { pending: 0, accepted: 0, failed: 0, unknown: 0 };
+	for (const record of Object.values(records)) counts[record.status] += 1;
+	return counts;
 }
 
 export function getTransactionalStorePath(): string {
@@ -403,9 +475,9 @@ function copyRecords(
 
 /**
  * Atomically claim (or replay) an idempotency slot. Sweeps expired records
- * on every locked update. When the survivor count is already at the cap,
- * rejects with `TransactionalStoreCapacityError` rather than evicting a
- * live record.
+ * on every locked update. When the survivor count is already at the cap
+ * (`getTransactionalStoreMaxRecords()`), rejects with
+ * `TransactionalStoreCapacityError` rather than evicting a live record.
  */
 export async function claimTransactionalSend(options: {
 	storePath?: string;
@@ -454,11 +526,11 @@ export async function claimTransactionalSend(options: {
 		}
 
 		// Capacity guard: reject rather than evicting a live record.
-		if (
-			Object.keys(records).length >= TRANSACTIONAL_STORE_MAX_RECORDS
-		) {
-			throw new TransactionalStoreCapacityError(
-				`Transactional idempotency store is at capacity (${TRANSACTIONAL_STORE_MAX_RECORDS} retained records). Reconcile ambiguous sends, raise TRANSACTIONAL_STORE_MAX_RECORDS, or use a partitioned store.`,
+		const limit = getTransactionalStoreMaxRecords();
+		if (Object.keys(records).length >= limit) {
+			throw createTransactionalStoreCapacityError(
+				limit,
+				countRecordsByStatus(records),
 			);
 		}
 
