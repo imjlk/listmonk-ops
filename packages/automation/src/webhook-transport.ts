@@ -64,17 +64,16 @@ export function createPinnedLookup(
  * Send one HTTP(S) request pinned to a validated address. The URL hostname
  * still drives the Host header, TLS SNI, and certificate verification; only
  * the connection target is fixed. A fresh agent prevents reusing a socket
- * opened for another validation, and the response body is never read.
+ * opened for another validation, and the response body is never read. Every
+ * failure, including an unparseable URL, is reported as a rejection.
  */
-export function sendPinnedHttpRequest(
+export async function sendPinnedHttpRequest(
 	input: PinnedHttpRequest,
 ): Promise<PinnedHttpResponse> {
 	const parsed = new URL(input.url);
 	const secure = parsed.protocol === "https:";
 	if (!secure && parsed.protocol !== "http:") {
-		return Promise.reject(
-			new TypeError(`Protocol ${parsed.protocol} is not supported`),
-		);
+		throw new TypeError(`Protocol ${parsed.protocol} is not supported`);
 	}
 	const hostname = parsed.hostname.replace(/^\[|\]$/gu, "");
 	const send = secure ? httpsRequest : httpRequest;
@@ -123,9 +122,15 @@ async function tryValidatedAddresses<T>(
 			}
 		}
 	}
+	let host = "the requested URL";
+	try {
+		host = new URL(url).hostname;
+	} catch {
+		// Keep the collected failures even when the URL itself is invalid.
+	}
 	throw new AggregateError(
 		failures,
-		`Unable to connect to any validated address for ${new URL(url).hostname}`,
+		`Unable to connect to any validated address for ${host}`,
 	);
 }
 

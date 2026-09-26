@@ -461,6 +461,28 @@ describe("SSRF defense — pinned link checks and DNS rebinding", () => {
 		});
 	});
 
+	it("reports an unexpected failure as a broken link instead of throwing", async () => {
+		const { lookupHost } = scriptedResolver({ "odd.example": [PUBLIC] });
+		const hostile = Object.defineProperty(
+			new Error("transport failed"),
+			"code",
+			{
+				get(): never {
+					throw new Error("remote text must not escape");
+				},
+			},
+		);
+
+		expect(
+			await checkLink("https://odd.example/", 5_000, {
+				lookupHost,
+				send: async () => {
+					throw hostile;
+				},
+			}),
+		).toEqual({ url: "https://odd.example/", ok: false, error: "Request failed" });
+	});
+
 	it("falls back to the next validated address after a connection failure", async () => {
 		const { lookupHost } = scriptedResolver({
 			"multi.example": [

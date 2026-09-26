@@ -84,6 +84,43 @@ describe("pinned HTTP transport", () => {
 		).rejects.toThrow("Protocol ftp: is not supported");
 	});
 
+	test("reports an unparseable URL as a rejection", async () => {
+		const pending = sendPinnedHttpRequest({
+			url: "not a url",
+			address: PUBLIC_ADDRESS,
+			method: "HEAD",
+			headers: {},
+			signal: new AbortController().signal,
+		});
+		await expect(pending).rejects.toThrow();
+	});
+
+	test("keeps collected failures when the URL cannot be parsed", async () => {
+		const failure = new Error("connect failed");
+		let caught: unknown;
+		try {
+			await sendPinnedHttpRequestWithFallback(
+				{
+					url: "not a url",
+					addresses: [PUBLIC_ADDRESS],
+					method: "HEAD",
+					headers: {},
+					signal: new AbortController().signal,
+				},
+				async () => {
+					throw failure;
+				},
+			);
+		} catch (error) {
+			caught = error;
+		}
+		expect(caught).toBeInstanceOf(AggregateError);
+		expect((caught as AggregateError).errors).toEqual([failure]);
+		expect((caught as AggregateError).message).toBe(
+			"Unable to connect to any validated address for the requested URL",
+		);
+	});
+
 	test("stops trying further addresses once the request is aborted", async () => {
 		const controller = new AbortController();
 		const attempted: string[] = [];
