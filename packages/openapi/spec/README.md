@@ -24,6 +24,8 @@ The overlay currently:
 - documents the v6.1+ `PATCH /subscribers/{id}` route;
 - aligns campaign request/response fields with the tagged Go models, including
   visual content, test recipients, headers, media, and nullable timestamps;
+- documents the `archive_slug` field that `PUT /campaigns/{id}/archive` reads
+  (and clears when it is sent empty);
 - aligns transactional messages with the tagged `TxMessage` model, including
   recipient arrays, subscriber mode, subject, headers, and `altbody`.
 

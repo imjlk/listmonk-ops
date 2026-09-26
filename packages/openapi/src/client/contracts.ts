@@ -180,10 +180,10 @@ export interface CampaignOperations
 	updateStatus(options: {
 		path: { id: number };
 		body: { status: "scheduled" | "running" | "paused" | "cancelled" };
-	}): Promise<FlattenedResponse<boolean>>;
+	}): Promise<FlattenedResponse<Campaign | boolean>>;
 	updateArchive(options: {
 		path: { id: number };
-		body: { archive: boolean };
+		body: CampaignArchiveBody;
 	}): Promise<FlattenedResponse<boolean>>;
 	createContent(options: {
 		path: { id: number };
@@ -247,6 +247,14 @@ export type ImportStartParams = {
 export type TransactionalSendParams = NonNullable<
 	t.TransactWithSubscriberData["body"]
 >;
+
+/**
+ * `PUT /campaigns/{id}/archive` rewrites the slug (an empty slug becomes
+ * NULL) and meta on every call, so callers resend the stored values.
+ */
+export type CampaignArchiveBody = NonNullable<
+	t.UpdateCampaignArchiveByIdData["body"]
+> & { archive: boolean };
 
 /**
  * The generated CampaignRequest models `subscribers` as optional, but the

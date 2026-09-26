@@ -495,6 +495,15 @@ source <(listmonk-cli complete zsh)
 ## 구독자 리스트
 
 CLI는 MCP 서버와 동일한 타입드 구독자 리스트 Operation을 제공합니다.
+부분 수정은 바꾸지 않은 값을 유지합니다. `lists update`는 저장된 이름과 태그를
+그대로 전달하고(Listmonk 6.2는 이름을 요구하며 태그를 항상 덮어씁니다),
+`campaigns update`/`campaigns schedule`은 Listmonk 캠페인 `PUT`이 미리 채우지
+않는 대상 리스트, 미디어 첨부, 속성을 저장된 값으로 다시 보냅니다(리스트가
+없으면 거부되고 보내지 않은 미디어는 분리됩니다). `campaigns archive`는 저장된
+archive slug, 템플릿, 메타데이터를 다시 보내 보관 페이지를 토글해도 공개 링크가
+유지되며, `campaigns clone`은 slug가 고유하므로 보관된 원본을 복제할 때
+Listmonk 자체 복제 기능과 같은 방식으로 새 archive slug를 만듭니다. 상태 전이는
+Listmonk 6.2가 돌려주는 갱신된 캠페인 객체를 확인 응답으로 인정합니다.
 
 ```bash
 listmonk-cli lists list --page 1 --per-page 20

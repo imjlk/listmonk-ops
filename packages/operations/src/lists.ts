@@ -453,14 +453,28 @@ export async function createSubscriberList(
 	return { list: result.resource, created: result.created };
 }
 
+/**
+ * Listmonk 6.2's `PUT /lists/{id}` requires `name` and always overwrites
+ * `tags`, while it keeps the stored type, opt-in, status, and description
+ * when they are sent empty. Read the stored list and carry its name and tags
+ * forward so a partial update neither fails nor clears tags.
+ */
 export async function updateSubscriberList(
 	{ client }: ListOperationContext,
 	input: z.output<typeof updateListInputSchema>,
 ): Promise<List> {
-	const { id, ...body } = input;
+	const { id, ...changes } = input;
+	const current = unwrapData(
+		await client.list.getById({ path: { list_id: id } }),
+		"Failed to load list before updating",
+	);
 	const response = await client.list.update({
 		path: { list_id: id },
-		body,
+		body: {
+			...changes,
+			name: changes.name ?? current.name,
+			tags: changes.tags ?? current.tags ?? [],
+		},
 	});
 	return unwrapData(response, "Failed to update list");
 }

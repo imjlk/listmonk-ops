@@ -502,7 +502,17 @@ The deprecated `completions` spelling remains an alias for migration compatibili
 
 ## Subscriber Lists
 
-The CLI exposes the same typed subscriber-list operations as the MCP server:
+The CLI exposes the same typed subscriber-list operations as the MCP server.
+Partial updates keep what you do not change: `lists update` carries the stored
+name and tags forward (Listmonk 6.2 requires a name and always overwrites
+tags), and `campaigns update`/`campaigns schedule` resend the stored target
+lists, media attachments, and attributes, which Listmonk's campaign `PUT`
+does not pre-fill (it rejects a missing list set and detaches unsent media).
+`campaigns archive` resends the stored archive slug, template, and metadata so
+toggling the archive page keeps its public link, and `campaigns clone` derives
+a fresh archive slug for an archived source the way Listmonk's own clone
+action does, because slugs are unique. Lifecycle transitions accept Listmonk
+6.2's updated-campaign echo as the acknowledgement:
 
 ```bash
 listmonk-cli lists list --page 1 --per-page 20

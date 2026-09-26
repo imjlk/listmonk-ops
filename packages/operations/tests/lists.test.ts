@@ -68,7 +68,9 @@ describe("subscriber-list operations", () => {
 	});
 
 	test("coerces IDs before get, update, and delete calls", async () => {
-		const getById = mock(async () => ({ data: { id: 7, name: "News" } }));
+		const getById = mock(async () => ({
+			data: { id: 7, name: "News", tags: ["weekly"] },
+		}));
 		const update = mock(async () => ({ data: { id: 7, name: "Updates" } }));
 		const remove = mock(async () => ({ data: true }));
 		const clientContext = context({
@@ -91,11 +93,48 @@ describe("subscriber-list operations", () => {
 		).resolves.toEqual({ id: 7, deleted: true });
 
 		expect(getById).toHaveBeenCalledWith({ path: { list_id: 7 } });
+		// Listmonk requires name and always overwrites tags, so stored tags
+		// are carried forward.
 		expect(update).toHaveBeenCalledWith({
 			path: { list_id: 7 },
-			body: { name: "Updates" },
+			body: { name: "Updates", tags: ["weekly"] },
 		});
 		expect(remove).toHaveBeenCalledWith({ path: { list_id: 7 } });
+	});
+
+	test("keeps the stored name and tags on a partial update", async () => {
+		const getById = mock(async () => ({
+			data: { id: 8, name: "Digest", tags: ["daily", "news"] },
+		}));
+		const update = mock(async () => ({ data: { id: 8, name: "Digest" } }));
+
+		await invokeUpdateListOperation(
+			context({
+				getById: getById as unknown as ListClient["list"]["getById"],
+				update: update as unknown as ListClient["list"]["update"],
+			}),
+			{ id: 8, description: "Every morning" },
+		);
+		expect(update).toHaveBeenCalledWith({
+			path: { list_id: 8 },
+			body: {
+				description: "Every morning",
+				name: "Digest",
+				tags: ["daily", "news"],
+			},
+		});
+
+		await invokeUpdateListOperation(
+			context({
+				getById: getById as unknown as ListClient["list"]["getById"],
+				update: update as unknown as ListClient["list"]["update"],
+			}),
+			{ id: 8, tags: [] },
+		);
+		expect(update).toHaveBeenLastCalledWith({
+			path: { list_id: 8 },
+			body: { tags: [], name: "Digest" },
+		});
 	});
 
 	test("resolves a create response whose body is empty", async () => {
@@ -562,10 +601,12 @@ describe("subscriber-list operations", () => {
 	});
 
 	test("does not turn an update API error into success", async () => {
+		const getById = mock(async () => ({ data: { id: 3, name: "Original" } }));
 		const update = mock(async () => ({ error: { error: "conflict" } }));
 
 		const invocation = invokeUpdateListOperation(
 			context({
+				getById: getById as unknown as ListClient["list"]["getById"],
 				update: update as unknown as ListClient["list"]["update"],
 			}),
 			{ id: 3, name: "Duplicate" },

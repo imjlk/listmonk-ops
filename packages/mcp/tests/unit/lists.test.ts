@@ -90,6 +90,12 @@ describe("list operation MCP adapter", () => {
 		const result = await handleListsTools(
 			request("listmonk_update_list", { id: "8", name: "Updates" }),
 			clientWithList({
+				// The shared update reads the stored list to carry its tags.
+				getById: async () => ({
+					data: { id: 8, name: "News", tags: [] },
+					request: new Request("https://example.test"),
+					response: new Response(),
+				}),
 				update: async () => ({
 					data: { id: 8, name: "Updates" },
 					request: new Request("https://example.test"),
@@ -115,6 +121,7 @@ describe("list operation MCP adapter", () => {
 		const apiFailure = await handleListsTools(
 			request("listmonk_update_list", { id: 8, name: "Duplicate" }),
 			clientWithList({
+				getById: async () => ({ data: { id: 8, name: "News", tags: [] } }),
 				update: async () => ({ error: { error: "conflict" } }),
 			}),
 		);

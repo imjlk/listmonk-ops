@@ -96,6 +96,15 @@
  
      delete:
        description: deletes specified campaign
+@@ -1574,6 +1618,8 @@
+                   type: boolean
+                 archive_template_id:
+                   type: integer
++                archive_slug:
++                  type: string
+                 archive_meta:
+                   type: object
+       responses:
 @@ -1754,7 +1798,7 @@
          - in: query
            name: no_body
