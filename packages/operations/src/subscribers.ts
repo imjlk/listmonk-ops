@@ -563,6 +563,35 @@ async function runSubscriberBulk(
 }
 
 /**
+ * Apply one fixed `manageLists` action to chunked subscriber IDs. The named
+ * add, remove, and unsubscribe operations share this helper so their bulk
+ * options and acknowledgement handling stay consistent. Listmonk can return
+ * `{ data: false }` without an error envelope, so require `data === true` to
+ * keep the bulk result accurate.
+ */
+async function applyManageListsAction(
+	ctx: SubscriberOperationContext,
+	input: z.output<typeof subscriberBulkListsInputSchema>,
+	action: "add" | "remove" | "unsubscribe",
+	failureMessage: string,
+): Promise<BulkOperationOutput> {
+	return runSubscriberBulk(input.subscriber_ids, {
+		dry_run: input.dry_run,
+		max_items: input.max_items,
+		continue_on_error: input.continue_on_error,
+		action: async (chunk) => {
+			const response = await ctx.client.subscriber.manageLists({
+				body: {
+					action,
+					ids: chunk,
+					target_list_ids: input.list_ids,
+				},
+			});
+			requireAcknowledgement(response, failureMessage);
+		},
+	});
+}
+
  * Add a batch of subscribers to one or more lists. Subscriber IDs are
  * chunked and each chunk is sent as a `manageLists` action: add. Respects
  * the shared bulk options (dry_run, max_items, continue_on_error).
@@ -571,25 +600,12 @@ export async function addSubscribersToLists(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkListsInputSchema>,
 ): Promise<BulkOperationOutput> {
-	const targetListIds = input.list_ids;
-	return runSubscriberBulk(input.subscriber_ids, {
-		dry_run: input.dry_run,
-		max_items: input.max_items,
-		continue_on_error: input.continue_on_error,
-		action: async (chunk) => {
-			const response = await ctx.client.subscriber.manageLists({
-				body: {
-					action: "add",
-					ids: chunk,
-					target_list_ids: targetListIds,
-				},
-			});
-			requireAcknowledgement(
-				response,
-				"Failed to add subscribers to lists",
-			);
-		},
-	});
+	return applyManageListsAction(
+		ctx,
+		input,
+		"add",
+		"Failed to add subscribers to lists",
+	);
 }
 
 /**
@@ -600,25 +616,12 @@ export async function removeSubscribersFromLists(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkListsInputSchema>,
 ): Promise<BulkOperationOutput> {
-	const targetListIds = input.list_ids;
-	return runSubscriberBulk(input.subscriber_ids, {
-		dry_run: input.dry_run,
-		max_items: input.max_items,
-		continue_on_error: input.continue_on_error,
-		action: async (chunk) => {
-			const response = await ctx.client.subscriber.manageLists({
-				body: {
-					action: "remove",
-					ids: chunk,
-					target_list_ids: targetListIds,
-				},
-			});
-			requireAcknowledgement(
-				response,
-				"Failed to remove subscribers from lists",
-			);
-		},
-	});
+	return applyManageListsAction(
+		ctx,
+		input,
+		"remove",
+		"Failed to remove subscribers from lists",
+	);
 }
 
 /**
@@ -633,25 +636,12 @@ export async function unsubscribeSubscribersFromLists(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkListsInputSchema>,
 ): Promise<BulkOperationOutput> {
-	const targetListIds = input.list_ids;
-	return runSubscriberBulk(input.subscriber_ids, {
-		dry_run: input.dry_run,
-		max_items: input.max_items,
-		continue_on_error: input.continue_on_error,
-		action: async (chunk) => {
-			const response = await ctx.client.subscriber.manageLists({
-				body: {
-					action: "unsubscribe",
-					ids: chunk,
-					target_list_ids: targetListIds,
-				},
-			});
-			requireAcknowledgement(
-				response,
-				"Failed to unsubscribe subscribers from lists",
-			);
-		},
-	});
+	return applyManageListsAction(
+		ctx,
+		input,
+		"unsubscribe",
+		"Failed to unsubscribe subscribers from lists",
+	);
 }
 
 /**
