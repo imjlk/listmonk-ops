@@ -19,6 +19,7 @@ export LISTMONK_TEST_TOKEN_FILE="${LISTMONK_TEST_TOKEN_FILE:-/tmp/listmonk-ops-a
 
 PASS_COUNT=0
 FAIL_COUNT=0
+LAST_STATUS=""
 SUB_ID=""
 TEMPLATE_ID=""
 TEST_ID=""
@@ -49,6 +50,7 @@ run_cmd() {
 		tail -n 30 "$logfile" || true
 	fi
 
+	LAST_STATUS="$status"
 	duration=$((SECONDS - start_seconds))
 	printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$status" "$started_at" "$duration" "$logfile" >>"$RESULTS_TSV"
 }
@@ -71,9 +73,17 @@ created_record_id() {
 	fi
 }
 
-extract_first_test_id() {
-	local file="$1"
-	grep -Eo 'test_[a-zA-Z0-9_]+' "$file" | head -n 1 || true
+# Fail a create step that passed without a bound id: its follow-up checks and
+# cleanup would otherwise be skipped silently and leak the fixture.
+require_fixture_id() {
+	local name="$1"
+	local id="$2"
+	if [[ "$LAST_STATUS" != "pass" || -n "$id" ]]; then
+		return 0
+	fi
+	echo "FAIL ${name}_id: no created record id in $LOG_DIR/${name}.json; delete that fixture manually"
+	FAIL_COUNT=$((FAIL_COUNT + 1))
+	printf '%s\t%s\t%s\t%s\t%s\n' "${name}_id" "fail" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" 0 "$LOG_DIR/${name}.json" >>"$RESULTS_TSV"
 }
 
 # Delete full-mode fixtures once: after the full flow, or from the exit trap
@@ -202,9 +212,11 @@ if [[ "$MODE" == "full" ]]; then
 
 	run_cmd "subscribers_create" capture_stdout "$LOG_DIR/subscribers_create.json" bun run --silent cli -- --format json subscribers create --email "$EMAIL" --name "Ops Smoke" --lists 1
 	SUB_ID="$(created_record_id "$LOG_DIR/subscribers_create.json" subscriber email "$EMAIL")"
+	require_fixture_id "subscribers_create" "$SUB_ID"
 
 	run_cmd "templates_create" capture_stdout "$LOG_DIR/templates_create.json" bun run --silent cli -- --format json templates create --name "$TEMPLATE_NAME" --type campaign --subject "Ops Smoke" --body "<html><body>{{ template \"content\" . }}</body></html>"
 	TEMPLATE_ID="$(created_record_id "$LOG_DIR/templates_create.json" template name "$TEMPLATE_NAME")"
+	require_fixture_id "templates_create" "$TEMPLATE_ID"
 
 	if [[ -n "$TEMPLATE_ID" ]]; then
 		run_cmd "templates_get" bun run cli -- templates get --id "$TEMPLATE_ID"
@@ -215,8 +227,9 @@ if [[ "$MODE" == "full" ]]; then
 		run_cmd "tx_send" bun run cli -- tx send --template-id 3 --subscriber-id "$SUB_ID" --content-type html --data '{"order_id":"OPS-SMOKE","shipping_date":"2026-03-05"}'
 	fi
 
-	run_cmd "abtest_create" bun run cli -- abtest create --name "$AB_NAME" --campaign-id 1 --variants '[{"name":"A","percentage":50},{"name":"B","percentage":50}]' --lists 1 --subject "Ops Smoke AB" --body "<p>Ops Smoke AB</p>" --testing-mode holdout --test-group-percentage 10 --ignore-sample-size-warnings true --confirm
-	TEST_ID="$(extract_first_test_id "$LOG_DIR/abtest_create.log")"
+	run_cmd "abtest_create" capture_stdout "$LOG_DIR/abtest_create.json" bun run --silent cli -- --format json abtest create --name "$AB_NAME" --campaign-id 1 --variants '[{"name":"A","percentage":50},{"name":"B","percentage":50}]' --lists 1 --subject "Ops Smoke AB" --body "<p>Ops Smoke AB</p>" --testing-mode holdout --test-group-percentage 10 --ignore-sample-size-warnings true --confirm
+	TEST_ID="$(created_record_id "$LOG_DIR/abtest_create.json" test name "$AB_NAME")"
+	require_fixture_id "abtest_create" "$TEST_ID"
 	if [[ -n "$TEST_ID" ]]; then
 		run_cmd "abtest_get" bun run cli -- abtest get --test-id "$TEST_ID"
 		run_cmd "abtest_launch" bun run cli -- abtest launch --test-id "$TEST_ID" --confirm

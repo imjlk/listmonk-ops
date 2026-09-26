@@ -2,7 +2,6 @@ import { resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
 	isLoopbackHostname,
-	isLoopbackListmonkUrl,
 	readCreatedRecordId,
 	readResolvedBaseUrl,
 	resolveLocalTestTarget,
@@ -10,6 +9,10 @@ import {
 
 const helper = resolve(import.meta.dir, "local-test-target.ts");
 const REMOTE_URL = "https://listmonk.example.invalid/api";
+const SMOKE_OPTIONS = {
+	allowRemote: false,
+	overrideVariable: "LISTMONK_OPS_SMOKE_ALLOW_REMOTE",
+};
 
 function configuration(baseUrl: string): string {
 	return JSON.stringify({
@@ -44,22 +47,48 @@ describe("local test target guard", () => {
 		for (const hostname of ["localhost", "127.0.0.1", "[::1]"]) {
 			expect(isLoopbackHostname(hostname)).toBe(true);
 		}
+		expect(isLoopbackHostname("::1")).toBe(false);
 		for (const url of [
 			"http://localhost:9000/api",
 			"http://127.0.0.1:19000/api",
 			"http://[::1]:9000/api",
 		]) {
-			expect(isLoopbackListmonkUrl(url)).toBe(true);
+			expect(
+				resolveLocalTestTarget(configuration(url), SMOKE_OPTIONS),
+			).toEqual({ kind: "loopback", baseUrl: url });
 		}
 		for (const url of [
 			REMOTE_URL,
 			"http://localhost.example.com/api",
 			"http://localhost@listmonk.example.com/api",
 			"http://192.168.1.10:9000/api",
-			"ftp://localhost/api",
-			"not a url",
 		]) {
-			expect(isLoopbackListmonkUrl(url)).toBe(false);
+			expect(() =>
+				resolveLocalTestTarget(configuration(url), SMOKE_OPTIONS),
+			).toThrow("Refusing to target non-local Listmonk");
+		}
+	});
+
+	test("re-serializes the reported URL into one shell-safe token", () => {
+		expect(
+			resolveLocalTestTarget(
+				configuration("\n http://LOCALHOST:9000/api/ \t"),
+				SMOKE_OPTIONS,
+			),
+		).toEqual({ kind: "loopback", baseUrl: "http://localhost:9000/api" });
+		for (const allowRemote of [false, true]) {
+			expect(() =>
+				resolveLocalTestTarget(configuration("ftp://localhost/api"), {
+					...SMOKE_OPTIONS,
+					allowRemote,
+				}),
+			).toThrow("must use HTTP or HTTPS");
+			expect(() =>
+				resolveLocalTestTarget(configuration("not a url"), {
+					...SMOKE_OPTIONS,
+					allowRemote,
+				}),
+			).toThrow("invalid baseUrl");
 		}
 	});
 
@@ -74,21 +103,14 @@ describe("local test target guard", () => {
 	});
 
 	test("fails closed on a remote target unless explicitly allowed", () => {
-		const options = {
-			allowRemote: false,
-			overrideVariable: "LISTMONK_OPS_SMOKE_ALLOW_REMOTE",
-		};
-		expect(
-			resolveLocalTestTarget(configuration("http://localhost:9000/api"), options),
-		).toEqual({ kind: "loopback", baseUrl: "http://localhost:9000/api" });
 		expect(() =>
-			resolveLocalTestTarget(configuration(REMOTE_URL), options),
+			resolveLocalTestTarget(configuration(REMOTE_URL), SMOKE_OPTIONS),
 		).toThrow(
 			`Refusing to target non-local Listmonk ${REMOTE_URL}. Set LISTMONK_OPS_SMOKE_ALLOW_REMOTE=1`,
 		);
 		expect(
 			resolveLocalTestTarget(configuration(REMOTE_URL), {
-				...options,
+				...SMOKE_OPTIONS,
 				allowRemote: true,
 			}),
 		).toEqual({ kind: "remote", baseUrl: REMOTE_URL });
@@ -108,20 +130,31 @@ describe("local test target guard", () => {
 			field: "email",
 			value: "ops-smoke-1@example.com",
 		};
-		expect(readCreatedRecordId(output, match)).toBe(42);
+		expect(readCreatedRecordId(output, match)).toBe("42");
 		expect(
 			readCreatedRecordId(output, { ...match, value: "someone@example.com" }),
 		).toBeUndefined();
 		expect(
 			readCreatedRecordId(output, { ...match, key: "template" }),
 		).toBeUndefined();
+		for (const id of [0, -1, 1.5, "", "42; rm -rf /", "a b", null]) {
+			expect(
+				readCreatedRecordId(
+					JSON.stringify({ subscriber: { id, email: match.value } }),
+					match,
+				),
+			).toBeUndefined();
+		}
+		expect(readCreatedRecordId("", match)).toBeUndefined();
 		expect(
 			readCreatedRecordId(
-				JSON.stringify({ subscriber: { id: "42", email: match.value } }),
-				match,
+				JSON.stringify({
+					test: { id: "test_1790000000000_k3j9x2m1a", name: "ops-smoke-ab-1" },
+					created: true,
+				}),
+				{ key: "test", field: "name", value: "ops-smoke-ab-1" },
 			),
-		).toBeUndefined();
-		expect(readCreatedRecordId("", match)).toBeUndefined();
+		).toBe("test_1790000000000_k3j9x2m1a");
 	});
 
 	test("command line prints the target kind or refuses it", async () => {

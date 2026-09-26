@@ -24,19 +24,6 @@ export function isLoopbackHostname(hostname: string): boolean {
 	return LOOPBACK_HOSTNAMES.has(hostname);
 }
 
-export function isLoopbackListmonkUrl(value: string): boolean {
-	let url: URL;
-	try {
-		url = new URL(value);
-	} catch {
-		return false;
-	}
-	return (
-		(url.protocol === "http:" || url.protocol === "https:") &&
-		isLoopbackHostname(url.hostname)
-	);
-}
-
 function parseJsonObject(text: string): Record<string, unknown> | undefined {
 	try {
 		const value: unknown = JSON.parse(text);
@@ -63,14 +50,28 @@ export function readResolvedBaseUrl(configuration: string): string {
 
 /**
  * Classify the resolved target and fail closed on a non-loopback target
- * unless the operator explicitly allowed remote targets.
+ * unless the operator explicitly allowed remote targets. The returned URL is
+ * re-serialized, so it is always a single token without whitespace.
  */
 export function resolveLocalTestTarget(
 	configuration: string,
 	options: { allowRemote: boolean; overrideVariable: string },
 ): ListmonkTarget {
-	const baseUrl = readResolvedBaseUrl(configuration);
-	if (isLoopbackListmonkUrl(baseUrl)) {
+	const reported = readResolvedBaseUrl(configuration);
+	let url: URL;
+	try {
+		url = new URL(reported);
+	} catch {
+		throw new Error(
+			`listmonk-cli config show reported an invalid baseUrl: ${JSON.stringify(reported)}`,
+		);
+	}
+	if (url.protocol !== "http:" && url.protocol !== "https:") {
+		throw new Error(`Listmonk baseUrl must use HTTP or HTTPS: ${url.href}`);
+	}
+	// Match the CLI's canonical form, which has no trailing slash.
+	const baseUrl = url.href.replace(/\/$/, "");
+	if (isLoopbackHostname(url.hostname)) {
 		return { kind: "loopback", baseUrl };
 	}
 	if (!options.allowRemote) {
@@ -81,6 +82,10 @@ export function resolveLocalTestTarget(
 	return { kind: "remote", baseUrl };
 }
 
+// A positive integer (Listmonk records) or an opaque token such as an A/B
+// test id; either is safe to pass back to the CLI as one argument.
+const RECORD_ID_TOKEN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+
 /**
  * Read the id of a record created by CLI `--format json` output, only when
  * the record echoes the unique value it was created with. Cleanup therefore
@@ -89,18 +94,19 @@ export function resolveLocalTestTarget(
 export function readCreatedRecordId(
 	output: string,
 	match: { key: string; field: string; value: string },
-): number | undefined {
+): string | undefined {
 	const record = parseJsonObject(output)?.[match.key];
 	if (typeof record !== "object" || record === null) {
 		return undefined;
 	}
 	const { id, [match.field]: value } = record as Record<string, unknown>;
-	return value === match.value &&
-		typeof id === "number" &&
-		Number.isSafeInteger(id) &&
-		id > 0
-		? id
-		: undefined;
+	if (value !== match.value) {
+		return undefined;
+	}
+	if (typeof id === "number") {
+		return Number.isSafeInteger(id) && id > 0 ? String(id) : undefined;
+	}
+	return typeof id === "string" && RECORD_ID_TOKEN.test(id) ? id : undefined;
 }
 
 const USAGE = `Usage (stdin is CLI --format json output):
