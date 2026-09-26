@@ -705,8 +705,11 @@ listmonk-cli subscribers blocklist --subscriber-ids 1,2,3 --confirm
 listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 
 # CSV를 비동기로 임포트하고 진행 상황을 확인하며 필요하면 취소합니다.
+# --subscription-status는 unconfirmed, confirmed, unsubscribed 중 하나이며
+# (생략하면 subscribe 모드에서 Listmonk가 unconfirmed를 사용), 기존 `pending`
+# 값은 unconfirmed로 전송되는 deprecated 별칭입니다.
 listmonk-cli subscribers import --mode subscribe --lists 1 \
-  --file ./subscribers.csv --confirm
+  --subscription-status confirmed --file ./subscribers.csv --confirm
 listmonk-cli subscribers export --id 7
 # 실행할 때마다 실제 옵트인 메시지를 보냅니다.
 listmonk-cli subscribers send-optin --id 7

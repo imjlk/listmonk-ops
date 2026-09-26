@@ -43,6 +43,38 @@ describe("subscriber import CLI actions", () => {
 		);
 	});
 
+	test("sends the deprecated pending status as unconfirmed", async () => {
+		const start = mock(async () => ({
+			data: { name: "import.csv", total: 0, imported: 0, status: "importing" },
+		}));
+		const cliContext = {
+			client: { import: { start } } as unknown as Pick<
+				ListmonkClient,
+				"import"
+			>,
+			output: output(),
+		} satisfies SubscriberImportCliContext;
+
+		for (const subscription_status of ["pending", "unconfirmed"] as const) {
+			await renderStartSubscriberImport(cliContext, {
+				mode: "subscribe",
+				delim: ",",
+				lists: [1],
+				overwrite: false,
+				subscription_status,
+				csv: "email,name\na@example.com,A\n",
+			});
+		}
+
+		expect(
+			start.mock.calls.map(
+				(call) =>
+					((call as unknown[])[0] as { subscription_status?: string })
+						.subscription_status,
+			),
+		).toEqual(["unconfirmed", "unconfirmed"]);
+	});
+
 	test("renders and stops the import status", async () => {
 		const get = mock(async () => ({
 			data: { name: "import.csv", total: 3, imported: 2, status: "importing" },

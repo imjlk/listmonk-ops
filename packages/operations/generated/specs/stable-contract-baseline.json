@@ -22341,13 +22341,16 @@
                     "type": "boolean"
                   },
                   "subscription_status": {
-                    "description": "Optional subscription status applied to imported rows.",
+                    "description": "Optional subscription status applied to imported rows; `pending` is a\ndeprecated alias sent as `unconfirmed`.",
                     "oneOf": [
                       {
                         "const": "confirmed"
                       },
                       {
                         "const": "pending"
+                      },
+                      {
+                        "const": "unconfirmed"
                       },
                       {
                         "const": "unsubscribed"
@@ -22395,13 +22398,16 @@
                 "type": "boolean"
               },
               "subscription_status": {
-                "description": "Optional subscription status applied to imported rows.",
+                "description": "Optional subscription status applied to imported rows; `pending` is a\ndeprecated alias sent as `unconfirmed`.",
                 "oneOf": [
                   {
                     "const": "confirmed"
                   },
                   {
                     "const": "pending"
+                  },
+                  {
+                    "const": "unconfirmed"
                   },
                   {
                     "const": "unsubscribed"

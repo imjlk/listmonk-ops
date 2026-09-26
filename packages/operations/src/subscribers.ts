@@ -20,6 +20,8 @@ import { z } from "zod";
 import {
 	MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
 	MAX_SUBSCRIBER_IMPORT_LISTS,
+	SUBSCRIBER_IMPORT_SUBSCRIPTION_STATUSES,
+	toListmonkImportSubscriptionStatus,
 } from "./subscriber-import-bound";
 import {
 	LISTMONK_SORT_ORDERS,
@@ -1046,8 +1048,9 @@ const subscriberImportStartInputSchema = z
 			.optional(),
 		overwrite: z.boolean(),
 		subscription_status: z
-			.enum(["pending", "confirmed", "unsubscribed"])
-			.optional(),
+			.enum(SUBSCRIBER_IMPORT_SUBSCRIPTION_STATUSES)
+			.optional()
+			.describe("Status for imported rows; pending is a deprecated alias of unconfirmed"),
 		// Validate the UTF-8 byte length, not UTF-16 code units, so the
 		// cap bounds the wire payload the multipart File will carry.
 		csv: z
@@ -1099,7 +1102,9 @@ export async function startSubscriberImport(
 		...(input.lists !== undefined && { lists: input.lists }),
 		overwrite: input.overwrite,
 		...(input.subscription_status !== undefined && {
-			subscription_status: input.subscription_status,
+			subscription_status: toListmonkImportSubscriptionStatus(
+				input.subscription_status,
+			),
 		}),
 		file: new File([input.csv], "import.csv", { type: "text/csv" }),
 	});

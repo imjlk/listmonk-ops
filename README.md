@@ -716,8 +716,11 @@ listmonk-cli subscribers blocklist --subscriber-ids 1,2,3 --confirm
 listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 
 # Import a CSV asynchronously; poll progress; cancel if needed.
+# --subscription-status takes unconfirmed, confirmed, or unsubscribed
+# (omitted: Listmonk picks unconfirmed for subscribe mode); the former
+# `pending` value is a deprecated alias sent as unconfirmed.
 listmonk-cli subscribers import --mode subscribe --lists 1 \
-  --file ./subscribers.csv --confirm
+  --subscription-status confirmed --file ./subscribers.csv --confirm
 listmonk-cli subscribers export --id 7
 # Every run sends a real opt-in message.
 listmonk-cli subscribers send-optin --id 7

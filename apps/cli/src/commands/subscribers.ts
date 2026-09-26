@@ -19,6 +19,8 @@ import {
 	LISTMONK_SORT_ORDERS,
 	type ListmonkSortOrder,
 	MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
+	SUBSCRIBER_IMPORT_SUBSCRIPTION_STATUSES,
+	type SubscriberImportSubscriptionStatus,
 	invokeUpdateSubscriberOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
@@ -240,7 +242,7 @@ export async function renderStartSubscriberImport(
 		delim: string;
 		lists?: number[];
 		overwrite: boolean;
-		subscription_status?: "pending" | "confirmed" | "unsubscribed";
+		subscription_status?: SubscriberImportSubscriptionStatus;
 		csv: string;
 	},
 ): Promise<void> {
@@ -360,7 +362,7 @@ export async function handleStartSubscriberImportCommand({
 	delim: string;
 	lists?: string;
 	overwrite?: boolean;
-	"subscription-status"?: "pending" | "confirmed" | "unsubscribed";
+	"subscription-status"?: SubscriberImportSubscriptionStatus;
 	file: string;
 }>): Promise<void> {
 	try {
@@ -957,8 +959,11 @@ export default defineGroup({
 					description: "Overwrite existing subscriber attributes",
 				}),
 				"subscription-status": option(
-					z.enum(["pending", "confirmed", "unsubscribed"]).optional(),
-					{ description: "Subscription status applied to imported rows" },
+					z.enum(SUBSCRIBER_IMPORT_SUBSCRIPTION_STATUSES).optional(),
+					{
+						description:
+							"Status for imported rows (pending: deprecated alias of unconfirmed)",
+					},
 				),
 				file: option(z.string().trim().min(1), {
 					description: "Path to the CSV file (first row must be a header)",

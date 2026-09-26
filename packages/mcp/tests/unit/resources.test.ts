@@ -327,6 +327,16 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 			{ page: 1, per_page: 20, order: "asc", order_by: "name" },
 		]);
 	});
+
+	test("publishes the import subscription statuses Listmonk accepts", () => {
+		expect(
+			subscribersTools.find(
+				(tool) => tool.name === "listmonk_start_subscriber_import",
+			)?.inputSchema.properties?.subscription_status,
+		).toMatchObject({
+			enum: ["unconfirmed", "confirmed", "unsubscribed", "pending"],
+		});
+	});
 });
 
 describe("user-role operation adapter", () => {
