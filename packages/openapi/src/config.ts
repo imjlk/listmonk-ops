@@ -22,7 +22,7 @@ export interface ListmonkConfig {
 /**
  * Environment configuration
  */
-interface EnvConfig {
+export interface EnvConfig {
 	LISTMONK_API_URL?: string;
 	LISTMONK_USERNAME?: string;
 	LISTMONK_API_TOKEN?: string;
@@ -83,24 +83,6 @@ function parseIntegerEnv(
 	return parsed;
 }
 
-function readTimeoutEnvironment(): number | undefined {
-	return parseIntegerEnv(
-		"LISTMONK_TIMEOUT",
-		readEnvironment().LISTMONK_TIMEOUT,
-		1,
-		MAX_TIMEOUT_MS,
-	);
-}
-
-function readRetriesEnvironment(): number | undefined {
-	return parseIntegerEnv(
-		"LISTMONK_RETRIES",
-		readEnvironment().LISTMONK_RETRIES,
-		0,
-		MAX_RETRIES,
-	);
-}
-
 /**
  * Resolve request timeout and retry count for every client construction
  * path, including raw header mode, so `LISTMONK_TIMEOUT`/`LISTMONK_RETRIES`
@@ -108,15 +90,19 @@ function readRetriesEnvironment(): number | undefined {
  * leaves its environment variable unread; environment values are validated
  * strictly.
  */
-export function resolveListmonkTransportOptions(explicit?: {
-	timeout?: number;
-	retries?: number;
-}): { timeout: number; retries: number } {
+export function resolveListmonkTransportOptions(
+	explicit?: { timeout?: number; retries?: number },
+	env: EnvConfig = readEnvironment(),
+): { timeout: number; retries: number } {
 	return {
 		timeout:
-			explicit?.timeout ?? readTimeoutEnvironment() ?? DEFAULT_CONFIG.timeout,
+			explicit?.timeout ??
+			parseIntegerEnv("LISTMONK_TIMEOUT", env.LISTMONK_TIMEOUT, 1, MAX_TIMEOUT_MS) ??
+			DEFAULT_CONFIG.timeout,
 		retries:
-			explicit?.retries ?? readRetriesEnvironment() ?? DEFAULT_CONFIG.retries,
+			explicit?.retries ??
+			parseIntegerEnv("LISTMONK_RETRIES", env.LISTMONK_RETRIES, 0, MAX_RETRIES) ??
+			DEFAULT_CONFIG.retries,
 	};
 }
 
@@ -147,7 +133,7 @@ export const createConfig = (
 					username: env.LISTMONK_USERNAME || DEFAULT_CONFIG.auth.username,
 					token: env.LISTMONK_API_TOKEN || DEFAULT_CONFIG.auth.token,
 				},
-		...resolveListmonkTransportOptions(overrides),
+		...resolveListmonkTransportOptions(overrides, env),
 		headers: {
 			...DEFAULT_CONFIG.headers,
 			...overrides?.headers,
