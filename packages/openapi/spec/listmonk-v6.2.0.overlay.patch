@@ -1,5 +1,5 @@
---- upstream/listmonk-v6.2.0.yaml
-+++ listmonk.yaml
+--- packages/openapi/spec/upstream/listmonk-v6.2.0.yaml	2026-09-27 20:47:06
++++ packages/openapi/spec/listmonk.yaml	2026-09-27 20:47:31
 @@ -246,6 +246,20 @@
                      type: array
                      items:
@@ -120,7 +120,7 @@
          - in: query
            name: order_by
            description: Specifies the field by which to sort the campaigns. Available options are 'name', 'status', 'created_at', and 'updated_at'
-@@ -1261,7 +1305,7 @@
+@@ -1261,7 +1307,7 @@
                  type: object
                  properties:
                    data:
@@ -129,7 +129,7 @@
  
    "/campaigns/{id}":
      get:
-@@ -1320,7 +1364,7 @@
+@@ -1320,7 +1366,7 @@
                  type: object
                  properties:
                    data:
@@ -138,7 +138,7 @@
  
      delete:
        description: deletes specified campaign
-@@ -1538,7 +1582,7 @@
+@@ -1538,7 +1584,7 @@
                properties:
                  status:
                    type: string
@@ -147,7 +147,7 @@
        responses:
          "200":
            description: response
-@@ -1574,6 +1618,8 @@
+@@ -1574,6 +1620,8 @@
                    type: boolean
                  archive_template_id:
                    type: integer
@@ -156,7 +156,7 @@
                  archive_meta:
                    type: object
        responses:
-@@ -1585,7 +1631,20 @@
+@@ -1585,7 +1633,20 @@
                  type: object
                  properties:
                    data:
@@ -178,7 +178,34 @@
  
    "/campaigns/{id}/content":
      post:
-@@ -1662,6 +1708,25 @@
+@@ -1629,19 +1690,18 @@
+           name: id
+           description: ID of campaign that you want to test
+           required: true
++          schema:
++            type: integer
++        - in: query
++          name: template_id
++          description: template to render the test message with instead of the campaign's own; the handler reads it only from the query string
++          required: false
+           schema:
+             type: integer
+       requestBody:
+         required: true
+-        description: template id
++        description: campaign form, attachments, and test recipients
+         content:
+-          application/x-www-form-urlencoded:
+-            schema:
+-              type: object
+-              properties:
+-                template_id:
+-                  description: template id
+-                  type: integer
+           application/json:
+             schema:
+               $ref: "#/components/schemas/CampaignRequest"
+@@ -1662,6 +1722,25 @@
        operationId: getMedia
        tags:
          - Media
@@ -204,7 +231,7 @@
        responses:
          "200":
            description: response
-@@ -1671,9 +1736,20 @@
+@@ -1671,9 +1750,20 @@
                  type: object
                  properties:
                    data:
@@ -228,7 +255,7 @@
      post:
        description: handles media file uploads.
        operationId: uploadMedia
-@@ -1754,7 +1800,7 @@
+@@ -1754,7 +1844,7 @@
          - in: query
            name: no_body
            description: boolean flag for response with/without body
@@ -237,7 +264,7 @@
            schema:
              type: boolean
        responses:
-@@ -1909,20 +1909,6 @@
+@@ -1909,20 +1999,6 @@
        operationId: previewTemplateById
        tags:
          - Templates
@@ -258,7 +285,7 @@
        parameters:
          - in: path
            name: id
-@@ -1941,7 +1985,7 @@
+@@ -1941,7 +2017,7 @@
  
    "/templates/{id}/default":
      put:
@@ -267,7 +294,7 @@
        operationId: setDefaultTemplateById
        tags:
          - Templates
-@@ -2016,23 +2016,20 @@
+@@ -2016,23 +2092,20 @@
        operationId: deleteCampaignAnalyticsByType
        tags:
          - Maintenance
@@ -282,7 +309,8 @@
 -                before_date:
 -                  type: string
 -                  format: date
-       parameters:
+-      parameters:
++      parameters:
 +        - in: query
 +          name: before_date
 +          required: true
@@ -300,7 +328,7 @@
            required: true
        responses:
          "200":
-@@ -2051,17 +2054,13 @@
+@@ -2051,17 +2124,13 @@
        operationId: deleteUnconfirmedSubscriptions
        tags:
          - Maintenance
@@ -325,7 +353,7 @@
        responses:
          "200":
            description: response
-@@ -2132,6 +2172,41 @@
+@@ -2132,6 +2201,41 @@
  
  components:
    schemas:
@@ -367,16 +395,25 @@
      LanguagePack:
        type: object
        properties:
-@@ -3874,6 +3949,8 @@
-         views:
+@@ -3756,7 +3860,7 @@
+           enum: [add, remove, unsubscribe]
+           description: Whether to add, remove, or unsubscribe the users.
+         target_list_ids:
+-          type: integer
++          type: array
+           description: The ids of the lists to be modified.
+           items:
+             type: integer
+@@ -3875,6 +3979,8 @@
            type: integer
          clicks:
-+          type: integer
-+        bounces:
            type: integer
++        bounces:
++          type: integer
          lists:
            type: array
-@@ -3886,6 +3963,8 @@
+           items:
+@@ -3886,6 +3992,8 @@
                  type: string
          started_at:
            type: string
@@ -385,13 +422,12 @@
          to_send:
            type: integer
          sent:
-@@ -3902,22 +3981,56 @@
-         from_email:
+@@ -3903,21 +4011,55 @@
            type: string
          body:
-+          type: string
-+        body_source:
            type: string
++        body_source:
++          type: string
 +          nullable: true
 +        altbody:
 +          type: string
@@ -414,7 +450,7 @@
            type: integer
 +          nullable: true
          messenger:
-+          type: string
+           type: string
 +        headers:
 +          type: array
 +          items:
@@ -427,7 +463,7 @@
 +        archive:
 +          type: boolean
 +        archive_slug:
-           type: string
++          type: string
 +          nullable: true
 +        archive_template_id:
 +          type: integer
@@ -443,7 +479,7 @@
  
      CampaignContentRequest:
        type: object
-@@ -3945,6 +4058,8 @@
+@@ -3945,6 +4087,8 @@
                  type: string
          started_at:
            type: string
@@ -452,7 +488,7 @@
          to_send:
            type: integer
          sent:
-@@ -3964,17 +4079,20 @@
+@@ -3964,17 +4108,20 @@
            type: string
          send_at:
            type: string
@@ -474,7 +510,7 @@
          messenger:
            type: string
          from:
-@@ -3992,30 +4110,64 @@
+@@ -3992,30 +4139,64 @@
          lists:
            type: array
            items:
@@ -549,7 +585,7 @@
  
      CampaignUpdate:
        type: object
-@@ -4188,11 +4339,26 @@
+@@ -4188,11 +4369,26 @@
  
      TransactionalMessage:
        type: object
@@ -576,7 +612,7 @@
          template_id:
            type: integer
          from_email:
-@@ -4203,7 +4369,13 @@
+@@ -4203,7 +4399,13 @@
            type: array
            items:
              type: object

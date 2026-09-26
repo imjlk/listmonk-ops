@@ -805,6 +805,12 @@ statuses unchanged. Blocklisting already set every list subscription to
 `unsubscribed`, and unblocklisting does not restore them: re-add lists only
 with fresh consent.
 
+A campaign test send (`campaigns.test`) derives its form from the stored
+campaign, including the plain-text alternative, custom headers, and
+attachments, then applies the explicit overrides. A `--template-id`
+(`template_id`) override is sent as the query parameter Listmonk 6.2 reads, so
+the test message renders with the chosen template.
+
 Bounce reads mirror the Listmonk `/api/bounces` filters (`--campaign-id`,
 `--source`, `--order-by`, `--order`). Listmonk has no subscriber filter on
 that endpoint, so the legacy `subscriber_id` argument — which never reached

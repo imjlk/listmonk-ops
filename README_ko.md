@@ -790,6 +790,11 @@ ID로 변환합니다. Listmonk 6.2에는 일괄 차단 해제 엔드포인트�
 모든 리스트 구독이 이미 `unsubscribed`로 바뀌었으며 차단 해제는 이를 복원하지
 않으므로, 리스트 재가입은 새로운 동의를 받은 경우에만 수행하세요.
 
+캠페인 테스트 발송(`campaigns.test`)은 저장된 캠페인에서 plain-text 대체
+본문, 사용자 지정 헤더, 첨부 파일을 포함한 form을 구성한 뒤 명시적 override를
+적용합니다. `--template-id`(`template_id`) override는 Listmonk 6.2가 읽는
+query parameter로 전송되므로 테스트 메시지가 선택한 template으로 렌더링됩니다.
+
 바운스 읽기는 Listmonk `/api/bounces`의 필터(`--campaign-id`,
 `--source`, `--order-by`, `--order`)를 그대로 전달합니다. 해당 엔드포인트에는
 구독자 필터가 없어서, 과거 API로 전달되지 않던 `subscriber_id` 인자는
