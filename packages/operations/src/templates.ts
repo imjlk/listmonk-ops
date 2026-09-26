@@ -838,7 +838,7 @@ export async function deleteTemplate(
 		try {
 			await getTemplate({ client }, { id: input.id });
 		} catch (probeError) {
-			if (isResourceMissingError(probeError)) {
+			if (isResourceMissingError(probeError, "template")) {
 				return { id: input.id, deleted: false };
 			}
 		}

@@ -46,6 +46,18 @@ describe("template operations", () => {
 			}),
 		).resolves.toEqual({ id: 998, deleted: false });
 
+		// A 400 about another missing entity is not this template's miss.
+		const otherEntity = mock(async () => ({
+			error: { message: "List not found" },
+			response: { status: 400 },
+		})) as unknown as TemplateClient["template"]["getById"];
+		await expect(
+			invokeDeleteTemplateOperation(
+				context({ delete: remove, getById: otherEntity }),
+				{ id: 998 },
+			),
+		).rejects.toThrow(/non-existent or default template/);
+
 		// Any other 400 from the probe keeps the explicit error.
 		const invalid = mock(async () => ({
 			error: { message: "Invalid ID" },

@@ -401,7 +401,7 @@ async function executeSendStep(
 				now,
 			);
 		}
-		if (isResourceMissingError(error)) {
+		if (isResourceMissingError(error, "subscriber")) {
 			return withoutLease(
 				claimed.enrollment,
 				{

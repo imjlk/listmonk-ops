@@ -70,14 +70,22 @@ const NOT_FOUND_MESSAGE = /\bnot found\b/i;
  * Whether a lookup failed because the resource does not exist. Listmonk 6.2
  * answers a missing template, campaign, list, subscriber, or bounce with
  * HTTP 400 and an i18n "<Resource> not found" message (only media uses 404),
- * so a 400 counts as a miss only when the server message says so.
+ * so a 400 counts as a miss only when the server message says so. Pass the
+ * expected `resource` (for example "subscriber") so a 400 about some other
+ * missing entity is not mistaken for the one the caller asked about.
  */
-export function isResourceMissingError(error: unknown): boolean {
+export function isResourceMissingError(
+	error: unknown,
+	resource?: string,
+): boolean {
 	if (!(error instanceof ResourceResponseError)) return false;
 	if (error.status === 404) return true;
+	if (error.status !== 400) return false;
+	const message = toResourceErrorMessage(error.cause);
+	if (!NOT_FOUND_MESSAGE.test(message)) return false;
 	return (
-		error.status === 400 &&
-		NOT_FOUND_MESSAGE.test(toResourceErrorMessage(error.cause))
+		resource === undefined ||
+		message.toLowerCase().includes(resource.toLowerCase())
 	);
 }
 
