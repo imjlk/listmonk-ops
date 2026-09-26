@@ -190,11 +190,14 @@ export function normalizeListmonkApiBaseUrl(baseUrl: string): string {
 			"Listmonk base URL must use HTTPS for token-authenticated traffic.",
 		);
 	}
+	// `URL.search`/`URL.hash` are empty for a bare trailing `?` or `#`, which
+	// would otherwise survive serialization and produce `/api?/tx`.
 	if (
 		parsed.username !== "" ||
 		parsed.password !== "" ||
 		parsed.search !== "" ||
-		parsed.hash !== ""
+		parsed.hash !== "" ||
+		/[?#]/u.test(value)
 	) {
 		throw new ListmonkRuntimeError(
 			"invalid_configuration",

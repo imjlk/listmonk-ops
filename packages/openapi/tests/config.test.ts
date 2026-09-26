@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { configToHeaders, createConfig, validateConfig } from "../src/config";
+import { createListmonkClient } from "../index";
+import { resolveListmonkClientConfig } from "../src/client/factory";
+import {
+	configToHeaders,
+	createConfig,
+	resolveListmonkTransportOptions,
+	validateConfig,
+} from "../src/config";
 
 describe("Configuration Management", () => {
 	let originalEnv: NodeJS.ProcessEnv;
@@ -96,6 +103,112 @@ describe("Configuration Management", () => {
 
 			// Restore environment
 			process.env = originalEnv;
+		});
+
+		test("never completes explicit auth with environment credentials", () => {
+			process.env.LISTMONK_USERNAME = "env-user";
+			process.env.LISTMONK_API_TOKEN = "env-secret-token";
+
+			const config = createConfig({
+				baseUrl: "https://staging.example.com/api",
+				auth: { username: "staging-bot", token: "" },
+			});
+
+			expect(config.auth).toEqual({ username: "staging-bot", token: "" });
+			expect(() => validateConfig(config)).toThrow("auth.token is required");
+			expect(() =>
+				createListmonkClient({
+					baseUrl: "https://staging.example.com/api",
+					auth: { username: "staging-bot", token: "" },
+				}),
+			).toThrow("auth.token is required");
+			expect(() =>
+				createListmonkClient({
+					baseUrl: "https://staging.example.com/api",
+					auth: { username: "", token: "explicit-token" },
+				}),
+			).toThrow("auth.username is required");
+		});
+
+		test("rejects malformed timeout and retry environment variables", () => {
+			for (const [name, value] of [
+				["LISTMONK_TIMEOUT", "abc"],
+				["LISTMONK_TIMEOUT", "30s"],
+				["LISTMONK_TIMEOUT", "0"],
+				["LISTMONK_TIMEOUT", "-5"],
+				["LISTMONK_TIMEOUT", "2147483648"],
+				["LISTMONK_RETRIES", "abc"],
+				["LISTMONK_RETRIES", "1.5"],
+				["LISTMONK_RETRIES", "11"],
+			] as const) {
+				process.env = { [name]: value };
+				expect(() => createConfig()).toThrow(name);
+			}
+		});
+
+		test("treats blank transport variables as unset and trims values", () => {
+			process.env = { LISTMONK_TIMEOUT: "   ", LISTMONK_RETRIES: " 2 " };
+
+			expect(resolveListmonkTransportOptions()).toEqual({
+				timeout: 30000,
+				retries: 2,
+			});
+		});
+
+		test("explicit transport values leave malformed variables unread", () => {
+			process.env = { LISTMONK_TIMEOUT: "abc", LISTMONK_RETRIES: "abc" };
+
+			expect(resolveListmonkTransportOptions({ timeout: 500, retries: 1 })).toEqual(
+				{ timeout: 500, retries: 1 },
+			);
+		});
+
+		test("raw header clients honor transport variables like auth clients", () => {
+			process.env = { LISTMONK_TIMEOUT: "4500", LISTMONK_RETRIES: "0" };
+
+			const direct = resolveListmonkClientConfig({
+				baseUrl: "https://listmonk.example.com/api",
+				headers: { Authorization: "token api-admin:token" },
+			});
+			const auth = resolveListmonkClientConfig({
+				baseUrl: "https://listmonk.example.com/api",
+				auth: { username: "api-admin", token: "token" },
+			});
+
+			expect({ timeout: direct.timeout, retries: direct.retries }).toEqual({
+				timeout: 4500,
+				retries: 0,
+			});
+			expect({ timeout: auth.timeout, retries: auth.retries }).toEqual({
+				timeout: 4500,
+				retries: 0,
+			});
+		});
+
+		test("reads no environment when the runtime has no process object", () => {
+			const descriptor = Object.getOwnPropertyDescriptor(globalThis, "process");
+			let config: ReturnType<typeof createConfig> | undefined;
+			try {
+				Object.defineProperty(globalThis, "process", {
+					value: undefined,
+					configurable: true,
+					writable: true,
+				});
+				config = createConfig({
+					baseUrl: "https://listmonk.example.com/api",
+					auth: { username: "api-admin", token: "token" },
+				});
+			} finally {
+				if (descriptor) {
+					Object.defineProperty(globalThis, "process", descriptor);
+				}
+			}
+
+			expect(config).toMatchObject({
+				baseUrl: "https://listmonk.example.com/api",
+				timeout: 30000,
+				retries: 3,
+			});
 		});
 
 		test("should merge headers correctly", () => {

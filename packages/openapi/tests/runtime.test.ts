@@ -46,6 +46,9 @@ describe("Workers-compatible Listmonk runtime", () => {
 			"https://user:password@mail.example.com",
 			"https://mail.example.com?token=secret",
 			"https://mail.example.com#fragment",
+			"https://mail.example.com/api?",
+			"https://mail.example.com/api#",
+			"https://mail.example.com?#",
 		]) {
 			expect(() => normalizeListmonkApiBaseUrl(value)).toThrow(
 				ListmonkRuntimeError,

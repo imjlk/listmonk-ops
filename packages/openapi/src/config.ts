@@ -1,3 +1,10 @@
+import {
+	DEFAULT_RETRIES,
+	DEFAULT_TIMEOUT_MS,
+	MAX_RETRIES,
+	MAX_TIMEOUT_MS,
+} from "./client/transport";
+
 /**
  * Configuration interface for Listmonk client
  */
@@ -32,60 +39,117 @@ const DEFAULT_CONFIG = {
 		username: "api-admin",
 		token: "",
 	},
-	timeout: 30000,
-	retries: 3,
+	timeout: DEFAULT_TIMEOUT_MS,
+	retries: DEFAULT_RETRIES,
 	headers: {},
 } as const;
 
+function readEnvironment(): EnvConfig {
+	// Runtimes such as Workers or browsers have no `process`; treat them as
+	// having no environment rather than throwing.
+	const env =
+		typeof process === "undefined" || process.env === undefined
+			? {}
+			: process.env;
+	return {
+		LISTMONK_API_URL: env.LISTMONK_API_URL,
+		LISTMONK_USERNAME: env.LISTMONK_USERNAME,
+		LISTMONK_API_TOKEN: env.LISTMONK_API_TOKEN,
+		LISTMONK_TIMEOUT: env.LISTMONK_TIMEOUT,
+		LISTMONK_RETRIES: env.LISTMONK_RETRIES,
+	};
+}
+
 /**
- * Creates a configuration object from environment variables and overrides
+ * Parse a bounded non-negative integer environment variable. `parseInt`
+ * would turn `abc` into NaN (no request is ever attempted) and `30s` into 30.
+ */
+function parseIntegerEnv(
+	name: string,
+	raw: string | undefined,
+	min: number,
+	max: number,
+): number | undefined {
+	const value = raw?.trim();
+	if (value === undefined || value === "") {
+		return undefined;
+	}
+	const parsed = /^\d+$/.test(value) ? Number(value) : Number.NaN;
+	if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+		throw new Error(
+			`${name} must be an integer between ${min} and ${max}; received ${JSON.stringify(raw)}`,
+		);
+	}
+	return parsed;
+}
+
+function readTimeoutEnvironment(): number | undefined {
+	return parseIntegerEnv(
+		"LISTMONK_TIMEOUT",
+		readEnvironment().LISTMONK_TIMEOUT,
+		1,
+		MAX_TIMEOUT_MS,
+	);
+}
+
+function readRetriesEnvironment(): number | undefined {
+	return parseIntegerEnv(
+		"LISTMONK_RETRIES",
+		readEnvironment().LISTMONK_RETRIES,
+		0,
+		MAX_RETRIES,
+	);
+}
+
+/**
+ * Resolve request timeout and retry count for every client construction
+ * path, including raw header mode, so `LISTMONK_TIMEOUT`/`LISTMONK_RETRIES`
+ * behave the same for the CLI and the MCP server. An explicit value wins and
+ * leaves its environment variable unread; environment values are validated
+ * strictly.
+ */
+export function resolveListmonkTransportOptions(explicit?: {
+	timeout?: number;
+	retries?: number;
+}): { timeout: number; retries: number } {
+	return {
+		timeout:
+			explicit?.timeout ?? readTimeoutEnvironment() ?? DEFAULT_CONFIG.timeout,
+		retries:
+			explicit?.retries ?? readRetriesEnvironment() ?? DEFAULT_CONFIG.retries,
+	};
+}
+
+/**
+ * Creates a configuration object from environment variables and overrides.
+ *
+ * Explicit `auth` is used as given: an empty username or token is never
+ * completed from `LISTMONK_USERNAME`/`LISTMONK_API_TOKEN`, because those
+ * credentials belong to the environment's server, not to an explicitly
+ * configured one.
  */
 export const createConfig = (
 	overrides?: Partial<ListmonkConfig>,
 ): ListmonkConfig => {
-	// Get environment variables (works with Bun, Node.js, etc.)
-	const env: EnvConfig = {
-		LISTMONK_API_URL: process.env.LISTMONK_API_URL,
-		LISTMONK_USERNAME: process.env.LISTMONK_USERNAME,
-		LISTMONK_API_TOKEN: process.env.LISTMONK_API_TOKEN,
-		LISTMONK_TIMEOUT: process.env.LISTMONK_TIMEOUT,
-		LISTMONK_RETRIES: process.env.LISTMONK_RETRIES,
-	};
+	const env = readEnvironment();
 
-	// Build config from environment variables
-	const envConfig: Partial<ListmonkConfig> = {
-		baseUrl: env.LISTMONK_API_URL || DEFAULT_CONFIG.baseUrl,
-		auth: {
-			username: env.LISTMONK_USERNAME || DEFAULT_CONFIG.auth.username,
-			token: env.LISTMONK_API_TOKEN || DEFAULT_CONFIG.auth.token,
-		},
-		timeout: env.LISTMONK_TIMEOUT
-			? parseInt(env.LISTMONK_TIMEOUT, 10)
-			: DEFAULT_CONFIG.timeout,
-		retries: env.LISTMONK_RETRIES
-			? parseInt(env.LISTMONK_RETRIES, 10)
-			: DEFAULT_CONFIG.retries,
-		headers: DEFAULT_CONFIG.headers,
-	};
+	const explicitAuth = overrides?.auth;
 
-	// Merge with overrides
+	// Merge with overrides.
 	const config: ListmonkConfig = {
-		baseUrl: overrides?.baseUrl || envConfig.baseUrl || DEFAULT_CONFIG.baseUrl,
-		auth: {
-			username:
-				overrides?.auth?.username ||
-				envConfig.auth?.username ||
-				DEFAULT_CONFIG.auth.username,
-			token:
-				overrides?.auth?.token ||
-				envConfig.auth?.token ||
-				DEFAULT_CONFIG.auth.token,
-		},
-		timeout: overrides?.timeout ?? envConfig.timeout ?? DEFAULT_CONFIG.timeout,
-		retries: overrides?.retries ?? envConfig.retries ?? DEFAULT_CONFIG.retries,
+		baseUrl: overrides?.baseUrl || env.LISTMONK_API_URL || DEFAULT_CONFIG.baseUrl,
+		auth: explicitAuth
+			? {
+					username: explicitAuth.username ?? "",
+					token: explicitAuth.token ?? "",
+				}
+			: {
+					username: env.LISTMONK_USERNAME || DEFAULT_CONFIG.auth.username,
+					token: env.LISTMONK_API_TOKEN || DEFAULT_CONFIG.auth.token,
+				},
+		...resolveListmonkTransportOptions(overrides),
 		headers: {
 			...DEFAULT_CONFIG.headers,
-			...envConfig.headers,
 			...overrides?.headers,
 		},
 	};
@@ -107,7 +171,7 @@ export const validateConfig = (config: ListmonkConfig): void => {
 
 	if (!config.auth.token) {
 		throw new Error(
-			"auth.token is required in Listmonk configuration. Set LISTMONK_API_TOKEN environment variable or pass it in config.",
+			"auth.token is required in Listmonk configuration. Pass auth.token explicitly, or omit auth and set the LISTMONK_API_TOKEN environment variable.",
 		);
 	}
 
