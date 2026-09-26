@@ -17,6 +17,7 @@ import {
 	invokeUploadMediaOperation,
 	invokeAddSubscribersToListsOperation,
 	invokeBlocklistSubscribersOperation,
+	deriveListmonkSubscriberName,
 	invokeCreateSubscriberOperation,
 	invokeCreateTemplateOperation,
 	invokeGetTemplatesOperation,
@@ -1563,7 +1564,8 @@ describe("shared CRUD resource operations", () => {
 
 		await invokeUpdateSubscriberOperation(context, {
 			id: 30,
-			list_uuids: ["11111111-1111-4111-8111-111111111111"],
+			// UUID text is case-insensitive; Listmonk returns lowercase.
+			list_uuids: ["11111111-1111-4111-8111-111111111111".toUpperCase()],
 		});
 		expect(patch).toHaveBeenLastCalledWith({
 			path: { id: 30 },
@@ -1615,6 +1617,52 @@ describe("shared CRUD resource operations", () => {
 		);
 
 		expect(replayed).toMatchObject({ created: false, subscriber: { id: 45 } });
+	});
+
+	test("declines a nameless replay when the stored name is not the derived one", async () => {
+		const createSubscriber = mock(async () => ({
+			error: { message: "E-mail already exists." },
+			response: { status: 409 },
+		}));
+		const listSubscribers = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 46,
+						email: "john.doe@example.com",
+						name: "Johnny",
+						status: "enabled",
+						lists: [],
+						attribs: {},
+					},
+				],
+				total: 1,
+			},
+		}));
+
+		await expect(
+			invokeCreateSubscriberOperation(
+				subscriberContext({
+					create: createSubscriber as SubscriberClient["subscriber"]["create"],
+					list: listSubscribers as SubscriberClient["subscriber"]["list"],
+				}),
+				{ email: "john.doe@example.com" },
+			),
+		).rejects.toThrow(/already exists/i);
+	});
+
+	test("derives the display name Listmonk stores for nameless subscribers", () => {
+		// Expected values were observed from Listmonk 6.2 creates.
+		for (const [email, name] of [
+			["john.doe.1@example.test", "John Doe 1"],
+			["JANE_SMITH@example.test", "Jane_smith"],
+			["mary-ann@example.test", "Mary-Ann"],
+			["o'neil@example.test", "O'neil"],
+			["user+tag@example.test", "User+Tag"],
+			["ünïcode.ß@example.test", "Ünïcode Ss"],
+		] as const) {
+			expect(deriveListmonkSubscriberName(email)).toBe(name);
+		}
 	});
 
 	test("subscriber bulk respects dry_run and max_items", async () => {

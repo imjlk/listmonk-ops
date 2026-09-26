@@ -230,20 +230,27 @@ export async function resolveSubscriberListIds(
 		query: { minimal: true, per_page: "all" },
 	});
 	const data = unwrapResourceResponse(response, "Failed to resolve list UUIDs");
+	// UUID text is case-insensitive; Listmonk returns the canonical lowercase
+	// form, so compare normalized values on both sides.
+	const normalizeUuid = (uuid: string) => uuid.trim().toLowerCase();
 	const idsByUuid = new Map<string, number>();
 	for (const list of data.results ?? []) {
 		if (typeof list.uuid === "string" && typeof list.id === "number") {
-			idsByUuid.set(list.uuid, list.id);
+			idsByUuid.set(normalizeUuid(list.uuid), list.id);
 		}
 	}
-	const unknown = listUuids.filter((uuid) => !idsByUuid.has(uuid));
+	const unknown = listUuids.filter(
+		(uuid) => !idsByUuid.has(normalizeUuid(uuid)),
+	);
 	if (unknown.length > 0) {
 		throw new Error(`Unknown list UUID(s): ${unknown.join(", ")}`);
 	}
 	return [
 		...new Set([
 			...(listIds ?? []),
-			...listUuids.map((uuid) => idsByUuid.get(uuid) as number),
+			...listUuids.map(
+				(uuid) => idsByUuid.get(normalizeUuid(uuid)) as number,
+			),
 		]),
 	];
 }
@@ -347,6 +354,34 @@ function canonicalJson(value: unknown): string {
 	);
 }
 
+/**
+ * The display name Listmonk 6.2 stores when a subscriber is created without
+ * one (`subimporter.ValidateFields`): the lowercased local part with dots as
+ * spaces, each word title-cased.
+ */
+export function deriveListmonkSubscriberName(email: string): string {
+	const localPart = email.trim().toLowerCase().split("@")[0] ?? "";
+	const segmenter = new Intl.Segmenter(undefined, { granularity: "word" });
+	return localPart
+		.replaceAll(".", " ")
+		.split(/\s+/u)
+		.filter((part) => part.length > 0)
+		.map((part) =>
+			Array.from(segmenter.segment(part), ({ segment, isWordLike }) =>
+				isWordLike ? titleCaseWord(segment) : segment,
+			).join(""),
+		)
+		.join(" ");
+}
+
+function titleCaseWord(word: string): string {
+	const [head = "", ...rest] = Array.from(word);
+	// Approximate Unicode title case: "ß" uppercases to "SS" but titles to
+	// "Ss", matching Go's cases.Title used by Listmonk.
+	const [first = "", ...tail] = Array.from(head.toUpperCase());
+	return first + tail.join("").toLowerCase() + rest.join("");
+}
+
 function sameSubscriberCreateIntent(
 	existing: Subscriber,
 	input: z.output<typeof createSubscriberInputSchema>,
@@ -372,8 +407,10 @@ function sameSubscriberCreateIntent(
 		),
 	);
 	// Listmonk derives a display name from the email when none is sent, so a
-	// blank requested name matches whatever name the server chose.
-	const sameName = input.name === "" || (existing.name ?? "") === input.name;
+	// blank requested name must match that derived name, not any stored name.
+	const expectedName =
+		input.name === "" ? deriveListmonkSubscriberName(input.email) : input.name;
+	const sameName = (existing.name ?? "") === expectedName;
 	return (
 		!unsubscribed &&
 		existing.email?.toLowerCase() === input.email.toLowerCase() &&
