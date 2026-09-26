@@ -21,6 +21,20 @@
  
    /subscribers:
      get:
+@@ -287,11 +301,11 @@
+             enum: ["name", "status", "created_at", "updated_at"]
+         - in: query
+           name: order
+-          description: ASC|DESC Sort by ascending or descending order.
++          description: asc|desc Sort by ascending or descending order. Listmonk matches lowercase only and sorts descending for any other value.
+           required: false
+           schema:
+             type: string
+-            enum: ["ASC", "DESC"]
++            enum: ["asc", "desc"]
+         - in: query
+           name: subscription_status
+           description: Subscription status to filter by if there are one or more list_ids.
 @@ -423,6 +437,36 @@
        responses:
          "200":
@@ -67,6 +81,20 @@
    /lists:
      get:
        description: retrieves lists with additional metadata like subscriber counts. This may be slow.
+@@ -929,11 +973,11 @@
+             enum: ["name", "status", "created_at", "updated_at"]
+         - in: query
+           name: order
+-          description: ASC|DESC Sort by ascending or descending order.
++          description: asc|desc Sort by ascending or descending order. Listmonk matches lowercase only and sorts descending for any other value.
+           required: false
+           schema:
+             type: string
+-            enum: ["ASC", "DESC"]
++            enum: ["asc", "desc"]
+         - in: query
+           name: minimal
+           description: When set to true, returns response without body content
 @@ -1187,7 +1231,9 @@
                  enum: ["all"]
                  description: Return all results without pagination
@@ -78,6 +106,20 @@
            description: Filter campaigns by tags. Multiple tags can be specified by repeating the parameter
            required: false
            schema:
+@@ -1196,11 +1242,11 @@
+               type: string
+         - in: query
+           name: order
+-          description: Determines the sort order of results. ASC for ascending, DESC for descending order
++          description: Determines the sort order of results. asc for ascending, desc for descending order; Listmonk sorts descending for any other value
+           required: false
+           schema:
+             type: string
+-            enum: ["ASC", "DESC"]
++            enum: ["asc", "desc"]
+         - in: query
+           name: order_by
+           description: Specifies the field by which to sort the campaigns. Available options are 'name', 'status', 'created_at', and 'updated_at'
 @@ -1261,7 +1305,7 @@
                  type: object
                  properties:

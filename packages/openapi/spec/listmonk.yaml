@@ -301,11 +301,11 @@ paths:
             enum: ["name", "status", "created_at", "updated_at"]
         - in: query
           name: order
-          description: ASC|DESC Sort by ascending or descending order.
+          description: asc|desc Sort by ascending or descending order. Listmonk matches lowercase only and sorts descending for any other value.
           required: false
           schema:
             type: string
-            enum: ["ASC", "DESC"]
+            enum: ["asc", "desc"]
         - in: query
           name: subscription_status
           description: Subscription status to filter by if there are one or more list_ids.
@@ -973,11 +973,11 @@ paths:
             enum: ["name", "status", "created_at", "updated_at"]
         - in: query
           name: order
-          description: ASC|DESC Sort by ascending or descending order.
+          description: asc|desc Sort by ascending or descending order. Listmonk matches lowercase only and sorts descending for any other value.
           required: false
           schema:
             type: string
-            enum: ["ASC", "DESC"]
+            enum: ["asc", "desc"]
         - in: query
           name: minimal
           description: When set to true, returns response without body content
@@ -1242,11 +1242,11 @@ paths:
               type: string
         - in: query
           name: order
-          description: Determines the sort order of results. ASC for ascending, DESC for descending order
+          description: Determines the sort order of results. asc for ascending, desc for descending order; Listmonk sorts descending for any other value
           required: false
           schema:
             type: string
-            enum: ["ASC", "DESC"]
+            enum: ["asc", "desc"]
         - in: query
           name: order_by
           description: Specifies the field by which to sort the campaigns. Available options are 'name', 'status', 'created_at', and 'updated_at'

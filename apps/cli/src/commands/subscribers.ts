@@ -16,6 +16,8 @@ import {
 	invokeGetSubscriberImportLogsOperation,
 	invokeExportSubscriberOperation,
 	invokeSendOptinOperation,
+	LISTMONK_SORT_ORDERS,
+	type ListmonkSortOrder,
 	MAX_SUBSCRIBER_IMPORT_CSV_BYTES,
 	invokeUpdateSubscriberOperation,
 	OperationExecutionError,
@@ -51,7 +53,7 @@ export interface ListSubscribersInput {
 	list_id?: number[];
 	query?: string;
 	order_by?: "name" | "status" | "created_at" | "updated_at";
-	order?: "ASC" | "DESC";
+	order?: ListmonkSortOrder;
 	subscription_status?: string;
 }
 
@@ -445,7 +447,7 @@ type ListCommandFlags = {
 	"list-id"?: string;
 	query?: string;
 	"order-by"?: "name" | "status" | "created_at" | "updated_at";
-	order?: "ASC" | "DESC";
+	order?: ListmonkSortOrder;
 	"subscription-status"?: string;
 };
 
@@ -733,7 +735,7 @@ export default defineGroup({
 					z.enum(["name", "status", "created_at", "updated_at"]).optional(),
 					{ description: "Sort field" },
 				),
-				order: option(z.enum(["ASC", "DESC"]).optional(), {
+				order: option(z.enum(LISTMONK_SORT_ORDERS).optional(), {
 					description: "Sort order",
 				}),
 				"subscription-status": option(z.string().trim().optional(), {

@@ -24,6 +24,10 @@ import {
 	MAX_CAMPAIGN_ANALYTICS_IDS,
 } from "./campaign-analytics-date";
 import {
+	LISTMONK_SORT_ORDERS,
+	toListmonkSortOrder,
+} from "./listmonk-sort-order";
+import {
 	MAX_CAMPAIGN_TEST_RECIPIENTS,
 	MAX_CAMPAIGN_TEST_RECIPIENT_EMAIL_LENGTH,
 } from "./campaign-test-bound";
@@ -101,7 +105,7 @@ const campaignOrderBySchema = z.enum([
 	"created_at",
 	"updated_at",
 ]);
-const campaignOrderSchema = z.enum(["ASC", "DESC"]);
+const campaignOrderSchema = z.enum(LISTMONK_SORT_ORDERS);
 
 const campaignSchema = z.looseObject({
 	id: z.number().int().positive().optional(),
@@ -316,7 +320,7 @@ export async function listCampaigns(
 	if (input.no_body !== undefined) query.no_body = input.no_body;
 	if (input.query) query.query = input.query;
 	if (input.tags) query.tags = input.tags;
-	if (input.order) query.order = input.order;
+	if (input.order) query.order = toListmonkSortOrder(input.order);
 	if (input.order_by) query.order_by = input.order_by;
 
 	const response = await client.campaign.list({

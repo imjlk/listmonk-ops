@@ -6360,12 +6360,19 @@
               "type": "boolean"
             },
             "order": {
+              "description": "Sort direction; uppercase is accepted and sent lowercase.",
               "oneOf": [
                 {
                   "const": "ASC"
                 },
                 {
                   "const": "DESC"
+                },
+                {
+                  "const": "asc"
+                },
+                {
+                  "const": "desc"
                 }
               ]
             },
@@ -6453,12 +6460,19 @@
           "type": "boolean"
         },
         "order": {
+          "description": "Sort direction; uppercase is accepted and sent lowercase.",
           "oneOf": [
             {
               "const": "ASC"
             },
             {
               "const": "DESC"
+            },
+            {
+              "const": "asc"
+            },
+            {
+              "const": "desc"
             }
           ]
         },
@@ -22882,12 +22896,19 @@
               "type": "array"
             },
             "order": {
+              "description": "Sort direction; uppercase is accepted and sent lowercase.",
               "oneOf": [
                 {
                   "const": "ASC"
                 },
                 {
                   "const": "DESC"
+                },
+                {
+                  "const": "asc"
+                },
+                {
+                  "const": "desc"
                 }
               ]
             },
@@ -22946,12 +22967,19 @@
           "type": "array"
         },
         "order": {
+          "description": "Sort direction; uppercase is accepted and sent lowercase.",
           "oneOf": [
             {
               "const": "ASC"
             },
             {
               "const": "DESC"
+            },
+            {
+              "const": "asc"
+            },
+            {
+              "const": "desc"
             }
           ]
         },

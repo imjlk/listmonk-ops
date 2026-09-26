@@ -1,4 +1,5 @@
 import type { tags } from "typia";
+import type { ListmonkSortOrder } from "../../src/listmonk-sort-order";
 import type { MAX_SUBSCRIBER_IMPORT_LISTS } from "../../src/subscriber-import-bound";
 import type {
 	ResourceId,
@@ -64,7 +65,8 @@ export interface SubscriberListInput {
 	list_id?: ResourceId[] | undefined;
 	query?: string | undefined;
 	order_by?: "name" | "status" | "created_at" | "updated_at" | undefined;
-	order?: "ASC" | "DESC" | undefined;
+	/** Sort direction; uppercase is accepted and sent lowercase. */
+	order?: ListmonkSortOrder | undefined;
 	subscription_status?: NonEmptyString | undefined;
 }
 

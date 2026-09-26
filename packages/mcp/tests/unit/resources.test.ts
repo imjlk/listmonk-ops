@@ -282,6 +282,38 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 			result.structuredContent,
 		);
 	});
+
+	test("publishes lowercase sort orders and sends legacy uppercase lowercase", async () => {
+		for (const tool of [
+			campaignsTools.find((candidate) => candidate.name === "listmonk_get_campaigns"),
+			subscribersTools.find(
+				(candidate) => candidate.name === "listmonk_get_subscribers",
+			),
+		]) {
+			expect(tool?.inputSchema.properties?.order).toMatchObject({
+				enum: ["asc", "desc", "ASC", "DESC"],
+			});
+		}
+		const queries: unknown[] = [];
+		const client = {
+			campaign: {
+				list: async (options: { query?: unknown }) => {
+					queries.push(options.query);
+					return { data: { results: [], total: 0 } };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		const result = await handleCampaignsTools(
+			request("listmonk_get_campaigns", { order: "ASC", order_by: "name" }),
+			client,
+		);
+
+		expect(result.isError).toBeFalsy();
+		expect(queries).toEqual([
+			{ page: 1, per_page: 20, order: "asc", order_by: "name" },
+		]);
+	});
 });
 
 describe("user-role operation adapter", () => {

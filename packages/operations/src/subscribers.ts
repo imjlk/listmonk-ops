@@ -22,6 +22,10 @@ import {
 	MAX_SUBSCRIBER_IMPORT_LISTS,
 } from "./subscriber-import-bound";
 import {
+	LISTMONK_SORT_ORDERS,
+	toListmonkSortOrder,
+} from "./listmonk-sort-order";
+import {
 	createResourceSafety,
 	deleteResourceSafety,
 	deliverySuppressionSafety,
@@ -69,7 +73,7 @@ const subscriberOrderBySchema = z.enum([
 	"created_at",
 	"updated_at",
 ]);
-const subscriberOrderSchema = z.enum(["ASC", "DESC"]);
+const subscriberOrderSchema = z.enum(LISTMONK_SORT_ORDERS);
 
 const subscriberSchema = z.looseObject({
 	id: z.number().int().positive().optional(),
@@ -188,7 +192,7 @@ export async function listSubscribers(
 	if (input.list_id) query.list_id = input.list_id;
 	if (input.query) query.query = input.query;
 	if (input.order_by) query.order_by = input.order_by;
-	if (input.order) query.order = input.order;
+	if (input.order) query.order = toListmonkSortOrder(input.order);
 	if (input.subscription_status) {
 		query.subscription_status = input.subscription_status;
 	}

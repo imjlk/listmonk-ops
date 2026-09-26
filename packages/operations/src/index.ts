@@ -11,6 +11,7 @@ export * from "./catalog";
 export * from "./execution-policy";
 export * from "./discovery";
 export * from "./lists";
+export * from "./listmonk-sort-order";
 export * from "./maintenance";
 export * from "./maintenance-before-date";
 export * from "./media";

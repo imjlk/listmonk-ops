@@ -638,6 +638,18 @@ update 명령이 잘린 목록으로 기존 소속 목록을 대체하지 않습
 listmonk-cli campaigns list --page 1 --per-page 20
 # --no-body는 본문을 생략합니다. campaigns list와 templates list에서도 사용할 수 있습니다.
 listmonk-cli campaigns get --id 42 --no-body
+```
+
+캠페인과 구독자 목록은 `--order asc|desc`(MCP: `order`)로 정렬합니다.
+Listmonk 6.2는 소문자 방향만 인식하고 그 밖의 값은 조용히 내림차순으로
+처리하므로, 기존 대문자 `ASC`/`DESC` 표기도 계속 받되 소문자로 변환해
+전송합니다.
+
+```bash
+listmonk-cli campaigns list --page 1 --per-page 20
+listmonk-cli campaigns list --order-by created_at --order asc
+```
+```bash
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10

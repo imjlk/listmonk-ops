@@ -649,6 +649,18 @@ memberships with a truncated list.
 listmonk-cli campaigns list --page 1 --per-page 20
 # --no-body omits bodies; campaigns list and templates list accept it too.
 listmonk-cli campaigns get --id 42 --no-body
+```
+
+Campaign and subscriber lists sort with `--order asc|desc` (MCP: `order`).
+Listmonk 6.2 honors only the lowercase directions and silently sorts
+descending for any other value, so the legacy uppercase `ASC`/`DESC` spellings
+remain accepted and are sent lowercase.
+
+```bash
+listmonk-cli campaigns list --page 1 --per-page 20
+listmonk-cli campaigns list --order-by created_at --order asc
+```
+```bash
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10
