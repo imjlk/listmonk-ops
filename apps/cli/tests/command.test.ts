@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import {
 	defineCommand,
+	defineGroup,
 	isNegatableBooleanOption,
 	option,
 	prepareCliArgv,
@@ -93,6 +94,8 @@ describe("CLI command adapter", () => {
 			[["--no-body", "true"], true],
 			[["--no-body=false"], undefined],
 			[["--no-body", "false"], undefined],
+			[["--no-body=false", "--no-body"], true],
+			[["--no-body", "--no-body=false"], undefined],
 			[[], undefined],
 		];
 		for (const [argv, expected] of cases) {
@@ -120,15 +123,18 @@ describe("CLI command adapter", () => {
 				calls += 1;
 			},
 		});
+		const group = defineGroup({ name: "group", commands: [command] });
 
-		for (const argv of [["--no-body=false"], ["--no-body"]]) {
-			await expect(
-				cli(prepareCliArgv(argv), command, {
-					name: "probe",
-					usageSilent: true,
-					strict: true,
-				}),
-			).rejects.toThrow("Unknown option: --no-body");
+		for (const target of [command, group]) {
+			for (const argv of [["--no-body=false"], ["--no-body"]]) {
+				await expect(
+					cli(prepareCliArgv(argv), target, {
+						name: "probe",
+						usageSilent: true,
+						strict: true,
+					}),
+				).rejects.toThrow("Unknown option: --no-body");
+			}
 		}
 		expect(calls).toBe(0);
 	});
