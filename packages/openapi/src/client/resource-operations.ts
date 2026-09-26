@@ -50,6 +50,7 @@ import {
 import type * as t from "../../generated/types.gen";
 import type {
 	Campaign,
+	CampaignArchiveBody,
 	CampaignTestParams,
 	EnhancedListmonkClient,
 	List,
@@ -257,11 +258,14 @@ export function createCampaignOperations(
 				...sdkOptions,
 				...options,
 			});
-			return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			// Listmonk 6.2 echoes the updated campaign, not `true`.
+			return (await transformResponse(result)) as FlattenedResponse<
+				Campaign | boolean
+			>;
 		},
 		async updateArchive(options: {
 			path: { id: number };
-			body: { archive: boolean };
+			body: CampaignArchiveBody;
 		}) {
 			const result = await updateCampaignArchiveById({
 				...sdkOptions,

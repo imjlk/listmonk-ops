@@ -1620,6 +1620,8 @@ paths:
                   type: boolean
                 archive_template_id:
                   type: integer
+                archive_slug:
+                  type: string
                 archive_meta:
                   type: object
       responses:

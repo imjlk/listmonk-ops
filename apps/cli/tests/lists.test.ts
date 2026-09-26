@@ -145,10 +145,15 @@ describe("lists CLI actions", () => {
 	});
 
 	test("updates a list through the shared operation", async () => {
+		// The shared operation reads the stored list first because Listmonk
+		// requires a name and always overwrites tags on update.
+		const getById = mock(async () => ({
+			data: { id: 12, name: "Product", tags: ["weekly"] },
+		})) as unknown as ListClient["list"]["getById"];
 		const update = mock(async () => ({
 			data: { id: 12, name: "Product updates" },
 		})) as unknown as ListClient["list"]["update"];
-		const cliContext = context({ update });
+		const cliContext = context({ getById, update });
 
 		await renderUpdateSubscriberList(cliContext, {
 			id: 12,

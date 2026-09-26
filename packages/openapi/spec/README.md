@@ -26,6 +26,8 @@ The overlay currently:
   visual content, test recipients, headers, media, and nullable timestamps;
 - accepts `draft` on `PUT /campaigns/{id}/status`, which Listmonk allows from
   `scheduled` (unschedule);
+- documents the `archive_slug` field that `PUT /campaigns/{id}/archive` reads
+  (and clears when it is sent empty);
 - aligns transactional messages with the tagged `TxMessage` model, including
   recipient arrays, subscriber mode, subject, headers, and `altbody`.
 
