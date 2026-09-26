@@ -1348,6 +1348,8 @@ export function createPostgresSequenceRepository(
 		async getRuntimeHealth(options): Promise<SequenceRuntimeHealth> {
 			await ready();
 			const nowIso = options.now.toISOString();
+			// One cutoff keeps the running and stale buckets disjoint.
+			const staleCutoff = sql`${nowIso}::timestamptz - ${options.workerStaleMs} * interval '1 millisecond'`;
 			const dueCondition = sql`
 				status IN ('pending', 'running', 'waiting')
 				AND next_run_at <= ${nowIso}::timestamptz
@@ -1384,16 +1386,10 @@ export function createPostgresSequenceRepository(
 				sql<WorkerHealthRow[]>`
 					SELECT
 						count(*) FILTER (
-							WHERE status = 'running'
-								AND heartbeat_at >=
-									${nowIso}::timestamptz -
-									${options.workerStaleMs} * interval '1 millisecond'
+							WHERE status = 'running' AND heartbeat_at >= ${staleCutoff}
 						)::int AS running,
 						count(*) FILTER (
-							WHERE status = 'running'
-								AND heartbeat_at <
-									${nowIso}::timestamptz -
-									${options.workerStaleMs} * interval '1 millisecond'
+							WHERE status = 'running' AND heartbeat_at < ${staleCutoff}
 						)::int AS stale,
 						count(*) FILTER (WHERE status = 'stopped')::int AS stopped,
 						count(*) FILTER (WHERE status = 'failed')::int AS failed,
