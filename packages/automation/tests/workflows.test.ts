@@ -496,6 +496,63 @@ describe("automation workflows", () => {
 		]);
 	});
 
+	test("counts subscribers whose requested effects were already present", async () => {
+		const listAdds: number[] = [];
+		const client = createWorkflowClient({
+			list: {
+				list: async () => ({
+					data: { results: [{ id: 10, optin: "single" }] },
+				}),
+			},
+			subscriber: {
+				list: async () => ({
+					data: {
+						results: [
+							// Already holds the winback target membership.
+							staleSubscriber(301, [
+								{ id: 10, subscription_status: "confirmed" },
+								{ id: 99, subscription_status: "unconfirmed" },
+							]),
+							staleSubscriber(302, [
+								{ id: 10, subscription_status: "confirmed" },
+							]),
+						],
+					},
+				}),
+				manageListById: async (options: { path: { id: number } }) => {
+					listAdds.push(options.path.id);
+					return acknowledged;
+				},
+			},
+		});
+
+		const preview = await runSubscriberHygiene(client, {
+			mode: "winback",
+			dryRun: true,
+		});
+		expect(preview.subscriberIds).toEqual([301, 302]);
+		expect(preview.skippedAlreadyApplied).toBe(0);
+
+		const applied = await runSubscriberHygiene(client, {
+			mode: "winback",
+			targetListId: 99,
+			subscriberIds: preview.subscriberIds,
+			dryRun: false,
+		});
+		// Only the missing membership is added, and every selected
+		// subscriber lands in exactly one counter.
+		expect(listAdds).toEqual([302]);
+		expect(applied.processedSubscribers).toBe(1);
+		expect(applied.failedSubscribers).toBe(0);
+		expect(applied.skippedAlreadyApplied).toBe(1);
+		expect(
+			applied.processedSubscribers +
+				applied.failedSubscribers +
+				applied.skippedAlreadyApplied +
+				applied.skippedGuarded,
+		).toBe(applied.subscriberIds.length);
+	});
+
 	test("scopes hygiene eligibility to deliverable source-list memberships", async () => {
 		// No unconfirmed membership decides eligibility, so the list
 		// endpoint is never read (this client has none).

@@ -80,6 +80,13 @@ export interface SubscriberHygieneResult {
 	skippedDueToLimit: number;
 	/** Selected subscribers skipped because their updated_at moved past the echoed guard. */
 	skippedGuarded: number;
+	/**
+	 * Guard-eligible subscribers whose requested effects were already present
+	 * (an existing target-list membership and no blocklist requested), so the
+	 * run sent nothing for them. In a destructive run, processed + failed +
+	 * skippedAlreadyApplied + skippedGuarded equals the selected set.
+	 */
+	skippedAlreadyApplied: number;
 	/** The selected subscriber ids — echo them for the destructive run. */
 	subscriberIds: number[];
 	/**
@@ -432,6 +439,7 @@ export async function runSubscriberHygiene(
 	const skippedGuarded = selected.length - guardEligible.length;
 	let processedSubscribers = 0;
 	let failedSubscribers = 0;
+	let skippedAlreadyApplied = 0;
 	// Failures aggregate per effect and code so the summary stays bounded
 	// however many subscribers fail, and it never carries remote text.
 	const failureCounts = new Map<SubscriberHygieneMutationFailure, number>();
@@ -524,6 +532,8 @@ export async function runSubscriberHygiene(
 				failureCounts.set(failure, (failureCounts.get(failure) ?? 0) + 1);
 			} else if (mutated) {
 				processedSubscribers += 1;
+			} else {
+				skippedAlreadyApplied += 1;
 			}
 		}
 		for (const [failure, count] of failureCounts) {
@@ -541,6 +551,7 @@ export async function runSubscriberHygiene(
 		failedSubscribers: dryRun ? 0 : failedSubscribers,
 		skippedDueToLimit,
 		skippedGuarded,
+		skippedAlreadyApplied: dryRun ? 0 : skippedAlreadyApplied,
 		subscriberIds: selected
 			.map((candidate) => toPositiveInt(candidate.id))
 			.filter((id): id is number => id !== undefined),

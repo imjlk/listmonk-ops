@@ -33827,6 +33827,10 @@
                     },
                     "type": "array"
                   },
+                  "skippedAlreadyApplied": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Selected subscribers whose requested effects were already present\n(an existing target-list membership), so the run sent nothing for them."
+                  },
                   "skippedDueToLimit": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
@@ -33865,6 +33869,7 @@
                   "failedSubscribers",
                   "skippedDueToLimit",
                   "skippedGuarded",
+                  "skippedAlreadyApplied",
                   "subscriberIds",
                   "subscriberUpdatedAt",
                   "blocklist",
@@ -33927,6 +33932,10 @@
                 },
                 "type": "array"
               },
+              "skippedAlreadyApplied": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Selected subscribers whose requested effects were already present\n(an existing target-list membership), so the run sent nothing for them."
+              },
               "skippedDueToLimit": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
               },
@@ -33965,6 +33974,7 @@
               "failedSubscribers",
               "skippedDueToLimit",
               "skippedGuarded",
+              "skippedAlreadyApplied",
               "subscriberIds",
               "subscriberUpdatedAt",
               "blocklist",

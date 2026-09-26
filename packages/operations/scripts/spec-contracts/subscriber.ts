@@ -268,6 +268,11 @@ export interface SubscriberHygieneOutput {
 	skippedDueToLimit: NonNegativeInteger;
 	/** Selected subscribers skipped because their updated_at moved past the echoed guard. */
 	skippedGuarded: NonNegativeInteger;
+	/**
+	 * Selected subscribers whose requested effects were already present
+	 * (an existing target-list membership), so the run sent nothing for them.
+	 */
+	skippedAlreadyApplied: NonNegativeInteger;
 	/** The selected subscriber ids — echo them for the destructive run. */
 	subscriberIds: ResourceId[];
 	/**

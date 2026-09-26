@@ -1465,9 +1465,11 @@ candidates to `--target-list-id` (required with `--no-dry-run`) as unconfirmed
 members, which a single opt-in list delivers to. **Sunset blocklisting is irreversible for list
 subscriptions:** Listmonk marks every membership unsubscribed, and removing the
 blocklist does not restore them. Destructive results report
-`processedSubscribers` (every mutation acknowledged by Listmonk) and
+`processedSubscribers` (every mutation acknowledged by Listmonk),
 `failedSubscribers` (error responses or missing acknowledgements, including a
-subscriber whose list add landed before its blocklist failed).
+subscriber whose list add landed before its blocklist failed), and
+`skippedAlreadyApplied` (the requested effects were already present, such as
+an existing target-list membership, so nothing was sent).
 
 Preflight link checking now blocks private/internal hosts (loopback,
 private CIDRs, link-local, cloud metadata IPs) and follows redirects

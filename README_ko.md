@@ -1387,8 +1387,9 @@ unconfirmed이며, `--source-list-ids`를 지정하면 해당 리스트 중 하�
 single opt-in 리스트는 이 멤버에게도 발송합니다. **Sunset blocklist는 리스트 구독 측면에서
 되돌릴 수 없습니다:** Listmonk는 모든 멤버십을 구독 취소로 바꾸며 blocklist를
 해제해도 복원되지 않습니다. 파괴적 실행 결과는 `processedSubscribers`(모든
-변경이 Listmonk에서 확인됨)와 `failedSubscribers`(오류 응답 또는 확인 누락,
-리스트 추가 후 blocklist가 실패한 구독자 포함)를 보고합니다.
+변경이 Listmonk에서 확인됨), `failedSubscribers`(오류 응답 또는 확인 누락,
+리스트 추가 후 blocklist가 실패한 구독자 포함), `skippedAlreadyApplied`(대상
+리스트 멤버십처럼 요청한 효과가 이미 있어 아무것도 보내지 않음)를 보고합니다.
 
 프리플라이트 링크 검사는 private/internal 호스트(loopback, private
 CIDR, link-local, 클라우드 metadata IP)를 차단하며 redirect를 수동으로

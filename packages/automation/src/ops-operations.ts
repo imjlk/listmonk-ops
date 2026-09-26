@@ -399,6 +399,7 @@ const subscriberHygieneOutputSchema = z.object({
 	failedSubscribers: z.number().int().nonnegative(),
 	skippedDueToLimit: z.number().int().nonnegative(),
 	skippedGuarded: z.number().int().nonnegative(),
+	skippedAlreadyApplied: z.number().int().nonnegative(),
 	subscriberIds: z.array(z.number().int().positive()),
 	subscriberUpdatedAt: z.array(z.iso.datetime({ offset: true })),
 	targetListId: z.number().int().positive().optional(),
