@@ -202,6 +202,7 @@ describe("email operations specification", () => {
 			"subscribers.delete",
 			"subscribers.add-to-lists",
 			"subscribers.remove-from-lists",
+			"subscribers.unsubscribe-from-lists",
 			"subscribers.unblocklist",
 			"subscribers.import.start",
 			"subscribers.import.status",

@@ -1094,6 +1094,20 @@ Verify with: `subscribers.get`
 
 Retry guidance: Retry identical transient failures with bounded backoff.
 
+## Unsubscribe subscribers from lists (`subscribers.unsubscribe-from-lists`)
+
+Contract maturity: `stable`; effects: `suppression:audience`; confirmation: `required`; retry: `safe`.
+
+Use when: Subscribers asked to stop receiving specific lists. List memberships must end while keeping the opt-out record.
+
+Avoid when: The subscribers or lists are not known. Mail must stop for every list; use subscribers.blocklist. The membership should be deleted without an opt-out record; use subscribers.remove-from-lists.
+
+Prerequisites: `subscribers.get`, `lists.get`
+
+Verify with: `subscribers.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff.
+
 ## Unblocklist subscribers (`subscribers.unblocklist`)
 
 Contract maturity: `stable`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.

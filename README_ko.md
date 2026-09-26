@@ -705,6 +705,8 @@ listmonk-cli subscribers update --id 7 --status enabled
 listmonk-cli subscribers delete --id 7 --confirm
 listmonk-cli subscribers add-to-lists --subscriber-ids 1,2,3 --list-ids 10,20
 listmonk-cli subscribers remove-from-lists --subscriber-ids 1,2 --list-ids 10 --confirm
+# 멤버십을 삭제하지 않고 수신거부 기록으로 남깁니다.
+listmonk-cli subscribers unsubscribe-from-lists --subscriber-ids 1,2 --list-ids 10 --confirm
 listmonk-cli subscribers blocklist --subscriber-ids 1,2,3 --confirm
 listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 
@@ -781,6 +783,16 @@ ID로 변환합니다. Listmonk 6.2에는 일괄 차단 해제 엔드포인트�
 `--source`, `--order-by`, `--order`)를 그대로 전달합니다. 해당 엔드포인트에는
 구독자 필터가 없어서, 과거 API로 전달되지 않던 `subscriber_id` 인자는
 공용 계약에서 제거했습니다.
+
+`subscribers unsubscribe-from-lists`(MCP:
+`listmonk_unsubscribe_subscribers_from_lists`)는 구독자가 직접 수신거부할 때와
+같은 방식으로 리스트 멤버십을 끝냅니다. Listmonk는 멤버십을 삭제하지 않고
+`unsubscribed` 상태로 남기므로 수신거부 기록이 유지되고, 리스트 캠페인은 해당
+구독자를 건너뛰며, 이후 상태를 지정하지 않은 추가나 덮어쓰지 않는 import가 다시
+구독시키지 않습니다. 누군가 특정 리스트 수신을 거부했다면 `remove-from-lists`
+대신 이 명령을 사용하고, 모든 리스트의 발송을 막아야 할 때만 `blocklist`를
+사용하세요. `--confirm`이 필요하며 `--dry-run`, `--max-items`,
+`--continue-on-error`를 지원합니다.
 
 대응하는 MCP 리소스 도구에는
 `listmonk_get_campaigns`, `listmonk_get_campaign`,

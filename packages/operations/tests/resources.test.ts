@@ -27,6 +27,7 @@ import {
 	invokeReconcileTemplateManifestOperation,
 	invokeReconcileUserRoleManifestOperation,
 	invokeRemoveSubscribersFromListsOperation,
+	invokeUnsubscribeSubscribersFromListsOperation,
 	invokeScheduleCampaignOperation,
 	invokeSetDefaultTemplateOperation,
 	invokeStartCampaignOperation,
@@ -491,7 +492,7 @@ describe("shared CRUD resource operations", () => {
 
 	test("exposes object-root registries with safety metadata", () => {
 		expect(campaignOperations).toHaveLength(16);
-		expect(subscriberOperations).toHaveLength(15);
+		expect(subscriberOperations).toHaveLength(16);
 		expect(templateOperations).toHaveLength(8);
 		expect(mediaOperations).toHaveLength(4);
 		for (const operation of [
@@ -1978,6 +1979,40 @@ describe("shared CRUD resource operations", () => {
 		] as const) {
 			expect(deriveListmonkSubscriberName(email)).toBe(name);
 		}
+	});
+
+	test("unsubscribes subscribers from lists while keeping the memberships", async () => {
+		const manageLists = mock(async () => ({ data: true })) as unknown as SubscriberClient["subscriber"]["manageLists"];
+
+		const unsubscribed = await invokeUnsubscribeSubscribersFromListsOperation(
+			subscriberContext({ manageLists }),
+			{ subscriber_ids: [1, 2, 3], list_ids: [10, 11] },
+		);
+		expect(unsubscribed).toMatchObject({
+			processed: 3,
+			succeeded: 3,
+			failed: 0,
+		});
+		// Listmonk keeps each membership as `unsubscribed` for this action,
+		// unlike `remove`, which deletes the opt-out record.
+		expect(manageLists).toHaveBeenCalledWith({
+			body: { action: "unsubscribe", ids: [1, 2, 3], target_list_ids: [10, 11] },
+		});
+
+		const dryRun = await invokeUnsubscribeSubscribersFromListsOperation(
+			subscriberContext({ manageLists }),
+			{ subscriber_ids: [1, 2], list_ids: [10], dry_run: true },
+		);
+		expect(dryRun).toMatchObject({ processed: 2, succeeded: 0 });
+		expect(manageLists).toHaveBeenCalledTimes(1);
+
+		const rejected = mock(async () => ({ data: false })) as unknown as SubscriberClient["subscriber"]["manageLists"];
+		await expect(
+			invokeUnsubscribeSubscribersFromListsOperation(
+				subscriberContext({ manageLists: rejected }),
+				{ subscriber_ids: [1], list_ids: [10] },
+			),
+		).rejects.toThrow(/Subscriber bulk operation failed/);
 	});
 
 	test("subscriber bulk respects dry_run and max_items", async () => {

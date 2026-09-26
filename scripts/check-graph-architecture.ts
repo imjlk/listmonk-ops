@@ -1881,6 +1881,15 @@ const subscriberBulkContracts: readonly CallPathContract[] = [
 			"packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
 	}),
 	...subscriberBulkContractsFor({
+		verb: "unsubscribe-from-lists",
+		cliHandler: "handleUnsubscribeSubscribersFromListsCommand",
+		cliRenderer: "renderUnsubscribeSubscribersFromLists",
+		invoker:
+			"packages/operations/src/subscribers.ts#invokeUnsubscribeSubscribersFromListsOperation:function",
+		action:
+			"packages/operations/src/subscribers.ts#unsubscribeSubscribersFromLists:function",
+	}),
+	...subscriberBulkContractsFor({
 		verb: "blocklist",
 		cliHandler: "handleBlocklistSubscribersCommand",
 		cliRenderer: "renderBlocklistSubscribers",

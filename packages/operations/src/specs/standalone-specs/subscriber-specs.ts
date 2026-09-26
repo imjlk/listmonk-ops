@@ -270,6 +270,71 @@ export const subscribersRemoveFromListsOperationSpec = defineOperationSpec({
 	since: "0.9.0",
 });
 
+export const subscribersUnsubscribeFromListsOperationSpec = defineOperationSpec({
+	id: "subscribers.unsubscribe-from-lists",
+	resource: "subscriber",
+	verb: "unsubscribe-from-lists",
+	title: "Unsubscribe subscribers from lists",
+	description:
+		"Mark the list memberships of a batch of subscribers as unsubscribed, keeping each membership as an opt-out record instead of deleting it, so a later add or import does not quietly resubscribe them. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-subscribing requires fresh consent.",
+	contract: {
+		input: subscriberBulkListsInputContract,
+		output: subscriberBulkOutputContract,
+	},
+	effects: [
+		{
+			kind: "suppression",
+			resource: "subscriber",
+			scope: "audience",
+			reversible: false,
+			preview: true,
+		},
+	],
+	policy: { confirmation: "required", audit: "required", dryRun: true },
+	retry: {
+		kind: "safe",
+		reason:
+			"Unsubscribing an already unsubscribed membership converges on the same state, including after partial chunk completion.",
+	},
+	agent: {
+		useWhen: [
+			"Subscribers asked to stop receiving specific lists.",
+			"List memberships must end while keeping the opt-out record.",
+		],
+		avoidWhen: [
+			"The subscribers or lists are not known.",
+			"Mail must stop for every list; use subscribers.blocklist.",
+			"The membership should be deleted without an opt-out record; use subscribers.remove-from-lists.",
+		],
+		prerequisites: ["subscribers.get", "lists.get"],
+		verifyWith: ["subscribers.get"],
+		related: [
+			"subscribers.remove-from-lists",
+			"subscribers.blocklist",
+			"subscribers.add-to-lists",
+		],
+		retryGuidance: "Retry identical transient failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_unsubscribe_subscribers_from_lists",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUnsubscribeFromListsOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnsubscribeFromListsOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#unsubscribeSubscribersFromListsOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeUnsubscribeSubscribersFromListsOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#unsubscribeSubscribersFromLists:function",
+		},
+	},
+	stability: "stable",
+	since: "0.20.0",
+});
+
 export const subscribersUnblocklistOperationSpec = defineOperationSpec({
 	id: "subscribers.unblocklist",
 	resource: "subscriber",
@@ -328,6 +393,10 @@ export const subscribersUnblocklistOperationSpec = defineOperationSpec({
 
 export function bindSubscribersCreateOperationSpec(): typeof subscribersCreateOperationSpec {
 	return subscribersCreateOperationSpec;
+}
+
+export function bindSubscribersUnsubscribeFromListsOperationSpec(): typeof subscribersUnsubscribeFromListsOperationSpec {
+	return subscribersUnsubscribeFromListsOperationSpec;
 }
 
 export function bindSubscribersUpdateOperationSpec(): typeof subscribersUpdateOperationSpec {

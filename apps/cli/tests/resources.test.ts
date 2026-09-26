@@ -20,6 +20,7 @@ import {
 	renderCreateSubscriber,
 	renderRemoveSubscribersFromLists,
 	renderSubscribers,
+	renderUnsubscribeSubscribersFromLists,
 	renderUnblocklistSubscribers,
 	type SubscribersCliContext,
 } from "../src/commands/subscribers";
@@ -489,6 +490,17 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Removed 2 of 2 subscribers from lists",
 		);
+
+		await renderUnsubscribeSubscribersFromLists(cliContext, {
+			subscriber_ids: [1, 2],
+			list_ids: [10],
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Unsubscribed 2 of 2 subscribers from lists",
+		);
+		expect(subscriber.manageLists).toHaveBeenCalledWith({
+			body: { action: "unsubscribe", ids: [1, 2], target_list_ids: [10] },
+		});
 
 		await renderBlocklistSubscribers(cliContext, {
 			subscriber_ids: [1, 2],

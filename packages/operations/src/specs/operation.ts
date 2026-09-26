@@ -78,6 +78,7 @@ export type OperationSpecVerb =
 	| "upload"
 	| "add-to-lists"
 	| "remove-from-lists"
+	| "unsubscribe-from-lists"
 	| "unblocklist"
 	| "unschedule"
 	| "guard"
