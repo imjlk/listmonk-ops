@@ -142,7 +142,7 @@ describe("fixedHorizonGate", () => {
 	});
 });
 
-import { checkSRM } from "../src/statistics";
+import { checkSRM, pairSrmCountsByVariant } from "../src/statistics";
 
 describe("checkSRM", () => {
 	it("passes when observed ratios match expected ratios", () => {
@@ -180,5 +180,66 @@ describe("checkSRM", () => {
 		// 50/50 expected, 51/49 observed — small difference
 		const result = checkSRM([1000, 1000], [1020, 980], 0.001);
 		expect(result.passed).toBe(true);
+	});
+});
+
+describe("pairSrmCountsByVariant", () => {
+	const expected = [
+		{ variantId: "A", expectedCount: 1500 },
+		{ variantId: "B", expectedCount: 750 },
+		{ variantId: "C", expectedCount: 750 },
+	];
+
+	it("pairs counts by variant id regardless of result order", () => {
+		expect(
+			pairSrmCountsByVariant(expected, [
+				{ variantId: "B", sampleSize: 751 },
+				{ variantId: "A", sampleSize: 1499 },
+				{ variantId: "C", sampleSize: 750 },
+			]),
+		).toEqual({
+			variantIds: ["A", "B", "C"],
+			expected: [1500, 750, 750],
+			observed: [1499, 751, 750],
+		});
+	});
+
+	it("rejects inputs that do not name the same variants exactly once", () => {
+		// A variant without results.
+		expect(
+			pairSrmCountsByVariant(expected, [
+				{ variantId: "A", sampleSize: 1500 },
+				{ variantId: "B", sampleSize: 750 },
+				{ variantId: "Z", sampleSize: 750 },
+			]),
+		).toBeUndefined();
+		// Duplicate results for one variant.
+		expect(
+			pairSrmCountsByVariant(expected, [
+				{ variantId: "A", sampleSize: 1500 },
+				{ variantId: "A", sampleSize: 750 },
+				{ variantId: "C", sampleSize: 750 },
+			]),
+		).toBeUndefined();
+		// Duplicate expected groups.
+		expect(
+			pairSrmCountsByVariant(
+				[
+					{ variantId: "A", expectedCount: 1500 },
+					{ variantId: "A", expectedCount: 1500 },
+				],
+				[
+					{ variantId: "A", sampleSize: 1500 },
+					{ variantId: "B", sampleSize: 750 },
+				],
+			),
+		).toBeUndefined();
+		// Different variant counts.
+		expect(
+			pairSrmCountsByVariant(expected, [
+				{ variantId: "A", sampleSize: 1500 },
+				{ variantId: "B", sampleSize: 750 },
+			]),
+		).toBeUndefined();
 	});
 });

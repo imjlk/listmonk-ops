@@ -199,6 +199,45 @@ export interface SRMCheckResult {
 }
 
 /**
+ * Pair expected and observed SRM counts by variant id. Positional pairing
+ * breaks when results arrive in a different order than the manifest (for
+ * example after a resumed create reconciled campaigns as [B, A, C]): B's
+ * delivery would be compared with A's expectation and report a false SRM.
+ * Returns undefined unless both sides name the same variants exactly once
+ * each, so the caller can fail the check as an input mismatch.
+ */
+export function pairSrmCountsByVariant(
+	expected: ReadonlyArray<{ variantId: string; expectedCount: number }>,
+	observed: ReadonlyArray<{ variantId: string; sampleSize: number }>,
+): { variantIds: string[]; expected: number[]; observed: number[] } | undefined {
+	if (expected.length !== observed.length) {
+		return undefined;
+	}
+	const observedByVariant = new Map<string, number>();
+	for (const result of observed) {
+		if (observedByVariant.has(result.variantId)) {
+			return undefined;
+		}
+		observedByVariant.set(result.variantId, result.sampleSize);
+	}
+	const paired = {
+		variantIds: [] as string[],
+		expected: [] as number[],
+		observed: [] as number[],
+	};
+	for (const group of expected) {
+		const observedCount = observedByVariant.get(group.variantId);
+		if (observedCount === undefined || paired.variantIds.includes(group.variantId)) {
+			return undefined;
+		}
+		paired.variantIds.push(group.variantId);
+		paired.expected.push(group.expectedCount);
+		paired.observed.push(observedCount);
+	}
+	return paired;
+}
+
+/**
  * Chi-square critical values keyed by `df:alpha`. Covers df 1-2 (up to
  * 3 variants) at the three standard alpha levels. Avoids pulling in a
  * full chi-square CDF implementation.

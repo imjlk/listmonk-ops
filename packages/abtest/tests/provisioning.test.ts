@@ -213,6 +213,54 @@ describe("A/B test provisioning", () => {
 	});
 });
 
+describe("provisionCampaignsPhase variant order", () => {
+	test("records reconciled and created campaigns in declared variant order", async () => {
+		const fixture: AbTest = {
+			...createAbTestFixture(),
+			variants: [
+				{ id: "variant-a", name: "A", percentage: 34, contentOverrides: {} },
+				{ id: "variant-b", name: "B", percentage: 33, contentOverrides: {} },
+				{ id: "variant-c", name: "C", percentage: 33, contentOverrides: {} },
+			],
+			pendingCreate: { config: createTestConfig() },
+		};
+		const createdFor: string[][] = [];
+		const integration = {
+			// A crashed attempt already created B and C; only A is missing.
+			findCampaignsByTestTag: async () => [
+				{
+					id: 302,
+					tags: ["abtest:test_fixture", "variant:variant-b"],
+					status: "draft",
+				},
+				{
+					id: 303,
+					tags: ["abtest:test_fixture", "variant:variant-c"],
+					status: "draft",
+				},
+			],
+			createTestCampaignsForVariants: async (
+				_test: AbTest,
+				_baseConfig: unknown,
+				variantIds: readonly string[],
+			) => {
+				createdFor.push([...variantIds]);
+				return [{ variantId: "variant-a", campaignId: 301 }];
+			},
+		} as unknown as ListmonkAbTestIntegration;
+		const service = new AbTestService(integration);
+
+		const phased = await service.provisionCampaignsPhase(fixture);
+
+		expect(createdFor).toEqual([["variant-a"]]);
+		expect(phased.campaignMappings).toEqual([
+			{ variantId: "variant-a", campaignId: 301 },
+			{ variantId: "variant-b", campaignId: 302 },
+			{ variantId: "variant-c", campaignId: 303 },
+		]);
+	});
+});
+
 describe("deleteTestResources retry safety", () => {
 	test("skips already-removed campaigns and lists and continues remaining cleanup", async () => {
 		const deletedCampaigns: number[] = [];
