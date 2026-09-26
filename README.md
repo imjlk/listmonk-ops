@@ -681,6 +681,8 @@ listmonk-cli campaigns stats --id 42
 listmonk-cli campaigns preview --id 42
 # Recipients must be existing subscribers; each run sends a real message.
 listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
+# --from and --to are inclusive days in the database time zone, so
+# --from 2026-08-31 --to 2026-08-31 reads that whole day.
 listmonk-cli campaigns analytics --type views --from 2026-08-01 \
   --to 2026-08-31 --campaign-ids 42,43
 listmonk-cli campaigns archive --id 42 --archive=true

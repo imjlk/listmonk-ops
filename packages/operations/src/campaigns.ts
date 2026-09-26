@@ -22,6 +22,7 @@ import { z } from "zod";
 import {
 	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
 	MAX_CAMPAIGN_ANALYTICS_IDS,
+	campaignAnalyticsRangeEnd,
 } from "./campaign-analytics-date";
 import {
 	LISTMONK_SORT_ORDERS,
@@ -1126,7 +1127,8 @@ const campaignAnalyticsOutputSchema = z.object({
  * observed Listmonk 6.2 endpoint answers views/clicks/bounces with
  * daily `{campaign_id, count, timestamp}` buckets and links with
  * `{url, count}` aggregates; the shared contract normalizes only the
- * envelope and returns the rows as observed.
+ * envelope and returns the rows as observed. The `to` date is inclusive,
+ * so it is sent as the end of that day.
  */
 export async function readCampaignAnalytics(
 	{ client }: CampaignOperationContext,
@@ -1137,7 +1139,7 @@ export async function readCampaignAnalytics(
 		path: { type: input.type },
 		query: {
 			from: input.from,
-			to: input.to,
+			to: campaignAnalyticsRangeEnd(input.to),
 			id: campaignIds.map(String),
 		},
 	});

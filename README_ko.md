@@ -670,6 +670,8 @@ listmonk-cli campaigns stats --id 42
 listmonk-cli campaigns preview --id 42
 # 수신자는 기존 구독자여야 하며, 실행할 때마다 실제 메시지를 보냅니다.
 listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
+# --from과 --to는 데이터베이스 시간대 기준으로 양 끝 날짜를 포함하므로
+# --from 2026-08-31 --to 2026-08-31은 그날 하루 전체를 읽습니다.
 listmonk-cli campaigns analytics --type views --from 2026-08-01 \
   --to 2026-08-31 --campaign-ids 42,43
 listmonk-cli campaigns archive --id 42 --archive=true

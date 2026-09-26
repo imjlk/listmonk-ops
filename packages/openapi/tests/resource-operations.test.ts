@@ -91,6 +91,26 @@ describe("Campaign tag query serialization", () => {
 		expect(requests[1]?.searchParams.getAll("tag")).toEqual(["canonical"]);
 		expect(requests[1]?.searchParams.has("tags")).toBe(false);
 	});
+
+	test("serializes the analytics end-of-day bound and repeated ids", async () => {
+		const requests: URL[] = [];
+		const client = createRecordingCampaignClient(requests);
+		const campaigns = createCampaignOperations({ client });
+		await campaigns.getAnalytics({
+			path: { type: "views" },
+			query: {
+				from: "2026-09-26",
+				to: "2026-09-26 23:59:59.999999",
+				id: ["1", "2"],
+			},
+		});
+		expect(requests[0]?.pathname).toBe("/api/campaigns/analytics/views");
+		expect(requests[0]?.searchParams.get("from")).toBe("2026-09-26");
+		expect(requests[0]?.searchParams.get("to")).toBe(
+			"2026-09-26 23:59:59.999999",
+		);
+		expect(requests[0]?.searchParams.getAll("id")).toEqual(["1", "2"]);
+	});
 });
 
 describe("Media list pagination", () => {
