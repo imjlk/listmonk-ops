@@ -1734,12 +1734,16 @@ The `campaign.deliverability-guard` playbook requires an explicit boolean
 `pause_on_engagement_breach` input. Set it to `false` for bounce-only pausing or
 `true` to allow mature open/click breaches to pause after approval.
 
-A guard pause is bound to the observed `running` status rather than the
-campaign revision: Listmonk advances a running campaign's `updated_at` on every
-send batch, so a revision match would routinely fail during a fast, high-bounce
-send. The shared lifecycle rules re-read the campaign immediately before the
-write. A still-running campaign is paused, an already paused campaign is a
-no-op, and a campaign that has meanwhile finished or been cancelled fails closed
+The guard lists a campaign's bounces before reading the campaign, so the bounce
+rate never divides by a `sent` count older than the bounce count. Every reported
+metric and breach, and the pause decision, come from that one read; a campaign
+that is no longer running by then is reported with its current status instead
+of being paused. A guard pause is bound to that observed `running` status rather
+than the campaign revision: Listmonk advances a running campaign's `updated_at`
+on every send batch, so a revision match would routinely fail during a fast,
+high-bounce send. The shared lifecycle rules re-read the campaign immediately
+before the write. A still-running campaign is paused, an already paused campaign
+is a no-op, and one that finished or was cancelled in that instant fails closed
 without a status write. Scheduled campaigns are never directly paused. Manual
 `campaigns pause --expected-updated-at` keeps its exact revision check, so omit
 the flag to pause a campaign that is still sending.
