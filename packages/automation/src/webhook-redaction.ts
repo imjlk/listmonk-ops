@@ -27,14 +27,26 @@ const SENSITIVE_KEY_WORDS: ReadonlySet<string> = new Set([
 const RECIPIENT_KEY_NAMES: ReadonlySet<string> = new Set([
 	"bcc",
 	"cc",
-	"deliveredto",
 	"destination",
 	"from",
-	"replyto",
-	"returnpath",
 	"sender",
 	"source",
 	"to",
+]);
+
+/**
+ * Two-word envelope fields (`reply_to`, `mail_from`, `envelopeTo`) that are
+ * specific enough to mark a key wherever they appear as adjacent words.
+ */
+const RECIPIENT_KEY_COMPOUNDS: ReadonlySet<string> = new Set([
+	"bounceto",
+	"deliveredto",
+	"envelopefrom",
+	"envelopeto",
+	"forwardto",
+	"mailfrom",
+	"replyto",
+	"returnpath",
 ]);
 
 type CharacterClass = "upper" | "lower" | "separator";
@@ -93,19 +105,34 @@ function keyWords(segment: string): string[] {
 	return words;
 }
 
-/** Matches a word or its plural: `token`/`tokens`, `cookie`/`cookies`. */
+/**
+ * Matches a word, its plural, or a digit-suffixed variant: `token`, `tokens`,
+ * `token2`, and `password1` all match.
+ */
 function hasWordOrPlural(words: ReadonlySet<string>, word: string): boolean {
+	let end = word.length;
+	while (end > 0 && isAsciiDigit(word.charCodeAt(end - 1))) {
+		end -= 1;
+	}
+	const base = word.slice(0, end);
 	return (
-		words.has(word) ||
-		(word.length > 1 && word.endsWith("s") && words.has(word.slice(0, -1)))
+		words.has(base) ||
+		(base.length > 1 && base.endsWith("s") && words.has(base.slice(0, -1)))
+	);
+}
+
+function isSensitiveKeyWord(word: string): boolean {
+	return (
+		hasWordOrPlural(SENSITIVE_KEY_WORDS, word) ||
+		hasWordOrPlural(RECIPIENT_KEY_COMPOUNDS, word)
 	);
 }
 
 /**
  * Returns true for keys that name credentials, personal data, or recipient
- * addresses in any common spelling: plural, camelCase, PascalCase,
- * snake_case, kebab-case, split compounds (`api_key`, `e-mail`), and dotted
- * paths such as `mail.source`.
+ * addresses in any common spelling: plural, digit-suffixed, camelCase,
+ * PascalCase, snake_case, kebab-case, split compounds (`api_key`, `e-mail`,
+ * `mail_from`), and dotted paths such as `mail.source`.
  */
 export function isSensitiveWebhookDataKey(key: string): boolean {
 	for (const segment of key.split(".")) {
@@ -120,9 +147,8 @@ export function isSensitiveWebhookDataKey(key: string): boolean {
 			const word = words[index]!;
 			const next = words[index + 1];
 			if (
-				hasWordOrPlural(SENSITIVE_KEY_WORDS, word) ||
-				(next !== undefined &&
-					hasWordOrPlural(SENSITIVE_KEY_WORDS, `${word}${next}`))
+				isSensitiveKeyWord(word) ||
+				(next !== undefined && isSensitiveKeyWord(`${word}${next}`))
 			) {
 				return true;
 			}
@@ -139,7 +165,10 @@ function isAsciiDigit(code: number): boolean {
 	return code >= 0x30 && code <= 0x39;
 }
 
-/** RFC 5322 atext, dots, a closing quote, and non-ASCII (RFC 6531). */
+/**
+ * RFC 5322 atext plus the dot and quote specials (dot-atom and quoted-string
+ * local parts), and non-ASCII characters (RFC 6531).
+ */
 function isLocalPartCharacter(code: number): boolean {
 	return (
 		isAsciiLetter(code) ||
@@ -160,8 +189,10 @@ function isDomainCharacter(code: number): boolean {
 }
 
 /**
- * A domain needs a non-empty label, a dot, and a final label containing a
- * letter, so version strings (`pkg@1.2.3`) and IP hosts are not addresses.
+ * A domain needs a non-empty label, a dot, and a final label that starts with
+ * a letter, as every top-level domain (including `xn--` and internationalized
+ * labels) does. Version strings (`pkg@1.2.3`, `pkg@4.0.0-beta`) and IP hosts
+ * are therefore not addresses.
  */
 function isDomainLike(value: string, start: number, end: number): boolean {
 	let last = end;
@@ -169,13 +200,14 @@ function isDomainLike(value: string, start: number, end: number): boolean {
 		last -= 1;
 	}
 	let dot = last - 1;
-	let finalLabelHasLetter = false;
 	while (dot >= start && value.charCodeAt(dot) !== 0x2e) {
-		const code = value.charCodeAt(dot);
-		finalLabelHasLetter ||= isAsciiLetter(code) || code >= 0x80;
 		dot -= 1;
 	}
-	return finalLabelHasLetter && dot > start;
+	if (dot <= start || dot + 1 >= last) {
+		return false;
+	}
+	const first = value.charCodeAt(dot + 1);
+	return isAsciiLetter(first) || first >= 0x80;
 }
 
 /**
