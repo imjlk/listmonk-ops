@@ -898,7 +898,7 @@ Create a subscriber in Listmonk
 
 ## `subscribers.update`
 
-Update a subscriber in Listmonk
+Partially update a subscriber in Listmonk. Only provided fields change; lists (or list_uuids) replace memberships when provided, and attribs keys are merged into the stored attributes.
 
 - Resource / verb: `subscriber.update`
 - MCP tool: `listmonk_update_subscriber`
@@ -946,7 +946,7 @@ Remove a batch of subscribers from one or more lists. Processes subscribers in c
 
 ## `subscribers.unblocklist`
 
-Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.
+Return blocklisted subscribers to enabled, one subscriber at a time (Listmonk 6.2 has no bulk unblocklist endpoint). Subscribers that are not blocklisted are left unchanged, and list subscriptions that blocklisting set to unsubscribed stay unsubscribed. Supports dry-run, max-items cap, and continue-on-error.
 
 - Resource / verb: `subscriber.unblocklist`
 - MCP tool: `listmonk_unblocklist_subscribers`
