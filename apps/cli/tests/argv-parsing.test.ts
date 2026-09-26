@@ -194,6 +194,26 @@ describe("CLI argv parsing", () => {
 		expect(requests.filter((request) => request.path === "/api/tx")).toHaveLength(4);
 	}, 30_000);
 
+	test("the abtest create example passes argument validation", async () => {
+		const listing = await runCli(["examples", "--format=json"]);
+		expect(listing.exitCode).toBe(0);
+		const example = (JSON.parse(listing.stdout).examples as string[]).find(
+			(line) => line.startsWith("listmonk-cli abtest create "),
+		);
+		// Split the documented shell line the way a POSIX shell would for its
+		// simple quoting: single- or double-quoted words, otherwise whitespace.
+		const argv = [
+			...(example ?? "").matchAll(/'([^']*)'|"([^"]*)"|(\S+)/g),
+		].map((match) => match[1] ?? match[2] ?? match[3] ?? "");
+		expect(argv.slice(0, 3)).toEqual(["listmonk-cli", "abtest", "create"]);
+
+		requests.length = 0;
+		const result = await runCli([...argv.slice(1), "--format=json"]);
+		expect(result.stderr).not.toMatch(/is required|Unknown option/);
+		// Reaching Listmonk proves every required argument parsed and validated.
+		expect(requests.length).toBeGreaterThan(0);
+	}, 30_000);
+
 	test("--no-body help shows the flag without a double negation", async () => {
 		const result = await runCli(["campaigns", "get", "--help"]);
 		expect(result.exitCode).toBe(0);
