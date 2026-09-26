@@ -10,6 +10,7 @@ import {
 	closeSequenceRuntimeRepositories,
 } from "@listmonk-ops/automation";
 import type { ListmonkMCPServer } from "./server.js";
+import { routeConsoleStdoutToStderr } from "./stdio-console.js";
 
 interface RuntimeArgs {
 	profile?: string;
@@ -225,6 +226,11 @@ async function startRuntime(argv: string[]): Promise<void> {
 	}
 
 	const transport = runtimeArgs.transport || "http";
+	if (transport === "stdio") {
+		// Stdout carries only JSON-RPC from here until exit, including during
+		// shutdown, so stray domain or library logging goes to stderr.
+		routeConsoleStdoutToStderr();
+	}
 	// Like the MCP_HTTP_* variables, MCP_SERVER_PORT only applies to HTTP.
 	const port =
 		transport === "http"

@@ -71,6 +71,48 @@ export function captureCliDiagnostics(options: { stream?: boolean } = {}) {
 	};
 }
 
+/**
+ * Console methods that Bun writes to stdout, other than `info`, which
+ * diagnostic capture already intercepts for the whole machine-mode run.
+ */
+const STDOUT_CONSOLE_METHODS = [
+	"log",
+	"debug",
+	"trace",
+	"dir",
+	"dirxml",
+	"table",
+	"count",
+	"group",
+	"groupCollapsed",
+] as const;
+
+/**
+ * Run a command handler with stray stdout console output captured as info
+ * diagnostics while machine output is active, so incidental domain or library
+ * logging cannot corrupt the parseable result. Results are written with
+ * `process.stdout.write`, and Gunshi help, version, and completion output runs
+ * outside command handlers, so both keep stdout. Human mode is unchanged.
+ */
+export async function runWithStdoutConsoleCapture<T>(
+	run: () => T | Promise<T>,
+): Promise<T> {
+	const sink = activeDiagnosticSink;
+	if (sink === undefined) return await run();
+	const methods = console as unknown as Record<string, unknown>;
+	const originals = STDOUT_CONSOLE_METHODS.map(
+		(method) => [method, methods[method]] as const,
+	);
+	for (const method of STDOUT_CONSOLE_METHODS) {
+		methods[method] = (...args: unknown[]) => sink("info", args);
+	}
+	try {
+		return await run();
+	} finally {
+		for (const [method, original] of originals) methods[method] = original;
+	}
+}
+
 type CapturedDiagnostics = ReturnType<typeof captureCliDiagnostics>;
 
 function diagnosticFields(captured?: CapturedDiagnostics) {
