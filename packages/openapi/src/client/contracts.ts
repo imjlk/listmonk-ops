@@ -249,12 +249,6 @@ export type TransactionalSendParams = NonNullable<
 >;
 
 /**
- * The generated CampaignRequest models `subscribers` as optional, but the
- * observed Listmonk 6.2 test endpoint refuses the request when it is
- * absent. Tighten just that field here instead of distorting the
- * generated types.
- */
-/**
  * `PUT /campaigns/{id}/archive` rewrites the slug (an empty slug becomes
  * NULL) and meta on every call, so callers resend the stored values.
  */
@@ -262,6 +256,12 @@ export type CampaignArchiveBody = NonNullable<
 	t.UpdateCampaignArchiveByIdData["body"]
 > & { archive: boolean };
 
+/**
+ * The generated CampaignRequest models `subscribers` as optional, but the
+ * observed Listmonk 6.2 test endpoint refuses the request when it is
+ * absent. Tighten just that field here instead of distorting the
+ * generated types.
+ */
 export type CampaignTestParams = Omit<t.TestCampaignByIdData, "url"> & {
 	body: Omit<t.TestCampaignByIdData["body"], "subscribers"> & {
 		subscribers: string[];

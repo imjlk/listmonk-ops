@@ -62,13 +62,20 @@ describe("campaign clone operations", () => {
 			// fresh slug the way Listmonk's own clone action derives it.
 			expect(body.archive_slug).not.toBe("spring-sale");
 			if (archive) {
-				expect(body.archive_slug).toMatch(/^spring-copy-\d{4}$/);
+				expect(body.archive_slug).toMatch(/^spring-copy-[a-z0-9]{12,}$/);
 			} else {
 				expect(body.archive_slug).toBeUndefined();
 			}
 		}
-		expect(cloneArchiveSlug("Spring Sale!", 1_790_000_001_234)).toBe(
-			"spring-sale--1234",
+		const fixedRandom = () => 0.123456;
+		expect(cloneArchiveSlug("Spring Sale!", 1_790_000_001_234, fixedRandom)).toBe(
+			`spring-sale-${(1_790_000_001_234).toString(36)}4fzy`,
+		);
+		// Names without ASCII letters or digits still yield a usable slug.
+		expect(cloneArchiveSlug("봄 세일 ---", 0, fixedRandom)).toBe("campaign-04fzy");
+		// Concurrent clones in the same millisecond differ by the random part.
+		expect(cloneArchiveSlug("Copy", 1, () => 0.1)).not.toBe(
+			cloneArchiveSlug("Copy", 1, () => 0.2),
 		);
 	});
 
