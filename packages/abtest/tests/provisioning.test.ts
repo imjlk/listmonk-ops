@@ -231,6 +231,17 @@ describe("A/B test provisioning", () => {
 		await expect(
 			service.createTest({ ...createTestConfig(), hypothesis }),
 		).rejects.toThrow("primaryMetric is required for launch");
+		// An array is not a metric object either; the full validation names
+		// the shape problem instead of a missing metric type.
+		await expect(
+			service.createTest({
+				...createTestConfig(),
+				hypothesis: {
+					...hypothesis,
+					primaryMetric: [] as unknown as typeof hypothesis.primaryMetric,
+				},
+			}),
+		).rejects.toThrow("primaryMetric must be an object, received []");
 	});
 });
 
