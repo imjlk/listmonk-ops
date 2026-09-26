@@ -918,7 +918,8 @@
       "state": {
         "allowNoopFromTarget": true,
         "from": [
-          "draft"
+          "draft",
+          "paused"
         ],
         "resource": "campaign",
         "to": "scheduled"
@@ -1308,7 +1309,6 @@
         "allowNoopFromTarget": true,
         "from": [
           "draft",
-          "scheduled",
           "paused"
         ],
         "resource": "campaign",
@@ -1476,7 +1476,8 @@
       "state": {
         "allowNoopFromTarget": true,
         "from": [
-          "running"
+          "running",
+          "paused"
         ],
         "resource": "campaign",
         "to": "cancelled"
@@ -44773,15 +44774,15 @@
         ],
         "finished": [],
         "paused": [
-          "running"
+          "running",
+          "scheduled",
+          "cancelled"
         ],
         "running": [
           "paused",
           "cancelled"
         ],
-        "scheduled": [
-          "running"
-        ]
+        "scheduled": []
       }
     },
     {

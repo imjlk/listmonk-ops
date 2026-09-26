@@ -973,17 +973,53 @@ describe("shared CRUD resource operations", () => {
 			body: { status: "scheduled" },
 		});
 
-		// start: scheduled -> running allowed
+		// start: paused -> running allowed
 		const startResult = await invokeStartCampaignOperation(
 			campaignContext({
 				getById: mock(async () => ({
-					data: { id: 10, status: "scheduled" },
+					data: { id: 10, status: "paused" },
 				})) as unknown as CampaignClient["campaign"]["getById"],
 				updateStatus: mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"],
 			}),
 			{ id: 10 },
 		);
 		expect(startResult).toEqual({ id: 10, status: "running" });
+	});
+
+	test("follows Listmonk 6.2 campaign status rules", async () => {
+		const statusOf = (status: string) =>
+			mock(async () => ({
+				data: { id: 10, status, lists: [{ id: 3 }] },
+			})) as unknown as CampaignClient["campaign"]["getById"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		// A campaign paused by the deliverability guard can be cancelled.
+		await expect(
+			invokeCancelCampaignOperation(
+				campaignContext({ getById: statusOf("paused"), updateStatus }),
+				{ id: 10 },
+			),
+		).resolves.toEqual({ id: 10, status: "cancelled" });
+
+		// Listmonk starts a scheduled campaign itself; an early start needs an
+		// unschedule first, so the local check rejects it before the API call.
+		const calls = (updateStatus as unknown as ReturnType<typeof mock>).mock
+			.calls.length;
+		await expect(
+			invokeStartCampaignOperation(
+				campaignContext({ getById: statusOf("scheduled"), updateStatus }),
+				{ id: 10 },
+			),
+		).rejects.toThrow(/clear its send_at/);
+		await expect(
+			invokeCancelCampaignOperation(
+				campaignContext({ getById: statusOf("draft"), updateStatus }),
+				{ id: 10 },
+			),
+		).rejects.toThrow(/delete it instead/);
+		expect(
+			(updateStatus as unknown as ReturnType<typeof mock>).mock.calls.length,
+		).toBe(calls);
 	});
 
 	test("rejects invalid campaign lifecycle transitions", async () => {
