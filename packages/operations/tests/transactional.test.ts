@@ -6,6 +6,7 @@ import {
 	invokeSendTransactionalOperation,
 	invokeTransactionalOperationByMcpName,
 	isAmbiguousTransportError,
+	isDefinitiveCreateRejection,
 	isDefinitivePreDispatchError,
 	OperationExecutionError,
 	OperationInputError,
@@ -1108,6 +1109,36 @@ describe("isAmbiguousTransportError", () => {
 	test("does not flag non-Error values", () => {
 		expect(isAmbiguousTransportError("timeout")).toBe(false);
 		expect(isAmbiguousTransportError({ code: "ECONNRESET" })).toBe(false);
+	});
+});
+
+describe("isDefinitiveCreateRejection", () => {
+	const refused = (code: string) =>
+		Object.assign(new TypeError("Unable to connect"), { code });
+
+	test("releases statusless envelopes only for proven pre-dispatch failures", () => {
+		// The generated client returns transport failures without a response.
+		expect(isDefinitiveCreateRejection({ error: refused("ConnectionRefused") })).toBe(true);
+		expect(isDefinitiveCreateRejection({ error: refused("ECONNREFUSED") })).toBe(true);
+		expect(isDefinitiveCreateRejection({ error: new Error("socket hang up") })).toBe(false);
+		expect(isDefinitiveCreateRejection({ error: { message: "oops" } })).toBe(false);
+	});
+
+	test("trusts the HTTP status when a response exists", () => {
+		for (const status of [400, 404, 422]) {
+			expect(
+				isDefinitiveCreateRejection({ error: {}, response: { status } }),
+			).toBe(true);
+		}
+		for (const status of [500, 502, 503]) {
+			expect(
+				isDefinitiveCreateRejection({
+					// A 5xx with a refused-looking cause is still ambiguous.
+					error: refused("ConnectionRefused"),
+					response: { status },
+				}),
+			).toBe(false);
+		}
 	});
 });
 

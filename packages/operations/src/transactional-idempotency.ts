@@ -565,25 +565,6 @@ export function isAmbiguousTransportError(error: unknown): boolean {
  * `fetch failed` is intentionally NOT included here because undici wraps
  * both pre- and post-connection failures under that message.
  */
-/**
- * Classify a create response that carries an error envelope for the keyed
- * create executor. The generated client catches transport failures and
- * returns them as `{ error }` with no HTTP response, so a refused
- * connection must be recognized from the error itself: a 4xx answer or a
- * proven pre-dispatch transport failure never created anything and
- * releases the key, while a 5xx or an unclassified failure stays ambiguous.
- */
-export function isDefinitiveCreateRejection(response: {
-	error?: unknown;
-	response?: { status?: unknown };
-}): boolean {
-	const status = response.response?.status;
-	if (typeof status === "number") {
-		return status >= 400 && status < 500;
-	}
-	return isDefinitivePreDispatchError(response.error);
-}
-
 export function isDefinitivePreDispatchError(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;
 	// When the error carries an HTTP status, that status is authoritative:
@@ -595,7 +576,7 @@ export function isDefinitivePreDispatchError(error: unknown): boolean {
 	// "ECONNREFUSED" cannot override the server's authoritative answer.
 	const httpStatus = (error as { httpStatus?: unknown }).httpStatus;
 	if (typeof httpStatus === "number") {
-		return httpStatus >= 400 && httpStatus < 500;
+		return isDefinitiveClientErrorStatus(httpStatus);
 	}
 	const message = error.message.toLowerCase();
 	const messageSignals = ["econnrefused", "enotfound"];
@@ -614,6 +595,33 @@ export function isDefinitivePreDispatchError(error: unknown): boolean {
 		"HostNotFoundError",
 	]);
 	return codes.some((code) => codeSignals.has(code));
+}
+
+/**
+ * A 4xx answer proves Listmonk (or a proxy) rejected the request without
+ * processing it; every other status may reflect partial processing.
+ */
+function isDefinitiveClientErrorStatus(status: number): boolean {
+	return status >= 400 && status < 500;
+}
+
+/**
+ * Classify a create response that carries an error envelope for the keyed
+ * create executor. The generated client catches transport failures and
+ * returns them as `{ error }` with no HTTP response, so a refused
+ * connection must be recognized from the error itself: a 4xx answer or a
+ * proven pre-dispatch transport failure never created anything and
+ * releases the key, while a 5xx or an unclassified failure stays ambiguous.
+ */
+export function isDefinitiveCreateRejection(response: {
+	error?: unknown;
+	response?: { status?: unknown };
+}): boolean {
+	const status = response.response?.status;
+	if (typeof status === "number") {
+		return isDefinitiveClientErrorStatus(status);
+	}
+	return isDefinitivePreDispatchError(response.error);
 }
 
 function collectErrorCodes(error: Error): string[] {
