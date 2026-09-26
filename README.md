@@ -1025,13 +1025,30 @@ typed domain operation. A `dry_run: true` request is accepted only when the
 cataloged operation explicitly supports a real dry run; unsupported dry-run
 requests are rejected instead of being simulated. Mutating shared MCP
 operations append `started`, `blocked`, `succeeded`, or `failed` metadata-only
-events to `<resolved-data-directory>/operation-audit.json` by default. The staged
-migration deliberately leaves legacy transport-specific MCP tools unchanged,
-except for `listmonk_update_campaign_status`, which was removed because it
-bypassed the server-level audit store and confirmation gate. Use the shared
-lifecycle operations instead: `listmonk_schedule_campaign` (with `send_at`),
-`listmonk_start_campaign`, `listmonk_pause_campaign`, and
-`listmonk_cancel_campaign`.
+events to `<resolved-data-directory>/operation-audit.json` by default. Every
+mutating MCP tool is a shared operation behind this confirmation and audit
+gate. The remaining transport-specific tools (`listmonk_list_operations`,
+`listmonk_health_check`, `listmonk_get_server_config`, and
+`listmonk_get_campaign_running_stats`) are read-only, and every MCP tool
+publishes `readOnlyHint`, `destructiveHint`, `idempotentHint`, and
+`openWorldHint` annotations. Legacy tools that bypassed the server-level audit
+store and confirmation gate were removed:
+
+- `listmonk_update_campaign_status`: use the shared lifecycle operations
+  `listmonk_schedule_campaign` (with `send_at`), `listmonk_start_campaign`,
+  `listmonk_pause_campaign`, and `listmonk_cancel_campaign`.
+- `listmonk_delete_subscribers_by_query` and
+  `listmonk_blocklist_subscribers_by_query`, which applied an arbitrary SQL
+  expression in one unconfirmed call: resolve subscriber IDs with
+  `listmonk_get_subscribers` (`query`), then call
+  `listmonk_delete_subscriber` or `listmonk_blocklist_subscribers`
+  (`subscriber_ids`, optional `dry_run`) with `confirm: true`.
+- `listmonk_update_settings`, which passed any object to
+  `PUT /api/settings` and reloaded Listmonk: there is no MCP replacement.
+  Read settings with the redacted `listmonk_get_settings` and change them in
+  the Listmonk admin UI.
+- `listmonk_send_subscriber_optin`: use the audited `listmonk_send_optin`,
+  which takes the same `id`.
 
 The CLI applies the same policy to its shared operations. Pass the global
 `--confirm` flag for any cataloged command whose `confirmationRequired` policy
