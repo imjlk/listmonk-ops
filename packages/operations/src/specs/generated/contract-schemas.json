@@ -21894,7 +21894,7 @@
               "additionalProperties": false,
               "properties": {
                 "blocklist": {
-                  "description": "Blocklist sunset candidates. Defaults to false.",
+                  "description": "Blocklist sunset candidates. Irreversible for list subscriptions:\nListmonk marks every membership unsubscribed and unblocklisting\ndoes not restore them. Defaults to false.",
                   "type": "boolean"
                 },
                 "dry_run": {
@@ -21903,7 +21903,7 @@
                 },
                 "inactivity_days": {
                   "$ref": "#/components/schemas/PositiveInteger",
-                  "description": "Inactive threshold in days. Defaults to 90."
+                  "description": "Minimum days since the subscriber profile's updated_at, which\nListmonk advances on profile edits and blocklisting, not on\nsends, opens, or clicks. Defaults to 90."
                 },
                 "max_subscribers": {
                   "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
@@ -21921,6 +21921,7 @@
                   ]
                 },
                 "source_list_ids": {
+                  "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to: confirmed on any list, or unconfirmed\non a single opt-in list (never unsubscribed). Without it, any\nlist counts.",
                   "items": {
                     "$ref": "#/components/schemas/ResourceId"
                   },
@@ -21936,7 +21937,8 @@
                   "type": "array"
                 },
                 "target_list_id": {
-                  "$ref": "#/components/schemas/ResourceId"
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
                 }
               },
               "required": [],
@@ -21946,7 +21948,7 @@
               "additionalProperties": false,
               "properties": {
                 "blocklist": {
-                  "description": "Blocklist sunset candidates. Defaults to false.",
+                  "description": "Blocklist sunset candidates. Irreversible for list subscriptions:\nListmonk marks every membership unsubscribed and unblocklisting\ndoes not restore them. Defaults to false.",
                   "type": "boolean"
                 },
                 "dry_run": {
@@ -21954,7 +21956,7 @@
                 },
                 "inactivity_days": {
                   "$ref": "#/components/schemas/PositiveInteger",
-                  "description": "Inactive threshold in days. Defaults to 90."
+                  "description": "Minimum days since the subscriber profile's updated_at, which\nListmonk advances on profile edits and blocklisting, not on\nsends, opens, or clicks. Defaults to 90."
                 },
                 "max_subscribers": {
                   "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
@@ -21972,13 +21974,14 @@
                   ]
                 },
                 "source_list_ids": {
+                  "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to: confirmed on any list, or unconfirmed\non a single opt-in list (never unsubscribed). Without it, any\nlist counts.",
                   "items": {
                     "$ref": "#/components/schemas/ResourceId"
                   },
                   "type": "array"
                 },
                 "subscriber_guards": {
-                  "description": "Generation guard: echo a dry run's candidate_updated_at output.\nListmonk advances updated_at on the list-add and blocklist\nmutations, so a guarded destructive retry skips subscribers its\nown first attempt touched and ones that changed or re-entered\neligibility externally. Must cover exactly the echoed\nsubscriber_ids.",
+                  "description": "Generation guard: echo a dry run's subscriberUpdatedAt output.\nListmonk advances updated_at on profile edits and blocklisting,\nso a guarded destructive retry skips subscribers its own first\nattempt blocklisted and ones whose profile changed externally; a\nlist add leaves updated_at unchanged, so an existing target\nmembership is skipped structurally instead. Must cover exactly\nthe echoed subscriber_ids.",
                   "items": {
                     "$ref": "#/components/schemas/SubscriberHygieneGuard"
                   },
@@ -21996,7 +21999,8 @@
                   "type": "array"
                 },
                 "target_list_id": {
-                  "$ref": "#/components/schemas/ResourceId"
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
                 }
               },
               "required": [
@@ -22016,7 +22020,7 @@
           "additionalProperties": false,
           "properties": {
             "blocklist": {
-              "description": "Blocklist sunset candidates. Defaults to false.",
+              "description": "Blocklist sunset candidates. Irreversible for list subscriptions:\nListmonk marks every membership unsubscribed and unblocklisting\ndoes not restore them. Defaults to false.",
               "type": "boolean"
             },
             "dry_run": {
@@ -22025,7 +22029,7 @@
             },
             "inactivity_days": {
               "$ref": "#/components/schemas/PositiveInteger",
-              "description": "Inactive threshold in days. Defaults to 90."
+              "description": "Minimum days since the subscriber profile's updated_at, which\nListmonk advances on profile edits and blocklisting, not on\nsends, opens, or clicks. Defaults to 90."
             },
             "max_subscribers": {
               "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
@@ -22043,6 +22047,7 @@
               ]
             },
             "source_list_ids": {
+              "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to: confirmed on any list, or unconfirmed\non a single opt-in list (never unsubscribed). Without it, any\nlist counts.",
               "items": {
                 "$ref": "#/components/schemas/ResourceId"
               },
@@ -22058,7 +22063,8 @@
               "type": "array"
             },
             "target_list_id": {
-              "$ref": "#/components/schemas/ResourceId"
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
             }
           },
           "required": [],
@@ -22068,7 +22074,7 @@
           "additionalProperties": false,
           "properties": {
             "blocklist": {
-              "description": "Blocklist sunset candidates. Defaults to false.",
+              "description": "Blocklist sunset candidates. Irreversible for list subscriptions:\nListmonk marks every membership unsubscribed and unblocklisting\ndoes not restore them. Defaults to false.",
               "type": "boolean"
             },
             "dry_run": {
@@ -22076,7 +22082,7 @@
             },
             "inactivity_days": {
               "$ref": "#/components/schemas/PositiveInteger",
-              "description": "Inactive threshold in days. Defaults to 90."
+              "description": "Minimum days since the subscriber profile's updated_at, which\nListmonk advances on profile edits and blocklisting, not on\nsends, opens, or clicks. Defaults to 90."
             },
             "max_subscribers": {
               "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
@@ -22094,13 +22100,14 @@
               ]
             },
             "source_list_ids": {
+              "description": "Only memberships on these lists count; a candidate needs one\nListmonk would deliver to: confirmed on any list, or unconfirmed\non a single opt-in list (never unsubscribed). Without it, any\nlist counts.",
               "items": {
                 "$ref": "#/components/schemas/ResourceId"
               },
               "type": "array"
             },
             "subscriber_guards": {
-              "description": "Generation guard: echo a dry run's candidate_updated_at output.\nListmonk advances updated_at on the list-add and blocklist\nmutations, so a guarded destructive retry skips subscribers its\nown first attempt touched and ones that changed or re-entered\neligibility externally. Must cover exactly the echoed\nsubscriber_ids.",
+              "description": "Generation guard: echo a dry run's subscriberUpdatedAt output.\nListmonk advances updated_at on profile edits and blocklisting,\nso a guarded destructive retry skips subscribers its own first\nattempt blocklisted and ones whose profile changed externally; a\nlist add leaves updated_at unchanged, so an existing target\nmembership is skipped structurally instead. Must cover exactly\nthe echoed subscriber_ids.",
               "items": {
                 "$ref": "#/components/schemas/SubscriberHygieneGuard"
               },
@@ -22118,7 +22125,8 @@
               "type": "array"
             },
             "target_list_id": {
-              "$ref": "#/components/schemas/ResourceId"
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
             }
           },
           "required": [
@@ -22175,16 +22183,22 @@
               "type": "boolean"
             },
             "errors": {
+              "description": "Warnings plus one bounded summary per failed effect and code\n(list_add or blocklist with http_<status>, request_failed, or\nnegative_acknowledgement); remote error text is never included.",
               "items": {
                 "type": "string"
               },
               "type": "array"
             },
+            "failedSubscribers": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Subscribers with a failed or unacknowledged mutation, including a\npartially applied one (list add landed, blocklist failed)."
+            },
             "mode": {
               "$ref": "#/components/schemas/SubscriberHygieneMode"
             },
             "processedSubscribers": {
-              "$ref": "#/components/schemas/NonNegativeInteger"
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Subscribers whose requested mutations Listmonk all acknowledged."
             },
             "sample": {
               "items": {
@@ -22239,6 +22253,7 @@
             "totalSubscribersScanned",
             "candidateSubscribers",
             "processedSubscribers",
+            "failedSubscribers",
             "skippedDueToLimit",
             "skippedGuarded",
             "subscriberIds",
@@ -22268,16 +22283,22 @@
           "type": "boolean"
         },
         "errors": {
+          "description": "Warnings plus one bounded summary per failed effect and code\n(list_add or blocklist with http_<status>, request_failed, or\nnegative_acknowledgement); remote error text is never included.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
+        "failedSubscribers": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Subscribers with a failed or unacknowledged mutation, including a\npartially applied one (list add landed, blocklist failed)."
+        },
         "mode": {
           "$ref": "#/components/schemas/SubscriberHygieneMode"
         },
         "processedSubscribers": {
-          "$ref": "#/components/schemas/NonNegativeInteger"
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Subscribers whose requested mutations Listmonk all acknowledged."
         },
         "sample": {
           "items": {
@@ -22332,6 +22353,7 @@
         "totalSubscribersScanned",
         "candidateSubscribers",
         "processedSubscribers",
+        "failedSubscribers",
         "skippedDueToLimit",
         "skippedGuarded",
         "subscriberIds",

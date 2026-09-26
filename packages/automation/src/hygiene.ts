@@ -1,24 +1,63 @@
-import type { ListmonkClient, Subscriber } from "@listmonk-ops/openapi";
+import type { List, ListmonkClient, Subscriber } from "@listmonk-ops/openapi";
 
 import { unwrapResponseData } from "./api";
 import { extractResults, toDate, toPositiveInt } from "./core";
 
 export type SubscriberHygieneMode = "winback" | "sunset";
 
+/** A Listmonk list's opt-in mode (`lists.optin`). */
+export type ListOptinMode = "single" | "double";
+
+/** The hygiene mutation a failure summary refers to. */
+export type SubscriberHygieneMutationEffect = "list_add" | "blocklist";
+
+/**
+ * Bounded mutation failure code; it never carries remote error text.
+ * `http_<status>` is a 4xx/5xx error envelope, `request_failed` a rejected
+ * request or an error envelope without an HTTP error status, and
+ * `negative_acknowledgement` a response without Listmonk's explicit
+ * `data: true` acknowledgement.
+ */
+export type SubscriberHygieneMutationErrorCode =
+	| `http_${number}`
+	| "request_failed"
+	| "negative_acknowledgement";
+
+type SubscriberHygieneMutationFailure =
+	`${SubscriberHygieneMutationEffect} ${SubscriberHygieneMutationErrorCode}`;
+
 export interface SubscriberHygieneOptions {
 	mode?: SubscriberHygieneMode;
+	/**
+	 * Minimum age in days of the subscriber profile's updated_at. Listmonk
+	 * advances updated_at on profile edits and API blocklisting only —
+	 * sends, opens, clicks, opt-in confirmations, unsubscribes, and list
+	 * additions leave it untouched — so this selects profiles nobody has
+	 * modified, not readers who stopped engaging.
+	 */
 	inactivityDays?: number;
+	/**
+	 * Only memberships on these lists count toward eligibility. Without it,
+	 * any list membership counts. Either way a candidate needs a membership
+	 * that permits delivery (see {@link membershipPermitsDelivery}).
+	 */
 	sourceListIds?: number[];
 	targetListId?: number;
+	/**
+	 * Blocklist sunset candidates. Irreversible for list subscriptions:
+	 * Listmonk marks every membership unsubscribed, and removing the
+	 * blocklist does not restore them.
+	 */
 	blocklist?: boolean;
 	/** Exact candidate set reported by a dry run; destructive runs process exactly this set. */
 	subscriberIds?: readonly number[];
 	/**
 	 * Generation guard: the updated_at each selected subscriber carried when
-	 * the dry run reported it. Listmonk advances updated_at on list-add and
-	 * blocklist mutations, so a guarded destructive retry skips subscribers
-	 * its own first attempt already mutated as well as ones that changed or
-	 * re-entered eligibility externally.
+	 * the dry run reported it. Listmonk advances updated_at on profile edits
+	 * and API blocklisting, so a guarded destructive retry skips subscribers
+	 * its own first attempt blocklisted as well as ones whose profile changed
+	 * externally. A list add leaves updated_at unchanged; the retry skips an
+	 * already-present target membership structurally instead.
 	 */
 	expectedUpdatedAt?: ReadonlyMap<number, string>; // raw updated_at strings
 	dryRun?: boolean;
@@ -31,7 +70,13 @@ export interface SubscriberHygieneResult {
 	dryRun: boolean;
 	totalSubscribersScanned: number;
 	candidateSubscribers: number;
+	/** Subscribers whose requested mutations Listmonk all acknowledged. */
 	processedSubscribers: number;
+	/**
+	 * Subscribers with a failed or unacknowledged mutation, including a
+	 * partially applied one (list add landed, blocklist failed).
+	 */
+	failedSubscribers: number;
 	skippedDueToLimit: number;
 	/** Selected subscribers skipped because their updated_at moved past the echoed guard. */
 	skippedGuarded: number;
@@ -49,8 +94,14 @@ export interface SubscriberHygieneResult {
 		emailMasked: string;
 		updated_at?: string;
 	}>;
+	/**
+	 * Warnings plus one bounded summary per failed effect and code, e.g.
+	 * `Subscriber mutation failed for 2 subscribers: list_add http_403`.
+	 */
 	errors: string[];
 }
+
+type SubscriberMembership = NonNullable<Subscriber["lists"]>[number];
 
 /**
  * Mask an email address for safe display in results (e.g. `j***@example.com`).
@@ -65,8 +116,140 @@ export function maskEmail(email: string): string {
 	return `${firstChar}***${domain}`;
 }
 
-function intersects(source: number[], target: Set<number>): boolean {
-	return source.some((value) => target.has(value));
+/**
+ * Listmonk's regular-campaign delivery rule for one list membership
+ * (`next-campaign-subscribers`): an unsubscribed membership never receives
+ * mail, a double opt-in list delivers only to confirmed members, and a
+ * single opt-in list also delivers to unconfirmed ones. An unknown
+ * subscription status or an undeterminable opt-in mode fails closed. The
+ * sequence consent check (sequence-consent.ts) applies the same rule to
+ * each required list; keep the two in step.
+ */
+export function membershipPermitsDelivery(
+	subscriptionStatus: unknown,
+	optin: ListOptinMode | undefined,
+): boolean {
+	if (subscriptionStatus === "confirmed") {
+		return true;
+	}
+	return subscriptionStatus === "unconfirmed" && optin === "single";
+}
+
+/**
+ * Read each list's opt-in mode from the full list rows of the list
+ * endpoint — the authority the sequence consent check uses too — rather
+ * than trusting the list row Listmonk embeds in subscriber payloads. A
+ * list the token cannot read, or a row without a recognizable opt-in mode,
+ * is absent from the map, so its unconfirmed memberships fail closed (and
+ * the run reports how many subscribers that skipped); a failed read
+ * rejects the run before anything is selected or mutated.
+ */
+export async function loadListOptinModes(
+	client: ListmonkClient,
+): Promise<Map<number, ListOptinMode>> {
+	const response = await client.list.list({
+		query: { per_page: "all" },
+	});
+	const lists = extractResults<List>(
+		unwrapResponseData(
+			response,
+			"Failed to list lists for the hygiene opt-in check",
+		),
+	);
+	const modes = new Map<number, ListOptinMode>();
+	for (const list of lists) {
+		const listId = toPositiveInt(list.id);
+		if (
+			listId !== undefined &&
+			(list.optin === "single" || list.optin === "double")
+		) {
+			modes.set(listId, list.optin);
+		}
+	}
+	return modes;
+}
+
+/**
+ * Classify one hygiene mutation response. The Listmonk client does not
+ * throw on HTTP errors, so a 403 or 500 resolves as an `{ error }` envelope
+ * instead of rejecting; only the explicit `data: true` acknowledgement
+ * counts as applied. Returns undefined when acknowledged. The code is
+ * derived from the HTTP status alone and never copies remote error text.
+ */
+export function classifyHygieneMutationResponse(
+	response: unknown,
+): SubscriberHygieneMutationErrorCode | undefined {
+	if (typeof response !== "object" || response === null) {
+		return "negative_acknowledgement";
+	}
+	const envelope = response as {
+		data?: unknown;
+		error?: unknown;
+		response?: { status?: unknown };
+	};
+	if ("error" in envelope && envelope.error !== undefined) {
+		const status = envelope.response?.status;
+		return typeof status === "number" &&
+			Number.isInteger(status) &&
+			status >= 400 &&
+			status <= 599
+			? `http_${status}`
+			: "request_failed";
+	}
+	return envelope.data === true ? undefined : "negative_acknowledgement";
+}
+
+async function applyHygieneMutation(
+	mutation: () => Promise<unknown>,
+): Promise<SubscriberHygieneMutationErrorCode | undefined> {
+	try {
+		return classifyHygieneMutationResponse(await mutation());
+	} catch {
+		// A rejected request carries no trustworthy status, and its message
+		// may contain remote text, so only the bounded code is kept.
+		return "request_failed";
+	}
+}
+
+function eligibilityMemberships(
+	subscriber: Subscriber,
+	sourceListSet: ReadonlySet<number>,
+): SubscriberMembership[] {
+	const memberships = subscriber.lists ?? [];
+	if (sourceListSet.size === 0) {
+		return memberships;
+	}
+	return memberships.filter((membership) => {
+		const listId = toPositiveInt(membership.id);
+		return listId !== undefined && sourceListSet.has(listId);
+	});
+}
+
+function membershipOptin(
+	membership: SubscriberMembership,
+	listOptinModes: ReadonlyMap<number, ListOptinMode>,
+): ListOptinMode | undefined {
+	const listId = toPositiveInt(membership.id);
+	return listId === undefined ? undefined : listOptinModes.get(listId);
+}
+
+function hasDeliverableMembership(
+	memberships: readonly SubscriberMembership[],
+	listOptinModes: ReadonlyMap<number, ListOptinMode>,
+): boolean {
+	return memberships.some((membership) =>
+		membershipPermitsDelivery(
+			membership.subscription_status,
+			membershipOptin(membership, listOptinModes),
+		),
+	);
+}
+
+function formatMutationFailure(
+	failure: SubscriberHygieneMutationFailure,
+	count: number,
+): string {
+	return `Subscriber mutation failed for ${count} subscriber${count === 1 ? "" : "s"}: ${failure}`;
 }
 
 export async function runSubscriberHygiene(
@@ -96,7 +279,9 @@ export async function runSubscriberHygiene(
 		),
 	);
 
-	const candidates = subscribers.filter((subscriber) => {
+	// "Inactive" means the profile's updated_at is older than the cutoff;
+	// Listmonk does not advance it on sends, opens, or clicks.
+	const staleSubscribers = subscribers.filter((subscriber) => {
 		const subscriberId = toPositiveInt(subscriber.id);
 		if (!subscriberId) {
 			return false;
@@ -107,19 +292,49 @@ export async function runSubscriberHygiene(
 		}
 
 		const updatedAt = toDate(subscriber.updated_at || subscriber.created_at);
-		if (!updatedAt || updatedAt > cutoffDate) {
-			return false;
-		}
-
-		if (sourceListSet.size > 0) {
-			const subscriberListIds = (subscriber.lists || [])
-				.map((entry) => toPositiveInt(entry.id))
-				.filter((value): value is number => value !== undefined);
-			return intersects(subscriberListIds, sourceListSet);
-		}
-
-		return true;
+		return updatedAt !== undefined && updatedAt <= cutoffDate;
 	});
+	// Consent: a candidate must still hold a membership Listmonk would
+	// deliver to (on a source list when given). Someone unsubscribed from
+	// every list is never selected, so winback cannot add them to a target
+	// list that then mails them. Opt-in modes decide only unconfirmed
+	// memberships, so the lists are read once, and only when a subscriber
+	// without a confirmed membership has an unconfirmed one.
+	const needsOptinModes = staleSubscribers.some((subscriber) => {
+		const memberships = eligibilityMemberships(subscriber, sourceListSet);
+		return (
+			!memberships.some((entry) => entry.subscription_status === "confirmed") &&
+			memberships.some((entry) => entry.subscription_status === "unconfirmed")
+		);
+	});
+	const listOptinModes = needsOptinModes
+		? await loadListOptinModes(client)
+		: new Map<number, ListOptinMode>();
+	let skippedUnreadableOptin = 0;
+	const candidates = staleSubscribers.filter((subscriber) => {
+		const memberships = eligibilityMemberships(subscriber, sourceListSet);
+		if (hasDeliverableMembership(memberships, listOptinModes)) {
+			return true;
+		}
+		// Fail closed, but visibly: count subscribers whose only possible
+		// route to delivery is an unconfirmed membership on a list whose
+		// opt-in mode could not be read.
+		if (
+			memberships.some(
+				(entry) =>
+					entry.subscription_status === "unconfirmed" &&
+					membershipOptin(entry, listOptinModes) === undefined,
+			)
+		) {
+			skippedUnreadableOptin += 1;
+		}
+		return false;
+	});
+	if (skippedUnreadableOptin > 0) {
+		errors.push(
+			`Warning: ${skippedUnreadableOptin} subscriber${skippedUnreadableOptin === 1 ? "" : "s"} skipped because an unconfirmed membership's list opt-in mode could not be read`,
+		);
+	}
 
 	const echoedIds =
 		options.subscriberIds === undefined
@@ -150,9 +365,9 @@ export async function runSubscriberHygiene(
 	}
 	// An echoed set is matched against the same eligibility criteria;
 	// subscribers that left the eligible set (blocklisted, no longer
-	// inactive, changed status) are skipped so an identical retry never
-	// re-applies a sunset blocklist, and winback list additions are
-	// per-subscriber idempotent memberships.
+	// inactive, changed status, no deliverable membership left) are skipped
+	// so an identical retry never re-applies a sunset blocklist, and winback
+	// list additions are per-subscriber idempotent memberships.
 	const eligibleForEcho = echoedIds
 		? candidates.filter((subscriber) => {
 				const id = toPositiveInt(subscriber.id);
@@ -179,12 +394,13 @@ export async function runSubscriberHygiene(
 		}
 		return observed;
 	});
-	// The updated_at guard is the per-subscriber completion signal: Listmonk
-	// advances updated_at on the list-add and blocklist mutations this
-	// workflow performs, so a guarded destructive retry skips everyone its
-	// first attempt already touched — and everyone that changed or
-	// re-entered eligibility externally — while untouched members of the
-	// echoed set still run. The comparison is a raw string equality.
+	// The updated_at guard is the per-subscriber generation signal: Listmonk
+	// advances updated_at when this workflow blocklists and on external
+	// profile edits, so a guarded destructive retry skips everyone its first
+	// attempt blocklisted and everyone whose profile changed, while untouched
+	// members of the echoed set still run. A list add does not move it; the
+	// structural target-membership check below keeps a retry from repeating
+	// that effect. The comparison is a raw string equality.
 	const expectedUpdatedAt = options.expectedUpdatedAt;
 	const guardActive = !dryRun && expectedUpdatedAt !== undefined;
 	if (guardActive && echoedIds !== undefined) {
@@ -215,6 +431,10 @@ export async function runSubscriberHygiene(
 		: selected;
 	const skippedGuarded = selected.length - guardEligible.length;
 	let processedSubscribers = 0;
+	let failedSubscribers = 0;
+	// Failures aggregate per effect and code so the summary stays bounded
+	// however many subscribers fail, and it never carries remote text.
+	const failureCounts = new Map<SubscriberHygieneMutationFailure, number>();
 
 	// Warn if winback + blocklist is set (blocklist is ignored in winback).
 	// This runs in both dry-run and live mode so operators see the warning early.
@@ -225,8 +445,8 @@ export async function runSubscriberHygiene(
 	}
 
 	if (!dryRun) {
-			// Validate mode-appropriate mutations: winback requires targetListId,
-			// sunset requires blocklist=true. Reject no-op combinations.
+		// Validate mode-appropriate mutations: winback requires targetListId,
+		// sunset requires blocklist=true. Reject no-op combinations.
 		if (mode === "winback" && !options.targetListId) {
 			throw new Error(
 				"targetListId is required for winback mode when dryRun=false",
@@ -237,6 +457,7 @@ export async function runSubscriberHygiene(
 				"blocklist=true or targetListId is required for sunset mode when dryRun=false",
 			);
 		}
+		const targetListId = options.targetListId;
 
 		for (const candidate of guardEligible) {
 			const id = toPositiveInt(candidate.id);
@@ -252,41 +473,61 @@ export async function runSubscriberHygiene(
 			// is not the subscription the request asked for, so it does not
 			// count as complete.
 			const alreadyMember =
-				options.targetListId !== undefined &&
+				targetListId !== undefined &&
 				(candidate.lists || []).some(
 					(entry) =>
-						toPositiveInt(entry.id) === options.targetListId &&
+						toPositiveInt(entry.id) === targetListId &&
 						entry.subscription_status !== "unsubscribed",
 				);
+			// Effects apply in order and the first failure stops this
+			// subscriber, so a retry applies whatever is still missing.
+			let failure: SubscriberHygieneMutationFailure | undefined;
 			let mutated = false;
-			try {
-				if (options.targetListId && !alreadyMember) {
-					await client.subscriber.manageListById({
+			if (targetListId && !alreadyMember) {
+				const code = await applyHygieneMutation(() =>
+					client.subscriber.manageListById({
 						path: { id },
+						// Listmonk 6.2 answers 400 "No IDs given." unless the
+						// body repeats the subscriber id from the path.
 						body: {
 							action: "add",
-							target_list_ids: [options.targetListId],
+							ids: [id],
+							target_list_ids: [targetListId],
 						},
-					});
+					}),
+				);
+				if (code === undefined) {
 					mutated = true;
-				}
-
-				if (mode === "sunset" && blocklist) {
-					await client.subscriber.manageBlocklistById({
-						path: { id },
-						body: {
-							action: "add",
-						},
-					});
-					mutated = true;
-				}
-			} catch {
-				errors.push("Subscriber mutation failed");
-			} finally {
-				if (mutated) {
-					processedSubscribers += 1;
+				} else {
+					failure = `list_add ${code}`;
 				}
 			}
+
+			if (failure === undefined && mode === "sunset" && blocklist) {
+				const code = await applyHygieneMutation(() =>
+					client.subscriber.manageBlocklistById({
+						path: { id },
+						body: {
+							action: "add",
+						},
+					}),
+				);
+				if (code === undefined) {
+					mutated = true;
+				} else {
+					failure = `blocklist ${code}`;
+				}
+			}
+
+			if (failure !== undefined) {
+				failedSubscribers += 1;
+				failureCounts.set(failure, (failureCounts.get(failure) ?? 0) + 1);
+			} else if (mutated) {
+				processedSubscribers += 1;
+			}
+		}
+		for (const [failure, count] of failureCounts) {
+			errors.push(formatMutationFailure(failure, count));
 		}
 	}
 
@@ -297,6 +538,7 @@ export async function runSubscriberHygiene(
 		totalSubscribersScanned: subscribers.length,
 		candidateSubscribers: candidates.length,
 		processedSubscribers: dryRun ? 0 : processedSubscribers,
+		failedSubscribers: dryRun ? 0 : failedSubscribers,
 		skippedDueToLimit,
 		skippedGuarded,
 		subscriberIds: selected

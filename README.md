@@ -211,8 +211,10 @@ They retain execution metadata only, never request inputs, outputs,
 credentials, or remote error text.
 Public automation results follow the same boundary: webhook delivery failures
 are projected as bounded error codes, subscriber bulk/hygiene and template
-registry failures omit remote error text, and hygiene samples omit subscriber
-IDs while retaining masked email addresses.
+registry failures omit remote error text (hygiene counts `failedSubscribers`
+and summarizes each failed effect as `http_<status>`, `request_failed`, or
+`negative_acknowledgement`), and hygiene samples omit subscriber IDs while
+retaining masked email addresses.
 
 ## Workspace Commands
 
@@ -942,19 +944,20 @@ thirty-second batch promoted `ops.subscribers.hygiene`, the last
 experimental descriptor: the dry run now reports each selected
 subscriber's raw `updated_at` observation as a `subscriberUpdatedAt`
 array parallel to `subscriberIds`, and the destructive echo pairs them
-in order as `subscriber_guards` (CLI `--subscriber-guards`). Listmonk advances `updated_at` on
-the very mutations the workflow performs — list adds and blocklisting —
-so the guard is the durable per-subscriber completion signal the spec's
+in order as `subscriber_guards` (CLI `--subscriber-guards`). Listmonk advances `updated_at` when
+the workflow blocklists (a list add leaves it unchanged, so an
+already-present target membership is skipped structurally instead), so
+the guard is the durable per-subscriber completion signal the spec's
 graduation criterion asked for: a guarded destructive retry skips
-everyone its own first attempt already touched and everyone that
-changed or re-entered eligibility externally, while untouched members of
-the echoed set still run. Because Listmonk offers no conditional
-mutation the guard is a check-then-act read — the case classifies as
-reconcile with a subscribers.list verification, a partially applied
-subscriber (list-add landed, blocklist failed) recovers through a fresh
-dry run whose new guards reflect the moved timestamps while the
-already-present membership is skipped structurally, and a missing
-updated_at fails the run instead of fabricating a token. Dry runs stay
+everyone its own first attempt blocklisted and everyone whose profile
+changed externally, while untouched members of the echoed set still
+run. Because Listmonk offers no conditional mutation the guard is a
+check-then-act read — the case classifies as reconcile with a
+subscribers.list verification, a partially applied subscriber (list add
+landed, blocklist failed) is counted in `failedSubscribers` and recovers
+on a guarded retry or a fresh dry run while the already-present
+membership is skipped structurally, and a missing updated_at fails the
+run instead of fabricating a token. Dry runs stay
 trivially safe, and a destructive run without guards keeps the honest
 unsafe classification. A
 thirty-first batch promoted `sequences.enroll` with a generation
@@ -1332,6 +1335,9 @@ listmonk-cli ops guard --campaign-id 123 --pause-on-breach true --confirm
 # 3) Subscriber hygiene (preview)
 listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --confirm
 # Echo --subscriber-ids from the dry run for the destructive execution.
+# "Inactive" means the profile's updated_at is old, not that the reader
+# stopped opening or clicking; sunset blocklisting cannot be undone for
+# list subscriptions (see below).
 
 # 4) Segment drift snapshot
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
@@ -1352,6 +1358,26 @@ listmonk-cli ops templates-rollback --template-id 10 --confirm
 # 6) Daily digest
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 ```
+
+`ops hygiene` selects enabled subscribers whose profile `updated_at` is older
+than `--inactivity-days`. Listmonk advances `updated_at` only on profile edits
+and API blocklisting — sends, opens, clicks, opt-in confirmations,
+unsubscribes, and list additions leave it untouched — so the threshold
+measures how long nobody modified a profile, not how long a reader has been
+disengaged: an engaged reader whose profile was never edited is selected too.
+A candidate must also still hold a membership Listmonk would deliver to —
+confirmed on any list, or unconfirmed on a single opt-in list, and on one of
+the `--source-list-ids` lists when given — so a subscriber who unsubscribed
+everywhere is never added to a winback list. Opt-in modes come from the list
+endpoint, and unconfirmed memberships on lists the token cannot read fail
+closed; the run warns how many subscribers that skipped. Winback adds
+candidates to `--target-list-id` (required with `--no-dry-run`) as unconfirmed
+members, which a single opt-in list delivers to. **Sunset blocklisting is irreversible for list
+subscriptions:** Listmonk marks every membership unsubscribed, and removing the
+blocklist does not restore them. Destructive results report
+`processedSubscribers` (every mutation acknowledged by Listmonk) and
+`failedSubscribers` (error responses or missing acknowledgements, including a
+subscriber whose list add landed before its blocklist failed).
 
 Preflight link checking now blocks private/internal hosts (loopback,
 private CIDRs, link-local, cloud metadata IPs) and follows redirects

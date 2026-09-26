@@ -1199,7 +1199,7 @@ Evaluate campaign deliverability metrics and optionally pause a breached campaig
 
 ## `ops.subscribers.hygiene`
 
-Run the winback or sunset subscriber hygiene workflow
+Preview or apply the winback or sunset workflow for enabled subscribers whose profile updated_at is older than inactivity_days and who still hold a list membership Listmonk would deliver to. Listmonk advances updated_at on profile edits and blocklisting, not on sends, opens, or clicks, so this selects unmodified profiles rather than disengaged readers. A sunset blocklist is irreversible for list subscriptions: every membership becomes unsubscribed and unblocklisting does not restore them.
 
 - Resource / verb: `subscriber.hygiene`
 - MCP tool: `listmonk_ops_subscriber_hygiene`

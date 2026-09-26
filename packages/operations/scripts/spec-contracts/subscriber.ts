@@ -179,11 +179,26 @@ export type SubscriberHygieneInput =
 	| {
 			/** Hygiene mode. Defaults to "winback". */
 			mode?: SubscriberHygieneMode;
-			/** Inactive threshold in days. Defaults to 90. */
+			/**
+			 * Minimum days since the subscriber profile's updated_at, which
+			 * Listmonk advances on profile edits and blocklisting, not on
+			 * sends, opens, or clicks. Defaults to 90.
+			 */
 			inactivity_days?: PositiveInteger;
+			/**
+			 * Only memberships on these lists count; a candidate needs one
+			 * Listmonk would deliver to: confirmed on any list, or unconfirmed
+			 * on a single opt-in list (never unsubscribed). Without it, any
+			 * list counts.
+			 */
 			source_list_ids?: ResourceId[];
+			/** List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed. */
 			target_list_id?: ResourceId;
-			/** Blocklist sunset candidates. Defaults to false. */
+			/**
+			 * Blocklist sunset candidates. Irreversible for list subscriptions:
+			 * Listmonk marks every membership unsubscribed and unblocklisting
+			 * does not restore them. Defaults to false.
+			 */
 			blocklist?: boolean;
 			/** Restricts a preview to this candidate subset without mutating anyone. */
 			subscriber_ids?:
@@ -197,21 +212,37 @@ export type SubscriberHygieneInput =
 	| {
 			/** Hygiene mode. Defaults to "winback". */
 			mode?: SubscriberHygieneMode;
-			/** Inactive threshold in days. Defaults to 90. */
+			/**
+			 * Minimum days since the subscriber profile's updated_at, which
+			 * Listmonk advances on profile edits and blocklisting, not on
+			 * sends, opens, or clicks. Defaults to 90.
+			 */
 			inactivity_days?: PositiveInteger;
+			/**
+			 * Only memberships on these lists count; a candidate needs one
+			 * Listmonk would deliver to: confirmed on any list, or unconfirmed
+			 * on a single opt-in list (never unsubscribed). Without it, any
+			 * list counts.
+			 */
 			source_list_ids?: ResourceId[];
+			/** List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed. */
 			target_list_id?: ResourceId;
-			/** Blocklist sunset candidates. Defaults to false. */
+			/**
+			 * Blocklist sunset candidates. Irreversible for list subscriptions:
+			 * Listmonk marks every membership unsubscribed and unblocklisting
+			 * does not restore them. Defaults to false.
+			 */
 			blocklist?: boolean;
 			/** Exact candidate set reported by a dry run; the run processes exactly this set. */
 			subscriber_ids: ResourceId[] & tags.MinItems<1> & tags.MaxItems<10_000>;
 			/**
-			 * Generation guard: echo a dry run's candidate_updated_at output.
-			 * Listmonk advances updated_at on the list-add and blocklist
-			 * mutations, so a guarded destructive retry skips subscribers its
-			 * own first attempt touched and ones that changed or re-entered
-			 * eligibility externally. Must cover exactly the echoed
-			 * subscriber_ids.
+			 * Generation guard: echo a dry run's subscriberUpdatedAt output.
+			 * Listmonk advances updated_at on profile edits and blocklisting,
+			 * so a guarded destructive retry skips subscribers its own first
+			 * attempt blocklisted and ones whose profile changed externally; a
+			 * list add leaves updated_at unchanged, so an existing target
+			 * membership is skipped structurally instead. Must cover exactly
+			 * the echoed subscriber_ids.
 			 */
 			subscriber_guards?: (SubscriberHygieneGuard[] &
 				tags.MinItems<1> &
@@ -227,7 +258,13 @@ export interface SubscriberHygieneOutput {
 	dryRun: boolean;
 	totalSubscribersScanned: NonNegativeInteger;
 	candidateSubscribers: NonNegativeInteger;
+	/** Subscribers whose requested mutations Listmonk all acknowledged. */
 	processedSubscribers: NonNegativeInteger;
+	/**
+	 * Subscribers with a failed or unacknowledged mutation, including a
+	 * partially applied one (list add landed, blocklist failed).
+	 */
+	failedSubscribers: NonNegativeInteger;
 	skippedDueToLimit: NonNegativeInteger;
 	/** Selected subscribers skipped because their updated_at moved past the echoed guard. */
 	skippedGuarded: NonNegativeInteger;
@@ -245,6 +282,11 @@ export interface SubscriberHygieneOutput {
 		emailMasked: string;
 		updated_at?: string;
 	}>;
+	/**
+	 * Warnings plus one bounded summary per failed effect and code
+	 * (list_add or blocklist with http_<status>, request_failed, or
+	 * negative_acknowledgement); remote error text is never included.
+	 */
 	errors: string[];
 }
 
