@@ -22,6 +22,7 @@ import {
 	updateOutboundWebhookEndpoint,
 	verifyOutboundWebhookSignature,
 } from "../src/outbound-webhooks";
+import { ingestInboundDeliveryEvent } from "../src/inbound-delivery-events";
 import { postPinnedHttpsWebhookWithFallback } from "../src/webhook-transport";
 
 const directories: string[] = [];
@@ -217,6 +218,171 @@ describe("outbound webhook event outbox", () => {
 			},
 			circular: { self: "[CIRCULAR]" },
 		});
+	});
+
+	test("redacts plural, camel-case, and snake-case credential and recipient keys", () => {
+		expect(
+			redactOutboundWebhookData({
+				emails: ["a@example.com"],
+				recipients: ["b@example.com"],
+				subscriberEmails: ["c@example.com"],
+				tokens: ["token-1"],
+				secrets: ["secret-1"],
+				passwords: ["password-1"],
+				cookies: ["session=1"],
+				apiKeys: ["key-1"],
+				refresh_tokens: ["refresh-1"],
+				"X-Api-Key": "key-2",
+				destination: ["d@example.com"],
+				replyTo: "Support",
+				tokenizer: "word",
+				status: "bounced",
+			}),
+		).toEqual({
+			emails: "[REDACTED]",
+			recipients: "[REDACTED]",
+			subscriberEmails: "[REDACTED]",
+			tokens: "[REDACTED]",
+			secrets: "[REDACTED]",
+			passwords: "[REDACTED]",
+			cookies: "[REDACTED]",
+			apiKeys: "[REDACTED]",
+			refresh_tokens: "[REDACTED]",
+			"X-Api-Key": "[REDACTED]",
+			destination: "[REDACTED]",
+			replyTo: "[REDACTED]",
+			tokenizer: "word",
+			status: "bounced",
+		});
+	});
+
+	test("redacts SES-style addresses and email-shaped values while keeping structure", () => {
+		const redacted = redactOutboundWebhookData({
+			notificationType: "Bounce",
+			bounce: {
+				bounceType: "Permanent",
+				bouncedRecipients: [
+					{ emailAddress: "jane@example.com", status: "5.1.1" },
+				],
+				reportingMTA: "dsn; a8-70.smtp-out.amazonses.com",
+			},
+			mail: {
+				messageId: "0100017f-example",
+				source: "sender@example.com",
+				sourceArn:
+					"arn:aws:ses:us-east-1:123456789012:identity/sender@example.com",
+				destination: ["jane@example.com"],
+				headers: [
+					{ name: "To", value: "Jane Doe <jane@example.com>" },
+					{ name: "Subject", value: "Spring offer" },
+				],
+				commonHeaders: {
+					from: ["Sender <sender@example.com>"],
+					to: ["Jane Doe <jane@example.com>"],
+					subject: "Spring offer",
+				},
+			},
+			click: {
+				link: "https://example.com/offer?email=jane%40example.com",
+				linkTags: { campaign: ["spring"] },
+			},
+			opens: {
+				"jane@example.com": { opened: true },
+				"[REDACTED_KEY_1]": "existing",
+				"joe@example.com": { opened: false },
+			},
+		});
+
+		expect(redacted).toEqual({
+			notificationType: "Bounce",
+			bounce: {
+				bounceType: "Permanent",
+				bouncedRecipients: "[REDACTED]",
+				reportingMTA: "dsn; a8-70.smtp-out.amazonses.com",
+			},
+			mail: {
+				messageId: "0100017f-example",
+				source: "[REDACTED]",
+				sourceArn: "[REDACTED]",
+				destination: "[REDACTED]",
+				headers: [
+					{ name: "To", value: "[REDACTED]" },
+					{ name: "Subject", value: "Spring offer" },
+				],
+				commonHeaders: {
+					from: "[REDACTED]",
+					to: "[REDACTED]",
+					subject: "Spring offer",
+				},
+			},
+			click: {
+				link: "[REDACTED]",
+				linkTags: { campaign: ["spring"] },
+			},
+			opens: {
+				"[REDACTED_KEY_1]": "existing",
+				"[REDACTED_KEY_2]": "[REDACTED]",
+				"[REDACTED_KEY_3]": "[REDACTED]",
+			},
+		});
+		expect(JSON.stringify(redacted)).not.toContain("@example.com");
+		expect(JSON.stringify(redacted)).not.toContain("jane");
+	});
+
+	test("redacts provider metadata before it is stored or forwarded", async () => {
+		const path = await createStorePath();
+		await createEndpoint(path, { eventFilters: ["delivery.*"] });
+		const result = await ingestInboundDeliveryEvent(
+			{
+				provider: "ses",
+				providerEventId: "ses-bounce-1",
+				kind: "bounced",
+				messageId: "0100017f-example",
+				metadata: {
+					bounceType: "Permanent",
+					bouncedRecipients: [{ emailAddress: "jane@example.com" }],
+					mail: {
+						source: "sender@example.com",
+						destination: ["jane@example.com"],
+						commonHeaders: {
+							to: ["Jane <jane@example.com>"],
+							subject: "Spring",
+						},
+					},
+					diagnostic: "smtp; 550 5.1.1 <jane@example.com> unknown user",
+				},
+			},
+			{ path },
+		);
+		expect(result.event.data).toEqual({
+			bounceType: "Permanent",
+			bouncedRecipients: "[REDACTED]",
+			mail: {
+				source: "[REDACTED]",
+				destination: "[REDACTED]",
+				commonHeaders: { to: "[REDACTED]", subject: "Spring" },
+			},
+			diagnostic: "[REDACTED]",
+			provider: "ses",
+			provider_event_id: "ses-bounce-1",
+		});
+		expect(
+			JSON.stringify(await listOutboundWebhookDeliveries({ path })),
+		).not.toContain("@example.com");
+
+		const bodies: string[] = [];
+		await dispatchOutboundWebhooks({
+			store: { path },
+			fetcher: (async (_url: string | URL | Request, init?: RequestInit) => {
+				bodies.push(String(init?.body));
+				return new Response(null, { status: 204 });
+			}) as typeof fetch,
+			resolveSecret: () => "test-secret",
+		});
+		expect(bodies).toHaveLength(1);
+		expect(bodies[0]).toContain('"bounceType":"Permanent"');
+		expect(bodies[0]).not.toContain("@example.com");
+		expect(bodies[0]).not.toContain("Jane");
 	});
 
 	test("filters endpoints and deduplicates the same event and endpoint", async () => {
