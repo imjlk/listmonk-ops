@@ -642,14 +642,58 @@ export async function createCampaign(
 	return { campaign: asCampaign(result.resource), created: result.created };
 }
 
+function numericEntryIds(
+	entries: readonly unknown[] | undefined,
+): number[] {
+	return (entries ?? []).flatMap((entry) => {
+		const id = (entry as { id?: unknown } | null)?.id;
+		return typeof id === "number" && Number.isSafeInteger(id) && id > 0
+			? [id]
+			: [];
+	});
+}
+
+/**
+ * Build a `PUT /campaigns/{id}` body that keeps the stored campaign intact.
+ * Listmonk 6.2 pre-fills the stored campaign before binding the request,
+ * but list IDs, media IDs, and attribs are not part of that pre-fill:
+ * omitted `lists` fail with "Invalid list IDs", omitted `media` detach
+ * every attachment, and omitted `attribs` overwrite the stored ones. Carry
+ * the stored values forward unless the caller sets them.
+ */
+export async function buildCampaignUpdateBody(
+	client: Pick<ListmonkClient, "campaign">,
+	id: number,
+	changes: Omit<z.output<typeof updateCampaignInputSchema>, "id">,
+): Promise<CampaignUpdateBody> {
+	const current = asCampaign(
+		unwrapResourceResponse(
+			await client.campaign.getById({ path: { id } }),
+			"Failed to load campaign before updating",
+		),
+	);
+	const lists = changes.lists ?? numericEntryIds(current.lists);
+	if (lists.length === 0) {
+		throw new Error(
+			`Campaign ${id} has no remaining target lists; pass lists explicitly`,
+		);
+	}
+	return {
+		...changes,
+		lists,
+		media: changes.media ?? numericEntryIds(current.media),
+		attribs: changes.attribs ?? current.attribs ?? {},
+	} as CampaignUpdateBody;
+}
+
 export async function updateCampaign(
 	{ client }: CampaignOperationContext,
 	input: z.output<typeof updateCampaignInputSchema>,
 ): Promise<z.output<typeof campaignSchema>> {
-	const { id, ...body } = input;
+	const { id, ...changes } = input;
 	const response = await client.campaign.update({
 		path: { id },
-		body: body as CampaignUpdateBody,
+		body: await buildCampaignUpdateBody(client, id, changes),
 	});
 	return asCampaign(
 		unwrapResourceResponse(response, "Failed to update campaign"),
@@ -796,6 +840,29 @@ function assertExpectedCampaignRevision(
 	}
 }
 
+/**
+ * Listmonk 6.2 answers `PUT /campaigns/{id}/status` with the updated campaign
+ * rather than `true`, so requiring a boolean acknowledgement reported every
+ * applied transition as a failure. Accept `true` or a campaign echo, but only
+ * when the echoed status is the requested one.
+ */
+export function requireCampaignStatusAcknowledgement(
+	response: Parameters<typeof unwrapResourceResponse>[0],
+	target: CampaignLifecycleTarget,
+	context: string,
+): void {
+	const data = unwrapResourceResponse(response, context) as unknown;
+	if (data === true) return;
+	if (
+		typeof data === "object" &&
+		data !== null &&
+		(data as { status?: unknown }).status === target
+	) {
+		return;
+	}
+	throw new Error(`${context}: Listmonk did not confirm the ${target} status`);
+}
+
 const CAMPAIGN_LIFECYCLE_VERBS: Readonly<Record<CampaignLifecycleTarget, string>> = {
 	scheduled: "schedule",
 	running: "start",
@@ -831,7 +898,11 @@ async function transitionCampaign(
 		body: { status: target },
 	});
 	const verb = CAMPAIGN_LIFECYCLE_VERBS[target] ?? target;
-	requireAcknowledgement(response, `Failed to ${verb} campaign ${input.id}`);
+	requireCampaignStatusAcknowledgement(
+		response,
+		target,
+		`Failed to ${verb} campaign ${input.id}`,
+	);
 	return { id: input.id, status: target };
 }
 
@@ -874,7 +945,9 @@ export async function scheduleCampaign(
 	// non-scheduled status (e.g. draft).
 	const updateResponse = await ctx.client.campaign.update({
 		path: { id: input.id },
-		body: { send_at: input.send_at } as CampaignUpdateBody,
+		body: await buildCampaignUpdateBody(ctx.client, input.id, {
+			send_at: input.send_at,
+		}),
 	});
 	asCampaign(
 		unwrapResourceResponse(updateResponse, "Failed to set campaign send_at"),
@@ -889,8 +962,9 @@ export async function scheduleCampaign(
 			path: { id: input.id },
 			body: { status: "scheduled" },
 		});
-		requireAcknowledgement(
+		requireCampaignStatusAcknowledgement(
 			statusResponse,
+			"scheduled",
 			`Failed to schedule campaign ${input.id}`,
 		);
 	} catch (error) {
@@ -1141,6 +1215,11 @@ interface CloneIssueOutcome {
  * Build the create body for a clone from its source campaign. Shared by
  * the keyed and unkeyed paths; throws on load/parse failures.
  */
+/** Mirror Listmonk's campaign clone: slugified name plus a short suffix. */
+export function cloneArchiveSlug(name: string, now: number = Date.now()): string {
+	return `${name.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${String(now).slice(-4)}`;
+}
+
 async function buildCloneCreateBody(
 	client: Pick<ListmonkClient, "campaign">,
 	input: { id: number; name: string },
@@ -1188,7 +1267,10 @@ async function buildCloneCreateBody(
 		headers: source.headers,
 		attribs: source.attribs,
 		archive: source.archive,
-		archive_slug: source.archive_slug ?? undefined,
+		// archive_slug is UNIQUE, so copying it makes every clone of an
+		// archived campaign fail. Derive a fresh slug the way Listmonk's own
+		// clone action does.
+		archive_slug: source.archive ? cloneArchiveSlug(input.name) : undefined,
 		archive_template_id: source.archive_template_id ?? undefined,
 		archive_meta: source.archive_meta,
 		media: sourceMediaIds,
@@ -1816,9 +1898,34 @@ export async function archiveCampaign(
 	{ client }: CampaignOperationContext,
 	input: z.output<typeof campaignArchiveInputSchema>,
 ): Promise<z.output<typeof campaignArchiveOutputSchema>> {
+	// Listmonk 6.2 rewrites archive_slug (an empty slug becomes NULL) and
+	// archive_meta (an absent map is stored as JSON null) on every toggle,
+	// so resend the stored values to keep public archive links and the
+	// archive placeholder data intact.
+	const current = asCampaign(
+		unwrapResourceResponse(
+			await client.campaign.getById({ path: { id: input.id } }),
+			"Failed to load campaign before toggling its archive",
+		),
+	);
+	const archiveMeta = current.archive_meta;
 	const response = await client.campaign.updateArchive({
 		path: { id: input.id },
-		body: { archive: input.archive },
+		body: {
+			archive: input.archive,
+			archive_slug:
+				typeof current.archive_slug === "string" ? current.archive_slug : "",
+			archive_template_id:
+				typeof current.archive_template_id === "number"
+					? current.archive_template_id
+					: 0,
+			archive_meta:
+				typeof archiveMeta === "object" &&
+				archiveMeta !== null &&
+				!Array.isArray(archiveMeta)
+					? (archiveMeta as Record<string, unknown>)
+					: {},
+		},
 	});
 	const metadata = unwrapResourceResponse(
 		response,

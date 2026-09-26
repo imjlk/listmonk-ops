@@ -951,13 +951,102 @@ describe("shared CRUD resource operations", () => {
 		).resolves.toBeUndefined();
 	});
 
+	test("carries stored lists, media, and attribs into partial campaign updates", async () => {
+		const getById = mock(async () => ({
+			data: {
+				id: 12,
+				name: "Draft",
+				status: "draft",
+				lists: [{ id: 3, name: "Newsletter" }, { id: null, name: "Deleted" }],
+				media: [{ id: 9, filename: "banner.png" }],
+				attribs: { owner: "ops" },
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const update = mock(async () => ({
+			data: { id: 12, name: "Renamed", status: "draft" },
+		})) as unknown as CampaignClient["campaign"]["update"];
+
+		await invokeUpdateCampaignOperation(
+			campaignContext({ getById, update }),
+			{ id: 12, name: "Renamed" },
+		);
+		// Listmonk 6.2 rejects a PUT without lists ("Invalid list IDs"),
+		// detaches media that are not resent, and overwrites attribs.
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 12 },
+			body: {
+				name: "Renamed",
+				lists: [3],
+				media: [9],
+				attribs: { owner: "ops" },
+			},
+		});
+
+		await invokeUpdateCampaignOperation(
+			campaignContext({ getById, update }),
+			{ id: 12, lists: [4], media: [], attribs: {} },
+		);
+		expect(update).toHaveBeenLastCalledWith({
+			path: { id: 12 },
+			body: { lists: [4], media: [], attribs: {} },
+		});
+
+		const orphaned = mock(async () => ({
+			data: { id: 13, status: "draft", lists: [{ id: null }] },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		await expect(
+			invokeUpdateCampaignOperation(
+				campaignContext({ getById: orphaned, update }),
+				{ id: 13, name: "No lists" },
+			),
+		).rejects.toThrow("has no remaining target lists");
+		expect(update).toHaveBeenCalledTimes(2);
+	});
+
+	test("accepts Listmonk 6.2 campaign echoes as status acknowledgements", async () => {
+		const getById = mock(async () => ({
+			data: { id: 14, status: "running", lists: [{ id: 3 }] },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		// Listmonk 6.2 returns the updated campaign from PUT /campaigns/{id}/status.
+		const updateStatus = mock(async () => ({
+			data: { id: 14, status: "paused" },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		await expect(
+			invokePauseCampaignOperation(
+				campaignContext({ getById, updateStatus }),
+				{ id: 14 },
+			),
+		).resolves.toEqual({ id: 14, status: "paused" });
+
+		const mismatched = mock(async () => ({
+			data: { id: 14, status: "running" },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		await expect(
+			invokePauseCampaignOperation(
+				campaignContext({ getById, updateStatus: mismatched }),
+				{ id: 14 },
+			),
+		).rejects.toThrow("Listmonk did not confirm the paused status");
+
+		const rejected = mock(async () => ({
+			data: false,
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		await expect(
+			invokePauseCampaignOperation(
+				campaignContext({ getById, updateStatus: rejected }),
+				{ id: 14 },
+			),
+		).rejects.toThrow("Listmonk did not confirm the paused status");
+	});
+
 	test("validates campaign lifecycle state transitions before updating status", async () => {
 		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
 		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
 
 		// schedule: draft -> scheduled allowed when send_at is provided
 		const getById = mock(async () => ({
-			data: { id: 10, name: "Draft", status: "draft" },
+			data: { id: 10, name: "Draft", status: "draft", lists: [{ id: 3 }] },
 		})) as unknown as CampaignClient["campaign"]["getById"];
 		const scheduleResult = await invokeScheduleCampaignOperation(
 			campaignContext({
@@ -1050,7 +1139,7 @@ describe("shared CRUD resource operations", () => {
 		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
 		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
 		const getById = mock(async () => ({
-			data: { id: 10, status: "draft" },
+			data: { id: 10, status: "draft", lists: [{ id: 3 }] },
 		})) as unknown as CampaignClient["campaign"]["getById"];
 
 		for (const ts of [
@@ -1124,7 +1213,14 @@ describe("shared CRUD resource operations", () => {
 		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
 		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
 		const getById = mock(async () => ({
-			data: { id: 10, status: "scheduled", send_at: "2026-08-01T09:00:00Z" },
+			data: {
+				id: 10,
+				status: "scheduled",
+				send_at: "2026-08-01T09:00:00Z",
+				lists: [{ id: 3, name: "Newsletter" }],
+				media: [{ id: 9, filename: "banner.png" }],
+				attribs: { owner: "ops" },
+			},
 		})) as unknown as CampaignClient["campaign"]["getById"];
 
 		const result = await invokeScheduleCampaignOperation(
@@ -1133,9 +1229,16 @@ describe("shared CRUD resource operations", () => {
 		);
 		expect(result).toEqual({ id: 10, status: "scheduled" });
 		expect(update).toHaveBeenCalledTimes(1);
+		// Listmonk 6.2 does not pre-fill list IDs, media, or attribs on PUT,
+		// so the stored values are carried into the send_at update.
 		expect(update).toHaveBeenCalledWith({
 			path: { id: 10 },
-			body: { send_at: "2026-09-01T10:00:00Z" },
+			body: {
+				send_at: "2026-09-01T10:00:00Z",
+				lists: [3],
+				media: [9],
+				attribs: { owner: "ops" },
+			},
 		});
 		expect(updateStatus).not.toHaveBeenCalled();
 	});
@@ -1144,7 +1247,7 @@ describe("shared CRUD resource operations", () => {
 		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
 		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
 		const getById = mock(async () => ({
-			data: { id: 10, status: "draft", send_at: null },
+			data: { id: 10, status: "draft", send_at: null, lists: [{ id: 3 }] },
 		})) as unknown as CampaignClient["campaign"]["getById"];
 
 		const result = await invokeScheduleCampaignOperation(

@@ -2508,6 +2508,7 @@ export type UpdateCampaignArchiveByIdData = {
     body?: {
         archive?: boolean;
         archive_template_id?: number;
+        archive_slug?: string;
         archive_meta?: {
             [key: string]: unknown;
         };

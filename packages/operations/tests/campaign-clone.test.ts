@@ -1,6 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
-import { invokeCloneCampaignOperation } from "../src";
+import { cloneArchiveSlug, invokeCloneCampaignOperation } from "../src";
 import { createInMemoryResourceCreateStore } from "./helpers/resource-create-store.js";
 
 type CampaignClient = Pick<ListmonkClient, "campaign">;
@@ -37,6 +37,39 @@ describe("campaign clone operations", () => {
 			created: true,
 			campaign: { id: 21, name: "Copy", status: "draft" },
 		});
+	});
+
+	test("never copies the unique archive slug onto a clone", async () => {
+		const create = mock(async () => ({
+			data: { id: 22, name: "Spring copy", status: "draft" },
+		})) as unknown as CampaignClient["campaign"]["create"];
+		const list = mock(async () => ({
+			data: { results: [], total: 0 },
+		})) as unknown as CampaignClient["campaign"]["list"];
+
+		for (const archive of [true, false]) {
+			const getById = mock(async () => ({
+				data: { ...source, archive, archive_slug: "spring-sale" },
+			})) as unknown as CampaignClient["campaign"]["getById"];
+			await invokeCloneCampaignOperation(
+				context({ getById, list, create }),
+				{ id: 11, name: "Spring copy" },
+			);
+			const body = (create as unknown as ReturnType<typeof mock>).mock.calls.at(
+				-1,
+			)?.[0]?.body as { archive_slug?: string };
+			// archive_slug is UNIQUE in Listmonk; an archived clone gets a
+			// fresh slug the way Listmonk's own clone action derives it.
+			expect(body.archive_slug).not.toBe("spring-sale");
+			if (archive) {
+				expect(body.archive_slug).toMatch(/^spring-copy-\d{4}$/);
+			} else {
+				expect(body.archive_slug).toBeUndefined();
+			}
+		}
+		expect(cloneArchiveSlug("Spring Sale!", 1_790_000_001_234)).toBe(
+			"spring-sale--1234",
+		);
 	});
 
 	test("replays a keyed clone through the idempotency store", async () => {
