@@ -6,8 +6,10 @@ set -euo pipefail
 # while retaining the stricter compressed distribution budget below. Each
 # standalone contract migration adds a few KB of generated JSON.
 # Sequence consent and deliverability playbook contracts share this budget.
-MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1940000}"
-MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-323000}"
+# Listmonk 6.2 write-semantics fixes (list UUID resolution, derived-name
+# replays, per-subscriber unblocklisting) add a little code on top.
+MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1960000}"
+MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-327000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"
 
