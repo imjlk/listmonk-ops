@@ -261,7 +261,19 @@ const LANCZOS_COEFFICIENTS = [
 ] as const;
 const INCOMPLETE_GAMMA_EPSILON = 1e-15;
 const INCOMPLETE_GAMMA_MAX_ITERATIONS = 10_000;
-const INCOMPLETE_GAMMA_TINY = 1e-300;
+// Floor for a vanishing Lentz term (Numerical Recipes' FPMIN): small enough
+// to stand in for zero, yet large enough that the next `numerator / c`
+// (at most ~MAX_ITERATIONS² / floor ≈ 1e38) cannot overflow. In normal
+// iterations c and d stay near b's magnitude, so the floor never binds.
+const INCOMPLETE_GAMMA_TINY = 1e-30;
+
+/** Clamp rounding error into [0, 1]; refuse a NaN rather than report it. */
+function toProbability(value: number, a: number, x: number): number {
+	if (Number.isNaN(value)) {
+		throw new RangeError(`incomplete gamma is undefined for a=${a}, x=${x}`);
+	}
+	return Math.min(1, Math.max(0, value));
+}
 
 /** Natural log of Γ(z) for z ≥ 0.5. */
 function logGamma(z: number): number {
@@ -309,7 +321,7 @@ export function regularizedUpperGamma(a: number, x: number): number {
 			term *= x / (a + index);
 			sum += term;
 			if (Math.abs(term) < Math.abs(sum) * INCOMPLETE_GAMMA_EPSILON) {
-				return Math.min(1, Math.max(0, 1 - sum * Math.exp(logPrefactor)));
+				return toProbability(1 - sum * Math.exp(logPrefactor), a, x);
 			}
 		}
 	} else {
@@ -336,7 +348,7 @@ export function regularizedUpperGamma(a: number, x: number): number {
 			const delta = d * c;
 			fraction *= delta;
 			if (Math.abs(delta - 1) < INCOMPLETE_GAMMA_EPSILON) {
-				return Math.min(1, Math.max(0, Math.exp(logPrefactor) * fraction));
+				return toProbability(Math.exp(logPrefactor) * fraction, a, x);
 			}
 		}
 	}
