@@ -592,6 +592,7 @@ async function applyManageListsAction(
 	});
 }
 
+/**
  * Add a batch of subscribers to one or more lists. Subscriber IDs are
  * chunked and each chunk is sent as a `manageLists` action: add. Respects
  * the shared bulk options (dry_run, max_items, continue_on_error).
