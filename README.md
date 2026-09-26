@@ -611,10 +611,13 @@ listmonk-cli bounces prune --per-page 100 --confirm
 listmonk-cli bounces prune --no-dry-run --bounce-ids 5,6,7 --confirm
 ```
 
-Campaign lifecycle transitions are validated client-side against an
-observed state machine (`draft → scheduled/running`, `scheduled →
-running`, `running → paused/cancelled`, `paused → running`,
-`finished`/`cancelled` are terminal). Subscriber
+Campaign lifecycle transitions are validated client-side against Listmonk
+6.2's status rules (`draft → scheduled/running`, `running →
+paused/cancelled`, `paused → running/scheduled/cancelled`,
+`finished`/`cancelled` are terminal). Listmonk starts a `scheduled` campaign
+itself at its `send_at`, so starting one early requires unscheduling it to
+`draft` first, and a campaign the deliverability guard paused can be
+cancelled directly. Subscriber
 bulk operations chunk IDs (default 500 per chunk) and support
 `--dry-run`, `--max-items`, and `--continue-on-error`. Media uploads
 enforce a MIME allowlist and a 10 MiB size cap.

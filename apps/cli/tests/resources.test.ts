@@ -338,6 +338,9 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			"Campaign 10 scheduled for 2026-08-01T09:00:00Z",
 		);
 
+		// Listmonk's scheduler starts a scheduled campaign itself; an explicit
+		// start applies to draft (or paused) campaigns.
+		currentStatus = "draft";
 		await renderStartCampaign(cliContext, {
 			id: 10,
 			expected_updated_at: "2026-07-30T09:00:00Z",
@@ -346,8 +349,7 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			"Campaign 10 started",
 		);
 
-		// Listmonk 6.2.0 only accepts cancel from `running`, so cancel must
-		// run while the campaign is still running (before any pause).
+		// Listmonk 6.2.0 cancels running or paused campaigns.
 		await renderCancelCampaign(cliContext, {
 			id: 10,
 			expected_updated_at: "2026-07-30T09:00:00Z",

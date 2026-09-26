@@ -17,7 +17,7 @@ export const campaignResource = defineOperationResourceSpec({
 		draft: ["scheduled", "running"],
 		scheduled: ["running"],
 		running: ["paused", "cancelled"],
-		paused: ["running"],
+		paused: ["running", "scheduled", "cancelled"],
 		finished: [],
 		cancelled: [],
 	},
@@ -117,7 +117,7 @@ export const campaignScheduleOperationSpec = defineOperationSpec({
 	},
 	state: {
 		resource: "campaign",
-		from: ["draft"],
+		from: ["draft", "paused"],
 		to: "scheduled",
 		allowNoopFromTarget: true,
 	},
