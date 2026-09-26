@@ -16,15 +16,15 @@ function fixture(overrides: Record<string, unknown> = {}, bounceCount = 0) {
 		...overrides,
 	};
 	let reads = 0;
-	let pauses = 0;
+	const pauseRequests: unknown[] = [];
 	let secondRead: Record<string, unknown> | undefined;
 	const client = {
 		campaign: {
 			getById: async () => ({
 				data: ++reads > 1 && secondRead ? secondRead : campaign,
 			}),
-			updateStatus: async () => {
-				pauses += 1;
+			updateStatus: async (request: unknown) => {
+				pauseRequests.push(request);
 				return { data: true };
 			},
 		},
@@ -39,7 +39,9 @@ function fixture(overrides: Record<string, unknown> = {}, bounceCount = 0) {
 	return {
 		client,
 		campaign,
-		pauses: () => pauses,
+		reads: () => reads,
+		pauses: () => pauseRequests.length,
+		pauseRequests: () => pauseRequests,
 		setSecondRead: (value: Record<string, unknown>) => {
 			secondRead = value;
 		},
@@ -110,13 +112,59 @@ test("scheduled campaigns never issue the illegal paused transition", async () =
 	);
 	expect(f.pauses()).toBe(0);
 });
-test("pause fails closed when the observed revision is missing or changes", async () => {
- const missing = fixture({ updated_at: undefined }, 6);
- await expect(evaluateDeliverabilityGuard(missing.client, 1, observe)).rejects.toThrow("updated_at");
- const changed = fixture({}, 6);
- changed.setSecondRead({ ...changed.campaign, updated_at: "2026-09-25T12:00:01Z" });
- await expect(evaluateDeliverabilityGuard(changed.client, 1, observe)).rejects.toThrow("changed after preflight");
- expect(missing.pauses() + changed.pauses()).toBe(0);
+// Listmonk 6.2 bumps a running campaign's updated_at on every subscriber
+// batch fetch and sent-count flush, so the revision routinely advances
+// between the guard's read and its pause while the campaign keeps sending.
+test("send progress between the reads does not block pausing a running campaign", async () => {
+	const f = fixture({}, 6);
+	f.setSecondRead({
+		...f.campaign,
+		sent: 180,
+		updated_at: "2026-09-25T12:00:01Z",
+	});
+	expect((await evaluateDeliverabilityGuard(f.client, 1, observe)).paused).toBe(
+		true,
+	);
+	expect(f.reads()).toBe(2);
+	expect(f.pauseRequests()).toEqual([
+		{ path: { id: 1 }, body: { status: "paused" } },
+	]);
+});
+test("the shared guard operation pauses despite an advanced revision", async () => {
+	const f = fixture({}, 6);
+	f.setSecondRead({ ...f.campaign, updated_at: "2026-09-25T12:00:01Z" });
+	const result = await invokeDeliverabilityGuardOperation({ client: f.client }, { campaign_id: 1, pause_on_breach: true });
+	expect(result.paused).toBe(true);
+	expect(f.pauses()).toBe(1);
+});
+test("a missing observed revision does not block the status-bound pause", async () => {
+	const f = fixture({ updated_at: undefined }, 6);
+	expect((await evaluateDeliverabilityGuard(f.client, 1, observe)).paused).toBe(
+		true,
+	);
+	expect(f.pauses()).toBe(1);
+});
+for (const status of ["finished", "cancelled", "scheduled"]) {
+	test(`a campaign that became ${status} before the pause fails closed`, async () => {
+		const f = fixture({}, 6);
+		f.setSecondRead({ ...f.campaign, status, updated_at: "2026-09-25T12:00:01Z" });
+		await expect(evaluateDeliverabilityGuard(f.client, 1, observe)).rejects.toThrow(
+			`Campaign ${status} -> paused is not a valid lifecycle transition`,
+		);
+		expect(f.pauses()).toBe(0);
+	});
+}
+test("a campaign paused elsewhere before the pause is an idempotent no-op", async () => {
+	const f = fixture({}, 6);
+	f.setSecondRead({
+		...f.campaign,
+		status: "paused",
+		updated_at: "2026-09-25T12:00:01Z",
+	});
+	expect((await evaluateDeliverabilityGuard(f.client, 1, observe)).paused).toBe(
+		true,
+	);
+	expect(f.pauses()).toBe(0);
 });
 test("operation schema exposes and validates the shared observation controls", async () => {
  const f = fixture({ started_at: "2020-01-01T00:00:00Z" });
