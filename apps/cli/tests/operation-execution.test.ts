@@ -114,6 +114,13 @@ describe("CLI operation execution safety", () => {
 		expect(cause).toMatchObject({
 			message: "Operation campaigns.delete requires explicit confirmation",
 		});
+		// Like `new Error(message, { cause })`, the cause is not enumerable.
+		expect(Object.getOwnPropertyDescriptor(error, "cause")).toMatchObject({
+			enumerable: false,
+			writable: true,
+			configurable: true,
+		});
+		expect(Object.keys(error as object)).not.toContain("cause");
 	});
 
 	test("records successful and failed writes without storing remote error text", async () => {
