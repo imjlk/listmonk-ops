@@ -360,8 +360,23 @@ listmonk-mcp \
 HTTP 런타임은 기존 REST 엔드포인트를 유지하면서 `/mcp`에서 표준
 Streamable HTTP MCP를 제공합니다. 로컬 HTTP는 추가 설정 없이 계속 동작합니다.
 loopback 외부에 바인딩하려면 별도의 MCP Bearer token, 허용 Host, 브라우저
-Origin을 모두 명시해야 하며 MCP 및 도구 요청 모두 `Authorization` 헤더에 해당
-token을 보내야 합니다. 외부에 HTTP를 노출할 때는 TLS reverse proxy를 사용하세요.
+Origin을 모두 명시해야 합니다. 외부에 HTTP를 노출할 때는 TLS reverse proxy를
+사용하세요.
+
+`MCP_HTTP_AUTH_TOKEN`을 설정하면 인증은 기본 거부(default-deny)로 동작합니다.
+`/mcp`, `/tools/list`, `/tools/call`, 알 수 없는 경로를 포함한 모든 요청은
+`Authorization: Bearer <MCP_HTTP_AUTH_TOKEN>`을 보내야 합니다. `/`와
+`/health`에 대한 `GET` 및 `HEAD` 요청과 CORS preflight `OPTIONS` 요청만
+예외이며, 이 요청들은 Listmonk 데이터를 노출하지 않습니다. 경로는 라우터와
+똑같이 percent-decoding한 뒤 검사하므로 `/%6Dcp` 같은 인코딩된 변형에도 token이
+필요합니다.
+
+`--port`와 `MCP_SERVER_PORT`는 1부터 65535 사이의 10진수 정수여야 합니다. 잘못된
+값이면 포트 3000으로 대체하지 않고 시작을 중단하며, stdio는 `MCP_SERVER_PORT`를
+무시합니다. 알 수 없는 옵션이나 잘못된 값은 런타임 스택 없이 `--help`를
+안내하는 짧은 오류와 함께 종료 코드 1로 종료합니다. JSON이 잘못되었거나
+`/tools/call` params가 유효하지 않은 legacy REST 요청은 짧은 JSON `error`
+메시지와 함께 `400`을 반환합니다.
 
 ## Sampo 체인지셋 + npm OIDC 배포
 
