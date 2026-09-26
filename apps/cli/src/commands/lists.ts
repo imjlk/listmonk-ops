@@ -21,7 +21,7 @@ import {
 	type HandlerArgs,
 	option,
 } from "../lib/command";
-import { toErrorMessage } from "../lib/command-utils";
+import { positiveIntegerIdSchema, toErrorMessage } from "../lib/command-utils";
 import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
 
 type ListsOutput = Pick<typeof OutputUtils, "info" | "json" | "success" | "table">;
@@ -294,7 +294,7 @@ export default defineGroup({
 			operationId: "lists.get",
 			description: "Get list details",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "List ID",
 				}),
 			},
@@ -335,7 +335,7 @@ export default defineGroup({
 			operationId: "lists.update",
 			description: "Update a subscriber list",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "List ID",
 				}),
 				name: option(z.string().trim().min(1).optional(), {
@@ -361,7 +361,7 @@ export default defineGroup({
 			operationId: "lists.delete",
 			description: "Delete a subscriber list",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "List ID",
 				}),
 			},
