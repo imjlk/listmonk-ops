@@ -538,7 +538,7 @@ memberships with a truncated list.
 
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
-# --no-body omits campaign bodies (also on campaigns list and templates list).
+# --no-body omits bodies; campaigns list and templates list accept it too.
 listmonk-cli campaigns get --id 42 --no-body
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \

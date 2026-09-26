@@ -530,7 +530,7 @@ update 명령이 잘린 목록으로 기존 소속 목록을 대체하지 않습
 
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
-# --no-body는 캠페인 본문을 생략합니다(campaigns list, templates list에서도 사용).
+# --no-body는 본문을 생략합니다. campaigns list와 templates list에서도 사용할 수 있습니다.
 listmonk-cli campaigns get --id 42 --no-body
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
