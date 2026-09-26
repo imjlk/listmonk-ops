@@ -108,6 +108,16 @@ export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
 export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
 
+경로 값을 받는 변수(`LISTMONK_OPS_DATA_DIR`, `LISTMONK_API_TOKEN_FILE`,
+`LISTMONK_OPS_AUDIT_STORE`, `LISTMONK_OPS_TRANSACTIONAL_STORE`,
+`LISTMONK_OPS_RESOURCE_CREATE_STORE`, `LISTMONK_OPS_SEGMENT_STORE`,
+`LISTMONK_OPS_TEMPLATE_REGISTRY`, `LISTMONK_OPS_SEQUENCE_STORE`,
+`LISTMONK_OPS_WEBHOOK_STORE`)는 앞뒤 공백을 무시하고, 맨 앞의 `~` 또는 `~/`를
+홈 디렉터리로 확장하며(MCP 클라이언트 JSON 설정은 셸 확장을 거치지 않습니다),
+상대 경로는 실행 디렉터리가 아닌 홈 디렉터리를 기준으로 해석합니다. 따라서
+어느 디렉터리에서 실행한 CLI와 다른 위치에서 시작한 MCP 서버도 같은 상태
+파일을 공유합니다.
+
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
 
 ### 선언형 template provisioning

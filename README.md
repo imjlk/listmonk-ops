@@ -108,6 +108,16 @@ export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
 export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
 
+Path-valued variables (`LISTMONK_OPS_DATA_DIR`, `LISTMONK_API_TOKEN_FILE`,
+`LISTMONK_OPS_AUDIT_STORE`, `LISTMONK_OPS_TRANSACTIONAL_STORE`,
+`LISTMONK_OPS_RESOURCE_CREATE_STORE`, `LISTMONK_OPS_SEGMENT_STORE`,
+`LISTMONK_OPS_TEMPLATE_REGISTRY`, `LISTMONK_OPS_SEQUENCE_STORE`, and
+`LISTMONK_OPS_WEBHOOK_STORE`) ignore surrounding whitespace, expand a leading
+`~` or `~/` (MCP client JSON configurations are not shell-expanded), and resolve
+relative values from the home directory, never the working directory. A CLI run
+from any directory and an MCP server launched elsewhere therefore share the same
+state files.
+
 You can create/manage tokens in the Listmonk admin UI.
 
 ### Declarative template provisioning

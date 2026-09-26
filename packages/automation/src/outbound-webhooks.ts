@@ -1,4 +1,7 @@
-import { getListmonkDataDirectory } from "@listmonk-ops/common";
+import {
+	getListmonkDataDirectory,
+	resolveConfiguredPath,
+} from "@listmonk-ops/common";
 import {
 	createHmac,
 	randomBytes,
@@ -811,11 +814,12 @@ function resolveStoreLimit(limit: number | undefined): number {
 	return resolved;
 }
 
+/** Overrides follow the shared home-anchored path rule, like other stores. */
 export function getOutboundWebhookStorePath(): string {
-	return (
-		process.env.LISTMONK_OPS_WEBHOOK_STORE?.trim() ||
-		join(getListmonkDataDirectory(), "outbound-webhooks.json")
-	);
+	const overridden = process.env.LISTMONK_OPS_WEBHOOK_STORE?.trim();
+	return overridden
+		? resolveConfiguredPath(overridden)
+		: join(getListmonkDataDirectory(), "outbound-webhooks.json");
 }
 
 export function createOutboundWebhookStore(

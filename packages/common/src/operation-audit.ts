@@ -1,4 +1,7 @@
-import { getListmonkDataDirectory } from "./configuration";
+import {
+	getListmonkDataDirectory,
+	resolveConfiguredPath,
+} from "./configuration";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import {
@@ -134,11 +137,16 @@ function resolveAuditLimit(limit: number | undefined): number {
 	return resolvedLimit;
 }
 
+/**
+ * Relative and `~/` overrides resolve from the home directory, like the
+ * idempotency stores, so an MCP server launched with an unrelated working
+ * directory (for example `/`) appends to the same audit file as the CLI.
+ */
 export function getOperationAuditStorePath(): string {
-	return (
-		process.env.LISTMONK_OPS_AUDIT_STORE?.trim() ||
-		join(getListmonkDataDirectory(), "operation-audit.json")
-	);
+	const overridden = process.env.LISTMONK_OPS_AUDIT_STORE?.trim();
+	return overridden
+		? resolveConfiguredPath(overridden)
+		: join(getListmonkDataDirectory(), "operation-audit.json");
 }
 
 export function createOperationAuditExecutionId(): string {

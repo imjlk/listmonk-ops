@@ -1,8 +1,10 @@
-import { getListmonkDataDirectory } from "./configuration";
+import {
+	getListmonkDataDirectory,
+	resolveConfiguredPath,
+} from "./configuration";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
 	readJsonFileStore,
@@ -268,18 +270,14 @@ export class TransactionalStoreCapacityError extends Error {
 
 export function getTransactionalStorePath(): string {
 	const overridden = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE?.trim();
-	if (!overridden) {
-		return join(getListmonkDataDirectory(), "transactional.json");
-	}
-	// Resolve relative overrides against the user's home directory (not
+	// Relative and `~/` overrides resolve from the home directory (not
 	// process.cwd()) so the CLI (invoked from any directory) and the MCP
-	// server (started from its service directory) share the same file.
-	// A cwd-based resolve would map the same configuration to different
-	// files depending on where each process was launched.
-	if (overridden.startsWith("/")) {
-		return overridden;
-	}
-	return resolve(homedir(), overridden);
+	// server (started from its service directory, with a JSON config that
+	// no shell expands) share the same file. Otherwise one idempotency key
+	// could be claimed in two different files and sent twice.
+	return overridden
+		? resolveConfiguredPath(overridden)
+		: join(getListmonkDataDirectory(), "transactional.json");
 }
 
 /**

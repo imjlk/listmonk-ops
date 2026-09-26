@@ -46,7 +46,9 @@ export function getOutboundWebhookStoreOptionsFromEnvironment(
 ): OutboundWebhookStoreOptions {
 	const path =
 		options.path ??
-		(process.env[OUTBOUND_WEBHOOK_STORE_PATH_ENV]?.trim() || undefined);
+		(process.env[OUTBOUND_WEBHOOK_STORE_PATH_ENV]?.trim()
+			? getOutboundWebhookStorePath()
+			: undefined);
 	const databaseUrl =
 		options.databaseUrl ??
 		(process.env[OUTBOUND_WEBHOOK_DATABASE_URL_ENV]?.trim() || undefined);
