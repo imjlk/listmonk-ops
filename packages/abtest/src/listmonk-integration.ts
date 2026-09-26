@@ -830,13 +830,13 @@ export class ListmonkAbTestIntegration {
 						path: { list_id: listId },
 					});
 					if (
-					"error" in deleteResult &&
-					deleteResult.error !== undefined &&
-					!isNotFoundError(deleteResult)
-				) {
+						"error" in deleteResult &&
+						deleteResult.error !== undefined &&
+						!isNotFoundError(deleteResult)
+					) {
 						throw new Error(
-						`Failed to delete list ${listId}: ${formatListmonkErrorResponse(deleteResult)}`,
-					);
+							`Failed to delete list ${listId}: ${formatListmonkErrorResponse(deleteResult)}`,
+						);
 					}
 				} catch (error) {
 					errors.push(error instanceof Error ? error.message : String(error));

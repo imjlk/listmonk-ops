@@ -139,11 +139,13 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 						path: { id: mapping.campaignId },
 					});
 					if ("error" in response || response.data === undefined) {
+						// Only a present error body or HTTP status is worth
+						// appending; an envelope without either adds nothing.
+						const detail =
+							"error" in response ? formatListmonkErrorResponse(response) : "";
 						throw new Error(
 							`campaign ${mapping.campaignId} returned no data${
-								"error" in response
-									? `: ${formatListmonkErrorResponse(response)}`
-									: ""
+								detail === "" ? "" : `: ${detail}`
 							}`,
 						);
 					}

@@ -57,6 +57,13 @@ describe("formatListmonkErrorResponse", () => {
 		expect(listmonkResponseStatus(envelope("boom", 500))).toBe(500);
 	});
 
+	it("renders an absent body as empty instead of undefined", () => {
+		expect(formatListmonkErrorResponse(envelope(undefined, 500))).toBe(
+			"HTTP 500",
+		);
+		expect(formatListmonkErrorResponse(envelope(undefined))).toBe("");
+	});
+
 	it("never renders the request or its credentials", () => {
 		const request = new Request("http://listmonk.test/api/campaigns/8", {
 			headers: { Authorization: "token api-user:very-secret-token" },
@@ -108,6 +115,36 @@ describe("Listmonk error rendering at call sites", () => {
 			),
 		).rejects.toThrow(
 			"Failed to update status for campaign 8: HTTP 400: send_at date should be in the future",
+		);
+	});
+
+	it("appends only the detail an envelope actually carries", async () => {
+		const responses = new Map<number, unknown>([
+			[8, envelope(undefined, 500)],
+			[9, envelope(undefined)],
+		]);
+		const client = {
+			campaign: {
+				getById: async ({ path }: { path: { id: number } }) =>
+					responses.get(path.id),
+			},
+		} as unknown as ListmonkClient;
+		const collector = new ListmonkMetricsCollector(client);
+		const collect = (campaignId: number) =>
+			collector.collect({
+				id: "test-1",
+				campaignMappings: [{ variantId: "A", campaignId }],
+			} as AbTest);
+
+		await expect(collect(8)).rejects.toThrow(
+			"Metrics unavailable for A/B test test-1: campaign 8 returned no data: HTTP 500",
+		);
+		const bare = await collect(9).then(
+			() => undefined,
+			(error: unknown) => error,
+		);
+		expect((bare as Error).message).toBe(
+			"Metrics unavailable for A/B test test-1: campaign 9 returned no data",
 		);
 	});
 
