@@ -214,6 +214,17 @@ describe("CLI argv parsing", () => {
 		expect(requests.length).toBeGreaterThan(0);
 	}, 30_000);
 
+	test("a misplaced --no-body fails whether or not it is set to false", async () => {
+		for (const flag of ["--no-body", "--no-body=false"]) {
+			const result = await runCli(["lists", "get", "--id", "1", flag, "--format=json"]);
+			expect(result.exitCode).not.toBe(0);
+			expect(JSON.parse(result.stderr).error.message).toContain(
+				"Unknown option: --no-body",
+			);
+		}
+		expect(requests).toEqual([]);
+	}, 30_000);
+
 	test("--no-body help shows the flag without a double negation", async () => {
 		const result = await runCli(["campaigns", "get", "--help"]);
 		expect(result.exitCode).toBe(0);
