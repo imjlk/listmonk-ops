@@ -149,6 +149,7 @@ export async function findInstalledWorkspaceCopies(
 interface CommandResult {
 	exitCode: number;
 	signal: string | null;
+	timedOut: boolean;
 	stdout: string;
 	stderr: string;
 }
@@ -159,13 +160,16 @@ const NPM_LIFECYCLE_VARIABLE =
 	/^npm_(?:command|execpath|node_execpath|lifecycle_\w+|package_\w+|config_local_prefix|config_user_agent)$/i;
 
 // A stalled registry fetch or CLI run must fail the check instead of holding
-// a CI runner until the job-level timeout.
+// a CI runner until the job-level timeout. SIGKILL cannot be trapped or
+// ignored, so the bound holds even for a child that mishandles SIGTERM.
 const COMMAND_TIMEOUT_MS = 5 * 60_000;
+const COMMAND_TIMEOUT_SIGNAL = "SIGKILL";
 
 async function runCommand(
 	command: readonly string[],
 	options: { cwd: string; env: Environment },
 ): Promise<CommandResult> {
+	const startedAt = performance.now();
 	const child = Bun.spawn([...command], {
 		cwd: options.cwd,
 		env: options.env,
@@ -173,20 +177,32 @@ async function runCommand(
 		stdout: "pipe",
 		stderr: "pipe",
 		timeout: COMMAND_TIMEOUT_MS,
+		killSignal: COMMAND_TIMEOUT_SIGNAL,
 	});
 	const [stdout, stderr, exitCode] = await Promise.all([
 		new Response(child.stdout).text(),
 		new Response(child.stderr).text(),
 		child.exited,
 	]);
-	return { exitCode, signal: child.signalCode, stdout, stderr };
+	const signal = child.signalCode;
+	return {
+		exitCode,
+		signal,
+		// An external SIGKILL (for example an OOM kill) is not a timeout.
+		timedOut:
+			signal === COMMAND_TIMEOUT_SIGNAL &&
+			performance.now() - startedAt >= COMMAND_TIMEOUT_MS,
+		stdout,
+		stderr,
+	};
 }
 
 function commandFailure(label: string, result: CommandResult): Error {
-	const outcome =
-		result.signal === null
+	const outcome = result.timedOut
+		? `timed out after ${COMMAND_TIMEOUT_MS / 1000}s`
+		: result.signal === null
 			? `exited with ${result.exitCode}`
-			: `was stopped by ${result.signal} (commands time out after ${COMMAND_TIMEOUT_MS / 1000}s)`;
+			: `was stopped by ${result.signal}`;
 	return new Error(
 		`${label} ${outcome}\n${result.stdout}${result.stderr}`.trim(),
 	);
