@@ -75,6 +75,26 @@ describe("SSRF defense — isPrivateHost", () => {
 		expect(isPrivateHost("localhost")).toBe(true);
 	});
 
+	it("blocks RFC 6761 localhost names with or without a root dot", () => {
+		for (const host of [
+			"localhost.",
+			"localhost..",
+			"LOCALHOST.",
+			"hooks.localhost",
+			"hooks.localhost.",
+			"a.b.LocalHost",
+		]) {
+			expect(isPrivateHost(host)).toBe(true);
+		}
+		for (const host of [
+			"localhost.example.com",
+			"mylocalhost",
+			"localhost-proxy.example",
+		]) {
+			expect(isPrivateHost(host)).toBe(false);
+		}
+	});
+
 	it("blocks private 10.x", () => {
 		expect(isPrivateHost("10.0.0.1")).toBe(true);
 		expect(isPrivateHost("10.255.255.255")).toBe(true);
@@ -151,6 +171,19 @@ describe("SSRF defense — isSafeFetchUrl", () => {
 		const result = isSafeFetchUrl("http://localhost:8080/secret");
 		expect(result.safe).toBe(false);
 		expect(result.reason).toContain("private");
+	});
+
+	it("blocks localhost names that only resolve to loopback later", () => {
+		for (const url of [
+			"https://localhost./hook",
+			"https://hooks.localhost/hook",
+			"https://HOOKS.LOCALHOST./hook",
+		]) {
+			expect(isSafeFetchUrl(url)).toEqual({
+				safe: false,
+				reason: `Host ${new URL(url).hostname} is private/internal`,
+			});
+		}
 	});
 
 	it("blocks metadata IP", () => {
@@ -251,6 +284,9 @@ describe("SSRF defense — resolvePublicHostAddresses", () => {
 			safe: true,
 		});
 		expect(await isSafeFetchUrlAsync("https://127.0.0.1/hook")).toMatchObject({
+			safe: false,
+		});
+		expect(await isSafeFetchUrlAsync("https://localhost./hook")).toMatchObject({
 			safe: false,
 		});
 	});
