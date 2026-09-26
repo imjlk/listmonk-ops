@@ -654,6 +654,25 @@ function numericEntryIds(
 }
 
 /**
+ * Read the stored campaign that a partial write must carry forward. Listmonk
+ * has no conditional update, so the read and the following write are not
+ * atomic: a change made by someone else in between is overwritten
+ * (last writer wins), as it is in Listmonk's own editor.
+ */
+async function loadCampaignForWrite(
+	client: Pick<ListmonkClient, "campaign">,
+	id: number,
+	context: string,
+): Promise<z.output<typeof campaignSchema>> {
+	return asCampaign(
+		unwrapResourceResponse(
+			await client.campaign.getById({ path: { id } }),
+			context,
+		),
+	);
+}
+
+/**
  * Build a `PUT /campaigns/{id}` body that keeps the stored campaign intact.
  * Listmonk 6.2 pre-fills the stored campaign before binding the request,
  * but list IDs, media IDs, and attribs are not part of that pre-fill:
@@ -666,11 +685,10 @@ export async function buildCampaignUpdateBody(
 	id: number,
 	changes: Omit<z.output<typeof updateCampaignInputSchema>, "id">,
 ): Promise<CampaignUpdateBody> {
-	const current = asCampaign(
-		unwrapResourceResponse(
-			await client.campaign.getById({ path: { id } }),
-			"Failed to load campaign before updating",
-		),
+	const current = await loadCampaignForWrite(
+		client,
+		id,
+		"Failed to load campaign before updating",
 	);
 	const lists = changes.lists ?? numericEntryIds(current.lists);
 	if (lists.length === 0) {
@@ -1212,26 +1230,38 @@ interface CloneIssueOutcome {
 }
 
 /**
+ * Derive a fresh archive slug for a clone of an archived campaign. Like
+ * Listmonk's own clone action it slugifies the name, but the suffix adds a
+ * base-36 timestamp and random characters so concurrent clones of the same
+ * campaign are vanishingly unlikely to collide on the UNIQUE slug, and a name
+ * without ASCII letters or digits still yields a readable slug.
+ */
+export function cloneArchiveSlug(
+	name: string,
+	now: number = Date.now(),
+	random: () => number = Math.random,
+): string {
+	const base =
+		name
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "-")
+			.replace(/^-+|-+$/g, "") || "campaign";
+	const suffix = random().toString(36).slice(2, 6).padEnd(4, "0");
+	return `${base}-${now.toString(36)}${suffix}`;
+}
+
+/**
  * Build the create body for a clone from its source campaign. Shared by
  * the keyed and unkeyed paths; throws on load/parse failures.
  */
-/** Mirror Listmonk's campaign clone: slugified name plus a short suffix. */
-export function cloneArchiveSlug(name: string, now: number = Date.now()): string {
-	return `${name.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${String(now).slice(-4)}`;
-}
-
 async function buildCloneCreateBody(
 	client: Pick<ListmonkClient, "campaign">,
 	input: { id: number; name: string },
 ): Promise<CampaignCreateBody> {
-	const sourceResponse = await client.campaign.getById({
-		path: { id: input.id },
-	});
-	const source = asCampaign(
-		unwrapResourceResponse(
-			sourceResponse,
-			`Failed to load campaign ${input.id} for clone`,
-		),
+	const source = await loadCampaignForWrite(
+		client,
+		input.id,
+		`Failed to load campaign ${input.id} for clone`,
 	);
 	const sourceLists = (source.lists ?? []).map((entry, index) => {
 		const listId = (entry as { id?: unknown }).id;
@@ -1902,11 +1932,10 @@ export async function archiveCampaign(
 	// archive_meta (an absent map is stored as JSON null) on every toggle,
 	// so resend the stored values to keep public archive links and the
 	// archive placeholder data intact.
-	const current = asCampaign(
-		unwrapResourceResponse(
-			await client.campaign.getById({ path: { id: input.id } }),
-			"Failed to load campaign before toggling its archive",
-		),
+	const current = await loadCampaignForWrite(
+		client,
+		input.id,
+		"Failed to load campaign before toggling its archive",
 	);
 	const archiveMeta = current.archive_meta;
 	const response = await client.campaign.updateArchive({
