@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { listOperationAuditEntries, recordOperationAudit } from "../src";
+import {
+	getOperationAuditStorePath,
+	listOperationAuditEntries,
+	recordOperationAudit,
+} from "../src";
 
 const temporaryDirectories: string[] = [];
 
@@ -78,6 +82,78 @@ describe("operation audit store", () => {
 		await expect(listOperationAuditEntries({ path })).resolves.toMatchObject([
 			{ event: "blocked" },
 			{ event: "failed" },
+		]);
+	});
+
+	test("resolves a relative or ~/ override from the home directory, not the cwd", async () => {
+		const previousStore = process.env.LISTMONK_OPS_AUDIT_STORE;
+		const previousCwd = process.cwd();
+		const first = await mkdtemp(join(tmpdir(), "listmonk-ops-audit-cwd-"));
+		const second = await mkdtemp(join(tmpdir(), "listmonk-ops-audit-cwd-"));
+		temporaryDirectories.push(first, second);
+		try {
+			process.env.LISTMONK_OPS_AUDIT_STORE = "audit/operation-audit.json";
+			process.chdir(first);
+			const fromFirst = getOperationAuditStorePath();
+			process.chdir(second);
+			expect(getOperationAuditStorePath()).toBe(fromFirst);
+			expect(fromFirst).toBe(
+				join(homedir(), "audit", "operation-audit.json"),
+			);
+			process.env.LISTMONK_OPS_AUDIT_STORE = "  ~/operation-audit.json ";
+			expect(getOperationAuditStorePath()).toBe(
+				join(homedir(), "operation-audit.json"),
+			);
+		} finally {
+			process.chdir(previousCwd);
+			if (previousStore === undefined) {
+				delete process.env.LISTMONK_OPS_AUDIT_STORE;
+			} else {
+				process.env.LISTMONK_OPS_AUDIT_STORE = previousStore;
+			}
+		}
+	});
+
+	test("records to the home-anchored override when the process starts in /", async () => {
+		// An MCP server launched by a client with cwd `/` must not try to
+		// write `/audit/operation-audit.json`.
+		const home = await mkdtemp(join(tmpdir(), "listmonk-ops-audit-home-"));
+		temporaryDirectories.push(home);
+		const moduleUrl = new URL("../src/operation-audit.ts", import.meta.url)
+			.href;
+		const script = `
+			const audit = await import(${JSON.stringify(moduleUrl)});
+			await audit.recordOperationAudit({
+				surface: "mcp",
+				operationId: "lists.delete",
+				event: "started",
+				confirmationRequired: true,
+				confirmed: true,
+				dryRun: false,
+			});
+			console.log(audit.getOperationAuditStorePath());
+		`;
+		const child = Bun.spawn([process.execPath, "-e", script], {
+			cwd: "/",
+			env: {
+				...process.env,
+				HOME: home,
+				LISTMONK_OPS_AUDIT_STORE: "audit/operation-audit.json",
+			},
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const [stdout, stderr, code] = await Promise.all([
+			new Response(child.stdout).text(),
+			new Response(child.stderr).text(),
+			child.exited,
+		]);
+		if (code !== 0) throw new Error(`audit subprocess failed: ${stderr}`);
+		const expectedPath = join(home, "audit", "operation-audit.json");
+		expect(stdout.trim()).toBe(expectedPath);
+		const stored = JSON.parse(await readFile(expectedPath, "utf8"));
+		expect(stored.entries).toMatchObject([
+			{ surface: "mcp", operationId: "lists.delete", event: "started" },
 		]);
 	});
 

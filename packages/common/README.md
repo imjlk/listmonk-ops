@@ -34,6 +34,9 @@ A selected profile does not inherit legacy connection environment fields.
 `getListmonkDataDirectory()` resolves the process's default file-backed state
 root; executable adapters apply a selected profile's isolated directory before
 opening repositories. Explicit per-store paths retain precedence.
+`resolveConfiguredPath()` is the shared rule for configured paths: it trims the
+value, expands a leading `~` or `~/`, keeps absolute paths, and resolves relative
+paths from the home directory unless a caller supplies another base directory.
 
 These configuration APIs require a Node-compatible filesystem runtime. See the
 root [configuration guide](https://github.com/imjlk/listmonk-ops#shared-connection-profiles)

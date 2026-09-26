@@ -253,6 +253,28 @@ describe("transactional idempotency file-backed store", () => {
 				}
 			}
 		});
+
+		test("expands ~/ and ignores surrounding whitespace like a shell-expanded value", () => {
+			// MCP client JSON configs are not shell-expanded, so the same
+			// `~/tx.json` must reach the same file the CLI's shell resolved.
+			const previous = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE;
+			try {
+				process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = "~/tx.json";
+				expect(getTransactionalStorePath()).toBe(join(homedir(), "tx.json"));
+				process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = "  state/tx.json\n";
+				expect(getTransactionalStorePath()).toBe(
+					join(homedir(), "state", "tx.json"),
+				);
+				process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = " /srv/tx.json ";
+				expect(getTransactionalStorePath()).toBe("/srv/tx.json");
+			} finally {
+				if (previous === undefined) {
+					delete process.env.LISTMONK_OPS_TRANSACTIONAL_STORE;
+				} else {
+					process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = previous;
+				}
+			}
+		});
 	});
 
 	describe("claimTransactionalSend", () => {

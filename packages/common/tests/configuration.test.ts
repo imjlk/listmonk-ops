@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveListmonkConfiguration } from "../src/configuration";
+import {
+	getListmonkDataDirectory,
+	resolveConfiguredPath,
+	resolveListmonkConfiguration,
+} from "../src/configuration";
 
 const directories: string[] = [];
 async function fixture(profiles?: Record<string, unknown>, defaultProfile?: string) {
@@ -31,7 +35,103 @@ afterEach(async () => {
 	await Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
+function withDataDirectoryEnvironment<T>(value: string, action: () => T): T {
+	const previous = process.env.LISTMONK_OPS_DATA_DIR;
+	process.env.LISTMONK_OPS_DATA_DIR = value;
+	try {
+		return action();
+	} finally {
+		if (previous === undefined) delete process.env.LISTMONK_OPS_DATA_DIR;
+		else process.env.LISTMONK_OPS_DATA_DIR = previous;
+	}
+}
+
+describe("resolveConfiguredPath", () => {
+	const homeDirectory = join(tmpdir(), "configured-path-home");
+
+	test("expands ~ and ~/ against the home directory", () => {
+		expect(resolveConfiguredPath("~", { homeDirectory })).toBe(homeDirectory);
+		expect(resolveConfiguredPath("~/lm-state", { homeDirectory })).toBe(
+			join(homeDirectory, "lm-state"),
+		);
+		// Only the current user's home is expanded; ~user stays a relative name.
+		expect(resolveConfiguredPath("~other/x", { homeDirectory })).toBe(
+			join(homeDirectory, "~other", "x"),
+		);
+	});
+
+	test("resolves relative paths from the home directory unless anchored elsewhere", () => {
+		expect(resolveConfiguredPath("state/tx.json", { homeDirectory })).toBe(
+			join(homeDirectory, "state", "tx.json"),
+		);
+		const baseDirectory = join(tmpdir(), "configured-path-base");
+		expect(
+			resolveConfiguredPath("token", { homeDirectory, baseDirectory }),
+		).toBe(join(baseDirectory, "token"));
+		// `~/` always means home, whatever the relative anchor.
+		expect(
+			resolveConfiguredPath("~/token", { homeDirectory, baseDirectory }),
+		).toBe(join(homeDirectory, "token"));
+	});
+
+	test("keeps absolute paths as written and ignores surrounding whitespace", () => {
+		expect(resolveConfiguredPath(" /srv/lm ", { homeDirectory })).toBe(
+			"/srv/lm",
+		);
+		expect(resolveConfiguredPath("\t~/lm-state \n", { homeDirectory })).toBe(
+			join(homeDirectory, "lm-state"),
+		);
+		expect(resolveConfiguredPath("  relative  ", { homeDirectory })).toBe(
+			join(homeDirectory, "relative"),
+		);
+	});
+
+	test("defaults to the process home directory", () => {
+		expect(resolveConfiguredPath("~/lm-state")).toBe(
+			join(homedir(), "lm-state"),
+		);
+		expect(resolveConfiguredPath("lm-state")).toBe(join(homedir(), "lm-state"));
+	});
+});
+
 describe("shared Listmonk configuration", () => {
+	test("resolves LISTMONK_OPS_DATA_DIR identically with and without a resolved configuration", async () => {
+		const { homeDirectory } = await fixture();
+		const cases = [
+			{ value: "~/lm-state", expected: (home: string) => join(home, "lm-state") },
+			{ value: "lm-state", expected: (home: string) => join(home, "lm-state") },
+			{ value: "  ~/padded  ", expected: (home: string) => join(home, "padded") },
+			{ value: " /srv/lm ", expected: () => "/srv/lm" },
+		];
+		for (const { value, expected } of cases) {
+			const resolved = await resolveListmonkConfiguration({
+				homeDirectory,
+				workingDirectory: tmpdir(),
+				env: { LISTMONK_OPS_DATA_DIR: value },
+			});
+			expect(resolved.summary.dataDirectory).toBe(expected(homeDirectory));
+			expect(
+				withDataDirectoryEnvironment(value, () => getListmonkDataDirectory()),
+			).toBe(expected(homedir()));
+		}
+	});
+
+	test("trims token-file references and expands ~/ from the environment", async () => {
+		const options = await fixture();
+		await writeFile(join(options.homeDirectory, "token"), "file-secret\n");
+		for (const value of ["  ~/token  ", ` ${join(options.homeDirectory, "token")} `]) {
+			const resolved = await resolveListmonkConfiguration({
+				homeDirectory: options.homeDirectory,
+				workingDirectory: tmpdir(),
+				env: { LISTMONK_API_TOKEN_FILE: value },
+			});
+			expect(resolved.summary.authentication.reference).toBe(
+				join(options.homeDirectory, "token"),
+			);
+			expect(await resolved.readCredential()).toBe("file-secret");
+		}
+	});
+
 	test("preserves legacy env defaults and reports sources without authentication values", async () => {
 		const fixtureOptions = await fixture();
 		const options = {

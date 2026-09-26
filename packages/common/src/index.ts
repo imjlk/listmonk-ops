@@ -172,10 +172,12 @@ export {
 
 export {
 	getListmonkDataDirectory,
+	resolveConfiguredPath,
 	resolveListmonkConfiguration,
 } from "./configuration";
 export type {
 	ConfigurationSource,
+	ConfiguredPathOptions,
 	ListmonkConfigurationSummary,
 	ListmonkConfigurationOptions,
 	ResolvedListmonkConfiguration,

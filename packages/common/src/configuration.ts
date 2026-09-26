@@ -49,17 +49,40 @@ interface ProfileDocument {
 const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+export interface ConfiguredPathOptions {
+	/** Anchor for a relative path. Defaults to the home directory. */
+	baseDirectory?: string;
+	homeDirectory?: string;
+}
+
+/**
+ * The one rule for user-configured paths: surrounding whitespace is ignored,
+ * a leading `~` or `~/` expands to the home directory (MCP client JSON
+ * configs are not shell-expanded), absolute paths are kept as written, and
+ * relative paths resolve from `baseDirectory` — the home directory unless the
+ * caller anchors them to a profile file or an explicit command-line cwd.
+ * Anchoring environment paths to the home directory rather than
+ * `process.cwd()` keeps a CLI run from any directory and an MCP server started
+ * elsewhere on the same state files.
+ */
+export function resolveConfiguredPath(
+	value: string,
+	options: ConfiguredPathOptions = {},
+): string {
+	const home = options.homeDirectory ?? homedir();
+	const trimmed = value.trim();
+	if (trimmed === "~") return home;
+	if (trimmed.startsWith("~/")) return resolve(home, trimmed.slice(2));
+	return isAbsolute(trimmed)
+		? trimmed
+		: resolve(options.baseDirectory ?? home, trimmed);
+}
+
 export function getListmonkDataDirectory(): string {
 	const selected = process.env.LISTMONK_OPS_DATA_DIR?.trim();
 	return selected
-		? resolve(homedir(), selected)
+		? resolveConfiguredPath(selected)
 		: join(homedir(), ".listmonk-ops");
-}
-
-function filePath(value: string, base: string, home: string): string {
-	if (value === "~") return home;
-	if (value.startsWith("~/")) return resolve(home, value.slice(2));
-	return isAbsolute(value) ? value : resolve(base, value);
 }
 
 /** Bound allocation and reject non-regular files without blocking on a FIFO. */
@@ -170,10 +193,9 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 	const home = options.homeDirectory ?? homedir();
 	const cwd = options.workingDirectory ?? process.cwd();
 	const configuredPath = options.configFile ?? (env.LISTMONK_OPS_CONFIG?.trim() || undefined);
-	const path = filePath(
+	const path = resolveConfiguredPath(
 		configuredPath ?? join(home, ".listmonk-ops", "config.json"),
-		cwd,
-		home,
+		{ baseDirectory: cwd, homeDirectory: home },
 	);
 	const content = await readConfigurationFile(
 		path,
@@ -221,7 +243,10 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 		source: { kind: "default" },
 	};
 	const selectFile = (value: string, selectedSource: ConfigurationSource, base: string) => {
-		const reference = filePath(value, base, home);
+		const reference = resolveConfiguredPath(value, {
+			baseDirectory: base,
+			homeDirectory: home,
+		});
 		authentication = { kind: "token", source: selectedSource, reference };
 		readCredential = async () => {
 			const token = credentialValue(await readConfigurationFile(reference, 16_384, "Listmonk token file"));
@@ -255,10 +280,10 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 			0,
 			16,
 		);
-		dataDirectory = profile.dataDirectory === undefined ? join(home, ".listmonk-ops", "profiles", `${profileName}-${identity}`) : filePath(profile.dataDirectory, dirname(path), home);
+		dataDirectory = profile.dataDirectory === undefined ? join(home, ".listmonk-ops", "profiles", `${profileName}-${identity}`) : resolveConfiguredPath(profile.dataDirectory, { baseDirectory: dirname(path), homeDirectory: home });
 		dataSource = profile.dataDirectory === undefined ? { kind: "default" } : source("dataDirectory");
 	} else {
-		dataDirectory = env.LISTMONK_OPS_DATA_DIR?.trim() ? filePath(env.LISTMONK_OPS_DATA_DIR, home, home) : join(home, ".listmonk-ops");
+		dataDirectory = env.LISTMONK_OPS_DATA_DIR?.trim() ? resolveConfiguredPath(env.LISTMONK_OPS_DATA_DIR, { homeDirectory: home }) : join(home, ".listmonk-ops");
 		dataSource = env.LISTMONK_OPS_DATA_DIR?.trim() ? { kind: "environment", name: "LISTMONK_OPS_DATA_DIR" } : { kind: "default" };
 	}
 	return {
