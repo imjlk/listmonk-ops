@@ -45,6 +45,11 @@ describe("webhook payload key classification", () => {
 			"authorization",
 			"Proxy-Authorization",
 			"credentials",
+			"password2",
+			"token1",
+			"email2",
+			"apiKey2",
+			"secrets3",
 		]) {
 			expect({ key, sensitive: isSensitiveWebhookDataKey(key) }).toEqual({
 				key,
@@ -70,6 +75,15 @@ describe("webhook payload key classification", () => {
 			"Delivered-To",
 			"mail.source",
 			"commonHeaders.to",
+			"to2",
+			"replyTo2",
+			"replyto",
+			"reply_to_address",
+			"mail_from",
+			"envelope_from",
+			"envelopeTo",
+			"forwardTo",
+			"bounce-to",
 		]) {
 			expect({ key, sensitive: isSensitiveWebhookDataKey(key) }).toEqual({
 				key,
@@ -108,6 +122,9 @@ describe("webhook payload key classification", () => {
 			"passwordless",
 			"surface",
 			"dry_run",
+			"top10",
+			"sha256",
+			"s3",
 			"",
 		]) {
 			expect({ key, sensitive: isSensitiveWebhookDataKey(key) }).toEqual({
@@ -130,6 +147,7 @@ describe("email-address value detection", () => {
 			"JANE@EXAMPLE.COM.",
 			"josé@exämple.de",
 			"a@b@example.org",
+			"jane@example.xn--p1ai",
 		]) {
 			expect({ value, email: containsEmailAddress(value) }).toEqual({
 				value,
@@ -148,6 +166,9 @@ describe("email-address value detection", () => {
 			"user@.com",
 			"user@example.",
 			"zod@4.6.5",
+			"webpack@4.0.0-beta",
+			"foo@1.2-rc1",
+			"listmonk@v5.0.0-beta",
 			"postgres://listmonk:listmonk@127.0.0.1:15432/listmonk",
 			"100%40 sure",
 			"50%",
