@@ -1390,6 +1390,7 @@ listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --co
 # (아래 참고).
 
 # 4) 세그먼트 드리프트 스냅샷
+# 두 임계치가 모두 0이어도 변화가 없으면 경보하지 않습니다.
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
 # --baseline-mode lookback-mean으로 lookback 평균 기준 비교 가능.
 # 안정적인 --sample-key(예: UTC 날짜)를 전달하면 완전히 동일한 재시도가
@@ -1597,7 +1598,10 @@ claim도 같은 데이터베이스에 저장하므로 모든 worker가 하나의
 pooler를 위해 named prepared statement를 사용하지 않으며, 서버 NOTICE는
 출력하지 않고 버립니다. `sequences status`는 due work,
 ambiguous 상태, lease, running/stale/stopped/failed worker health를 보고하며
-오래된 worker 기록은 retention 기간 뒤 정리합니다. Sequence
+오래된 worker 기록은 retention 기간 뒤 정리합니다. Webhook runtime과 마찬가지로
+`running`은 heartbeat가 최신인 worker만 세고, 비정상 종료된 worker 기록은
+`stale`로 보고하며, 최신 worker가 due work를 처리하는 동안에는 healthy를
+유지합니다(due work를 처리할 최신 worker가 없을 때만 unhealthy). Sequence
 create/revise/enroll/pause/resume 및 운영자 reconcile은 typed `sequence.*`
 outbound event로도 투영됩니다.
 

@@ -1846,6 +1846,60 @@ describe("sequence execution", () => {
 });
 
 describe("sequence worker health", () => {
+	test("does not stay unhealthy for a crashed worker while fresh workers cover due work", async () => {
+		const { repository } = await createStores();
+		const now = new Date("2026-08-01T10:00:00.000Z");
+		const crashedAt = "2026-07-31T10:00:00.000Z";
+		await repository.upsertWorker({
+			id: "6f0d7c1e-58c9-4a37-9a51-7a4a2b8e1f01",
+			status: "running",
+			startedAt: crashedAt,
+			heartbeatAt: crashedAt,
+		});
+
+		// Only a stale record and nothing due: healthy, with the crash visible.
+		const idle = await repository.getRuntimeHealth({
+			now,
+			workerStaleMs: 60_000,
+		});
+		expect(idle.healthy).toBe(true);
+		expect(idle.workers).toMatchObject({ running: 0, stale: 1 });
+
+		// Due work with no fresh worker is unhealthy.
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "due work", steps: [{ id: "stop", type: "stop" }] },
+				new Date("2026-08-01T09:00:00.000Z"),
+			),
+		);
+		await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 5 },
+				new Date("2026-08-01T09:00:00.000Z"),
+			),
+		);
+		const stalled = await repository.getRuntimeHealth({
+			now,
+			workerStaleMs: 60_000,
+		});
+		expect(stalled.healthy).toBe(false);
+
+		// A fresh worker covers the due work despite the lingering crash record.
+		await repository.upsertWorker({
+			id: "0b8f9f55-2f4c-4d6f-8f3e-5a1e2c4d7b02",
+			status: "running",
+			startedAt: now.toISOString(),
+			heartbeatAt: now.toISOString(),
+		});
+		const covered = await repository.getRuntimeHealth({
+			now,
+			workerStaleMs: 60_000,
+		});
+		expect(covered.healthy).toBe(true);
+		expect(covered.workers).toMatchObject({ running: 1, stale: 1 });
+	});
+
 	test("heartbeats during a long tick and prunes abandoned worker records", async () => {
 		const { repository: fileRepository, idempotencyStore } =
 			await createStores();

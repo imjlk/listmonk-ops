@@ -481,9 +481,12 @@ export async function runSegmentDriftSnapshot(
 					entry.subscriberCount,
 					alertBaseline,
 				);
+				// An unchanged count is never drift, even when both thresholds
+				// are zero (every |delta| >= 0 would otherwise alert).
 				const alert =
 					delta !== undefined &&
 					deltaRate !== undefined &&
+					delta !== 0 &&
 					Math.abs(delta) >= minAbsoluteChange &&
 					Math.abs(deltaRate) >= threshold;
 
