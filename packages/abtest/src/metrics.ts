@@ -35,12 +35,13 @@ export interface ClickCountViolation {
 }
 
 /**
- * Listmonk's campaign `clicks` counter totals link clicks, so a subscriber
- * who clicks twice counts twice. The click-rate significance test treats
- * clicks as a per-recipient proportion, which cannot hold once a variant's
- * clicks exceed its sends: the counts then provably include repeat clicks,
- * so no click-rate decision may be made from them. Returns every offending
- * variant (empty when all click totals are within their sends).
+ * The click-rate significance test treats a campaign's `clicks` as the
+ * number of clicking recipients. A total above the variant's sends proves
+ * it is not — it must count repeat (or forwarded) clicks — so no click-rate
+ * decision may be made from it. Returns every offending variant (empty
+ * when all click totals are within their sends). Whether Listmonk's
+ * counter is unique below that bound is not verified (see the spike notes
+ * in the package README), so this only catches provable violations.
  */
 export function findClicksExceedingSends(
 	results: ReadonlyArray<
@@ -149,9 +150,9 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 					const campaign = response.data;
 					const sampleSize = campaign.sent ?? 0;
 					const opens = campaign.views ?? 0;
-					// A total that includes repeat clicks, so it may exceed
-					// `sent`; it is passed through unclamped and the analysis
-					// refuses a click-rate decision when it does.
+					// A click total, not necessarily unique per recipient, so
+					// it may exceed `sent`; it is passed through unclamped and
+					// the analysis refuses a click-rate decision when it does.
 					const clicks = campaign.clicks ?? 0;
 					// Conversion events are separate from Listmonk click counts.
 					const aggregate = conversionByVariant.get(mapping.variantId);

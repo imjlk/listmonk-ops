@@ -453,7 +453,7 @@ describe("AbTestService click totals above sends", () => {
 			"clicks_exceed_sends:B:1200/1000",
 		]);
 		expect(analysis.recommendations).toContain(
-			"No click-rate decision is possible: click totals exceed sends for B (1200 clicks / 1000 sends). Listmonk counts repeat clicks, so the click rate is not a per-recipient proportion. Record conversions and pre-register conversion_rate to decide this test.",
+			"No click-rate decision is possible: click totals exceed sends for B (1200 clicks / 1000 sends), so they count repeat or forwarded clicks rather than clicking recipients. Record conversions and pre-register conversion_rate to decide this test.",
 		);
 		expect(
 			analysis.recommendations.some((recommendation) =>

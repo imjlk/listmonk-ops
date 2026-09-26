@@ -1151,8 +1151,8 @@ export class AbTestService {
 		const n2 = testGroup.sampleSize;
 		const totalSampleSize = n1 + n2;
 
-		// Listmonk click totals include repeat clicks. Once any variant's
-		// clicks exceed its sends the click rate is not a per-recipient
+		// Once any variant's click total exceeds its sends, the clicks are
+		// not a count of clicking recipients and the click rate is not a
 		// proportion (its pooled rate can exceed 1), so report the result as
 		// indeterminate with the offending variants instead of a decision.
 		if (metricLabel === "click rate") {
@@ -1717,7 +1717,7 @@ export class AbTestService {
 		const recommendations: string[] = [];
 
 		if (clickViolations.length > 0) {
-			// Running longer only adds repeat clicks, so say what would help.
+			// Running longer cannot lower a click total, so say what would help.
 			const offenders = clickViolations
 				.map(
 					(violation) =>
@@ -1725,7 +1725,7 @@ export class AbTestService {
 				)
 				.join(", ");
 			recommendations.push(
-				`No click-rate decision is possible: click totals exceed sends for ${offenders}. Listmonk counts repeat clicks, so the click rate is not a per-recipient proportion. Record conversions and pre-register conversion_rate to decide this test.`,
+				`No click-rate decision is possible: click totals exceed sends for ${offenders}, so they count repeat or forwarded clicks rather than clicking recipients. Record conversions and pre-register conversion_rate to decide this test.`,
 			);
 		} else if (!analysis.isSignificant) {
 			recommendations.push(

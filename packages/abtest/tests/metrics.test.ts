@@ -145,9 +145,10 @@ describe("ListmonkMetricsCollector", () => {
 	});
 
 	it("passes click totals above sends through unclamped for the analysis to refuse", async () => {
-		// Listmonk counts repeat clicks, so a variant can report more clicks
-		// than sends. The collector must neither throw (conversion metrics
-		// stay decidable) nor clamp the total (hiding the violation).
+		// A click total is not necessarily unique per recipient, so a variant
+		// can report more clicks than sends. The collector must neither throw
+		// (conversion metrics stay decidable) nor clamp the total (hiding the
+		// violation).
 		const getById = mock(async ({ path }: { path: { id: number } }) => ({
 			data: makeCampaign(path.id, 100, 30, path.id === 100 ? 250 : 10),
 		}));
