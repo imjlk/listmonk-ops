@@ -438,11 +438,19 @@ async function getTemplateIds(
 
 interface CapturedTemplateVersion {
 	templateId: number;
+	/**
+	 * When this template was read, just before its request: a sync reads
+	 * templates one by one, so a template late in a long sync is observed well
+	 * after the sync began — possibly after an overlapping sync recorded older
+	 * content. History and the active version follow this observation order.
+	 */
+	capturedAt: string;
 	snapshot: TemplateVersionSnapshot;
 	hash: string;
 }
 
 interface TemplateRegistryCapture {
+	/** When the sync began; each template carries its own observation time. */
 	capturedAt: string;
 	versions: CapturedTemplateVersion[];
 	errors: string[];
@@ -459,10 +467,12 @@ async function captureTemplateRegistry(
 
 	for (const templateId of templateIds) {
 		try {
+			const observedAt = new Date().toISOString();
 			const template = await getTemplateById(client, templateId);
 			const snapshot = createTemplateSnapshot(template, templateId);
 			versions.push({
 				templateId,
+				capturedAt: observedAt,
 				snapshot,
 				hash: createTemplateHash(snapshot),
 			});
@@ -527,7 +537,7 @@ function mergeTemplateRegistryCapture(
 	let unchangedTemplates = 0;
 	const templates: TemplateRegistrySyncResult["templates"] = [];
 
-	for (const { templateId, snapshot, hash } of capture.versions) {
+	for (const { templateId, capturedAt, snapshot, hash } of capture.versions) {
 		const key = String(templateId);
 		const record = store.templates[key] || {
 			templateId,
@@ -538,7 +548,7 @@ function mergeTemplateRegistryCapture(
 		record.versions.sort(compareTemplateVersions);
 		const isCurrentCapture = isCurrentTemplateCapture(
 			record,
-			capture.capturedAt,
+			capturedAt,
 			headRevisionsBeforeCapture.get(key) ?? 0,
 		);
 		// The active version follows the live content, resolved exactly as a
@@ -568,7 +578,7 @@ function mergeTemplateRegistryCapture(
 			continue;
 		}
 
-		const versionId = `v_${capture.capturedAt}_${hash.slice(0, 10)}`;
+		const versionId = `v_${capturedAt}_${hash.slice(0, 10)}`;
 		const existingVersion = record.versions.find(
 			(version) => version.versionId === versionId,
 		);
@@ -587,7 +597,7 @@ function mergeTemplateRegistryCapture(
 
 		record.versions.push({
 			versionId,
-			capturedAt: capture.capturedAt,
+			capturedAt,
 			hash,
 			note: options.note,
 			snapshot,

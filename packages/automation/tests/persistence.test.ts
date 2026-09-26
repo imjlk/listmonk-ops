@@ -1266,6 +1266,75 @@ describe("template registry active version", () => {
 		expect(body).toBe("<p>v1</p>");
 	});
 
+	test("orders overlapping syncs by when each template was read", async () => {
+		await useTemporaryStores();
+		const bodies = new Map([
+			[40, "<p>other</p>"],
+			[41, "<p>v1</p>"],
+		]);
+		let holdOther: Promise<void> | undefined;
+		let otherRequested = (): void => {};
+		const client = {
+			template: {
+				getById: async ({ path: { id } }: { path: { id: number } }) => {
+					const hold = id === 40 ? holdOther : undefined;
+					if (hold) {
+						holdOther = undefined;
+						otherRequested();
+						await hold;
+					}
+					return {
+						data: { id, name: `Overlap ${id}`, type: "campaign", body: bodies.get(id) },
+					};
+				},
+				update: async ({
+					path: { id },
+					body,
+				}: {
+					path: { id: number };
+					body: { body: string };
+				}) => {
+					bodies.set(id, body.body);
+					return { data: true };
+				},
+			},
+		} as unknown as ListmonkClient;
+		await syncTemplateRegistry(client, { templateIds: [41] });
+
+		// A sync starts first but reads template 41 only after template 40...
+		let releaseOther = (): void => {};
+		holdOther = new Promise<void>((resolve) => {
+			releaseOther = resolve;
+		});
+		const requested = new Promise<void>((resolve) => {
+			otherRequested = resolve;
+		});
+		await Bun.sleep(2);
+		const slowSync = syncTemplateRegistry(client, { templateIds: [40, 41] });
+		await requested;
+		// ...while a later-started sync records v2, and the template changes
+		// again before the first sync reads it.
+		bodies.set(41, "<p>v2</p>");
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [41] });
+		bodies.set(41, "<p>v3</p>");
+		await Bun.sleep(2);
+		releaseOther();
+		await slowSync;
+
+		// v3 was read last, so it is the newest capture and the live version.
+		const history = await getTemplateRegistryHistory(41);
+		expect(history.versions.map((version) => version.snapshot.body)).toEqual([
+			"<p>v1</p>",
+			"<p>v2</p>",
+			"<p>v3</p>",
+		]);
+		expect(history.activeVersionId).toBe(versionIdFor(history, "<p>v3</p>"));
+		const rolled = await rollbackTemplateVersion(client, 41);
+		expect(rolled.versionId).toBe(versionIdFor(history, "<p>v2</p>"));
+		expect(bodies.get(41)).toBe("<p>v2</p>");
+	});
+
 	test("repairs a legacy registry whose sync left a stale active version", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		const { remote, client } = createTemplateRemote(28, "<p>v1</p>");
