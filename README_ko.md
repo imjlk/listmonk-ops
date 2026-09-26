@@ -1037,6 +1037,10 @@ sequence 발송 단계에도 발송 전에 동일한 검증을 적용합니다.
 위한 boolean 텍스트 결과는 유지하면서 `{"sent": true, "status": "accepted"}`
 형태의 structured content도 반환합니다.
 
+Listmonk가 메시지를 거부하면 결과는 `{"sent": false, "status": "failed"}`입니다.
+`tx send`는 이 JSON 결과를 그대로 stdout에 출력하고 거부 사실을 경고로 알린 뒤
+0이 아닌 종료 코드로 끝나며, 거부 결과를 재생(replay)한 경우도 같습니다.
+
 ### 멱등성(idempotent) 트랜잭셔널 발송
 
 Listmonk의 `/api/tx` 엔드포인트는 발송 결과를 boolean으로만 알려주기 때문에

@@ -1,8 +1,12 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { OperationExecutionError } from "@listmonk-ops/operations";
+import {
+	OperationExecutionError,
+	type TransactionalIdempotencyStore,
+} from "@listmonk-ops/operations";
 import { describe, expect, mock, test } from "bun:test";
 import {
 	createTransactionalCommandError,
+	isTransactionalSendRejected,
 	renderTransactionalSend,
 	type TransactionalCliContext,
 } from "../src/commands/tx";
@@ -17,6 +21,7 @@ function context(
 		output: {
 			json: mock(() => undefined),
 			success: mock(() => undefined),
+			warning: mock(() => undefined),
 		},
 	};
 }
@@ -56,6 +61,64 @@ describe("transactional CLI action", () => {
 			sent: true,
 			status: "accepted",
 		});
+	});
+
+	test("renders a Listmonk rejection as a warning instead of success", async () => {
+		const send = mock(async () => ({ data: false })) as unknown as TransactionalClient["transactional"]["send"];
+		const cliContext = context(send);
+
+		const output = await renderTransactionalSend(cliContext, {
+			template_id: 3,
+			subscriber_email: "recipient@example.com",
+		});
+
+		expect(output).toEqual({ sent: false, status: "failed" });
+		expect(isTransactionalSendRejected(output)).toBe(true);
+		expect(cliContext.output.warning).toHaveBeenCalledWith(
+			"Transactional message was rejected by Listmonk",
+		);
+		expect(cliContext.output.success).not.toHaveBeenCalled();
+		expect(cliContext.output.json).toHaveBeenCalledWith(output);
+	});
+
+	test("treats a replayed rejection as a rejection", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+		const record = {
+			key: "order-42",
+			payloadHash: "payload",
+			targetHash: "target",
+			status: "failed" as const,
+			sent: false,
+			claimToken: "claim",
+			createdAt: "2026-09-27T00:00:00.000Z",
+			updatedAt: "2026-09-27T00:00:00.000Z",
+			expiresAt: "2026-09-28T00:00:00.000Z",
+		};
+		const idempotencyStore: TransactionalIdempotencyStore = {
+			claim: async () => ({ kind: "replay", record }),
+			commit: async () => undefined,
+			release: async () => undefined,
+			load: async () => ({ version: 2, records: {} }),
+		};
+		const cliContext = {
+			...context(send),
+			idempotencyStore,
+			hashPayload: () => "payload",
+		};
+
+		const output = await renderTransactionalSend(cliContext, {
+			template_id: 3,
+			subscriber_email: "recipient@example.com",
+			idempotency_key: "order-42",
+		});
+
+		expect(send).not.toHaveBeenCalled();
+		expect(output).toMatchObject({ sent: false, status: "replayed" });
+		expect(isTransactionalSendRejected(output)).toBe(true);
+		expect(cliContext.output.warning).toHaveBeenCalledWith(
+			"Transactional message was rejected by Listmonk (replayed result for idempotency key order-42)",
+		);
+		expect(cliContext.output.success).not.toHaveBeenCalled();
 	});
 
 	test("does not render success when shared validation fails", async () => {

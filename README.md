@@ -1096,6 +1096,10 @@ The corresponding MCP tool is `listmonk_send_transactional`. It returns
 structured content like `{"sent": true, "status": "accepted"}` and keeps the
 legacy boolean text result for existing clients.
 
+When Listmonk declines the message, the result is `{"sent": false, "status":
+"failed"}`. `tx send` still prints that JSON result on stdout, reports the
+rejection as a warning, and exits nonzero; a replayed rejection behaves the same.
+
 ### Idempotent transactional sends
 
 Listmonk's `/api/tx` endpoint acknowledges a send with only a boolean, so a

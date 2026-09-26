@@ -70,6 +70,8 @@ explicit per-store paths and Postgres settings retain precedence. See the root
 [Korean](https://github.com/imjlk/listmonk-ops/blob/main/README_ko.md) configuration
 guide for the JSON format, precedence, path resolution, and rotation behavior.
 
+`tx send` exits nonzero when Listmonk rejects the message, still printing the
+`{"sent":false,"status":"failed"}` result on stdout.
 `tx records --format json` inspects redacted, target-bound transactional send
 records. `tx reconcile --key KEY --expected-revision REVISION --decision
 accepted|retry --reason TEXT --confirm` records a verified operator decision.
