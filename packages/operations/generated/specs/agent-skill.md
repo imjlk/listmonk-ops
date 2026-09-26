@@ -904,7 +904,7 @@ Contract maturity: `stable`; effects: `write:template`; confirmation: `required`
 
 Use when: A versioned template manifest must be planned or applied.
 
-Avoid when: A single template should be inspected without a full manifest.
+Avoid when: A single template should be inspected without a full manifest. An existing template must change type — Listmonk 6.2 never updates a template type, so planning fails; delete and recreate that template instead.
 
 Prerequisites: `templates.list`
 

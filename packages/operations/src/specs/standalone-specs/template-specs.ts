@@ -275,6 +275,7 @@ export const templatesReconcileOperationSpec = defineOperationSpec({
 		],
 		avoidWhen: [
 			"A single template should be inspected without a full manifest.",
+			"An existing template must change type — Listmonk 6.2 never updates a template type, so planning fails; delete and recreate that template instead.",
 		],
 		prerequisites: ["templates.list"],
 		verifyWith: ["templates.list"],

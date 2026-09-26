@@ -101,10 +101,11 @@ export interface TemplateManifestEntry {
 	 */
 	type?: TemplateManifestType;
 	/**
-	 * Email subject. Optional on input and defaults to `""`, matching the
-	 * runtime Zod schema's `.optional().default("")`. Reconciliation of an
-	 * existing template with an omitted subject clears it rather than preserving
-	 * the prior value.
+	 * Email subject of a `tx` template. Optional on input and defaults to
+	 * `""`, matching the runtime Zod schema's `.optional().default("")`.
+	 * Listmonk 6.2 discards the subject of `campaign` and `campaign_visual`
+	 * templates, whose subject is set per campaign, so reconciliation rejects
+	 * a non-empty subject for those types and never diffs their stored one.
 	 */
 	subject?: string;
 	body_source?: string;

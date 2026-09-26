@@ -179,6 +179,14 @@ Listmonk는 여러 template을 묶는 transaction을 제공하지 않습니다. 
 `body_source`를 생략하면 Listmonk update가 기존 값을 유지하므로 해당 필드는 관리
 대상에서 제외됩니다. Visual template source를 강제하려면 값을 명시하세요.
 
+계획은 Listmonk 6.2가 실제로 저장하는 값을 기준으로 하므로 적용한 manifest를
+다시 계획하면 unchanged로 표시됩니다. Subject는 `tx` template에서만 관리합니다.
+Listmonk는 `campaign`과 `campaign_visual` template의 subject를 버리므로(각
+campaign이 자체 subject를 지정) 이 유형의 항목에 `subject`를 지정하면
+거부됩니다. Listmonk는 기존 template의 type도 변경하지 않으므로 type을 바꾸는
+manifest는 쓰기 전에 계획 단계에서 실패합니다. 해당 template을 삭제한 뒤 다시
+reconcile하여 새 type으로 생성하세요.
+
 Manifest 적용 후 `syncTemplateRegistry()`로 원격 버전을 capture하여 승격과
 rollback workflow에 사용할 수 있습니다. 릴리스 시점 template credential과
 런타임 전송 credential은 분리하세요. Transactional template을 승격하기 전에는

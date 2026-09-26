@@ -21208,7 +21208,8 @@
     {
       "agent": {
         "avoidWhen": [
-          "A single template should be inspected without a full manifest."
+          "A single template should be inspected without a full manifest.",
+          "An existing template must change type — Listmonk 6.2 never updates a template type, so planning fails; delete and recreate that template instead."
         ],
         "prerequisites": [
           "templates.list"
@@ -21245,7 +21246,7 @@
                     "type": "string"
                   },
                   "subject": {
-                    "description": "Email subject. Optional on input and defaults to `\"\"`, matching the\nruntime Zod schema's `.optional().default(\"\")`. Reconciliation of an\nexisting template with an omitted subject clears it rather than preserving\nthe prior value.",
+                    "description": "Email subject of a `tx` template. Optional on input and defaults to\n`\"\"`, matching the runtime Zod schema's `.optional().default(\"\")`.\nListmonk 6.2 discards the subject of `campaign` and `campaign_visual`\ntemplates, whose subject is set per campaign, so reconciliation rejects\na non-empty subject for those types and never diffs their stored one.",
                     "type": "string"
                   },
                   "type": {
