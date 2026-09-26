@@ -21,6 +21,12 @@ curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/ins
 Prebuilt standalone binaries are available for Linux x64/arm64 and Apple
 silicon macOS (arm64). Intel Macs are not supported.
 
+Both distributions load `.env` files from the current working directory, and
+those values can change the connection target and credential source, so run
+`listmonk-cli` only from directories you trust. The standalone binary never
+loads `bunfig.toml`; the npm package runs through `bun`, which also applies a
+working-directory `bunfig.toml`, including `preload` scripts that execute code.
+
 ## Usage
 
 ```bash
