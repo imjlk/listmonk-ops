@@ -267,9 +267,12 @@ const INCOMPLETE_GAMMA_MAX_ITERATIONS = 10_000;
 // iterations c and d stay near b's magnitude, so the floor never binds.
 const INCOMPLETE_GAMMA_TINY = 1e-30;
 
-/** Clamp rounding error into [0, 1]; refuse a NaN rather than report it. */
+/**
+ * Clamp rounding error into [0, 1]. A correct probability is always finite,
+ * so refuse NaN or an overflow rather than report it as a confident 0 or 1.
+ */
 function toProbability(value: number, a: number, x: number): number {
-	if (Number.isNaN(value)) {
+	if (!Number.isFinite(value)) {
 		throw new RangeError(`incomplete gamma is undefined for a=${a}, x=${x}`);
 	}
 	return Math.min(1, Math.max(0, value));
