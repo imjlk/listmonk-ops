@@ -166,6 +166,7 @@ Environment fallback:
   MCP_SERVER_HOST
   MCP_SERVER_PORT
   MCP_HTTP_AUTH_TOKEN          Optional Bearer token for all routes except GET/HEAD / and /health
+                               and CORS preflight (OPTIONS) requests
   MCP_HTTP_ALLOWED_HOSTS       Comma-separated hostnames for non-loopback HTTP
   MCP_HTTP_ALLOWED_ORIGINS     Comma-separated browser origins for non-loopback HTTP
   LISTMONK_OPS_WEBHOOK_STORE   File-backed webhook endpoint/outbox path
