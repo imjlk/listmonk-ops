@@ -70,12 +70,30 @@ function formatValidationError(error: {
 	return error.issues.map((issue) => issue.message).join("; ");
 }
 
+/**
+ * Gunshi reads `--no-<name>` as the negation of a negatable boolean, and it
+ * also parses a negatable option that is itself named `no-<name>` as `false`
+ * whenever it is passed. An option that already spells a negation, such as
+ * `--no-body`, is therefore a plain flag: passing it enables what it names.
+ */
+export function isNegatableBooleanOption(name: string): boolean {
+	return !name.startsWith("no-");
+}
+
 function createArgSchema(name: string, definition: CliOption): ArgSchema {
 	const defaultResult = definition.schema.safeParse(undefined);
 	const description = definition.config.description;
 	const booleanResult = definition.schema.safeParse(true);
 
 	if (booleanResult.success && typeof booleanResult.data === "boolean") {
+		const negatable = isNegatableBooleanOption(name);
+		if (!negatable && defaultResult.success && defaultResult.data === true) {
+			// An explicit `--no-<name>=false` leaves a plain flag unset, which
+			// must mean off.
+			throw new Error(
+				`Boolean option --${name} cannot default to true because it cannot be negated`,
+			);
+		}
 		booleanOptionNames.add(name);
 		return {
 			type: "boolean",
@@ -83,7 +101,7 @@ function createArgSchema(name: string, definition: CliOption): ArgSchema {
 			...(defaultResult.success && typeof defaultResult.data === "boolean"
 				? { default: defaultResult.data }
 				: {}),
-			negatable: true,
+			negatable,
 		};
 	}
 
@@ -281,7 +299,12 @@ export function prepareCliArgv(input: string[]): string[] {
 				inlineValue ?? (consumesNext ? nextValue : undefined),
 				true,
 			);
-			args.push(value ? `--${optionName}` : `--no-${optionName}`);
+			if (value) {
+				args.push(`--${optionName}`);
+			} else if (isNegatableBooleanOption(optionName)) {
+				args.push(`--no-${optionName}`);
+			}
+			// An explicit false for a plain `no-*` flag leaves it unset (off).
 			if (consumesNext) {
 				index += 1;
 			}

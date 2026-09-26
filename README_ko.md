@@ -525,6 +525,8 @@ campaign, subscriber, template CRUD도 CLI와 MCP에서 동일한 타입드 Oper
 
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
+# --no-body는 캠페인 본문을 생략합니다(campaigns list, templates list에서도 사용).
+listmonk-cli campaigns get --id 42 --no-body
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10
