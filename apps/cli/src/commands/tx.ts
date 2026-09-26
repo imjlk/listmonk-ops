@@ -22,7 +22,11 @@ import {
 	type HandlerArgs,
 	option,
 } from "../lib/command";
-import { parseJson, toErrorMessage } from "../lib/command-utils";
+import {
+	parseJson,
+	positiveIntegerIdSchema,
+	toErrorMessage,
+} from "../lib/command-utils";
 import { resolveListmonkSession } from "../lib/listmonk";
 
 type TransactionalOutput = Pick<typeof OutputUtils, "json" | "success">;
@@ -208,13 +212,13 @@ export default defineGroup({
 			operationId: "transactional.send",
 			description: "Send a transactional email",
 			options: {
-				"template-id": option(z.coerce.number().int().positive(), {
+				"template-id": option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 				"subscriber-email": option(z.string().trim().email().optional(), {
 					description: "Recipient subscriber email",
 				}),
-				"subscriber-id": option(z.coerce.number().int().positive().optional(), {
+				"subscriber-id": option(positiveIntegerIdSchema.optional(), {
 					description: "Recipient subscriber ID",
 				}),
 				"from-email": option(z.string().trim().min(1).optional(), {

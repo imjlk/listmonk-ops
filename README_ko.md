@@ -523,6 +523,11 @@ campaign, subscriber, template CRUD도 CLI와 MCP에서 동일한 타입드 Oper
 
 캠페인 필터는 `--tags news,updates`(MCP: `tags: ["news", "updates"]`)를 지원합니다. 클라이언트는 Listmonk 6.2에 맞게 반복된 `tag` 쿼리 파라미터를 전송하며, 지정한 태그를 모두 포함하는 캠페인만 반환합니다.
 
+`--id`, `--campaign-id` 같은 ID 인수와 `--lists 10,11`, `--media` 같은 쉼표 구분
+ID 목록은 양의 10진 정수만 받습니다. `12,O4`, `0x10`, `1e1`처럼 잘못된 항목은
+버리거나 다른 값으로 해석하지 않고 Listmonk를 호출하기 전에 명령을 실패시키므로,
+update 명령이 잘린 목록으로 기존 소속 목록을 대체하지 않습니다.
+
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
 # --no-body는 캠페인 본문을 생략합니다(campaigns list, templates list에서도 사용).

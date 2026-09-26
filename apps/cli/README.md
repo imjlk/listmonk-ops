@@ -84,6 +84,10 @@ inspection commands share the sequence PostgreSQL claim store. For an
 ambiguous sequence enrollment, reconcile its claim first, then resolve the
 enrollment as `sent` after `accepted` or `not_sent` after `retry`.
 
+ID flags and comma-separated ID lists such as `--lists 10,11` accept only
+positive decimal integers; a malformed entry such as `12,O4` or `0x10` fails
+the command instead of being dropped or reinterpreted.
+
 Shared operations with `confirmationRequired: true` need the global
 `--confirm` flag, for example `listmonk-cli lists delete --id 10 --confirm`.
 Media deletion follows the same policy:

@@ -530,6 +530,12 @@ well. The CLI includes the full CRUD command set where Listmonk exposes it:
 
 Campaign filters accept `--tags news,updates` (MCP: `tags: ["news", "updates"]`). The client sends repeated `tag` query parameters required by Listmonk 6.2; campaigns must contain all requested tags.
 
+ID flags such as `--id` and `--campaign-id`, and comma-separated ID lists such as
+`--lists 10,11` or `--media`, accept only positive decimal integers. A malformed
+entry such as `12,O4`, `0x10`, or `1e1` fails the command before Listmonk is
+called instead of being dropped or reinterpreted, so an update never replaces
+memberships with a truncated list.
+
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
 # --no-body omits campaign bodies (also on campaigns list and templates list).

@@ -21,7 +21,7 @@ import {
 	type HandlerArgs,
 	option,
 } from "../lib/command";
-import { toErrorMessage } from "../lib/command-utils";
+import { positiveIntegerIdSchema, toErrorMessage } from "../lib/command-utils";
 import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
 
 type MediaOutput = Pick<typeof OutputUtils, "info" | "json" | "success" | "table">;
@@ -225,7 +225,7 @@ export default defineGroup({
 			operationId: "media.get",
 			description: "Get uploaded media file details",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Media file ID",
 				}),
 			},
@@ -236,7 +236,7 @@ export default defineGroup({
 			operationId: "media.delete",
 			description: "Delete an uploaded media file",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Media file ID",
 				}),
 			},

@@ -89,6 +89,64 @@ describe("CLI argv parsing", () => {
 		}
 	}, 30_000);
 
+	test("malformed ID lists fail before any request instead of shrinking the set", async () => {
+		const create = await runCli([
+			"campaigns",
+			"create",
+			"--name",
+			"Weekly update",
+			"--subject",
+			"News",
+			"--from-email",
+			"ops@example.com",
+			"--body",
+			"<p>Hello</p>",
+			"--template-id",
+			"1",
+			"--lists",
+			"12,O4",
+			"--format=json",
+		]);
+		expect(create.exitCode).not.toBe(0);
+		expect(create.stdout).toBe("");
+		expect(JSON.parse(create.stderr).error.message).toContain(
+			"Invalid list IDs 'O4': expected a positive integer",
+		);
+
+		const update = await runCli([
+			"subscribers",
+			"update",
+			"--id",
+			"7",
+			"--lists",
+			"1,2x,3",
+			"--format=json",
+		]);
+		expect(update.exitCode).not.toBe(0);
+		expect(JSON.parse(update.stderr).error.message).toContain(
+			"Invalid list IDs '2x': expected a positive integer",
+		);
+		expect(requests).toEqual([]);
+	}, 30_000);
+
+	test("scalar ID options reject hexadecimal and exponent forms", async () => {
+		for (const id of ["0x10", "1e1"]) {
+			const result = await runCli(["campaigns", "get", "--id", id, "--format=json"]);
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stdout).toBe("");
+			expect(JSON.parse(result.stderr).error.message).toContain(
+				`--id: expected a positive decimal integer, received "${id}"`,
+			);
+		}
+		expect(requests).toEqual([]);
+
+		const accepted = await runCli(["campaigns", "get", "--id", "16", "--format=json"]);
+		expect(accepted.exitCode).toBe(0);
+		expect(requests.map((request) => request.path)).toEqual([
+			"/api/campaigns/16",
+		]);
+	}, 30_000);
+
 	test("--no-body help shows the flag without a double negation", async () => {
 		const result = await runCli(["campaigns", "get", "--help"]);
 		expect(result.exitCode).toBe(0);
