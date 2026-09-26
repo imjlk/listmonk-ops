@@ -17,6 +17,7 @@ type CapturedRequest = {
 };
 
 const requests: CapturedRequest[] = [];
+let transactionalAcknowledgement = true;
 
 const server = Bun.serve({
 	hostname: "127.0.0.1",
@@ -28,6 +29,9 @@ const server = Bun.serve({
 			path: url.pathname,
 			query: url.searchParams,
 		});
+		if (url.pathname === "/api/tx") {
+			return Response.json({ data: transactionalAcknowledgement });
+		}
 		if (/^\/api\/campaigns\/\d+$/.test(url.pathname)) {
 			return Response.json({ data: { id: 1, name: "Campaign", lists: [] } });
 		}
@@ -44,6 +48,7 @@ afterAll(() => {
 
 beforeEach(() => {
 	requests.length = 0;
+	transactionalAcknowledgement = true;
 });
 
 async function runCli(args: string[]) {
@@ -145,6 +150,48 @@ describe("CLI argv parsing", () => {
 		expect(requests.map((request) => request.path)).toEqual([
 			"/api/campaigns/16",
 		]);
+	}, 30_000);
+
+	test("tx send exits nonzero with parseable output when Listmonk rejects it", async () => {
+		const send = [
+			"tx",
+			"send",
+			"--template-id",
+			"3",
+			"--subscriber-email",
+			"reader@example.com",
+		];
+		const accepted = await runCli([...send, "--format=json"]);
+		expect(accepted.exitCode).toBe(0);
+		expect(JSON.parse(accepted.stdout)).toEqual({
+			sent: true,
+			status: "accepted",
+		});
+
+		transactionalAcknowledgement = false;
+		const rejected = await runCli([...send, "--format=json"]);
+		expect(rejected.exitCode).toBe(1);
+		expect(JSON.parse(rejected.stdout)).toEqual({
+			sent: false,
+			status: "failed",
+		});
+		expect(JSON.parse(rejected.stderr).diagnostics).toContainEqual({
+			level: "warning",
+			message: "Transactional message was rejected by Listmonk",
+		});
+
+		const quiet = await runCli([...send, "--format=quiet"]);
+		expect(quiet.exitCode).toBe(1);
+		expect(JSON.parse(quiet.stdout)).toEqual({ sent: false, status: "failed" });
+		expect(quiet.stderr).toBe("");
+
+		const human = await runCli(send);
+		expect(human.exitCode).toBe(1);
+		expect(human.stdout).toContain(
+			"⚠️  Transactional message was rejected by Listmonk",
+		);
+		expect(human.stdout).not.toContain("✅");
+		expect(requests.filter((request) => request.path === "/api/tx")).toHaveLength(4);
 	}, 30_000);
 
 	test("--no-body help shows the flag without a double negation", async () => {
