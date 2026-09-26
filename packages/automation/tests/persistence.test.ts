@@ -1213,6 +1213,7 @@ describe("template registry active version", () => {
 
 	test("does not let a capture that raced a promotion move the active version", async () => {
 		await useTemporaryStores();
+		let name = "Race";
 		let body = "<p>v1</p>";
 		let heldCapture:
 			| { observed: () => void; release: Promise<void> }
@@ -1220,7 +1221,7 @@ describe("template registry active version", () => {
 		const client = {
 			template: {
 				getById: async () => {
-					const data = { id: 27, name: "Race", type: "campaign", body };
+					const data = { id: 27, name, type: "campaign", body };
 					const hold = heldCapture;
 					heldCapture = undefined;
 					if (hold) {
@@ -1229,13 +1230,19 @@ describe("template registry active version", () => {
 					}
 					return { data };
 				},
-				update: async ({ body: update }: { body: { body: string } }) => {
+				update: async ({
+					body: update,
+				}: {
+					body: { name: string; body: string };
+				}) => {
+					name = update.name;
 					body = update.body;
 					return { data: true };
 				},
 			},
 		} as unknown as ListmonkClient;
 		await syncTemplateRegistry(client, { templateIds: [27] });
+		name = "Race renamed";
 		body = "<p>v2</p>";
 		await Bun.sleep(2);
 		await syncTemplateRegistry(client, { templateIds: [27] });
@@ -1260,10 +1267,106 @@ describe("template registry active version", () => {
 		await observed;
 		await promoteTemplateVersion(client, 27, v1);
 		releaseCapture();
-		// ...so the stale v2 observation must not reactivate v2 over it.
+		// ...so the stale v2 observation must not reactivate v2 over it, nor
+		// restore the name v2 had.
 		expect(await racingSync).toMatchObject({ createdVersions: 0 });
-		expect((await getTemplateRegistryHistory(27)).activeVersionId).toBe(v1);
+		expect(await getTemplateRegistryHistory(27)).toMatchObject({
+			activeVersionId: v1,
+			templateName: "Race",
+		});
 		expect(body).toBe("<p>v1</p>");
+	});
+
+	test("follows the live template name through promotions and syncs", async () => {
+		await useTemporaryStores();
+		const remote = { name: "Welcome", body: "<p>v1</p>" };
+		const client = {
+			template: {
+				getById: async () => ({
+					data: {
+						id: 43,
+						name: remote.name,
+						type: "campaign",
+						body: remote.body,
+					},
+				}),
+				update: async ({ body }: { body: { name: string; body: string } }) => {
+					remote.name = body.name;
+					remote.body = body.body;
+					return { data: true };
+				},
+			},
+		} as unknown as ListmonkClient;
+		await syncTemplateRegistry(client, { templateIds: [43] });
+		remote.name = "Welcome (renamed)";
+		await editAndSync(remote, client, 43, "<p>v2</p>");
+		const history = await getTemplateRegistryHistory(43);
+		expect(history.templateName).toBe("Welcome (renamed)");
+		const v1 = versionIdFor(history, "<p>v1</p>");
+		const v2 = versionIdFor(history, "<p>v2</p>");
+
+		// Promoting v1 restores its name in Listmonk, and the registry reports
+		// that name rather than the latest capture's.
+		expect(await promoteTemplateVersion(client, 43, v1)).toMatchObject({
+			templateName: "Welcome",
+		});
+		expect(remote.name).toBe("Welcome");
+		await Bun.sleep(2);
+		expect(
+			await syncTemplateRegistry(client, { templateIds: [43] }),
+		).toMatchObject({ createdVersions: 0 });
+		expect((await getTemplateRegistryHistory(43)).templateName).toBe("Welcome");
+
+		expect(await promoteTemplateVersion(client, 43, v2)).toMatchObject({
+			templateName: "Welcome (renamed)",
+		});
+		expect(await rollbackTemplateVersion(client, 43)).toMatchObject({
+			versionId: v1,
+			templateName: "Welcome",
+		});
+	});
+
+	test("refreshes a stale stored name when a sync reads the active content", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		const remote = { name: "Welcome", body: "<p>v1</p>" };
+		const client = {
+			template: {
+				getById: async () => ({
+					data: {
+						id: 44,
+						name: remote.name,
+						type: "campaign",
+						body: remote.body,
+					},
+				}),
+				update: async ({ body }: { body: { name: string; body: string } }) => {
+					remote.name = body.name;
+					remote.body = body.body;
+					return { data: true };
+				},
+			},
+		} as unknown as ListmonkClient;
+		await syncTemplateRegistry(client, { templateIds: [44] });
+		remote.name = "Welcome (renamed)";
+		await editAndSync(remote, client, 44, "<p>v2</p>");
+		await promoteTemplateVersion(
+			client,
+			44,
+			versionIdFor(await getTemplateRegistryHistory(44), "<p>v1</p>"),
+		);
+		// Earlier releases never refreshed the name on promotion, so their
+		// stores can still carry the latest capture's name.
+		const store = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<string, { templateName: string }>;
+		};
+		store.templates["44"]!.templateName = "Welcome (renamed)";
+		await writeFile(templateStorePath, `${JSON.stringify(store)}\n`, "utf8");
+
+		await Bun.sleep(2);
+		expect(
+			await syncTemplateRegistry(client, { templateIds: [44] }),
+		).toMatchObject({ createdVersions: 0 });
+		expect((await getTemplateRegistryHistory(44)).templateName).toBe("Welcome");
 	});
 
 	test("orders overlapping syncs by when each template was read", async () => {

@@ -560,6 +560,11 @@ function mergeTemplateRegistryCapture(
 		// version. Only a current capture moves the active version.
 		const live = resolveTemplateLiveVersion(record, hash);
 		if (live.status !== "drifted") {
+			if (isCurrentCapture) {
+				// The live name: an active older version a promotion restored
+				// can carry a different name than the latest capture.
+				record.templateName = snapshot.name;
+			}
 			if (
 				live.status === "latest" &&
 				(isCurrentCapture || record.activeVersionId === undefined)
@@ -603,10 +608,11 @@ function mergeTemplateRegistryCapture(
 			snapshot,
 		});
 		record.versions.sort(compareTemplateVersions);
-		record.templateName =
-			record.versions.at(-1)?.snapshot.name ?? snapshot.name;
+		// Like the active version, the name follows only current captures: a
+		// stale one may predate a promotion that restored another name.
 		if (isCurrentCapture) {
 			record.activeVersionId = versionId;
+			record.templateName = snapshot.name;
 		} else if (!record.activeVersionId) {
 			record.activeVersionId = record.versions.at(-1)?.versionId || versionId;
 		}
@@ -752,6 +758,8 @@ async function promoteTemplateVersionInStore(
 	// promoteTemplateVersion short-circuits the already-current case.
 	record.headRevision = (record.headRevision ?? 0) + 1;
 	record.activeVersionId = versionId;
+	// The write restored this version's name in Listmonk.
+	record.templateName = targetVersion.snapshot.name;
 	record.lastWrite = readTemplateWrite(response.data, templateId, versionId);
 	store.templates[String(templateId)] = record;
 

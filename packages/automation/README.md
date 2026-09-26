@@ -178,8 +178,10 @@ Listmonk. Sync records the live content: it keeps an active version that
 already holds it, activates the latest capture when that matches, and
 otherwise records and activates a new version. A capture that is not newer
 than every stored version, or that raced a promotion or rollback, is still
-recorded but never moves the active version. Promotion and rollback activate
-the version they write and record, as `lastWrite`, the template Listmonk's
+recorded but never moves the active version. The template name reported by
+history, promotion, and rollback follows the same rule, so it is the live
+template's name even after promoting an older version. Promotion and rollback
+activate the version they write and record, as `lastWrite`, the template Listmonk's
 update response returned: Listmonk can normalize a write (an empty
 campaign-template subject becomes the template name), and that stored content
 still counts as the written version rather than drift. An unpinned rollback
