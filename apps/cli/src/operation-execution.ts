@@ -66,7 +66,14 @@ export class CliOperationConfirmationRequiredError extends OperationConfirmation
 		this.name = "CliOperationConfirmationRequiredError";
 		this.message = `${this.message}; rerun with --confirm`;
 		if (options && "cause" in options) {
-			this.cause = options.cause;
+			// Install it the way `new Error(message, { cause })` does: the shared
+			// base constructor does not forward ErrorOptions.
+			Object.defineProperty(this, "cause", {
+				value: options.cause,
+				enumerable: false,
+				writable: true,
+				configurable: true,
+			});
 		}
 	}
 }
