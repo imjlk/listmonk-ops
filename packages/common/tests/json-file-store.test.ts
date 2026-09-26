@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import {
 	mkdtemp,
 	readdir,
@@ -11,6 +12,7 @@ import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
+	JsonFileLockTimeoutError,
 	readJsonFileStore,
 	type JsonFileStore,
 	updateJsonFileStore,
@@ -47,6 +49,39 @@ function createLockMetadata(pid: number, token: string) {
 		createdAt: new Date().toISOString(),
 	};
 }
+
+async function captureLockTimeout(
+	store: JsonFileStore<CounterStore>,
+): Promise<JsonFileLockTimeoutError> {
+	try {
+		await writeJsonFileStore(store, { version: 1, count: 1 });
+	} catch (error) {
+		if (error instanceof JsonFileLockTimeoutError) return error;
+		throw error;
+	}
+	throw new Error("expected the lock wait to time out");
+}
+
+async function exitedProcessPid(): Promise<number> {
+	const owner = Bun.spawn([process.execPath, "-e", "process.exit(0)"]);
+	await owner.exited;
+	return owner.pid;
+}
+
+/** Boot-relative start ticks of a Linux process, as the store records them. */
+function linuxStartTicks(pid: number): number | undefined {
+	if (process.platform !== "linux") return undefined;
+	try {
+		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+		const ticks = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19]);
+		return Number.isFinite(ticks) ? ticks : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/** PID 1 belongs to init, owned by root: kill(1, 0) fails with EPERM for other users. */
+const initStartTicks = linuxStartTicks(1);
 
 async function createCounterStore(): Promise<JsonFileStore<CounterStore>> {
 	const directory = await mkdtemp(join(tmpdir(), "listmonk-ops-common-"));
@@ -195,6 +230,180 @@ describe("JSON file store", () => {
 		).rejects.toThrow("Timed out after 0ms");
 		expect(await readdir(dirname(store.path))).toEqual([]);
 	});
+
+	test("names the lock file, its owner, and the manual fix when a live lock times out", async () => {
+		const store = await createCounterStore();
+		store.lock = { timeoutMs: 10, retryDelayMs: 1 };
+		const lockPath = `${store.path}.lock`;
+		const createdAt = new Date(Date.now() - 90_000).toISOString();
+		await writeFile(
+			lockPath,
+			`${JSON.stringify({ ...createLockMetadata(process.pid, "secret-lock-token"), createdAt })}\n`,
+			"utf8",
+		);
+
+		const error = await captureLockTimeout(store);
+
+		expect(error.name).toBe("JsonFileLockTimeoutError");
+		expect(error.storePath).toBe(store.path);
+		expect(error.lockPath).toBe(lockPath);
+		expect(error.holder).toEqual({
+			status: "held",
+			pid: process.pid,
+			hostname: hostname(),
+			createdAt,
+		});
+		expect(error.message).toContain(
+			`Lock file ${lockPath} is held by pid ${process.pid} on this host (${JSON.stringify(hostname())}) since ${createdAt}`,
+		);
+		expect(error.message).toMatch(/\(1m 3\ds ago\)/);
+		expect(error.message).toContain(
+			`If that process is gone, delete ${lockPath} and retry.`,
+		);
+		// The lock token is ownership state, not diagnostics.
+		expect(error.message).not.toContain("secret-lock-token");
+		expect(JSON.stringify(error.holder)).not.toContain("secret-lock-token");
+	});
+
+	test("explains that a lock owned by another host is never recovered automatically", async () => {
+		const store = await createCounterStore();
+		store.lock = { timeoutMs: 10, retryDelayMs: 1 };
+		const lockPath = `${store.path}.lock`;
+		// Even a pid that is dead here cannot be judged for another host.
+		const ownerPid = await exitedProcessPid();
+		const foreignLock = `${JSON.stringify({
+			...createLockMetadata(ownerPid, "foreign-owner"),
+			hostname: "retired-container-host",
+		})}\n`;
+		await writeFile(lockPath, foreignLock, "utf8");
+
+		const error = await captureLockTimeout(store);
+
+		expect(error.message).toContain(
+			`is held by pid ${ownerPid} on host "retired-container-host"`,
+		);
+		expect(error.message).toContain(
+			"cannot check a process on another host, so that lock is never recovered automatically",
+		);
+		expect(error.message).toContain(
+			`If that process is gone, delete ${lockPath} and retry.`,
+		);
+		// Diagnostics never change lock-stealing semantics.
+		expect(await readFile(lockPath, "utf8")).toBe(foreignLock);
+	});
+
+	test("reports unreadable lock metadata and a blocking recovery marker", async () => {
+		const store = await createCounterStore();
+		store.lock = { timeoutMs: 10, retryDelayMs: 1 };
+		const lockPath = `${store.path}.lock`;
+		await writeFile(lockPath, "not lock metadata\n", "utf8");
+		await writeFile(
+			`${lockPath}.recovery`,
+			`${JSON.stringify({ ...createLockMetadata(4242, "recovery-token"), hostname: "old-laptop.local" })}\n`,
+			"utf8",
+		);
+
+		const error = await captureLockTimeout(store);
+
+		expect(error.holder).toEqual({ status: "unreadable" });
+		expect(error.message).toContain(
+			`Lock file ${lockPath} has no readable owner metadata. If no listmonk-ops process is using this store, delete ${lockPath} and retry.`,
+		);
+		expect(error.recoveryMarker).toMatchObject({
+			status: "held",
+			pid: 4242,
+			hostname: "old-laptop.local",
+		});
+		expect(error.message).toContain(
+			`Lock-recovery marker ${lockPath}.recovery (pid 4242 on host "old-laptop.local" since`,
+		);
+		expect(error.message).toContain("also blocks automatic recovery");
+		expect(error.message).not.toContain("recovery-token");
+	});
+
+	test("formats lock ages and falls back to a generic hint without diagnostics", () => {
+		const error = new JsonFileLockTimeoutError("/state/store.json", 30_000, {
+			holder: {
+				status: "held",
+				pid: 42,
+				hostname: "old-host",
+				createdAt: "2026-01-01T00:00:00.000Z",
+			},
+			now: new Date("2026-01-01T03:02:09.000Z"),
+		});
+		expect(error.lockPath).toBe("/state/store.json.lock");
+		expect(error.message).toBe(
+			[
+				"Timed out after 30000ms waiting for JSON store lock: /state/store.json.",
+				'Lock file /state/store.json.lock is held by pid 42 on host "old-host" since 2026-01-01T00:00:00.000Z (3h 2m ago).',
+				`This process runs on host ${JSON.stringify(hostname())} and cannot check a process on another host, so that lock is never recovered automatically (for example after a container is recreated or the hostname changes).`,
+				"If that process is gone, delete /state/store.json.lock and retry.",
+			].join(" "),
+		);
+		expect(
+			new JsonFileLockTimeoutError("/state/store.json", 5).message,
+		).toBe(
+			"Timed out after 5ms waiting for JSON store lock: /state/store.json. If the process holding /state/store.json.lock is gone, delete that lock file and retry.",
+		);
+		expect(
+			new JsonFileLockTimeoutError("/s.json", 5, {
+				holder: { status: "absent" },
+			}).message,
+		).toContain("was released as the wait ended; retry the operation.");
+	});
+
+	test("treats a same-host owner that only answers EPERM as live without a start identity", async () => {
+		// Another user's pid cannot be signalled; with nothing to compare, it
+		// must stay protected.
+		const store = await createCounterStore();
+		store.lock = { timeoutMs: 10, retryDelayMs: 1 };
+		const lockPath = `${store.path}.lock`;
+		await writeFile(
+			lockPath,
+			`${JSON.stringify(createLockMetadata(1, "init-owner"))}\n`,
+			"utf8",
+		);
+
+		await expect(
+			writeJsonFileStore(store, { version: 1, count: 1 }),
+		).rejects.toThrow("waiting for JSON store lock");
+		expect(JSON.parse(await readFile(lockPath, "utf8")).token).toBe(
+			"init-owner",
+		);
+	});
+
+	test.skipIf(initStartTicks === undefined)(
+		"compares Linux start ticks when kill(pid, 0) answers EPERM",
+		async () => {
+			const store = await createCounterStore();
+			store.lock = { timeoutMs: 10, retryDelayMs: 1 };
+			const lockPath = `${store.path}.lock`;
+			const ticks = initStartTicks ?? 0;
+			// Same start ticks: the recorded owner is still that process.
+			await writeFile(
+				lockPath,
+				`${JSON.stringify({ ...createLockMetadata(1, "live-init"), bootTicks: ticks })}\n`,
+				"utf8",
+			);
+			await expect(
+				writeJsonFileStore(store, { version: 1, count: 1 }),
+			).rejects.toThrow("waiting for JSON store lock");
+
+			// Different start ticks: pid 1 was reused, so the lock is abandoned.
+			await writeFile(
+				lockPath,
+				`${JSON.stringify({ ...createLockMetadata(1, "reused-init"), bootTicks: ticks + 1 })}\n`,
+				"utf8",
+			);
+			store.lock = { timeoutMs: 5_000, retryDelayMs: 1 };
+			await writeJsonFileStore(store, { version: 1, count: 2 });
+			await expect(readJsonFileStore(store)).resolves.toEqual({
+				version: 1,
+				count: 2,
+			});
+			expect(await readdir(dirname(store.path))).toEqual(["counter.json"]);
+		},
+	);
 
 	test("rejects an invalid JSON representation before overwriting state", async () => {
 		const store = await createCounterStore();

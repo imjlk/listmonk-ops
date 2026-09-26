@@ -118,6 +118,13 @@ relative values from the home directory, never the working directory. A CLI run
 from any directory and an MCP server launched elsewhere therefore share the same
 state files.
 
+File-backed stores serialize writers with a sibling `<store>.lock` file. A lock
+whose owner is confirmed dead on the same host is recovered automatically, but a
+lock recorded under another hostname (for example after a container is recreated
+or a laptop's hostname changes) is never removed automatically. When a lock wait
+times out, the error names the lock file and its recorded owner (pid, host, and
+age); delete that lock file only after confirming the owning process is gone.
+
 You can create/manage tokens in the Listmonk admin UI.
 
 ### Declarative template provisioning
