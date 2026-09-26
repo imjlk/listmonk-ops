@@ -1112,6 +1112,36 @@ describe("shared CRUD resource operations", () => {
 			/running -> draft is not a valid lifecycle transition; only a scheduled campaign can be unscheduled back to draft/,
 		);
 		expect(updateStatus).toHaveBeenCalledTimes(1);
+
+		// Listmonk 6.2 answers the status write with the updated campaign,
+		// not `true`; an echo in the requested status acknowledges it.
+		const campaignEcho = mock(async () => ({
+			data: { id: 12, status: "draft", send_at: null, lists: [{ id: 3 }] },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({
+					getById: statusOf("scheduled"),
+					updateStatus: campaignEcho,
+				}),
+				{ id: 12 },
+			),
+		).resolves.toEqual({ id: 12, status: "draft" });
+		// An echo in any other status is not a confirmation.
+		const staleEcho = mock(async () => ({
+			data: { id: 12, status: "scheduled" },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({
+					getById: statusOf("scheduled"),
+					updateStatus: staleEcho,
+				}),
+				{ id: 12 },
+			),
+		).rejects.toThrow(
+			"Failed to unschedule campaign 12: Listmonk did not confirm the draft status",
+		);
 	});
 
 	test("follows Listmonk 6.2 campaign status rules", async () => {

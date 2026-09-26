@@ -610,16 +610,23 @@ planning documents and are the reason some planned behavior had to change.
 
 ### Campaign lifecycle and status transitions
 
-- `PUT /campaigns/{id}/status` accepts only `scheduled`, `running`, `paused`,
-  `cancelled`. A campaign created with a future `send_at` starts in `draft`
-  and becomes `scheduled` only after this call.
-- **`cancelled` and `paused` are only accepted when the campaign is `running`
-  ("active")**. Attempting either on a `draft` or `scheduled` campaign is
-  rejected with HTTP 400 `Only active campaigns can be cancelled` /
-  `Only active campaigns can be paused`. The earlier "stop = cancel-first"
-  design does not work for not-yet-running campaigns and must branch on
-  status: `running` → cancel; `draft`/`scheduled` → delete (or leave
-  scheduled, which will still fire at `send_at`).
+- `PUT /campaigns/{id}/status` accepts `draft`, `scheduled`, `running`,
+  `paused`, and `cancelled`, and answers with the updated campaign object
+  rather than `true`. Listmonk 6.2's `Core.UpdateCampaignStatus` allows
+  `scheduled` from `draft` or `paused` (with a `send_at`), `running` from
+  `draft` or `paused`, `paused` from `running`, `cancelled` from `running` or
+  `paused`, and `draft` only from `scheduled` (unschedule). A campaign
+  created with a future `send_at` starts in `draft` and becomes `scheduled`
+  only after this call; Listmonk's scheduler, not this endpoint, starts it at
+  `send_at`.
+- **`cancelled` is only accepted on `running` or `paused` campaigns, and
+  `paused` only on `running` ones.** Attempting either on a `draft` or
+  `scheduled` campaign is rejected with HTTP 400 `Only active campaigns can
+  be cancelled` / `Only active campaigns can be paused`. The earlier
+  "stop = cancel-first" design does not work for not-yet-running campaigns
+  and must branch on status: `running`/`paused` → cancel (keeping delivery
+  history); `draft`/`scheduled` → delete. A scheduled campaign left in place
+  still fires at `send_at` unless it is unscheduled back to `draft` first.
 - `DELETE /campaigns/{id}` succeeds from `draft` and `scheduled` states, so
   deletion is the safe path to discard a not-yet-running campaign. The same
   endpoint returns 404 for an already-deleted campaign (idempotent from the
