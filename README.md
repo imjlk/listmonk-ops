@@ -368,8 +368,22 @@ Use `listmonk-mcp --stdio` for command-based MCP clients. The default HTTP
 runtime exposes the standard Streamable HTTP endpoint at `/mcp` while retaining
 the legacy REST endpoints. Local HTTP keeps working without extra settings.
 Non-loopback binding requires a separate MCP Bearer token plus explicit allowed
-hosts and browser origins; MCP and tool requests must send that token in the
-`Authorization` header. Use TLS at the reverse proxy when exposing HTTP.
+hosts and browser origins. Use TLS at the reverse proxy when exposing HTTP.
+
+When `MCP_HTTP_AUTH_TOKEN` is set, authentication is default-deny: every
+request must send `Authorization: Bearer <MCP_HTTP_AUTH_TOKEN>`, including
+`/mcp`, `/tools/list`, `/tools/call`, and unknown paths. Only `GET` and `HEAD`
+requests to `/` and `/health`, plus CORS preflight `OPTIONS` requests, are
+exempt; they expose no Listmonk data. Paths are checked after percent-decoding,
+exactly as the router matches them, so encoded variants such as `/%6Dcp` also
+require the token.
+
+`--port` and `MCP_SERVER_PORT` must be decimal integers from 1 to 65535. An
+invalid value stops startup instead of falling back to port 3000; stdio ignores
+`MCP_SERVER_PORT`. Unknown options and invalid values exit with status 1 and a
+short error that points to `--help`, instead of a runtime stack trace. Legacy
+REST requests with malformed JSON or invalid `/tools/call` params return `400`
+with a short JSON `error` message.
 
 ## Sampo Changesets + npm OIDC Publish
 

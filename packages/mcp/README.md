@@ -392,17 +392,27 @@ listmonk-mcp \
 The HTTP listener refuses a non-loopback host unless all three MCP HTTP
 security variables are configured. Allowed hosts are comma-separated hostnames
 without schemes or ports; allowed origins are comma-separated exact `http(s)`
-origins. Put a TLS reverse proxy in front of the listener. When
-`MCP_HTTP_AUTH_TOKEN` is set, every request must send
-`Authorization: Bearer <MCP_HTTP_AUTH_TOKEN>`, including `/mcp`,
-`/tools/list`, `/tools/call`, and unknown paths. Only `GET /health`, `GET /`,
-and CORS preflight `OPTIONS` requests are exempt; they expose no Listmonk data.
-Paths are matched after percent-decoding, exactly as the router matches them.
+origins. Put a TLS reverse proxy in front of the listener.
+
+When `MCP_HTTP_AUTH_TOKEN` is set, authentication is default-deny: every
+request must send `Authorization: Bearer <MCP_HTTP_AUTH_TOKEN>`, including
+`/mcp`, `/tools/list`, `/tools/call`, and unknown paths. Only `GET` and `HEAD`
+requests to `/` and `/health`, plus CORS preflight `OPTIONS` requests, are
+exempt; they expose no Listmonk data. Paths are checked after percent-decoding,
+exactly as the router matches them, so encoded variants such as `/%6Dcp` also
+require the token.
 
 All HTTP modes reject untrusted `Host` and browser `Origin` headers. Loopback
 hosts and origins are allowed by default so existing local clients need no new
 configuration. CLI flags still override Listmonk and listener settings, and
 `--transport http` may be passed explicitly.
+
+`--port` and `MCP_SERVER_PORT` must be decimal integers from 1 to 65535. An
+invalid value stops startup instead of falling back to port 3000; stdio ignores
+`MCP_SERVER_PORT`. Unknown options and invalid values exit with status 1 and a
+short error that points to `--help`, instead of a runtime stack trace. Legacy
+REST requests with malformed JSON or invalid `/tools/call` params return `400`
+with a short JSON `error` message.
 
 ### Development
 
