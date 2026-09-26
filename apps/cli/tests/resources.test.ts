@@ -384,6 +384,13 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		const subscriber = {
 			manageLists: mock(async () => ({ data: true })),
 			manageBlocklist: mock(async () => ({ data: true })),
+			// Unblocklisting patches each blocklisted subscriber to enabled.
+			getById: mock(async ({ path }: { path: { id: number } }) => ({
+				data: { id: path.id, status: "blocklisted" },
+			})),
+			patch: mock(async ({ path }: { path: { id: number } }) => ({
+				data: { id: path.id, status: "enabled" },
+			})),
 		};
 		const cliContext = {
 			client: { subscriber } as unknown as Pick<
@@ -422,6 +429,8 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Unblocklisted 2 of 2 subscribers",
 		);
+		expect(subscriber.patch).toHaveBeenCalledTimes(2);
+		expect(subscriber.manageBlocklist).toHaveBeenCalledTimes(1);
 	});
 
 	test("renders media uploads through the shared renderer", async () => {

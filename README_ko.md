@@ -611,6 +611,16 @@ listmonk-cli bounces prune --no-dry-run --bounce-ids 5,6,7 --confirm
 `--continue-on-error`를 지원합니다. 미디어 업로드는 MIME 허용 목록과
 10 MiB 크기 제한을 적용합니다.
 
+`subscribers update`는 부분 수정(Listmonk `PATCH`)입니다. 생략한 필드는 저장된
+값을 유지하고, `--lists`/`--list-uuids`는 지정했을 때만 리스트 멤버십을 교체하며,
+`--attribs`의 키는 저장된 속성에 병합됩니다. Listmonk 6.2의 구독자 API는
+`list_uuids`를 받기만 하고 적용하지 않으므로, 생성·수정 전에 리스트 UUID를 리스트
+ID로 변환합니다. Listmonk 6.2에는 일괄 차단 해제 엔드포인트가 없고 블록리스트
+엔드포인트는 `action`을 무시한 채 항상 차단하므로, `subscribers unblocklist`는
+차단된 구독자를 한 명씩 `enabled`로 되돌리고 다른 상태는 그대로 둡니다. 차단 시
+모든 리스트 구독이 이미 `unsubscribed`로 바뀌었으며 차단 해제는 이를 복원하지
+않으므로, 리스트 재가입은 새로운 동의를 받은 경우에만 수행하세요.
+
 바운스 읽기는 Listmonk `/api/bounces`의 필터(`--campaign-id`,
 `--source`, `--order-by`, `--order`)를 그대로 전달합니다. 해당 엔드포인트에는
 구독자 필터가 없어서, 과거 API로 전달되지 않던 `subscriber_id` 인자는

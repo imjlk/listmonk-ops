@@ -49,7 +49,12 @@ import {
 export { isResourceMissingError } from "./resource-helpers";
 
 export interface SubscriberOperationContext {
-	client: Pick<ListmonkClient, "subscriber">;
+	/**
+	 * `list` is only needed to resolve `list_uuids`; Listmonk 6.2's admin
+	 * subscriber endpoints parse that field but never apply it.
+	 */
+	client: Pick<ListmonkClient, "subscriber"> &
+		Partial<Pick<ListmonkClient, "list">>;
 }
 
 /** Context for the asynchronous subscriber-import lifecycle. */
@@ -164,8 +169,8 @@ export type SubscriberListPage = z.output<typeof subscriberListOutputSchema>;
 type SubscriberCreateBody = NonNullable<
 	Parameters<ListmonkClient["subscriber"]["create"]>[0]["body"]
 >;
-type SubscriberUpdateBody = NonNullable<
-	Parameters<ListmonkClient["subscriber"]["update"]>[0]["body"]
+type SubscriberPatchBody = NonNullable<
+	Parameters<ListmonkClient["subscriber"]["patch"]>[0]["body"]
 >;
 
 function asSubscriber(value: Subscriber): z.output<typeof subscriberSchema> {
@@ -196,6 +201,51 @@ export async function listSubscribers(
 			? (data.results?.length ?? 0)
 			: input.per_page,
 	});
+}
+
+/**
+ * Resolve requested list UUIDs to numeric list IDs and merge them with any
+ * numeric IDs. Listmonk 6.2's `POST`/`PATCH /subscribers` bind `list_uuids`
+ * but pass nothing to the membership query, so a UUID-only request would
+ * otherwise create or update the subscriber without the requested lists.
+ * Returns `undefined` when the caller addressed no lists at all.
+ */
+export async function resolveSubscriberListIds(
+	client: SubscriberOperationContext["client"],
+	listIds: readonly number[] | undefined,
+	listUuids: readonly string[] | undefined,
+): Promise<number[] | undefined> {
+	if (listUuids === undefined) {
+		return listIds === undefined ? undefined : [...listIds];
+	}
+	if (listUuids.length === 0) {
+		return [...(listIds ?? [])];
+	}
+	if (!client.list) {
+		throw new Error(
+			"Resolving list_uuids requires list read access; pass numeric list IDs in lists instead",
+		);
+	}
+	const response = await client.list.list({
+		query: { minimal: true, per_page: "all" },
+	});
+	const data = unwrapResourceResponse(response, "Failed to resolve list UUIDs");
+	const idsByUuid = new Map<string, number>();
+	for (const list of data.results ?? []) {
+		if (typeof list.uuid === "string" && typeof list.id === "number") {
+			idsByUuid.set(list.uuid, list.id);
+		}
+	}
+	const unknown = listUuids.filter((uuid) => !idsByUuid.has(uuid));
+	if (unknown.length > 0) {
+		throw new Error(`Unknown list UUID(s): ${unknown.join(", ")}`);
+	}
+	return [
+		...new Set([
+			...(listIds ?? []),
+			...listUuids.map((uuid) => idsByUuid.get(uuid) as number),
+		]),
+	];
 }
 
 export async function getSubscriber(
@@ -300,67 +350,36 @@ function canonicalJson(value: unknown): string {
 function sameSubscriberCreateIntent(
 	existing: Subscriber,
 	input: z.output<typeof createSubscriberInputSchema>,
+	expectedListIds: readonly number[],
 ): boolean {
 	// Compare every observable create effect: identity fields, list
-	// membership (by uuid when the request addressed lists by uuid), and
-	// the canonical attribute payload. preconfirm_subscriptions mutates
-	// per-list subscription status in ways the request cannot express, so
-	// a replay is only offered when it was omitted.
+	// membership, and the canonical attribute payload.
+	// preconfirm_subscriptions mutates per-list subscription status in ways
+	// the request cannot express, so a replay is only offered when it was
+	// omitted.
 	if (input.preconfirm_subscriptions !== undefined) {
 		return false;
 	}
-	// Both selectors can be supplied together and each contributes
-	// memberships, so compare the union: persisted uuids when uuids were
-	// requested, plus persisted ids whenever numeric ids were requested.
-	const byUuid =
-		input.list_uuids !== undefined
-			? [...(existing.lists ?? [])]
-					.map((list) => list.uuid ?? "")
-					.filter(Boolean)
-					.sort()
-			: undefined;
-	const byId =
-		input.lists.length > 0 || input.list_uuids === undefined
-			? [...(existing.lists ?? [])].map((list) => list.id).sort()
-			: undefined;
-	const requestedLists = JSON.stringify({
-		byUuid,
-		byId,
-	});
-	const expectedUuids =
-		input.list_uuids !== undefined ? [...input.list_uuids].sort() : undefined;
-	const expectedIds =
-		input.lists.length > 0 || input.list_uuids === undefined
-			? [...input.lists].sort()
-			: undefined;
-	const expectedLists = JSON.stringify({
-		byUuid: expectedUuids,
-		byId: expectedIds,
-	});
+	const persistedLists = existing.lists ?? [];
+	const persistedIds = persistedLists.map((list) => list.id).sort();
+	const expectedIds = [...expectedListIds].sort();
 	// A persisted unsubscribed membership is not the subscription the
 	// request asked for, so decline the replay instead of reporting it.
-	const unsubscribed =
-		input.list_uuids === undefined
-			? input.lists.some((listId) =>
-					(existing.lists ?? []).some(
-						(list) =>
-							list.id === listId &&
-							list.subscription_status === "unsubscribed",
-					),
-				)
-			: input.list_uuids.some((listUuid) =>
-					(existing.lists ?? []).some(
-						(list) =>
-							list.uuid === listUuid &&
-							list.subscription_status === "unsubscribed",
-					),
-				);
+	const unsubscribed = expectedListIds.some((listId) =>
+		persistedLists.some(
+			(list) =>
+				list.id === listId && list.subscription_status === "unsubscribed",
+		),
+	);
+	// Listmonk derives a display name from the email when none is sent, so a
+	// blank requested name matches whatever name the server chose.
+	const sameName = input.name === "" || (existing.name ?? "") === input.name;
 	return (
 		!unsubscribed &&
 		existing.email?.toLowerCase() === input.email.toLowerCase() &&
-		(existing.name ?? "") === input.name &&
+		sameName &&
 		existing.status === input.status &&
-		JSON.stringify(requestedLists) === JSON.stringify(expectedLists) &&
+		JSON.stringify(persistedIds) === JSON.stringify(expectedIds) &&
 		canonicalJson(existing.attribs ?? {}) === canonicalJson(input.attribs)
 	);
 }
@@ -369,9 +388,12 @@ export async function createSubscriber(
 	{ client }: SubscriberOperationContext,
 	input: z.output<typeof createSubscriberInputSchema>,
 ): Promise<z.output<typeof subscriberCreateOutputSchema>> {
+	const { list_uuids: listUuids, ...fields } = input;
+	const listIds =
+		(await resolveSubscriberListIds(client, fields.lists, listUuids)) ?? [];
 	let createError: Error | undefined;
 	const response = await client.subscriber.create({
-		body: input as SubscriberCreateBody,
+		body: { ...fields, lists: listIds } as SubscriberCreateBody,
 	});
 	if ("error" in response && response.error !== undefined) {
 		createError = new Error(
@@ -382,7 +404,7 @@ export async function createSubscriber(
 			throw createError;
 		}
 		const existing = await findCreatedSubscriber(client, input.email);
-		if (!existing || !sameSubscriberCreateIntent(existing, input)) {
+		if (!existing || !sameSubscriberCreateIntent(existing, input, listIds)) {
 			throw createError;
 		}
 		return { subscriber: asSubscriber(existing), created: false };
@@ -400,14 +422,26 @@ export async function createSubscriber(
 	return { subscriber: asSubscriber(created), created: true };
 }
 
+/**
+ * Partially update a subscriber. Listmonk 6.2's `PUT /subscribers/{id}` is a
+ * full replace: omitted `lists` delete every subscription, omitted `attribs`
+ * are overwritten with `{}`, and an omitted email is rejected. `PATCH`
+ * pre-fills the stored subscriber, so only the provided fields change:
+ * `lists` (or resolved `list_uuids`) replace memberships when present, and
+ * `attribs` keys are merged into the stored attributes.
+ */
 export async function updateSubscriber(
 	{ client }: SubscriberOperationContext,
 	input: z.output<typeof updateSubscriberInputSchema>,
 ): Promise<z.output<typeof subscriberSchema>> {
-	const { id, ...body } = input;
-	const response = await client.subscriber.update({
+	const { id, lists, list_uuids: listUuids, ...fields } = input;
+	const listIds = await resolveSubscriberListIds(client, lists, listUuids);
+	const response = await client.subscriber.patch({
 		path: { id },
-		body: body as SubscriberUpdateBody,
+		body: {
+			...fields,
+			...(listIds === undefined ? {} : { lists: listIds }),
+		} as SubscriberPatchBody,
 	});
 	return asSubscriber(
 		unwrapResourceResponse(response, "Failed to update subscriber"),
@@ -438,11 +472,9 @@ const subscriberBulkListsInputSchema = z.object({
 });
 
 // Blocklist and unblocklist share the same input shape: neither exposes an
-// `action` field. blocklist always sends `action: "add"` and unblocklist
-// always sends `action: "remove"` from inside the executor, so callers
-// cannot accidentally unblock subscribers by passing `action: "remove"` to
-// `blocklist` (or vice versa). Both operations live in the registry so the
-// intent is explicit at the call site.
+// `action` field, so the intent is explicit at the call site. Listmonk 6.2's
+// `PUT /subscribers/blocklist` ignores `action` and always blocklists, so
+// unblocklisting cannot go through it (see `unblocklistSubscribers`).
 const subscriberBulkBlocklistInputSchema = z.object({
 	subscriber_ids: z.array(resourceIdSchema).min(1),
 	...bulkOperationOptionsFields,
@@ -462,6 +494,7 @@ interface SubscriberBulkRunOptions {
 	dry_run: boolean;
 	max_items: number;
 	continue_on_error: boolean;
+	chunkSize?: number;
 	action: (chunk: number[]) => Promise<unknown>;
 }
 
@@ -470,7 +503,13 @@ async function runSubscriberBulk(
 	options: SubscriberBulkRunOptions,
 ): Promise<BulkExecutorResult> {
 	return executeSubscriberBulk(
-		{ subscriberIds, action: options.action },
+		{
+			subscriberIds,
+			action: options.action,
+			...(options.chunkSize === undefined
+				? {}
+				: { chunkSize: options.chunkSize }),
+		},
 		{
 			dry_run: options.dry_run,
 			max_items: options.max_items,
@@ -479,14 +518,6 @@ async function runSubscriberBulk(
 	);
 }
 
-/**
- * Unwrap a bulk mutation response and require a positive acknowledgement.
- * Listmonk sometimes returns `{ data: false }` without an error envelope
- * when a mutation is rejected; `unwrapResourceResponse` treats that as
- * success because `false` is a defined value. We explicitly require
- * `data === true` so the bulk executor's fail-fast and continue-on-error
- * bookkeeping stay accurate.
- */
 /**
  * Add a batch of subscribers to one or more lists. Subscriber IDs are
  * chunked and each chunk is sent as a `manageLists` action: add. Respects
@@ -547,15 +578,13 @@ export async function removeSubscribersFromLists(
 }
 
 /**
- * Internal helper that runs either an `add` or `remove` blocklist action
- * over the chunked subscriber list. Both `blocklistSubscribers` and
- * `unblocklistSubscribers` call this with a fixed action so the public
- * input schemas never expose an `action` field.
+ * Add a batch of subscribers to the blocklist via `manageBlocklist`.
+ * Listmonk also sets every subscription of a blocklisted subscriber to
+ * `unsubscribed`. Respects the shared bulk options.
  */
-async function applyBlocklistAction(
+export async function blocklistSubscribers(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkBlocklistInputSchema>,
-	action: "add" | "remove",
 ): Promise<BulkOperationOutput> {
 	return runSubscriberBulk(input.subscriber_ids, {
 		dry_run: input.dry_run,
@@ -563,38 +592,68 @@ async function applyBlocklistAction(
 		continue_on_error: input.continue_on_error,
 		action: async (chunk) => {
 			const response = await ctx.client.subscriber.manageBlocklist({
-				body: { action, ids: chunk },
+				body: { action: "add", ids: chunk },
 			});
 			requireAcknowledgement(
 				response,
-				`Failed to ${action} subscriber blocklist entries`,
+				"Failed to add subscriber blocklist entries",
 			);
 		},
 	});
 }
 
 /**
- * Add a batch of subscribers to the blocklist via `manageBlocklist` with
- * `action: "add"`. The action is fixed; callers cannot override it.
- * Respects the shared bulk options.
+ * Return one blocklisted subscriber to `enabled`. A subscriber that is not
+ * blocklisted is left untouched, so a disabled subscriber is never enabled
+ * by an unblocklist request.
  */
-export async function blocklistSubscribers(
-	ctx: SubscriberOperationContext,
-	input: z.output<typeof subscriberBulkBlocklistInputSchema>,
-): Promise<BulkOperationOutput> {
-	return applyBlocklistAction(ctx, input, "add");
+export async function unblocklistSubscriber(
+	client: SubscriberOperationContext["client"],
+	id: number,
+): Promise<void> {
+	const current = unwrapResourceResponse(
+		await client.subscriber.getById({ path: { id } }),
+		"Failed to read subscriber before unblocklisting",
+	);
+	if (current.status !== "blocklisted") {
+		return;
+	}
+	const updated = unwrapResourceResponse(
+		await client.subscriber.patch({
+			path: { id },
+			body: { status: "enabled" },
+		}),
+		"Failed to unblocklist subscriber",
+	);
+	if (updated.status !== "enabled") {
+		throw new Error("Listmonk did not confirm the unblocklisted subscriber");
+	}
 }
 
 /**
- * Remove a batch of subscribers from the blocklist via `manageBlocklist`
- * with `action: "remove"`. The action is fixed; callers cannot override
- * it. Respects the shared bulk options.
+ * Remove a batch of subscribers from the blocklist. Listmonk 6.2 has no bulk
+ * unblocklist endpoint — `PUT /subscribers/blocklist` ignores `action` and
+ * blocklists every ID, unsubscribing all of their lists — so each
+ * blocklisted subscriber is patched back to `enabled` individually. List
+ * subscriptions that blocklisting set to `unsubscribed` stay unsubscribed;
+ * re-adding them requires fresh consent. Each ID is its own chunk so
+ * succeeded/failed counts stay exact under continue-on-error.
  */
 export async function unblocklistSubscribers(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkUnblocklistInputSchema>,
 ): Promise<BulkOperationOutput> {
-	return applyBlocklistAction(ctx, input, "remove");
+	return runSubscriberBulk(input.subscriber_ids, {
+		dry_run: input.dry_run,
+		max_items: input.max_items,
+		continue_on_error: input.continue_on_error,
+		chunkSize: 1,
+		action: async ([id]) => {
+			if (id !== undefined) {
+				await unblocklistSubscriber(ctx.client, id);
+			}
+		},
+	});
 }
 
 export const getSubscribersOperation = defineOperation({
@@ -642,7 +701,8 @@ export const createSubscriberOperation = defineOperation({
 export const updateSubscriberOperation = defineOperation({
 	id: "subscribers.update",
 	title: "Update subscriber",
-	description: "Update a subscriber in Listmonk",
+	description:
+		"Partially update a subscriber in Listmonk. Only provided fields change; lists (or list_uuids) replace memberships when provided, and attribs keys are merged into the stored attributes.",
 	inputSchema: updateSubscriberInputSchema,
 	outputSchema: subscriberSchema,
 	safety: updateResourceSafety,
@@ -721,7 +781,7 @@ export const unblocklistSubscribersOperation = defineOperation({
 	id: "subscribers.unblocklist",
 	title: "Unblocklist subscribers",
 	description:
-		"Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+		"Return blocklisted subscribers to enabled, one subscriber at a time (Listmonk 6.2 has no bulk unblocklist endpoint). Subscribers that are not blocklisted are left unchanged, and list subscriptions that blocklisting set to unsubscribed stay unsubscribed. Supports dry-run, max-items cap, and continue-on-error.",
 	inputSchema: subscriberBulkUnblocklistInputSchema,
 	outputSchema: bulkOperationOutputSchema,
 	safety: updateResourceSafety,

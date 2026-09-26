@@ -263,6 +263,8 @@ const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
 const openapiCampaignArchiveMethod =
 	"packages/openapi/src/client/contracts.ts#CampaignOperations.updateArchive:method";
+const openapiSubscriberPatchMethod =
+	"packages/openapi/src/client/contracts.ts#SubscriberOperations.patch:method";
 const openapiSubscriberOptinMethod =
 	"packages/openapi/src/client/contracts.ts#SubscriberOperations.sendOptin:method";
 const openapiSettingsTestSmtpMethod =
@@ -1279,7 +1281,8 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 					"packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
 				action:
 					"packages/operations/src/subscribers.ts#updateSubscriber:function",
-				openapi: openapiUpdateMethod,
+				// Listmonk 6.2's PUT is a full replace; partial updates use PATCH.
+				openapi: openapiSubscriberPatchMethod,
 			},
 			{
 				label: "delete",

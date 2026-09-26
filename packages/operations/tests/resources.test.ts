@@ -1423,15 +1423,198 @@ describe("shared CRUD resource operations", () => {
 			body: { action: "add", ids: [1, 2] },
 		});
 
+		// Listmonk 6.2's PUT /subscribers/blocklist ignores `action` and
+		// always blocklists, so unblocklisting patches each blocklisted
+		// subscriber back to enabled and leaves other statuses alone.
+		const statuses = new Map<number, string>([
+			[1, "blocklisted"],
+			[2, "disabled"],
+		]);
+		const getById = mock(async ({ path }: { path: { id: number } }) => ({
+			data: { id: path.id, status: statuses.get(path.id) },
+		})) as unknown as SubscriberClient["subscriber"]["getById"];
+		const patch = mock(
+			async ({ path, body }: { path: { id: number }; body: { status?: string } }) => ({
+				data: { id: path.id, status: body.status },
+			}),
+		) as unknown as SubscriberClient["subscriber"]["patch"];
 		const unblocklisted = await invokeUnblocklistSubscribersOperation(
-			subscriberContext({ manageBlocklist }),
+			subscriberContext({ manageBlocklist, getById, patch }),
 			{ subscriber_ids: [1, 2] },
 		);
-		expect(unblocklisted).toMatchObject({ processed: 2, succeeded: 2 });
-		// unblocklist always sends action: "remove".
-		expect(manageBlocklist).toHaveBeenLastCalledWith({
-			body: { action: "remove", ids: [1, 2] },
+		expect(unblocklisted).toMatchObject({
+			processed: 2,
+			succeeded: 2,
+			failed: 0,
 		});
+		expect(manageBlocklist).toHaveBeenCalledTimes(1);
+		expect(patch).toHaveBeenCalledTimes(1);
+		expect(patch).toHaveBeenCalledWith({
+			path: { id: 1 },
+			body: { status: "enabled" },
+		});
+	});
+
+	test("unblocklist accounts for each subscriber and never calls the blocklist endpoint", async () => {
+		const manageBlocklist = mock(async () => ({ data: true })) as unknown as SubscriberClient["subscriber"]["manageBlocklist"];
+		const getById = mock(async ({ path }: { path: { id: number } }) =>
+			path.id === 2
+				? { error: { message: "Subscriber not found" }, response: { status: 404 } }
+				: { data: { id: path.id, status: "blocklisted" } },
+		) as unknown as SubscriberClient["subscriber"]["getById"];
+		const patch = mock(async ({ path }: { path: { id: number } }) => ({
+			// Subscriber 3 does not come back enabled.
+			data: { id: path.id, status: path.id === 3 ? "blocklisted" : "enabled" },
+		})) as unknown as SubscriberClient["subscriber"]["patch"];
+
+		const result = await invokeUnblocklistSubscribersOperation(
+			subscriberContext({ manageBlocklist, getById, patch }),
+			{ subscriber_ids: [1, 2, 3, 4], continue_on_error: true },
+		);
+
+		expect(result).toMatchObject({ processed: 4, succeeded: 2, failed: 2 });
+		expect(result.errors).toEqual([
+			"Chunk at offset 1 (1 subscribers) failed",
+			"Chunk at offset 2 (1 subscribers) failed",
+		]);
+		expect(manageBlocklist).not.toHaveBeenCalled();
+
+		const dryRun = await invokeUnblocklistSubscribersOperation(
+			subscriberContext({ manageBlocklist, getById, patch }),
+			{ subscriber_ids: [1, 2], dry_run: true },
+		);
+		expect(dryRun).toMatchObject({ processed: 2, succeeded: 0 });
+		expect(getById).toHaveBeenCalledTimes(4);
+	});
+
+	test("updates subscribers with PATCH so omitted fields and memberships survive", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as SubscriberClient["subscriber"]["update"];
+		const patch = mock(async ({ path, body }: { path: { id: number }; body: Record<string, unknown> }) => ({
+			data: {
+				id: path.id,
+				email: "keep@example.com",
+				status: "enabled",
+				...body,
+				lists: (Array.isArray(body.lists) ? body.lists : [7]).map((id) => ({
+					id,
+					subscription_status: "confirmed",
+				})),
+			},
+		})) as unknown as SubscriberClient["subscriber"]["patch"];
+
+		const renamed = await invokeUpdateSubscriberOperation(
+			subscriberContext({ update, patch }),
+			{ id: 5, name: "Renamed" },
+		);
+
+		expect(renamed).toMatchObject({ id: 5, name: "Renamed" });
+		expect(patch).toHaveBeenCalledWith({
+			path: { id: 5 },
+			body: { name: "Renamed" },
+		});
+		expect(update).not.toHaveBeenCalled();
+
+		await invokeUpdateSubscriberOperation(subscriberContext({ patch }), {
+			id: 5,
+			lists: [7, 8],
+			attribs: { plan: "gold" },
+		});
+		expect(patch).toHaveBeenLastCalledWith({
+			path: { id: 5 },
+			body: { lists: [7, 8], attribs: { plan: "gold" } },
+		});
+	});
+
+	test("resolves list UUIDs because Listmonk ignores them on subscriber writes", async () => {
+		const listLists = mock(async () => ({
+			data: {
+				results: [
+					{ id: 7, uuid: "11111111-1111-4111-8111-111111111111" },
+					{ id: 8, uuid: "22222222-2222-4222-8222-222222222222" },
+				],
+				total: 2,
+			},
+		})) as unknown as ListmonkClient["list"]["list"];
+		const create = mock(async ({ body }: { body: Record<string, unknown> }) => ({
+			data: { id: 30, email: body.email, status: "enabled" },
+		})) as unknown as SubscriberClient["subscriber"]["create"];
+		const patch = mock(async ({ path }: { path: { id: number } }) => ({
+			data: { id: path.id, status: "enabled" },
+		})) as unknown as SubscriberClient["subscriber"]["patch"];
+		const context = {
+			client: {
+				subscriber: { create, patch },
+				list: { list: listLists },
+			} as unknown as Pick<ListmonkClient, "subscriber" | "list">,
+		};
+
+		await invokeCreateSubscriberOperation(context, {
+			email: "uuid@example.com",
+			lists: [7],
+			list_uuids: ["22222222-2222-4222-8222-222222222222"],
+		});
+		expect(listLists).toHaveBeenCalledWith({
+			query: { minimal: true, per_page: "all" },
+		});
+		const createBody = (create as unknown as ReturnType<typeof mock>).mock
+			.calls[0]?.[0]?.body as Record<string, unknown>;
+		expect(createBody.lists).toEqual([7, 8]);
+		expect(createBody).not.toHaveProperty("list_uuids");
+
+		await invokeUpdateSubscriberOperation(context, {
+			id: 30,
+			list_uuids: ["11111111-1111-4111-8111-111111111111"],
+		});
+		expect(patch).toHaveBeenLastCalledWith({
+			path: { id: 30 },
+			body: { lists: [7] },
+		});
+
+		await expect(
+			invokeUpdateSubscriberOperation(context, {
+				id: 30,
+				list_uuids: ["33333333-3333-4333-8333-333333333333"],
+			}),
+		).rejects.toThrow("Unknown list UUID(s): 33333333-3333-4333-8333-333333333333");
+		await expect(
+			invokeUpdateSubscriberOperation(subscriberContext({ patch }), {
+				id: 30,
+				list_uuids: ["11111111-1111-4111-8111-111111111111"],
+			}),
+		).rejects.toThrow("requires list read access");
+		expect(patch).toHaveBeenCalledTimes(1);
+	});
+
+	test("replays a nameless create against the name Listmonk derived", async () => {
+		const createSubscriber = mock(async () => ({
+			error: { message: "E-mail already exists." },
+			response: { status: 409 },
+		}));
+		const listSubscribers = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 45,
+						email: "john.doe@example.com",
+						name: "John Doe",
+						status: "enabled",
+						lists: [],
+						attribs: {},
+					},
+				],
+				total: 1,
+			},
+		}));
+
+		const replayed = await invokeCreateSubscriberOperation(
+			subscriberContext({
+				create: createSubscriber as SubscriberClient["subscriber"]["create"],
+				list: listSubscribers as SubscriberClient["subscriber"]["list"],
+			}),
+			{ email: "john.doe@example.com" },
+		);
+
+		expect(replayed).toMatchObject({ created: false, subscriber: { id: 45 } });
 	});
 
 	test("subscriber bulk respects dry_run and max_items", async () => {

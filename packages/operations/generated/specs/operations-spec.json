@@ -24161,7 +24161,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Update a subscriber in Listmonk",
+      "description": "Partially update a subscriber in Listmonk. Only provided fields change; lists (or list_uuids) replace memberships when provided, and attribs keys are merged into the stored attributes.",
       "effects": [
         {
           "kind": "write",
@@ -24775,7 +24775,8 @@
     {
       "agent": {
         "avoidWhen": [
-          "The subscriber IDs are not known."
+          "The subscriber IDs are not known.",
+          "The goal is to resume list mail: unblocklisting leaves list subscriptions unsubscribed."
         ],
         "prerequisites": [
           "subscribers.get"
@@ -24936,7 +24937,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+      "description": "Return blocklisted subscribers to enabled, one subscriber at a time (Listmonk 6.2 has no bulk unblocklist endpoint). Subscribers that are not blocklisted are left unchanged, and list subscriptions that blocklisting set to unsubscribed stay unsubscribed. Supports dry-run, max-items cap, and continue-on-error.",
       "effects": [
         {
           "kind": "write",
