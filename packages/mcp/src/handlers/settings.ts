@@ -4,35 +4,43 @@ import type { HandlerFunction } from "../types/shared.js";
 import { createErrorResult, handleDataResponse } from "../utils/response.js";
 import { withErrorHandler } from "../utils/typeHelpers.js";
 
+/**
+ * Transport-specific read-only diagnostics that are not yet shared
+ * operations. They bypass the operation policy gate, so they must stay
+ * read-only; settings are read through the redacted shared
+ * `listmonk_get_settings` operation and are never written over MCP.
+ */
 export const settingsTools: MCPTool[] = [
 	{
 		name: "listmonk_health_check",
+		title: "Check Listmonk API health",
 		description: "Check Listmonk API health",
 		inputSchema: {
 			type: "object",
 			properties: {},
 		},
-	},
-	{
-		name: "listmonk_update_settings",
-		description: "Update Listmonk settings",
-		inputSchema: {
-			type: "object",
-			properties: {
-				settings: {
-					type: "object",
-					description: "Settings object to update",
-				},
-			},
-			required: ["settings"],
+		annotations: {
+			title: "Check Listmonk API health",
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
 		},
 	},
 	{
 		name: "listmonk_get_server_config",
+		title: "Read server configuration",
 		description: "Get server configuration",
 		inputSchema: {
 			type: "object",
 			properties: {},
+		},
+		annotations: {
+			title: "Read server configuration",
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
 		},
 	},
 ];
@@ -42,24 +50,12 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 		request: CallToolRequest,
 		client: ListmonkClient,
 	): Promise<CallToolResult> => {
-		const { name, arguments: args = {} } = request.params;
+		const { name } = request.params;
 
 		switch (name) {
 			case "listmonk_health_check": {
 				const response = await client.getHealthCheck();
 				return handleDataResponse(response, "Health check failed");
-			}
-
-			case "listmonk_update_settings": {
-				if (!args.settings) {
-					return createErrorResult("Settings object is required");
-				}
-
-				const response = await client.settings.update({
-					body: args.settings as Record<string, unknown>,
-				});
-
-				return handleDataResponse(response, "Failed to update settings");
 			}
 
 			case "listmonk_get_server_config": {

@@ -175,6 +175,7 @@ const campaignLegacyTools: MCPTool[] = [
 	},
 	{
 		name: "listmonk_get_campaign_running_stats",
+		title: "Read running campaign stats",
 		description: "Get live sending stats for a running campaign",
 		inputSchema: {
 			type: "object",
@@ -185,6 +186,13 @@ const campaignLegacyTools: MCPTool[] = [
 				},
 			},
 			required: ["campaign_id"],
+		},
+		annotations: {
+			title: "Read running campaign stats",
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
 		},
 	},
 ];

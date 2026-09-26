@@ -968,12 +968,29 @@ destructive 공용 MCP Operation에는 MCP 전용 입력인 `"confirm": true`를
 Operation에서만 허용되며, 지원하지 않는 요청을 가짜로 성공시키지 않고
 거부합니다. 변경을 수행하는 공용 MCP Operation은 기본적으로
 `<resolved-data-directory>/operation-audit.json`에 `started`, `blocked`,
-`succeeded`, `failed` 메타데이터 이벤트를 남깁니다. 단계적 마이그레이션 동안
-기존 transport 전용 MCP 도구의 동작은 변경하지 않습니다. 단,
-`listmonk_update_campaign_status`는 서버 수준 감사 저장소와 확인 게이트를
-우회하므로 제거되었습니다. 대신 공용 lifecycle Operation을 사용하세요:
-`listmonk_schedule_campaign` (`send_at` 포함), `listmonk_start_campaign`,
-`listmonk_pause_campaign`, `listmonk_cancel_campaign`.
+`succeeded`, `failed` 메타데이터 이벤트를 남깁니다. 변경을 수행하는 모든 MCP
+도구는 이 확인·감사 게이트를 거치는 공용 Operation입니다. 남아 있는
+transport 전용 도구(`listmonk_list_operations`, `listmonk_health_check`,
+`listmonk_get_server_config`, `listmonk_get_campaign_running_stats`)는
+read-only이며, 모든 MCP 도구는 `readOnlyHint`, `destructiveHint`,
+`idempotentHint`, `openWorldHint` annotation을 제공합니다. 서버 수준 감사
+저장소와 확인 게이트를 우회하던 기존 도구는 제거되었습니다.
+
+- `listmonk_update_campaign_status`: 공용 lifecycle Operation인
+  `listmonk_schedule_campaign` (`send_at` 포함), `listmonk_start_campaign`,
+  `listmonk_pause_campaign`, `listmonk_cancel_campaign`을 사용하세요.
+- 임의의 SQL 표현식을 확인 없이 한 번에 적용하던
+  `listmonk_delete_subscribers_by_query`,
+  `listmonk_blocklist_subscribers_by_query`: `listmonk_get_subscribers`
+  (`query`)로 구독자 ID를 확인한 뒤 `listmonk_delete_subscriber` 또는
+  `listmonk_blocklist_subscribers`(`subscriber_ids`, 선택적 `dry_run`)를
+  `confirm: true`와 함께 호출하세요.
+- 임의의 객체를 `PUT /api/settings`로 전달하고 Listmonk를 다시 로드하던
+  `listmonk_update_settings`: MCP 대체 도구는 없습니다. 자격 증명이 가려진
+  `listmonk_get_settings`로 설정을 읽고, 변경은 Listmonk 관리자 UI에서
+  하세요.
+- `listmonk_send_subscriber_optin`: 같은 `id`를 받는 감사 대상
+  `listmonk_send_optin`을 사용하세요.
 
 CLI도 공용 Operation에 같은 정책을 적용합니다. catalog에서
 `confirmationRequired`가 true인 명령은 전역 `--confirm` 플래그를 반드시
