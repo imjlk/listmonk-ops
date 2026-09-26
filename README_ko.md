@@ -698,7 +698,7 @@ listmonk-cli dashboard counts
 listmonk-cli dashboard charts
 listmonk-cli system about
 listmonk-cli system logs --lines 50
-# 자격 증명은 재귀적으로 [redacted]로 치환됩니다.
+# 인증 username을 포함한 자격 증명은 재귀적으로 [redacted]로 치환됩니다.
 listmonk-cli settings get
 # 실행할 때마다 수신자에게 실제 메시지를 보냅니다.
 listmonk-cli settings test-smtp --email reader@example.com \

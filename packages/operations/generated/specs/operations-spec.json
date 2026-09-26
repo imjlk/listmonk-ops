@@ -43040,7 +43040,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens) recursively replaced by [redacted].",
+      "description": "Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) recursively replaced by [redacted].",
       "effects": [
         {
           "kind": "read",

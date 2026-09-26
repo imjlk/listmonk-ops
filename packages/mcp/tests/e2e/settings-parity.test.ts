@@ -115,6 +115,8 @@ describe("Settings CLI and MCP parity", () => {
 		// The Mailpit stack runs SMTP without auth; verify no credential
 		// field could ever pass through by checking the redaction markers
 		// machinery directly rather than for absent values.
-		expect(serialized).not.toMatch(/"(?:password|client_secret)"\s*:\s*"(?!\[redacted\])/);
+		expect(serialized).not.toMatch(
+			/"(?:password|client_secret|username)"\s*:\s*"(?!\[redacted\])/,
+		);
 	});
 });
