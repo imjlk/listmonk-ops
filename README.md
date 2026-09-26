@@ -491,6 +491,11 @@ Smoke script details:
   and the operation audit log to `operation-audit.json` in
   `${LISTMONK_OPS_SMOKE_LOG_DIR:-/tmp/listmonk-ops-smoke}`
 
+MCP E2E (`bun run test:e2e`) applies the same isolation to CLI and MCP
+subprocesses. The harness resolves their target while loading and fails every
+test file before the first request unless the target is loopback; set
+`LISTMONK_E2E_ALLOW_REMOTE=1` only for an explicitly authorized target.
+
 CI now enforces:
 - OpenAPI generation drift detection
 - Workspace build/test

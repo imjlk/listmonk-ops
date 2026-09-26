@@ -178,6 +178,11 @@ bun run test:e2e
 bun run ops:smoke
 ```
 
+두 검증 모두 공유 연결 프로필(`defaultProfile`, `LISTMONK_OPS_CONFIG`,
+`LISTMONK_OPS_PROFILE`)을 무시하며, 확인한 대상이 `localhost`, `127.0.0.1`,
+`[::1]`이 아니면 첫 요청 전에 중단합니다. 명시적으로 승인된 원격 대상에만
+`LISTMONK_OPS_SMOKE_ALLOW_REMOTE=1` 또는 `LISTMONK_E2E_ALLOW_REMOTE=1`을 설정하세요.
+
 ## 머지 이후
 
 이 저장소는 publish 성공 후 bot이 `main`에 release commit을 추가로 push합니다.

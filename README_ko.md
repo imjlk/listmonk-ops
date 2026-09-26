@@ -481,6 +481,11 @@ bun run ops:smoke:full
   작업 감사 로그: `${LISTMONK_OPS_SMOKE_LOG_DIR:-/tmp/listmonk-ops-smoke}`의
   `operation-audit.json`
 
+MCP E2E(`bun run test:e2e`)도 CLI/MCP 하위 프로세스에 같은 격리를 적용합니다.
+하네스는 로드 시점에 실제 대상을 확인하고, 대상이 loopback이 아니면 첫 요청 전에
+모든 테스트 파일을 실패시킵니다. 명시적으로 승인된 대상에만
+`LISTMONK_E2E_ALLOW_REMOTE=1`을 설정하세요.
+
 CI에서 자동 검증:
 - OpenAPI 생성 결과 drift 검증
 - 워크스페이스 build/test

@@ -555,6 +555,13 @@ LISTMONK_API_TOKEN=<token>
 LISTMONK_E2E_ALLOW_REMOTE=0
 ```
 
+CLI and MCP subprocesses started by the harness use a generated empty profile
+configuration, blank `LISTMONK_OPS_PROFILE` and `LISTMONK_API_TOKEN_FILE`, and a
+temporary `LISTMONK_OPS_DATA_DIR`, so a shared connection profile or your
+`~/.listmonk-ops` state cannot redirect them. The harness resolves that target
+while loading and fails every E2E file before the first request unless it is
+`localhost`, `127.0.0.1`, or `[::1]`, or `LISTMONK_E2E_ALLOW_REMOTE=1` is set.
+
 #### Test Coverage
 
 The E2E tests cover:
