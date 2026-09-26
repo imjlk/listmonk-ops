@@ -8,7 +8,11 @@
  *
  * Query strings and fragments are rejected: naively appending /api to a
  * URL like `https://host/api?tenant=1` would produce
- * `https://host/api?tenant=1/api`, silently mis-targeting requests.
+ * `https://host/api?tenant=1/api`, silently mis-targeting requests. An
+ * empty query or fragment (`https://host/api?`) is rejected too: the URL
+ * API reports it as an empty `search`/`hash`, yet serializes the bare
+ * delimiter back, so requests would go to `/api?/lists` and the
+ * idempotency target hash would differ from the same instance without it.
  *
  * Throws on an empty/invalid URL so callers surface bad config at the
  * boundary rather than silently sending malformed requests.
@@ -28,7 +32,9 @@ export function normalizeListmonkApiUrl(url: string): string {
 		throw new Error(`Invalid Listmonk API URL: ${trimmed}`);
 	}
 
-	if (parsed.search || parsed.hash) {
+	// A raw `?` or `#` always opens a query or fragment, even an empty one
+	// that `search`/`hash` report as "".
+	if (parsed.search || parsed.hash || /[?#]/.test(trimmed)) {
 		throw new Error(
 			"Listmonk API URL must not include a query string or fragment",
 		);
