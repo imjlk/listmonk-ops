@@ -19,6 +19,9 @@ rejected without being overwritten, and new values are validated in their JSON
 form before replacement. Writers serialize read/modify/write transactions,
 recover locks and recovery sentinels owned by confirmed-dead processes on the
 same host, and never expire a live owner's lock based only on age.
+`JsonFileLockTimeoutError` reports the lock file, its recorded owner (pid, host,
+and age, never the lock token), and any blocking recovery marker, so an operator
+can remove a lock whose owner is confirmed gone.
 
 The `updateJsonFileStore` callback runs while the exclusive lock is held. Keep
 the callback bounded. A caller that intentionally performs a remote mutation

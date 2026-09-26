@@ -7,7 +7,9 @@ export {
 	writeJsonFileStore,
 } from "./json-file-store";
 export type {
+	JsonFileLockHolder,
 	JsonFileLockOptions,
+	JsonFileLockTimeoutDiagnostics,
 	JsonFileStore,
 	JsonFileStoreUpdate,
 } from "./json-file-store";

@@ -92,7 +92,10 @@ export function isSameLiveProcess(owner: {
 		process.kill(owner.pid, 0);
 	} catch (error) {
 		if (isErrnoException(error, "ESRCH")) return false;
-		return true;
+		// EPERM: the pid exists but belongs to another user, which can be a
+		// reused pid. Keep checking the recorded start identity, which Linux
+		// can still read from /proc; elsewhere the owner stays assumed alive.
+		if (!isErrnoException(error, "EPERM")) return true;
 	}
 	if (owner.bootTicks !== undefined && process.platform === "linux") {
 		const currentTicks = readLinuxStartTicks(owner.pid);
@@ -148,12 +151,122 @@ function readLinuxProcessStart(pid: number): string | undefined {
 	}
 }
 
-export class JsonFileLockTimeoutError extends Error {
-	constructor(path: string, timeoutMs: number) {
-		super(
-			`Timed out after ${timeoutMs}ms waiting for JSON store lock: ${path}`,
+/**
+ * What a lock file showed when a wait timed out. Deliberately omits the
+ * lock token and process start identity; only operator-useful facts remain.
+ */
+export type JsonFileLockHolder =
+	| { status: "held"; pid: number; hostname: string; createdAt: string }
+	| { status: "unreadable" }
+	| { status: "absent" };
+
+export interface JsonFileLockTimeoutDiagnostics {
+	lockPath?: string;
+	/** The store lock's recorded owner at the time of the timeout. */
+	holder?: JsonFileLockHolder;
+	/** A lock-recovery marker that blocks automatic recovery, if present. */
+	recoveryMarker?: JsonFileLockHolder;
+	/** Reference time for the reported lock age. Defaults to now. */
+	now?: Date;
+}
+
+const MAX_REPORTED_HOSTNAME_LENGTH = 255;
+
+function quoteHostname(value: string): string {
+	return JSON.stringify(value.slice(0, MAX_REPORTED_HOSTNAME_LENGTH));
+}
+
+function formatLockAge(milliseconds: number): string {
+	const seconds = Math.floor(milliseconds / 1000);
+	if (seconds < 60) return `${seconds}s`;
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 48) return `${hours}h ${minutes % 60}m`;
+	return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+}
+
+function describeLockOwner(
+	holder: Extract<JsonFileLockHolder, { status: "held" }>,
+	now: Date,
+): string {
+	const host =
+		holder.hostname === LOCK_HOSTNAME
+			? `this host (${quoteHostname(holder.hostname)})`
+			: `host ${quoteHostname(holder.hostname)}`;
+	const createdAt = Date.parse(holder.createdAt);
+	if (Number.isNaN(createdAt)) return `pid ${holder.pid} on ${host}`;
+	const age = now.getTime() - createdAt;
+	return `pid ${holder.pid} on ${host} since ${new Date(createdAt).toISOString()}${
+		age >= 0 ? ` (${formatLockAge(age)} ago)` : ""
+	}`;
+}
+
+function describeLockTimeout(
+	path: string,
+	timeoutMs: number,
+	lockPath: string,
+	diagnostics: JsonFileLockTimeoutDiagnostics,
+): string {
+	const sentences = [
+		`Timed out after ${timeoutMs}ms waiting for JSON store lock: ${path}.`,
+	];
+	const holder = diagnostics.holder;
+	if (holder === undefined) {
+		sentences.push(
+			`If the process holding ${lockPath} is gone, delete that lock file and retry.`,
 		);
+	} else if (holder.status === "absent") {
+		sentences.push(
+			`Lock file ${lockPath} was released as the wait ended; retry the operation.`,
+		);
+	} else if (holder.status === "unreadable") {
+		sentences.push(
+			`Lock file ${lockPath} has no readable owner metadata. If no listmonk-ops process is using this store, delete ${lockPath} and retry.`,
+		);
+	} else {
+		sentences.push(
+			`Lock file ${lockPath} is held by ${describeLockOwner(holder, diagnostics.now ?? new Date())}.`,
+		);
+		if (holder.hostname !== LOCK_HOSTNAME) {
+			sentences.push(
+				`This process runs on host ${quoteHostname(LOCK_HOSTNAME)} and cannot check a process on another host, so that lock is never recovered automatically (for example after a container is recreated or the hostname changes).`,
+			);
+		}
+		sentences.push(`If that process is gone, delete ${lockPath} and retry.`);
+	}
+	const marker = diagnostics.recoveryMarker;
+	if (marker !== undefined && marker.status !== "absent") {
+		const recoveryPath = `${lockPath}.recovery`;
+		sentences.push(
+			marker.status === "held"
+				? `Lock-recovery marker ${recoveryPath} (${describeLockOwner(marker, diagnostics.now ?? new Date())}) also blocks automatic recovery; delete it as well if that process is gone.`
+				: `Lock-recovery marker ${recoveryPath} has no readable owner metadata and blocks automatic recovery; delete it as well if no listmonk-ops process is recovering this lock.`,
+		);
+	}
+	return sentences.join(" ");
+}
+
+export class JsonFileLockTimeoutError extends Error {
+	readonly storePath: string;
+	readonly lockPath: string;
+	readonly timeoutMs: number;
+	readonly holder?: JsonFileLockHolder;
+	readonly recoveryMarker?: JsonFileLockHolder;
+
+	constructor(
+		path: string,
+		timeoutMs: number,
+		diagnostics: JsonFileLockTimeoutDiagnostics = {},
+	) {
+		const lockPath = diagnostics.lockPath ?? `${path}.lock`;
+		super(describeLockTimeout(path, timeoutMs, lockPath, diagnostics));
 		this.name = "JsonFileLockTimeoutError";
+		this.storePath = path;
+		this.lockPath = lockPath;
+		this.timeoutMs = timeoutMs;
+		this.holder = diagnostics.holder;
+		this.recoveryMarker = diagnostics.recoveryMarker;
 	}
 }
 
@@ -394,6 +507,42 @@ async function removeAbandonedLock(lockPath: string): Promise<boolean> {
 	);
 }
 
+/** Best-effort read of a lock file's owner for diagnostics; never throws. */
+async function inspectLockHolder(path: string): Promise<JsonFileLockHolder> {
+	let metadata: LockMetadata | undefined;
+	try {
+		metadata = parseLockMetadata(await readFile(path, "utf8"));
+	} catch (error) {
+		return isErrnoException(error, "ENOENT")
+			? { status: "absent" }
+			: { status: "unreadable" };
+	}
+	return metadata === undefined
+		? { status: "unreadable" }
+		: {
+				status: "held",
+				pid: metadata.pid,
+				hostname: metadata.hostname,
+				createdAt: metadata.createdAt,
+			};
+}
+
+async function createLockTimeoutError(
+	path: string,
+	lockPath: string,
+	timeoutMs: number,
+): Promise<JsonFileLockTimeoutError> {
+	const [holder, recoveryMarker] = await Promise.all([
+		inspectLockHolder(lockPath),
+		inspectLockHolder(`${lockPath}.recovery`),
+	]);
+	return new JsonFileLockTimeoutError(path, timeoutMs, {
+		lockPath,
+		holder,
+		...(recoveryMarker.status === "absent" ? {} : { recoveryMarker }),
+	});
+}
+
 async function acquireLock(
 	path: string,
 	options: JsonFileLockOptions = {},
@@ -416,13 +565,13 @@ async function acquireLock(
 
 		if (await removeAbandonedLock(lockPath)) {
 			if (Date.now() >= deadline) {
-				throw new JsonFileLockTimeoutError(path, timeoutMs);
+				throw await createLockTimeoutError(path, lockPath, timeoutMs);
 			}
 			continue;
 		}
 
 		if (Date.now() >= deadline) {
-			throw new JsonFileLockTimeoutError(path, timeoutMs);
+			throw await createLockTimeoutError(path, lockPath, timeoutMs);
 		}
 
 		await delay(Math.min(retryDelayMs, Math.max(1, deadline - Date.now())));
