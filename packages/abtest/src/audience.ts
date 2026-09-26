@@ -211,14 +211,26 @@ export function evaluateSubscriberEligibility(
 		: "ineligible";
 }
 
+/**
+ * Render a Listmonk error envelope for an `AudienceResolutionError` message.
+ * Never throws, so an odd payload (circular, symbol, function) cannot
+ * replace the resolution error with an opaque TypeError.
+ */
 function describeResponseError(error: unknown): string {
+	if (typeof error === "string") {
+		return error;
+	}
 	if (typeof error === "object" && error !== null && "message" in error) {
 		const message = (error as { message?: unknown }).message;
 		if (typeof message === "string") {
 			return message;
 		}
 	}
-	return typeof error === "string" ? error : JSON.stringify(error);
+	try {
+		return JSON.stringify(error) ?? String(error);
+	} catch {
+		return String(error);
+	}
 }
 
 export function computeAudienceChecksum(uuids: readonly string[]): string {
@@ -348,7 +360,9 @@ export function createListmonkAudienceResolver(
 		});
 		if ("error" in response && response.error !== undefined) {
 			throw new AudienceResolutionError(
-				`list ${listId} page ${page} query failed: ${String(response.error)}`,
+				`list ${listId} page ${page} query failed: ${describeResponseError(
+					response.error,
+				)}`,
 			);
 		}
 		const subscribers = response.data?.results ?? [];
