@@ -107,6 +107,32 @@ describe("CLI command adapter", () => {
 		await expect(run(["--no-no-body"])).rejects.toThrow("--no-no-body");
 	});
 
+	test("rejects a plain no-* flag set to false on a command without it", async () => {
+		defineCommand({
+			name: "with-flag",
+			options: { "no-body": option(z.boolean().optional()) },
+			handler: () => undefined,
+		});
+		let calls = 0;
+		const command = defineCommand({
+			name: "probe",
+			handler: () => {
+				calls += 1;
+			},
+		});
+
+		for (const argv of [["--no-body=false"], ["--no-body"]]) {
+			await expect(
+				cli(prepareCliArgv(argv), command, {
+					name: "probe",
+					usageSilent: true,
+					strict: true,
+				}),
+			).rejects.toThrow("Unknown option: --no-body");
+		}
+		expect(calls).toBe(0);
+	});
+
 	test("rejects a plain no-* flag that would default to on", () => {
 		expect(() =>
 			defineCommand({

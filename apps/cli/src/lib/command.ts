@@ -52,6 +52,8 @@ type CliCommand = SubCommandable & { name: string };
 
 const booleanOptionNames = new Set<string>();
 let runtimeFlags: RuntimeFlags = {};
+/** Plain `no-*` flags that the current argv explicitly set to false. */
+let unsetFlagNames: string[] = [];
 
 export function getRuntimeFlags(): Readonly<RuntimeFlags> {
 	return runtimeFlags;
@@ -151,6 +153,16 @@ export function defineCommand<
 		description: config.description,
 		args,
 		async run(context) {
+			// prepareCliArgv drops `--no-<name>=false` before Gunshi sees it, so
+			// Gunshi's strict check cannot report one this command lacks.
+			const unknownFlags = unsetFlagNames.filter(
+				(name) => !Object.hasOwn(args, name),
+			);
+			if (unknownFlags.length > 0) {
+				throw new Error(
+					`Unknown option: ${unknownFlags.map((name) => `--${name}`).join(", ")}`,
+				);
+			}
 			const handlerArgs: HandlerArgs<InferFlags<Options>> = {
 				flags: {
 					...context.values,
@@ -204,6 +216,7 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
 
 export function prepareCliArgv(input: string[]): string[] {
 	runtimeFlags = {};
+	unsetFlagNames = [];
 	const args: string[] = [];
 
 	for (let index = 0; index < input.length; index += 1) {
@@ -303,8 +316,11 @@ export function prepareCliArgv(input: string[]): string[] {
 				args.push(`--${optionName}`);
 			} else if (isNegatableBooleanOption(optionName)) {
 				args.push(`--no-${optionName}`);
+			} else {
+				// An explicit false leaves a plain `no-*` flag unset (off); the
+				// invoked command still has to define it.
+				unsetFlagNames.push(optionName);
 			}
-			// An explicit false for a plain `no-*` flag leaves it unset (off).
 			if (consumesNext) {
 				index += 1;
 			}
