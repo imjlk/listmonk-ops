@@ -1065,6 +1065,19 @@ Transition a campaign into the paused status. Validates the current status allow
 - Stability: `stable` since `0.9.0`
 - State: `running -> paused` (target-state no-op allowed)
 
+## `campaigns.unschedule`
+
+Return a scheduled campaign to draft so it no longer sends at its send_at. Validates the current status allows the transition; an already draft campaign is a no-op.
+
+- Resource / verb: `campaign.unschedule`
+- MCP tool: `listmonk_unschedule_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:campaign`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.20.0`
+- State: `scheduled -> draft` (target-state no-op allowed)
+
 ## `campaigns.clone`
 
 Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.

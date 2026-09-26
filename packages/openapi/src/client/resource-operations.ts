@@ -251,7 +251,7 @@ export function createCampaignOperations(
 		},
 		async updateStatus(options: {
 			path: { id: number };
-			body: { status: "scheduled" | "running" | "paused" | "cancelled" };
+			body: { status: "draft" | "scheduled" | "running" | "paused" | "cancelled" };
 		}) {
 			const result = await updateCampaignStatusById({
 				...sdkOptions,

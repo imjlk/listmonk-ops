@@ -559,6 +559,7 @@ listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
 listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z \
   --expected-updated-at <campaignUpdatedAt-from-preflight> --confirm
+listmonk-cli campaigns unschedule --id 42
 listmonk-cli campaigns start --id 42 --expected-updated-at <updated_at> --confirm
 listmonk-cli campaigns pause --id 42 --expected-updated-at <updated_at>
 listmonk-cli campaigns cancel --id 42 --expected-updated-at <updated_at> --confirm
@@ -641,8 +642,8 @@ Campaign lifecycle transitions are validated client-side against Listmonk
 6.2's status rules (`draft → scheduled/running`, `running →
 paused/cancelled`, `paused → running/scheduled/cancelled`,
 `finished`/`cancelled` are terminal). Listmonk starts a `scheduled` campaign
-itself at its `send_at`, so to send one early clear its `send_at` with
-`campaigns update` (Listmonk returns it to `draft`) and start it, and a campaign the deliverability guard paused can be
+itself at its `send_at`, so to send one early run `campaigns unschedule`
+(`scheduled → draft`) and then start it, and a campaign the deliverability guard paused can be
 cancelled directly. Subscriber
 bulk operations chunk IDs (default 500 per chunk) and support
 `--dry-run`, `--max-items`, and `--continue-on-error`. Media uploads

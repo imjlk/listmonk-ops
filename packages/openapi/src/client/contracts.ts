@@ -179,7 +179,7 @@ export interface CampaignOperations
 	}): Promise<FlattenedResponse<string>>;
 	updateStatus(options: {
 		path: { id: number };
-		body: { status: "scheduled" | "running" | "paused" | "cancelled" };
+		body: { status: "draft" | "scheduled" | "running" | "paused" | "cancelled" };
 	}): Promise<FlattenedResponse<boolean>>;
 	updateArchive(options: {
 		path: { id: number };

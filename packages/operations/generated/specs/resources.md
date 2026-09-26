@@ -11,7 +11,7 @@ Terminal states: `finished`, `cancelled`.
 Transitions:
 
 - `draft` → `scheduled`, `running`
-- `scheduled` → none
+- `scheduled` → `draft`
 - `running` → `paused`, `cancelled`
 - `paused` → `running`, `scheduled`, `cancelled`
 - `finished` → none

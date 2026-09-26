@@ -193,6 +193,7 @@ describe("email operations specification", () => {
 			"campaigns.update",
 			"campaigns.delete",
 			"campaigns.pause",
+			"campaigns.unschedule",
 			"campaigns.clone",
 			"campaigns.preview",
 			"campaigns.test",
@@ -244,8 +245,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(135);
-		expect(new Set(operationIds).size).toBe(135);
+		expect(operationIds).toHaveLength(136);
+		expect(new Set(operationIds).size).toBe(136);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -255,7 +256,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(134);
+		).toHaveLength(135);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(

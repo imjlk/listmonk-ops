@@ -2478,7 +2478,7 @@ export type UpdateCampaignStatusByIdData = {
      * campaign status update
      */
     body?: {
-        status?: 'scheduled' | 'running' | 'paused' | 'cancelled';
+        status?: 'draft' | 'scheduled' | 'running' | 'paused' | 'cancelled';
     };
     path: {
         /**

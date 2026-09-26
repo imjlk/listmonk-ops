@@ -46,6 +46,18 @@ describe("planCancelAbTest", () => {
 		]);
 	});
 
+	it("cancels paused campaigns instead of deleting their history", () => {
+		const plan = planCancelAbTest(
+			makeTest(),
+			new Map([[100, "paused"], [101, "running"]]),
+		);
+		expect(plan.campaignActions).toEqual([
+			{ kind: "cancel", campaignId: 100 },
+			{ kind: "cancel", campaignId: 101 },
+		]);
+		expect(plan.campaignsBlockingListDeletion).toContain(100);
+	});
+
 	it("deletes draft and scheduled campaigns (cancel is not allowed)", () => {
 		const plan = planCancelAbTest(
 			makeTest(),

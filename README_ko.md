@@ -551,6 +551,7 @@ listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
 listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z \
   --expected-updated-at <preflight의-campaignUpdatedAt> --confirm
+listmonk-cli campaigns unschedule --id 42
 listmonk-cli campaigns start --id 42 --expected-updated-at <updated_at> --confirm
 listmonk-cli campaigns pause --id 42 --expected-updated-at <updated_at>
 listmonk-cli campaigns cancel --id 42 --expected-updated-at <updated_at> --confirm
@@ -633,7 +634,7 @@ listmonk-cli bounces prune --no-dry-run --bounce-ids 5,6,7 --confirm
 (`draft → scheduled/running`, `running → paused/cancelled`,
 `paused → running/scheduled/cancelled`, `finished`/`cancelled`는 종단 상태).
 Listmonk는 `scheduled` 캠페인을 `send_at`에 직접 시작하므로 일찍 보내려면
-`campaigns update`로 `send_at`을 비워 `draft`로 되돌린 뒤 시작해야 하며, deliverability guard가 일시정지한 캠페인은 바로
+`campaigns unschedule`로 `draft`로 되돌린 뒤 시작해야 하며, deliverability guard가 일시정지한 캠페인은 바로
 취소할 수 있습니다. 구독자 일괄 작업은 ID를 청크
 단위(기본 500개)로 나누며 `--dry-run`, `--max-items`,
 `--continue-on-error`를 지원합니다. 미디어 업로드는 MIME 허용 목록과

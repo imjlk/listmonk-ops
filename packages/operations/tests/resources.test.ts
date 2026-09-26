@@ -22,6 +22,7 @@ import {
 	invokeCreateTemplateOperation,
 	invokeGetTemplatesOperation,
 	invokePauseCampaignOperation,
+	invokeUnscheduleCampaignOperation,
 	invokeReconcileTemplateManifestOperation,
 	invokeReconcileUserRoleManifestOperation,
 	invokeRemoveSubscribersFromListsOperation,
@@ -488,7 +489,7 @@ describe("shared CRUD resource operations", () => {
 	});
 
 	test("exposes object-root registries with safety metadata", () => {
-		expect(campaignOperations).toHaveLength(15);
+		expect(campaignOperations).toHaveLength(16);
 		expect(subscriberOperations).toHaveLength(15);
 		expect(templateOperations).toHaveLength(8);
 		expect(mediaOperations).toHaveLength(4);
@@ -987,6 +988,41 @@ describe("shared CRUD resource operations", () => {
 		expect(startResult).toEqual({ id: 10, status: "running" });
 	});
 
+	test("unschedules a scheduled campaign back to draft", async () => {
+		const statusOf = (status: string) =>
+			mock(async () => ({
+				data: { id: 12, status },
+			})) as unknown as CampaignClient["campaign"]["getById"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({ getById: statusOf("scheduled"), updateStatus }),
+				{ id: 12 },
+			),
+		).resolves.toEqual({ id: 12, status: "draft" });
+		expect(updateStatus).toHaveBeenCalledWith({
+			path: { id: 12 },
+			body: { status: "draft" },
+		});
+
+		// Already draft: an idempotent no-op without a status write.
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({ getById: statusOf("draft"), updateStatus }),
+				{ id: 12 },
+			),
+		).resolves.toEqual({ id: 12, status: "draft" });
+		// Listmonk only returns scheduled campaigns to draft.
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({ getById: statusOf("running"), updateStatus }),
+				{ id: 12 },
+			),
+		).rejects.toThrow(/running -> draft is not a valid lifecycle transition/);
+		expect(updateStatus).toHaveBeenCalledTimes(1);
+	});
+
 	test("follows Listmonk 6.2 campaign status rules", async () => {
 		const statusOf = (status: string) =>
 			mock(async () => ({
@@ -1011,7 +1047,7 @@ describe("shared CRUD resource operations", () => {
 				campaignContext({ getById: statusOf("scheduled"), updateStatus }),
 				{ id: 10 },
 			),
-		).rejects.toThrow(/clear its send_at/);
+		).rejects.toThrow(/unschedule it \(campaigns unschedule\)/);
 		await expect(
 			invokeCancelCampaignOperation(
 				campaignContext({ getById: statusOf("draft"), updateStatus }),

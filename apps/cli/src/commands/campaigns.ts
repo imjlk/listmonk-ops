@@ -21,6 +21,7 @@ import {
 	invokePreviewCampaignOperation,
 	invokeTestCampaignOperation,
 	invokePauseCampaignOperation,
+	invokeUnscheduleCampaignOperation,
 	invokeScheduleCampaignOperation,
 	invokeStartCampaignOperation,
 	invokeUpdateCampaignOperation,
@@ -202,6 +203,16 @@ export async function renderPauseCampaign(
 ) {
 	const result = await invokePauseCampaignOperation(context, input);
 	context.output.success(`Campaign ${input.id} paused`);
+	context.output.json(result);
+	return result;
+}
+
+export async function renderUnscheduleCampaign(
+	context: CampaignsCliContext,
+	input: CampaignLifecycleInput,
+) {
+	const result = await invokeUnscheduleCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} unscheduled (draft)`);
 	context.output.json(result);
 	return result;
 }
@@ -603,6 +614,24 @@ export async function handlePauseCampaignCommand({
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to pause campaign", error);
+	}
+}
+
+export async function handleUnscheduleCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number; "expected-updated-at"?: string }>) {
+	try {
+		const client = await getListmonkClient(args);
+		return await renderUnscheduleCampaign(
+			{ client, output: getOutput() },
+			{
+				id: flags.id,
+				expected_updated_at: flags["expected-updated-at"],
+			},
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to unschedule campaign", error);
 	}
 }
 
@@ -1012,6 +1041,18 @@ export default defineGroup({
 				"expected-updated-at": expectedUpdatedAtOption(),
 			},
 			handler: handlePauseCampaignCommand,
+		}),
+		defineCommand({
+			name: "unschedule",
+			operationId: "campaigns.unschedule",
+			description: "Return a scheduled campaign to draft",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				"expected-updated-at": expectedUpdatedAtOption(),
+			},
+			handler: handleUnscheduleCampaignCommand,
 		}),
 		defineCommand({
 			name: "cancel",

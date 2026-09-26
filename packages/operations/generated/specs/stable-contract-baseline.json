@@ -27536,6 +27536,136 @@
         "input": {
           "components": {
             "schemas": {
+              "CampaignLifecycleInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected_updated_at": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Campaign updated_at observed by the preflight that approved this transition."
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Listmonk campaign ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_updated_at": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Campaign updated_at observed by the preflight that approved this transition."
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Listmonk campaign ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        }
+      ],
+      "id": "campaigns.unschedule",
+      "mcpName": "listmonk_unschedule_campaign",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same unschedule transition converges on the same draft state."
+      },
+      "state": {
+        "allowNoopFromTarget": true,
+        "from": [
+          "scheduled"
+        ],
+        "resource": "campaign",
+        "to": "draft"
+      },
+      "verb": "unschedule"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "CampaignCloneInput": {
                 "additionalProperties": false,
                 "properties": {

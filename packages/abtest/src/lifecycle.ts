@@ -115,7 +115,9 @@ export interface PlanCancelOptions {
 	activeStatuses?: string[];
 }
 
-const DEFAULT_ACTIVE_STATUSES = ["running"];
+// Listmonk 6.2 cancels running or paused campaigns, so a paused variant is
+// cancelled (keeping its delivery history) instead of deleted.
+const DEFAULT_ACTIVE_STATUSES = ["running", "paused"];
 const DEFAULT_TERMINAL_STATUSES = ["finished", "sent", "cancelled"];
 /**
  * Pseudo-status used when a campaign's status fetch returned a 404 — the

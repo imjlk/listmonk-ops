@@ -14,6 +14,7 @@ import {
 	bindCampaignsDeleteOperationSpec,
 	bindCampaignsListOperationSpec,
 	bindCampaignsPauseOperationSpec,
+	bindCampaignsUnscheduleOperationSpec,
 	bindCampaignsStatsOperationSpec,
 	bindCampaignsUpdateOperationSpec,
 } from "./specs";
@@ -797,6 +798,7 @@ function assertExpectedCampaignRevision(
 }
 
 const CAMPAIGN_LIFECYCLE_VERBS: Readonly<Record<CampaignLifecycleTarget, string>> = {
+	draft: "unschedule",
 	scheduled: "schedule",
 	running: "start",
 	paused: "pause",
@@ -937,6 +939,19 @@ export async function pauseCampaign(
 	input: z.output<typeof campaignLifecycleInputSchema>,
 ): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
 	return transitionCampaign(ctx, input, "paused");
+}
+
+/**
+ * Return a scheduled campaign to `draft` so it no longer sends at its
+ * `send_at` (Listmonk only accepts `draft` from `scheduled`). An already
+ * draft campaign is an idempotent no-op; a draft can then be edited,
+ * rescheduled, or started immediately.
+ */
+export async function unscheduleCampaign(
+	ctx: CampaignOperationContext,
+	input: z.output<typeof campaignLifecycleInputSchema>,
+): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
+	return transitionCampaign(ctx, input, "draft");
 }
 
 /**
@@ -1457,6 +1472,22 @@ export const pauseCampaignOperation = defineOperation({
 	execute: pauseCampaign,
 });
 
+export const unscheduleCampaignOperation = defineOperation({
+	id: "campaigns.unschedule",
+	title: "Unschedule campaign",
+	description:
+		"Return a scheduled campaign to draft so it no longer sends at its send_at. Validates the current status allows the transition; an already draft campaign is a no-op.",
+	inputSchema: campaignLifecycleInputSchema,
+	outputSchema: campaignLifecycleOutputSchema,
+	safety: updateResourceSafety,
+	mcp: {
+		name: "listmonk_unschedule_campaign",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindCampaignsUnscheduleOperationSpec(),
+	execute: unscheduleCampaign,
+});
+
 export const cancelCampaignOperation = defineOperation({
 	id: "campaigns.cancel",
 	title: "Cancel campaign",
@@ -1669,6 +1700,30 @@ export async function invokePauseCampaignOperation(
 	return parseOperationOutput(
 		pauseCampaignOperation.id,
 		pauseCampaignOperation.outputSchema,
+		output,
+	);
+}
+
+export async function invokeUnscheduleCampaignOperation(
+	context: CampaignOperationContext,
+	input: unknown,
+): Promise<CampaignLifecycleOutput> {
+	const parsedInput = parseOperationInput(
+		unscheduleCampaignOperation.inputSchema,
+		input,
+	);
+	let output: CampaignLifecycleOutput;
+	try {
+		output = await unscheduleCampaign(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			unscheduleCampaignOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		unscheduleCampaignOperation.id,
+		unscheduleCampaignOperation.outputSchema,
 		output,
 	);
 }
@@ -1961,6 +2016,7 @@ export const campaignOperations = [
 	scheduleCampaignOperation,
 	startCampaignOperation,
 	pauseCampaignOperation,
+	unscheduleCampaignOperation,
 	cancelCampaignOperation,
 	cloneCampaignOperation,
 	getCampaignStatsOperation,
@@ -2039,6 +2095,11 @@ export async function invokeCampaignOperationByMcpName(
 			return {
 				operation: pauseCampaignOperation,
 				output: await invokePauseCampaignOperation(context, input),
+			};
+		case unscheduleCampaignOperation.mcp.name:
+			return {
+				operation: unscheduleCampaignOperation,
+				output: await invokeUnscheduleCampaignOperation(context, input),
 			};
 		case cancelCampaignOperation.mcp.name:
 			return {

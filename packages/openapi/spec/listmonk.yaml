@@ -1584,7 +1584,7 @@ paths:
               properties:
                 status:
                   type: string
-                  enum: [scheduled, running, paused, cancelled]
+                  enum: [draft, scheduled, running, paused, cancelled]
       responses:
         "200":
           description: response

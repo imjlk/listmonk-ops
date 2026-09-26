@@ -7,6 +7,7 @@ import {
 	renderCloneCampaign,
 	renderGetCampaignStats,
 	renderPauseCampaign,
+	renderUnscheduleCampaign,
 	renderScheduleCampaign,
 	renderStartCampaign,
 	renderCampaigns,
@@ -338,9 +339,15 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			"Campaign 10 scheduled for 2026-08-01T09:00:00Z",
 		);
 
-		// Listmonk's scheduler starts a scheduled campaign itself; an explicit
-		// start applies to draft (or paused) campaigns.
-		currentStatus = "draft";
+		// Listmonk's scheduler starts a scheduled campaign itself; unschedule
+		// it back to draft to start it now.
+		await renderUnscheduleCampaign(cliContext, {
+			id: 10,
+			expected_updated_at: "2026-07-30T09:00:00Z",
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Campaign 10 unscheduled (draft)",
+		);
 		await renderStartCampaign(cliContext, {
 			id: 10,
 			expected_updated_at: "2026-07-30T09:00:00Z",

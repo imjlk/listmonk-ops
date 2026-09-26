@@ -1234,6 +1234,20 @@ Verify with: `campaigns.get`
 
 Retry guidance: Retry identical transient failures with bounded backoff, then verify with campaigns.get.
 
+## Unschedule campaign (`campaigns.unschedule`)
+
+Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
+
+Use when: A scheduled campaign must not send at its send_at. A scheduled campaign must start now instead (unschedule, then campaigns.start).
+
+Avoid when: The campaign is running, paused, or in a terminal status.
+
+Prerequisites: `campaigns.get`
+
+Verify with: `campaigns.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with campaigns.get.
+
 ## Clone campaign (`campaigns.clone`)
 
 Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `conditional`.

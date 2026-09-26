@@ -96,6 +96,15 @@
  
      delete:
        description: deletes specified campaign
+@@ -1538,7 +1582,7 @@
+               properties:
+                 status:
+                   type: string
+-                  enum: [scheduled, running, paused, cancelled]
++                  enum: [draft, scheduled, running, paused, cancelled]
+       responses:
+         "200":
+           description: response
 @@ -1754,7 +1798,7 @@
          - in: query
            name: no_body

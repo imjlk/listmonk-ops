@@ -8,9 +8,9 @@ import { CAMPAIGN_SEND_AT_PATTERN } from "./campaign-send-at";
  *
  * - `scheduled` from `draft` or `paused` (and only with a `send_at`);
  * - `running` from `draft` or `paused` — a `scheduled` campaign is started
- *   by Listmonk's scheduler at `send_at`; to send it earlier, clear its
- *   `send_at` with `campaigns.update` (Listmonk then returns it to `draft`)
- *   and start it;
+ *   by Listmonk's scheduler at `send_at`; to send it earlier, unschedule it
+ *   (`scheduled → draft`, `campaigns.unschedule`) and start it;
+ * - `draft` only from `scheduled` (unschedule);
  * - `paused` from `running`;
  * - `cancelled` from `running` or `paused`, so a campaign paused by the
  *   deliverability guard can still be cancelled. A `draft` or `scheduled`
@@ -22,7 +22,7 @@ export const CAMPAIGN_TRANSITIONS: Readonly<
 	Record<string, ReadonlySet<string>>
 > = {
 	draft: new Set(["scheduled", "running"]),
-	scheduled: new Set(),
+	scheduled: new Set(["draft"]),
 	running: new Set(["paused", "cancelled"]),
 	paused: new Set(["scheduled", "running", "cancelled"]),
 	finished: new Set(),
@@ -30,11 +30,12 @@ export const CAMPAIGN_TRANSITIONS: Readonly<
 };
 
 /**
- * Target statuses accepted by `PUT /campaigns/{id}/status`. Campaigns can
- * never transition back into `draft` or directly into `finished`, which is
- * why those values are absent.
+ * Target statuses accepted by `PUT /campaigns/{id}/status`. `draft` is only
+ * reachable from `scheduled` (unschedule), and `finished` is set by Listmonk
+ * itself, which is why it is absent.
  */
 export const CAMPAIGN_LIFECYCLE_TARGETS = [
+	"draft",
 	"scheduled",
 	"running",
 	"paused",
@@ -99,7 +100,7 @@ function transitionHint(
 	target: CampaignLifecycleTarget,
 ): string {
 	if (current === "scheduled" && target === "running") {
-		return "; Listmonk starts a scheduled campaign at its send_at, so to send earlier clear its send_at with campaigns update (it returns to draft) and start it";
+		return "; Listmonk starts a scheduled campaign at its send_at, so to send earlier unschedule it (campaigns unschedule) and start it";
 	}
 	if (
 		(current === "draft" || current === "scheduled") &&
