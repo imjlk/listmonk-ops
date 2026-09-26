@@ -165,46 +165,62 @@ const NPM_LIFECYCLE_VARIABLE =
 const COMMAND_TIMEOUT_MS = 5 * 60_000;
 const COMMAND_TIMEOUT_SIGNAL = "SIGKILL";
 
+function readOutput(path: string): string {
+	return existsSync(path) ? readFileSync(path, "utf8") : "";
+}
+
 async function runCommand(
 	command: readonly string[],
 	options: { cwd: string; env: Environment },
 ): Promise<CommandResult> {
-	const startedAt = performance.now();
-	const child = Bun.spawn([...command], {
-		cwd: options.cwd,
-		env: options.env,
-		stdin: "ignore",
-		stdout: "pipe",
-		stderr: "pipe",
-		timeout: COMMAND_TIMEOUT_MS,
-		killSignal: COMMAND_TIMEOUT_SIGNAL,
-	});
-	const [stdout, stderr, exitCode] = await Promise.all([
-		new Response(child.stdout).text(),
-		new Response(child.stderr).text(),
-		child.exited,
-	]);
-	const signal = child.signalCode;
-	return {
-		exitCode,
-		signal,
-		// An external SIGKILL (for example an OOM kill) is not a timeout.
-		timedOut:
-			signal === COMMAND_TIMEOUT_SIGNAL &&
-			performance.now() - startedAt >= COMMAND_TIMEOUT_MS,
-		stdout,
-		stderr,
-	};
+	// Output goes to files rather than pipes: a descendant that outlives a
+	// killed child could otherwise keep a pipe open and block its drain.
+	const outputDirectory = mkdtempSync(
+		join(tmpdir(), "listmonk-cli-npm-install-output-"),
+	);
+	const stdoutPath = join(outputDirectory, "stdout");
+	const stderrPath = join(outputDirectory, "stderr");
+	try {
+		const startedAt = performance.now();
+		const child = Bun.spawn([...command], {
+			cwd: options.cwd,
+			env: options.env,
+			stdin: "ignore",
+			stdout: Bun.file(stdoutPath),
+			stderr: Bun.file(stderrPath),
+			timeout: COMMAND_TIMEOUT_MS,
+			killSignal: COMMAND_TIMEOUT_SIGNAL,
+		});
+		const exitCode = await child.exited;
+		const elapsedMs = performance.now() - startedAt;
+		const signal = child.signalCode;
+		return {
+			exitCode,
+			signal,
+			// An external SIGKILL (for example an OOM kill) is not a timeout.
+			timedOut:
+				signal === COMMAND_TIMEOUT_SIGNAL && elapsedMs >= COMMAND_TIMEOUT_MS,
+			stdout: readOutput(stdoutPath),
+			stderr: readOutput(stderrPath),
+		};
+	} finally {
+		rmSync(outputDirectory, { recursive: true, force: true });
+	}
+}
+
+function describeOutcome(result: CommandResult): string {
+	if (result.timedOut) {
+		return `timed out after ${COMMAND_TIMEOUT_MS / 1000}s`;
+	}
+	if (result.signal !== null) {
+		return `was stopped by ${result.signal}`;
+	}
+	return `exited with ${result.exitCode}`;
 }
 
 function commandFailure(label: string, result: CommandResult): Error {
-	const outcome = result.timedOut
-		? `timed out after ${COMMAND_TIMEOUT_MS / 1000}s`
-		: result.signal === null
-			? `exited with ${result.exitCode}`
-			: `was stopped by ${result.signal}`;
 	return new Error(
-		`${label} ${outcome}\n${result.stdout}${result.stderr}`.trim(),
+		`${label} ${describeOutcome(result)}\n${result.stdout}${result.stderr}`.trim(),
 	);
 }
 
