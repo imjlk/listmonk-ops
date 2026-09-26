@@ -211,6 +211,27 @@ describe("A/B test provisioning", () => {
 		// Even a keyed create records no replayable draft for the refusal.
 		await expect(service.getAllTests()).resolves.toHaveLength(0);
 	});
+
+	test("createTest still reports a missing primary metric structurally", async () => {
+		const service = new AbTestService();
+		const hypothesis = {
+			objective: "Grow clicks",
+			hypothesis: "Variant B raises clicks",
+			expectedLift: { kind: "relative", value: 0.1 },
+			owner: { id: "operator" },
+			experimentScope: {
+				channel: "email",
+				experimentFamilyKey: "clicks.test",
+				attributionWindowHours: 24,
+				exclusionWindowHours: 0,
+			},
+			createdAt: "2026-07-01T00:00:00Z",
+		} as unknown as NonNullable<AbTestConfig["hypothesis"]>;
+
+		await expect(
+			service.createTest({ ...createTestConfig(), hypothesis }),
+		).rejects.toThrow("primaryMetric is required for launch");
+	});
 });
 
 describe("provisionCampaignsPhase variant order", () => {

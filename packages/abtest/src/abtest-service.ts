@@ -362,9 +362,12 @@ export class AbTestService {
 		}
 		// Reject a primary metric the analysis cannot decide on before any
 		// Listmonk read, so the refusal never depends on remote availability
-		// and no draft is recorded for a test that could never complete.
-		if (config.hypothesis !== undefined) {
-			assertAnalyzablePrimaryMetric(config.hypothesis.primaryMetric?.type);
+		// and no draft is recorded for a test that could never complete. A
+		// missing or malformed primaryMetric is left to the full hypothesis
+		// validation below, which names the structural problem precisely.
+		const primaryMetric: unknown = config.hypothesis?.primaryMetric;
+		if (typeof primaryMetric === "object" && primaryMetric !== null) {
+			assertAnalyzablePrimaryMetric((primaryMetric as { type?: unknown }).type);
 		}
 		// Validate test configuration and provide statistical recommendations
 		if (this.listmonkIntegration) {
