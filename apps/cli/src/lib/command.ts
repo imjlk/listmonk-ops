@@ -2,6 +2,7 @@ import * as clack from "@clack/prompts";
 import { type ArgSchema, define, type SubCommandable } from "gunshi";
 import type { output, ZodType } from "zod";
 import { executeCliOperation } from "../operation-execution";
+import { runWithStdoutConsoleCapture } from "./output";
 
 type OptionConfig = {
 	description?: string;
@@ -145,17 +146,21 @@ export function defineCommand<
 				},
 			};
 
-			if (config.operationId) {
-				await executeCliOperation({
-					operationId: config.operationId,
-					input: handlerArgs.flags,
-					confirmed: handlerArgs.flags.confirm === true,
-					invoke: async () => config.handler(handlerArgs),
-				});
-				return;
-			}
+			// Only the handler runs inside the capture, so Gunshi help, version,
+			// and completion output keeps stdout in machine modes.
+			await runWithStdoutConsoleCapture(async () => {
+				if (config.operationId) {
+					await executeCliOperation({
+						operationId: config.operationId,
+						input: handlerArgs.flags,
+						confirmed: handlerArgs.flags.confirm === true,
+						invoke: async () => config.handler(handlerArgs),
+					});
+					return;
+				}
 
-			await config.handler(handlerArgs);
+				await config.handler(handlerArgs);
+			});
 		},
 	}) as CliCommand;
 }

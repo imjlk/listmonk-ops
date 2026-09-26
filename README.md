@@ -79,7 +79,7 @@ CLI/OpenAPI client use token-based auth:
 export LISTMONK_API_URL="http://localhost:9000/api"
 export LISTMONK_USERNAME="api-admin"
 export LISTMONK_API_TOKEN="<your-token>"
-# Optional: suppress A/B statistical console logs in automation
+# Optional: suppress the A/B statistical diagnostics written to stderr
 export LISTMONK_OPS_ABTEST_SILENT="1"
 # Optional: override shared CLI/MCP state files
 export LISTMONK_OPS_ABTEST_STORE="$HOME/.listmonk-ops/abtests.json"
@@ -260,6 +260,8 @@ NDJSON streams each bounded diagnostic immediately on stderr as
 `{"diagnostic":{"level":"info","message":"..."}}`; parse that stream line by line.
 Levels preserve success, info, warning, and error semantics. Error stacks and
 arbitrary object details are omitted; quiet mode omits auxiliary diagnostics.
+Console output that domain code or dependencies write while a command runs is
+captured as info diagnostics instead of reaching stdout.
 Long-running sequence/webhook workers accept NDJSON, human, or quiet mode and
 reject buffered JSON mode. Keep stderr separate from stdout when parsing results.
 Explicit help, version, and shell-completion requests retain their text formats.
@@ -364,7 +366,9 @@ listmonk-mcp \
   --port 3000
 ```
 
-Use `listmonk-mcp --stdio` for command-based MCP clients. The default HTTP
+Use `listmonk-mcp --stdio` for command-based MCP clients. In stdio mode stdout
+carries only JSON-RPC messages; console output, including dependency logging
+and A/B statistical diagnostics, goes to stderr. The default HTTP
 runtime exposes the standard Streamable HTTP endpoint at `/mcp` while retaining
 the legacy REST endpoints. Local HTTP keeps working without extra settings.
 Non-loopback binding requires a separate MCP Bearer token plus explicit allowed
@@ -1518,7 +1522,9 @@ The default file store is `~/.listmonk-ops/sequences.json`. Set
 `LISTMONK_OPS_SEQUENCE_DATABASE_URL` for concurrent workers; Postgres uses
 `FOR UPDATE SKIP LOCKED`, lease-token fencing, and advisory-lock-protected
 schema initialization. It also stores transactional idempotency claims in the
-same database so every worker observes one shared send decision.
+same database so every worker observes one shared send decision. Like the
+webhook runtime, it avoids named prepared statements for transaction-mode
+poolers such as PgBouncer and discards server notices instead of printing them.
 `sequences status` reports due work, ambiguity, leases,
 and running/stale/stopped/failed worker health. Old worker records are pruned
 after the retention window. Sequence create/revise/enroll/pause/resume and

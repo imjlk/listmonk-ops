@@ -2,7 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { dirname, resolve } from "node:path";
+import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -239,4 +242,138 @@ describe("mcp runtime entrypoint", () => {
 			await client.close();
 		}
 	});
+
+	test("published bin keeps stdio stdout JSON-RPC only while A/B create reports diagnostics", async () => {
+		const stateDirectory = await mkdtemp(
+			join(tmpdir(), "listmonk-ops-mcp-stdio-"),
+		);
+		const listmonk = Bun.serve({
+			hostname: "127.0.0.1",
+			port: 0,
+			fetch(request) {
+				const url = new URL(request.url);
+				if (url.pathname === "/api/subscribers") {
+					const results = Array.from({ length: 40 }, (_, index) => ({
+						id: index + 1,
+						uuid: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+						email: `subscriber-${index + 1}@example.test`,
+						status: "enabled",
+					}));
+					return Response.json({
+						data: { results, total: results.length, per_page: 500, page: 1 },
+					});
+				}
+				if (url.pathname === "/api/campaigns" && request.method === "GET") {
+					return Response.json({
+						data: { results: [], total: 0, per_page: 20, page: 1 },
+					});
+				}
+				// Provisioning fails after the statistical diagnostics are reported.
+				return Response.json({ message: "stubbed failure" }, { status: 500 });
+			},
+		});
+		const env = runtimeEnv({
+			HOME: stateDirectory,
+			LISTMONK_OPS_DATA_DIR: join(stateDirectory, "data"),
+			LISTMONK_OPS_ABTEST_STORE: join(stateDirectory, "abtests.json"),
+			LISTMONK_OPS_AUDIT_STORE: join(stateDirectory, "audit.json"),
+			LISTMONK_OPS_WEBHOOK_STORE: join(stateDirectory, "webhooks.json"),
+			LISTMONK_OPS_SEQUENCE_STORE: join(stateDirectory, "sequences.json"),
+			LISTMONK_OPS_WEBHOOK_DATABASE_URL: "",
+			LISTMONK_OPS_SEQUENCE_DATABASE_URL: "",
+		});
+		delete env.LISTMONK_OPS_ABTEST_SILENT;
+		delete env.LISTMONK_OPS_CONFIG;
+		delete env.LISTMONK_OPS_PROFILE;
+		const proc = Bun.spawn({
+			cmd: [
+				"bun",
+				"./bin/listmonk-mcp.js",
+				"--stdio",
+				"--listmonk-url",
+				`http://127.0.0.1:${listmonk.port}/api`,
+				"--listmonk-username",
+				"api-admin",
+				"--listmonk-api-token",
+				"dummy-token",
+			],
+			cwd: PACKAGE_ROOT,
+			env,
+			stdin: "pipe",
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		runningProcesses.push(proc);
+		const send = (message: unknown) => {
+			proc.stdin.write(`${JSON.stringify(message)}\n`);
+			proc.stdin.flush();
+		};
+		const reader = proc.stdout.getReader();
+		const decoder = new TextDecoder();
+		let stdout = "";
+		try {
+			send({
+				jsonrpc: "2.0",
+				id: 1,
+				method: "initialize",
+				params: {
+					protocolVersion: LATEST_PROTOCOL_VERSION,
+					capabilities: {},
+					clientInfo: { name: "listmonk-ops-stdout-test", version: "1.0.0" },
+				},
+			});
+			send({ jsonrpc: "2.0", method: "notifications/initialized" });
+			send({
+				jsonrpc: "2.0",
+				id: 2,
+				method: "tools/call",
+				params: {
+					name: "listmonk_abtest_create",
+					arguments: {
+						name: "Stdout hygiene",
+						lists: [1],
+						confirm: true,
+						variants: [
+							{
+								name: "A",
+								percentage: 50,
+								campaign_config: { subject: "A", body: "A" },
+							},
+							{
+								name: "B",
+								percentage: 50,
+								campaign_config: { subject: "B", body: "B" },
+							},
+						],
+					},
+				},
+			});
+			while (!/"id":2[,}]/.test(stdout)) {
+				const chunk = await reader.read();
+				if (chunk.done) break;
+				stdout += decoder.decode(chunk.value, { stream: true });
+			}
+		} finally {
+			proc.kill();
+			await proc.exited;
+			listmonk.stop(true);
+		}
+		for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+			stdout += decoder.decode(chunk.value, { stream: true });
+		}
+		const stderr = await new Response(proc.stderr).text();
+		await rm(stateDirectory, { recursive: true, force: true });
+
+		const lines = stdout.split("\n").filter((line) => line.trim() !== "");
+		const nonProtocolLines = lines.filter((line) => {
+			try {
+				return JSON.parse(line).jsonrpc !== "2.0";
+			} catch {
+				return true;
+			}
+		});
+		expect(nonProtocolLines).toEqual([]);
+		expect(lines.map((line) => JSON.parse(line).id)).toEqual([1, 2]);
+		expect(stderr).toContain("📊 Statistical Summary:");
+	}, 30_000);
 });

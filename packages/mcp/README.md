@@ -291,7 +291,7 @@ LISTMONK_API_TOKEN=<token>
 # Optional legacy fallback if you cannot use an API token yet
 # LISTMONK_PASSWORD=adminpass
 
-# Optional: suppress A/B statistical logs in MCP automation
+# Optional: suppress the A/B statistical diagnostics written to stderr
 LISTMONK_OPS_ABTEST_SILENT=1
 
 # Optional: override state shared with listmonk-cli
@@ -360,6 +360,10 @@ Example MCP client configuration:
   }
 }
 ```
+
+In stdio mode stdout carries only JSON-RPC messages. The server routes console
+output, including dependency logging and A/B statistical diagnostics, to
+stderr, which MCP clients typically collect as server logs.
 
 ### Standard MCP Over Streamable HTTP
 
