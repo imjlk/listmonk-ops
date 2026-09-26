@@ -116,7 +116,9 @@ describe("CLI contract", () => {
 
 		const blocked = runCli(["sequences", "delete", "--id", id!]);
 		expect(blocked.exitCode).not.toBe(0);
-		expect(blocked.output).toContain("requires explicit confirmation");
+		expect(blocked.output).toContain(
+			"Operation sequences.delete requires explicit confirmation; rerun with --confirm",
+		);
 
 		const remove = runCli([
 			"--confirm",

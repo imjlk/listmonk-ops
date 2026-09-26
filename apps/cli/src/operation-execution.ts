@@ -14,6 +14,7 @@ import {
 	assertOperationConfirmation,
 	getOperationEffectiveDryRun,
 	getOperationExecutionPolicy,
+	OperationConfirmationRequiredError,
 	type OperationCatalogItem,
 	type OperationExecutionPolicy,
 } from "@listmonk-ops/operations";
@@ -52,6 +53,18 @@ export class UnknownCliOperationError extends Error {
 		super(`Unknown CLI operation: ${operationId}`);
 		this.name = "UnknownCliOperationError";
 		this.operationId = operationId;
+	}
+}
+
+/**
+ * The shared policy error names the operation; on the CLI the missing piece
+ * is the global `--confirm` flag, so the message says how to satisfy it.
+ */
+export class CliOperationConfirmationRequiredError extends OperationConfirmationRequiredError {
+	public constructor(operationId: string) {
+		super(operationId);
+		this.name = "CliOperationConfirmationRequiredError";
+		this.message = `${this.message}; rerun with --confirm`;
 	}
 }
 
@@ -262,7 +275,9 @@ export async function executeCliOperation<Result>(config: {
 				);
 			}
 		}
-		throw error;
+		throw error instanceof OperationConfirmationRequiredError
+			? new CliOperationConfirmationRequiredError(error.operationId)
+			: error;
 	}
 
 	try {
