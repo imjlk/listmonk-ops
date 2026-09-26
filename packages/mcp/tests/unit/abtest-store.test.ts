@@ -42,15 +42,16 @@ describe("mcp abtest persistence", () => {
 
 		const client = {
 			list: {
+				// The audience resolver reads the source list's opt-in mode.
 				getById: async () => ({
-					data: { id: 1, subscriber_count: 1000 },
+					data: { id: 1, optin: "single", subscriber_count: 1000 },
 				}),
 			},
 			subscriber: {
 				// The audience resolver paginates /subscribers by list_id.
-				// Return one enabled subscriber so provisioning proceeds to
-				// the campaign create step, which is where this test injects
-				// its failure.
+				// Return one enabled subscriber with a deliverable source-list
+				// membership so provisioning proceeds to the campaign create
+				// step, which is where this test injects its failure.
 				list: async () => ({
 					data: {
 						results: [
@@ -59,6 +60,7 @@ describe("mcp abtest persistence", () => {
 								uuid: "unit-test-uuid-1",
 								email: "unit@test",
 								status: "enabled",
+								lists: [{ id: 1, subscription_status: "unconfirmed" }],
 							},
 						],
 						total: 1,
