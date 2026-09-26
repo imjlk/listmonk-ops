@@ -515,6 +515,32 @@ describe("createListmonkAudienceResolver", () => {
 		}
 	});
 
+	it("keeps an unserializable list-read error as an AudienceResolutionError", async () => {
+		const circular: Record<string, unknown> = { code: 500 };
+		circular.self = circular;
+		const client = {
+			subscriber: { list: mock(() => mockListResponse([], 0)) },
+			list: { getById: mock(async () => ({ error: circular })) },
+		} as unknown as ListmonkClient;
+		const resolver = createListmonkAudienceResolver(client);
+		await expect(resolver.resolve([10])).rejects.toThrow(
+			/source list 10 could not be read to verify its opt-in mode: \[object Object\]/,
+		);
+	});
+
+	it("reports the server message when a subscriber page query fails", async () => {
+		const client = {
+			subscriber: {
+				list: mock(async () => ({ error: { message: "Invalid list ID." } })),
+			},
+			list: { getById: makeListReader() },
+		} as unknown as ListmonkClient;
+		const resolver = createListmonkAudienceResolver(client);
+		await expect(resolver.resolve([10])).rejects.toThrow(
+			/list 10 page 1 query failed: Invalid list ID\./,
+		);
+	});
+
 	it("fails closed when the list read returns a different list", async () => {
 		const getById = mock(async () => ({
 			data: { id: 11, optin: "single" },
