@@ -7,6 +7,9 @@ const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // Includes bounded delivery overrides (messenger, subject, content type, and
 // alternate body) while preserving a narrow single-endpoint Worker surface.
 const runtimeBundleBudgetBytes = 23_250;
+// The enhanced client keeps a per-attempt deadline through the response body,
+// strict timeout/retry validation, and a no-redirect guard for writes.
+const enhancedClientBudgetBytes = 32_500;
 
 async function buildRuntimeArtifact(): Promise<void> {
 	await build({
@@ -72,7 +75,7 @@ describe("OpenAPI consumer tree-shaking", () => {
 		expect(urls).not.toContain("/lang/{lang}");
 		expect(urls).toContain("/maintenance/analytics/{type}");
 		expect(urls).not.toContain("/public/subscription");
-		expect(Buffer.byteLength(bundle)).toBeLessThan(30_000);
+		expect(Buffer.byteLength(bundle)).toBeLessThan(enhancedClientBudgetBytes);
 	});
 
 	test("keeps a single raw SDK operation isolated", async () => {

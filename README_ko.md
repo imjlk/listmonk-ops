@@ -79,6 +79,11 @@ CLI/OpenAPI 클라이언트는 토큰 인증을 사용합니다.
 export LISTMONK_API_URL="http://localhost:9000/api"
 export LISTMONK_USERNAME="api-admin"
 export LISTMONK_API_TOKEN="<your-token>"
+# 선택: 요청 시도당 제한 시간(ms, 1-2147483647, 기본값 30000).
+# 응답 본문까지 포함하므로 다운로드가 멈추면 무한 대기 대신 실패합니다.
+export LISTMONK_TIMEOUT="30000"
+# 선택: 멱등 조회의 5xx/네트워크 오류 재시도 횟수(0-10, 기본값 3)
+export LISTMONK_RETRIES="3"
 # 선택: 자동화 환경에서 A/B 통계 로그 출력 억제
 export LISTMONK_OPS_ABTEST_SILENT="1"
 # 선택: CLI/MCP가 공유하는 상태 파일 경로 재정의
@@ -109,6 +114,12 @@ export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
+
+`LISTMONK_TIMEOUT`과 `LISTMONK_RETRIES`는 CLI와 MCP 서버 모두에 적용되며 엄격하게
+검증됩니다. `30s`나 `abc` 같은 값은 요청을 조용히 막는 대신 변수 이름을 알려 주는
+오류로 실패합니다. 쓰기 요청(`POST`/`PUT`/`PATCH`/`DELETE`)은 재시도하지 않고
+리다이렉트도 따라가지 않으므로, `LISTMONK_API_URL`은 리다이렉트하는 프록시가 아닌
+최종 Listmonk origin을 가리켜야 합니다.
 
 ### 선언형 template provisioning
 

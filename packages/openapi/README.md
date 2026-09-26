@@ -48,6 +48,11 @@ const client = createListmonkClient({
 });
 ```
 
+An explicit `auth` object is used as given. An empty `username` or `token` is
+rejected instead of being completed from `LISTMONK_USERNAME` /
+`LISTMONK_API_TOKEN`, so environment credentials are never sent to an
+explicitly configured server.
+
 ### 3) Raw header mode
 
 ```ts
@@ -61,12 +66,30 @@ const client = createListmonkClient({
 });
 ```
 
+### Timeouts, retries, and redirects
+
+Every construction mode accepts `timeout` (milliseconds, 1-2147483647) and
+`retries` (0-10). When omitted they fall back to `LISTMONK_TIMEOUT` and
+`LISTMONK_RETRIES`, then to 30000 ms and 3. Invalid values throw a
+`RangeError` (explicit) or an error naming the variable (environment) instead
+of silently disabling requests.
+
+- The deadline applies per attempt and stays armed until the response body is
+  read, cancelled, or fails, so a stalled body rejects with a `TimeoutError`
+  ("Listmonk request timed out after N ms") instead of hanging.
+- Only `GET`, `HEAD`, and `OPTIONS` are retried, after a 5xx or network error;
+  the discarded 5xx body is cancelled first.
+- Writes do not follow redirects: a 3xx answer to `POST`, `PUT`, `PATCH`, or
+  `DELETE` becomes a `ListmonkRedirectError` result rather than a converted
+  `GET` or a body replayed to another origin.
+
 ## Exported API
 
 - `createListmonkClient(config?)`
 - `createListmonkClientFromEnv(overrides?)` (deprecated alias)
 - `createClient` (raw hey-api client factory)
 - `transformResponse` (response flatten helper)
+- `ListmonkRedirectError` (returned when a write receives a redirect)
 - Types: `ListmonkClient`, `ListmonkConfig`, `About`, `Campaign`, `List`, `Subscriber`, `Template`, `UserRole`, `UserRoleInput`, `UserRoleOperations`
 
 > The previous `rawSdk` namespace export has been removed. It forced the

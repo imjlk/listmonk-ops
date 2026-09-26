@@ -43,7 +43,14 @@ async function readProbeJson(response: Response, controller: AbortController): P
 			bytes.set(chunk, offset);
 			offset += chunk.byteLength;
 		}
-		return JSON.parse(new TextDecoder().decode(bytes));
+		try {
+			return JSON.parse(new TextDecoder().decode(bytes));
+		} catch {
+			// A reachable server answered 200 with something other than JSON
+			// (for example an SSO login page): an invalid response, not an
+			// unavailable one.
+			return undefined;
+		}
 	} finally {
 		reader.releaseLock();
 	}
