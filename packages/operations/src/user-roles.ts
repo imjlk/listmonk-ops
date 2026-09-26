@@ -12,7 +12,11 @@ import {
 	parseOperationOutput,
 } from "./operation";
 
-/** Exact granular permission names exposed by Listmonk 6.2. */
+/**
+ * Exact granular permission names exposed by Listmonk 6.2, including the
+ * per-list `list:get` and `list:manage` permissions that only list roles
+ * accept. User roles take {@link LISTMONK_USER_ROLE_PERMISSIONS}.
+ */
 export const LISTMONK_USER_PERMISSIONS = [
 	"lists:get_all",
 	"lists:manage_all",
@@ -49,10 +53,45 @@ export const LISTMONK_USER_PERMISSIONS = [
 export type ListmonkUserPermission =
 	(typeof LISTMONK_USER_PERMISSIONS)[number];
 
+/**
+ * Per-list permissions. Listmonk 6.2 grants them only through list roles
+ * (cmd/roles.go validateListRole) and rejects them on user roles.
+ */
+export const LISTMONK_LIST_ROLE_PERMISSIONS = [
+	"list:get",
+	"list:manage",
+] as const satisfies readonly ListmonkUserPermission[];
+
+export type ListmonkListRolePermission =
+	(typeof LISTMONK_LIST_ROLE_PERMISSIONS)[number];
+
+export type ListmonkUserRolePermission = Exclude<
+	ListmonkUserPermission,
+	ListmonkListRolePermission
+>;
+
+function isListRolePermission(
+	permission: ListmonkUserPermission,
+): permission is ListmonkListRolePermission {
+	return (LISTMONK_LIST_ROLE_PERMISSIONS as readonly string[]).includes(
+		permission,
+	);
+}
+
+/**
+ * The permissions a Listmonk 6.2 user role accepts: the permissions.json
+ * vocabulary that cmd/roles.go validateUserRole checks every entry against.
+ */
+export const LISTMONK_USER_ROLE_PERMISSIONS: readonly ListmonkUserRolePermission[] =
+	LISTMONK_USER_PERMISSIONS.filter(
+		(permission): permission is ListmonkUserRolePermission =>
+			!isListRolePermission(permission),
+	);
+
 export const LISTMONK_USER_ROLE_PERMISSION_PRESETS = {
 	transactionalSubscriberRuntime: ["subscribers:manage", "tx:send"],
 	templateProvisioner: ["templates:get", "templates:manage"],
-} as const satisfies Record<string, readonly ListmonkUserPermission[]>;
+} as const satisfies Record<string, readonly ListmonkUserRolePermission[]>;
 
 const PROTECTED_SUPER_ADMIN_ROLE_ID = 1;
 
@@ -60,7 +99,19 @@ function isProtectedUserRoleId(id: number): boolean {
 	return id === PROTECTED_SUPER_ADMIN_ROLE_ID;
 }
 
-const userPermissionSchema = z.enum(LISTMONK_USER_PERMISSIONS);
+// The published enum keeps the complete vocabulary; list-role permissions
+// are rejected here, before any remote read, so a dry run can never plan a
+// create or update that Listmonk refuses partway through an apply.
+const userPermissionSchema = z
+	.enum(LISTMONK_USER_PERMISSIONS)
+	.superRefine((permission, context) => {
+		if (isListRolePermission(permission)) {
+			context.addIssue({
+				code: "custom",
+				message: `Permission ${JSON.stringify(permission)} belongs to Listmonk list roles; Listmonk 6.2 rejects it on user roles, so grant per-list access through a list role instead`,
+			});
+		}
+	});
 const userRoleDesiredStateSchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	permissions: z
@@ -158,7 +209,11 @@ type NormalizedUserRoleDesiredState = z.output<
 
 export interface UserRoleDesiredState {
 	name: string;
-	/** Empty creates or reconciles a valid no-access role. */
+	/**
+	 * Empty creates or reconciles a valid no-access role. List-role
+	 * permissions (`list:get`, `list:manage`) are rejected before any remote
+	 * call because Listmonk 6.2 refuses them on user roles.
+	 */
 	permissions: readonly ListmonkUserPermission[];
 }
 

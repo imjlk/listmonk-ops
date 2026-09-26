@@ -198,8 +198,11 @@ Enhanced client는 upstream OpenAPI 문서에 없는 Listmonk 6.2 role endpoint�
 위해 handwritten `userRole` facade를 제공합니다. `reconcileUserRole()`과
 `reconcileUserRoleManifest()`는 기본적으로 계획만 수행하고,
 `ensureUserRole()` 또는 `{ apply: true }`가 실제 변경을 수행합니다. 권한 이름은
-Listmonk 6.2 vocabulary로 제한하며, 정확한 이름 중복은 실패하고 예약된 Super
-Admin role(ID 1)은 절대 관리하지 않습니다.
+Listmonk 6.2 user role vocabulary(`LISTMONK_USER_ROLE_PERMISSIONS`)로 제한하며,
+정확한 이름 중복은 실패하고 예약된 Super Admin role(ID 1)은 절대 관리하지
+않습니다. 목록 단위 권한인 `list:get`과 `list:manage`는 list role 전용이며
+Listmonk가 user role에서 거부하므로, 이를 부여하는 manifest는 apply 도중
+실패하는 대신 원격 호출 전에 검증 단계에서 거부됩니다.
 
 같은 계약을 `listmonk-cli user-roles reconcile` CLI 명령과
 `listmonk_reconcile_user_role_manifest` MCP tool로 사용할 수 있습니다. 둘 다

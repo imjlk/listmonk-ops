@@ -199,8 +199,12 @@ The enhanced client includes a handwritten `userRole` facade for Listmonk 6.2
 role endpoints that are absent from its upstream OpenAPI document.
 `reconcileUserRole()` and `reconcileUserRoleManifest()` plan by default;
 `ensureUserRole()` or `{ apply: true }` performs the mutation. Permission names
-are restricted to the Listmonk 6.2 vocabulary, exact-name duplicates fail
-closed, and the reserved Super Admin role (ID 1) is never managed.
+are restricted to the Listmonk 6.2 user-role vocabulary
+(`LISTMONK_USER_ROLE_PERMISSIONS`), exact-name duplicates fail closed, and the
+reserved Super Admin role (ID 1) is never managed. The per-list `list:get` and
+`list:manage` permissions belong to list roles, which Listmonk enforces by
+rejecting them on user roles, so a manifest that grants them fails validation
+before any remote call instead of failing partway through an apply.
 
 The same contract is available through `listmonk-cli user-roles reconcile` and
 the `listmonk_reconcile_user_role_manifest` MCP tool. Both default to a dry run,

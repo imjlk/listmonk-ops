@@ -1912,7 +1912,7 @@ Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required
 
 Use when: A versioned least-privilege user-role manifest must be planned or applied.
 
-Avoid when: A single role should be inspected without a full manifest. The protected Super Admin role is the intended target.
+Avoid when: A single role should be inspected without a full manifest. The protected Super Admin role is the intended target. Per-list access is needed — Listmonk 6.2 grants list:get and list:manage only through list roles, so a user-role manifest carrying them is rejected before any remote call.
 
 Prerequisites: none
 
