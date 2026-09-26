@@ -392,10 +392,12 @@ listmonk-mcp \
 The HTTP listener refuses a non-loopback host unless all three MCP HTTP
 security variables are configured. Allowed hosts are comma-separated hostnames
 without schemes or ports; allowed origins are comma-separated exact `http(s)`
-origins. Put a TLS reverse proxy in front of the listener and send
-`Authorization: Bearer <MCP_HTTP_AUTH_TOKEN>` to `/mcp`, `/tools/list`, and
-`/tools/call`. `GET /health` and `GET /` remain unauthenticated and expose no
-Listmonk data.
+origins. Put a TLS reverse proxy in front of the listener. When
+`MCP_HTTP_AUTH_TOKEN` is set, every request must send
+`Authorization: Bearer <MCP_HTTP_AUTH_TOKEN>`, including `/mcp`,
+`/tools/list`, `/tools/call`, and unknown paths. Only `GET /health`, `GET /`,
+and CORS preflight `OPTIONS` requests are exempt; they expose no Listmonk data.
+Paths are matched after percent-decoding, exactly as the router matches them.
 
 All HTTP modes reject untrusted `Host` and browser `Origin` headers. Loopback
 hosts and origins are allowed by default so existing local clients need no new
