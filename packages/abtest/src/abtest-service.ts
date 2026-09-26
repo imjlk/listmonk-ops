@@ -29,9 +29,64 @@ import type {
 	TestValidationResult,
 	Variant,
 } from "./types";
-import { AbTestConflictError } from "./errors";
+import { AbTestConflictError, AbTestInvalidStatusError } from "./errors";
 import { getAbTestAttributionDeadline } from "./conversion-events";
 import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
+
+/**
+ * Lifecycle statuses from which deploy-winner may create or adopt a winner
+ * campaign: an analyzing test (run/tick auto-deployment or an operator
+ * deploying after the attribution tail closed) and a completed test whose
+ * significant winner has not been deployed yet.
+ */
+export const WINNER_DEPLOYMENT_STATUSES = [
+	"analyzing",
+	"completed",
+] as const satisfies readonly AbTest["status"][];
+
+function describeWinnerDeploymentRefusal(status: AbTest["status"]): string {
+	switch (status) {
+		case "cancelled":
+			return "the test was stopped, so its holdout must not receive a winner";
+		case "inconclusive":
+			return "the analysis finalized without a statistically significant winner";
+		case "failed":
+			return "the test failed";
+		case "deploying":
+			return "a winner deployment is already in progress";
+		case "cancelling":
+			return "the test is being stopped";
+		default:
+			return "the test has not reached analysis";
+	}
+}
+
+/**
+ * Decide whether deploy-winner may act on a test. Only an analyzing test,
+ * or a completed test without a recorded winner campaign, may create (or
+ * adopt, after a lost local commit) a winner campaign. A completed test
+ * that already records its winner campaign is an idempotent replay that
+ * must never produce a second holdout delivery. Every other status — an
+ * operator stop, a finalized no-decision, a failure, or a test that has not
+ * finished running — is rejected before any analysis or remote call.
+ */
+export function resolveWinnerDeployment(
+	test: Pick<AbTest, "id" | "status" | "winnerCampaignId">,
+): "deploy" | "already-deployed" {
+	if (test.status === "analyzing") {
+		return "deploy";
+	}
+	if (test.status === "completed") {
+		return test.winnerCampaignId === undefined ? "deploy" : "already-deployed";
+	}
+	throw new AbTestInvalidStatusError({
+		testId: test.id,
+		action: "deploy the winner",
+		status: test.status,
+		allowedStatuses: WINNER_DEPLOYMENT_STATUSES,
+		reason: `${describeWinnerDeploymentRefusal(test.status)}. Only "analyzing" tests, or "completed" tests without a deployed winner campaign, can deploy a winner`,
+	});
+}
 
 /**
  * A/B/C Testing Service - supports up to 3 variants (A, B, C)
@@ -1442,6 +1497,13 @@ export class AbTestService {
 		const test = await this.getTest(testId);
 		if (!test) {
 			throw new Error(`Test with ID ${testId} not found`);
+		}
+		// Gate on the lifecycle status before any analysis or remote call:
+		// an operator stop or a finalized inconclusive result must not be
+		// overridden by one deploy call, and a completed deployment replays
+		// as a no-op instead of delivering to the holdout a second time.
+		if (resolveWinnerDeployment(test) === "already-deployed") {
+			return;
 		}
 		const attributionDeadline = getAbTestAttributionDeadline(test);
 		if (attributionDeadline !== undefined && Date.now() < attributionDeadline) {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
@@ -25,6 +25,7 @@ import {
 	runAbTestOperation,
 	tickAbTestsOperation,
 } from "../src/operations";
+import { AbTestInvalidStatusError } from "../src/errors";
 import { AbTestNotFoundError, saveStoredAbTests } from "../src/persistence";
 import type { AbTest } from "../src/types";
 
@@ -362,6 +363,43 @@ test("preserves typed not-found errors for lifecycle transitions", async () => {
 			cause: expect.any(AbTestNotFoundError),
 		});
 	});
+
+test("refuses winner deployment for a stopped test with typed details", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-deploy-status-"));
+	const storePath = join(tempDir, "abtests.json");
+	const fixture = createFixture("cancelled");
+	fixture.holdoutListId = 55;
+	fixture.campaignMappings = [
+		{ variantId: "variant-a", campaignId: 100 },
+		{ variantId: "variant-b", campaignId: 101 },
+	];
+	await saveStoredAbTests([fixture], storePath);
+	const before = await readFile(storePath, "utf8");
+	// Any Listmonk call would throw on this empty client, so the refusal
+	// must happen before analysis or campaign creation.
+	const context = { client: {} as ListmonkClient, storePath };
+
+	const rejection = await invokeDeployAbTestWinnerOperation(context, {
+		test_id: fixture.id,
+	}).then(
+		() => undefined,
+		(error: unknown) => error,
+	);
+
+	expect(rejection).toMatchObject({
+		cause: expect.any(AbTestInvalidStatusError),
+		details: {
+			test_id: fixture.id,
+			status: "cancelled",
+			allowed_statuses: ["analyzing", "completed"],
+		},
+	});
+	expect((rejection as Error).message).toContain(
+		"the test was stopped, so its holdout must not receive a winner",
+	);
+	expect((rejection as Error).message).not.toContain("partial changes");
+	expect(await readFile(storePath, "utf8")).toBe(before);
+});
 
 test("reuses the persisted launch window after an ambiguous partial launch", async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-ambiguous-"));

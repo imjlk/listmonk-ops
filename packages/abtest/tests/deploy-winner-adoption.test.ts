@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { AbTestService } from "../src/abtest-service";
+import {
+	AbTestService,
+	resolveWinnerDeployment,
+	WINNER_DEPLOYMENT_STATUSES,
+} from "../src/abtest-service";
+import { AbTestInvalidStatusError } from "../src/errors";
 import { SimulatedMetricsCollector } from "../src/metrics";
 import { lockHypothesis } from "../src/hypothesis";
 import type { AbTest, TestResults } from "../src/types";
@@ -302,31 +307,18 @@ describe("abtest deploy-winner tag adoption", () => {
 	});
 
 	test("keeps a completed test completed when an adoption lookup fails", async () => {
-		let lookupFails = false;
-		let created: number | undefined;
+		let lookupFails = true;
+		let creates = 0;
 		const integration: IntegrationLike = {
 			findCampaignsByTestTag: async () => {
 				if (lookupFails) {
 					throw new Error("campaign list unavailable");
 				}
-				return created === undefined
-					? []
-					: [
-							{
-								id: created,
-								tags: [
-									"abtest:test-1",
-									"variant:A",
-									"winner:deployed",
-									"holdout:group",
-								],
-								status: "running",
-							},
-						];
+				return [];
 			},
 			deployWinnerToHoldout: async () => {
-				created = 780;
-				return created;
+				creates += 1;
+				return 780;
 			},
 			autoDeployWinner: async () => {},
 		};
@@ -334,19 +326,188 @@ describe("abtest deploy-winner tag adoption", () => {
 			integration as never,
 			new SimulatedMetricsCollector(new Map([["test-1", decisiveResults()]])),
 		);
-		await service.hydrateTests([makeTest()]);
+		// run/tick finalized a significant winner without auto-deploying it,
+		// so the operator deploys it manually from `completed`.
+		await service.hydrateTests([{ ...makeTest(), status: "completed" }]);
 
-		await service.deployWinner("test-1");
-		expect((await service.getTest("test-1"))?.status).toBe("completed");
-
-		// An identical retry whose campaign lookup fails transiently must
-		// reject without rewriting the terminal status: restoring
-		// `analyzing` would make run/tick eligible to process the finished
-		// test again.
-		lookupFails = true;
+		// A deployment whose campaign lookup fails transiently must reject
+		// without rewriting the terminal status: restoring `analyzing` would
+		// make run/tick eligible to process the finished test again.
 		await expect(service.deployWinner("test-1")).rejects.toThrow(
 			/campaign list unavailable/,
 		);
-		expect((await service.getTest("test-1"))?.status).toBe("completed");
+		const afterFailure = await service.getTest("test-1");
+		expect(afterFailure?.status).toBe("completed");
+		expect(afterFailure?.winnerCampaignId).toBeUndefined();
+
+		lookupFails = false;
+		await service.deployWinner("test-1");
+		expect(creates).toBe(1);
+		const persisted = await service.getTest("test-1");
+		expect(persisted?.status).toBe("completed");
+		expect(persisted?.winnerCampaignId).toBe(780);
+	});
+});
+
+// Every lifecycle status outside WINNER_DEPLOYMENT_STATUSES. `completed`
+// is only deployable while it has no recorded winner campaign.
+const REJECTED_DEPLOYMENT_STATUSES = [
+	"draft",
+	"testing",
+	"scheduled",
+	"running",
+	"deploying",
+	"cancelling",
+	"inconclusive",
+	"cancelled",
+	"failed",
+] as const satisfies readonly AbTest["status"][];
+
+type RecordedCalls = {
+	lookups: number;
+	creates: number;
+	launches: number;
+	collections: number;
+};
+
+function recordingService(): { service: AbTestService; calls: RecordedCalls } {
+	const calls: RecordedCalls = {
+		lookups: 0,
+		creates: 0,
+		launches: 0,
+		collections: 0,
+	};
+	const integration: IntegrationLike = {
+		findCampaignsByTestTag: async () => {
+			calls.lookups += 1;
+			return [];
+		},
+		deployWinnerToHoldout: async () => {
+			calls.creates += 1;
+			return 900 + calls.creates;
+		},
+		autoDeployWinner: async () => {
+			calls.launches += 1;
+		},
+	};
+	const service = new AbTestService(integration as never, {
+		collect: async () => {
+			calls.collections += 1;
+			return decisiveResults();
+		},
+	});
+	return { service, calls };
+}
+
+describe("abtest deploy-winner status guard", () => {
+	for (const status of REJECTED_DEPLOYMENT_STATUSES) {
+		test(`rejects a ${status} test before analysis or any remote call`, async () => {
+			const { service, calls } = recordingService();
+			await service.hydrateTests([
+				{ ...makeTest(), status, autoDeployWinner: true },
+			]);
+
+			const rejection = await service.deployWinner("test-1").then(
+				() => undefined,
+				(error: unknown) => error,
+			);
+
+			expect(rejection).toBeInstanceOf(AbTestInvalidStatusError);
+			expect(rejection).toMatchObject({
+				testId: "test-1",
+				status,
+				allowedStatuses: ["analyzing", "completed"],
+			});
+			expect((rejection as Error).message).toContain(`status "${status}"`);
+			expect(calls).toEqual({
+				lookups: 0,
+				creates: 0,
+				launches: 0,
+				collections: 0,
+			});
+			const unchanged = await service.getTest("test-1");
+			expect(unchanged?.status).toBe(status);
+			expect(unchanged?.winnerCampaignId).toBeUndefined();
+			expect(unchanged?.winnerVariantId).toBeUndefined();
+		});
+	}
+
+	test("deploys from a completed test whose winner has not been deployed", async () => {
+		const { service, calls } = recordingService();
+		await service.hydrateTests([
+			{ ...makeTest(), status: "completed", autoDeployWinner: true },
+		]);
+
+		await service.deployWinner("test-1");
+
+		expect(calls).toMatchObject({ creates: 1, launches: 1 });
+		const persisted = await service.getTest("test-1");
+		expect(persisted?.status).toBe("completed");
+		expect(persisted?.winnerCampaignId).toBe(901);
+		expect(persisted?.winnerVariantId).toBe("A");
+	});
+
+	test("replays a completed deployment without another holdout delivery", async () => {
+		const { service, calls } = recordingService();
+		await service.hydrateTests([
+			{
+				...makeTest(),
+				status: "completed",
+				autoDeployWinner: true,
+				winnerCampaignId: 777,
+				winnerVariantId: "A",
+			},
+		]);
+
+		await service.deployWinner("test-1");
+
+		expect(calls).toEqual({
+			lookups: 0,
+			creates: 0,
+			launches: 0,
+			collections: 0,
+		});
+		const persisted = await service.getTest("test-1");
+		expect(persisted?.status).toBe("completed");
+		expect(persisted?.winnerCampaignId).toBe(777);
+	});
+});
+
+describe("resolveWinnerDeployment", () => {
+	test("allows analyzing and undeployed completed tests only", () => {
+		expect(WINNER_DEPLOYMENT_STATUSES).toEqual(["analyzing", "completed"]);
+		expect(
+			resolveWinnerDeployment({ id: "t", status: "analyzing" }),
+		).toBe("deploy");
+		expect(
+			resolveWinnerDeployment({ id: "t", status: "completed" }),
+		).toBe("deploy");
+		expect(
+			resolveWinnerDeployment({
+				id: "t",
+				status: "completed",
+				winnerCampaignId: 12,
+			}),
+		).toBe("already-deployed");
+	});
+
+	test("explains the refusal with structured details", () => {
+		let refusal: unknown;
+		try {
+			resolveWinnerDeployment({ id: "t-9", status: "cancelled" });
+		} catch (error) {
+			refusal = error;
+		}
+		expect(refusal).toBeInstanceOf(AbTestInvalidStatusError);
+		expect((refusal as Error).message).toBe(
+			'Cannot deploy the winner for A/B test t-9 in status "cancelled": the test was stopped, so its holdout must not receive a winner. Only "analyzing" tests, or "completed" tests without a deployed winner campaign, can deploy a winner',
+		);
+		expect(
+			(refusal as AbTestInvalidStatusError).toStructuredDetails(),
+		).toEqual({
+			test_id: "t-9",
+			status: "cancelled",
+			allowed_statuses: ["analyzing", "completed"],
+		});
 	});
 });

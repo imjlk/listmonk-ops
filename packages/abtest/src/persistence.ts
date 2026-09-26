@@ -10,7 +10,7 @@ import {
 } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { isAudienceEligibilityPolicyVersion } from "./audience";
-import { AbTestNotFoundError } from "./errors";
+import { AbTestInvalidStatusError, AbTestNotFoundError } from "./errors";
 export { AbTestConflictError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { resolveConversionStorePath } from "./conversion-events";
@@ -840,7 +840,13 @@ export async function withStoredAbTestExecutors<Result>(
 			);
 		});
 	} catch (error) {
-		if (error instanceof AbTestNotFoundError) {
+		// Precondition refusals are raised before any remote or local
+		// mutation, so they surface unwrapped with their typed details
+		// instead of the partial-change reconciliation guidance.
+		if (
+			error instanceof AbTestNotFoundError ||
+			error instanceof AbTestInvalidStatusError
+		) {
 			throw error;
 		}
 		if (!actionStarted) {

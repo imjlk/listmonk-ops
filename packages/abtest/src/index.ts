@@ -1,6 +1,11 @@
 // Export all A/B test types
 // Export service and integration classes
-export { AbTestService } from "./abtest-service";
+export {
+	AbTestService,
+	resolveWinnerDeployment,
+	WINNER_DEPLOYMENT_STATUSES,
+} from "./abtest-service";
+export { AbTestInvalidStatusError } from "./errors";
 // Export command classes
 export {
 	AnalyzeAbTestCommand,
