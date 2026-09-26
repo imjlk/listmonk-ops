@@ -295,6 +295,69 @@ describe("MCP HTTP transport boundary", () => {
 		}
 	});
 
+	test("rejects malformed legacy REST bodies with a concise 400", async () => {
+		const server = createServer();
+		const app = server.getApp();
+		const callTool = spyOn(server, "callTool");
+		const consoleError = spyOn(console, "error").mockImplementation(() => {});
+		try {
+			for (const [path, body] of [
+				["/tools/call", "{not json"],
+				["/tools/call", ""],
+				["/tools/list", "{not json"],
+			] as const) {
+				const response = await app.request(`http://localhost${path}`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body,
+				});
+				expect({ path, body, status: response.status }).toEqual({
+					path,
+					body,
+					status: 400,
+				});
+				expect(await response.json()).toEqual({
+					error: "Invalid JSON request body",
+				});
+			}
+
+			for (const body of [
+				{ method: "tools/call" },
+				{ method: "tools/call", params: null },
+				{ params: { arguments: {} } },
+				{ params: { name: 42 } },
+				{ params: { name: "listmonk_list_operations", arguments: [] } },
+				[],
+				null,
+			]) {
+				const response = await postJson(server, "/tools/call", body);
+				expect({ body, status: response.status }).toEqual({
+					body,
+					status: 400,
+				});
+				expect(await response.json()).toEqual({
+					error:
+						"Invalid tools/call request: params.name must be a string; params.arguments, if present, must be an object",
+				});
+			}
+			expect(callTool).not.toHaveBeenCalled();
+			expect(consoleError).not.toHaveBeenCalled();
+		} finally {
+			consoleError.mockRestore();
+		}
+
+		// Existing clients may omit `method`; well-formed calls still run.
+		const valid = await postJson(server, "/tools/call", {
+			params: {
+				name: "listmonk_list_operations",
+				arguments: { family: "transactional" },
+			},
+		});
+		expect(valid.status).toBe(200);
+		expect((await valid.json()).isError).not.toBe(true);
+		expect(callTool).toHaveBeenCalledTimes(1);
+	});
+
 	test("serves a stateless MCP initialize request and closes the request server", async () => {
 		const server = createServer();
 		const getResponse = await server.getApp().request("http://localhost/mcp");

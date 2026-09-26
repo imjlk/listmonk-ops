@@ -26,6 +26,7 @@ import { logger } from "hono/logger";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { CallToolRequestParamsSchema } from "@modelcontextprotocol/sdk/types.js";
 import {
 	assertUniqueToolNames,
 	handleAbTestTools,
@@ -191,6 +192,31 @@ function requiresHttpAuthentication(
 		(method === "GET" || method === "HEAD") &&
 		PUBLIC_HTTP_PATHS.has(routedPath)
 	);
+}
+
+/** Parses a JSON request body; undefined, never a JSON value, means malformed. */
+async function readJsonBody(c: Context): Promise<unknown> {
+	try {
+		return await c.req.json();
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Validates a legacy REST tools/call body against the params contract the MCP
+ * protocol server applies. `method` stays optional for existing REST clients.
+ */
+function parseLegacyCallToolRequest(
+	body: unknown,
+): CallToolRequest | undefined {
+	if (typeof body !== "object" || body === null || !("params" in body)) {
+		return undefined;
+	}
+	const params = CallToolRequestParamsSchema.safeParse(body.params);
+	return params.success
+		? { method: "tools/call", params: params.data }
+		: undefined;
 }
 
 export class ListmonkMCPServer {
@@ -412,14 +438,30 @@ export class ListmonkMCPServer {
 
 		// MCP tools/list endpoint
 		this.app.post("/tools/list", async (c: Context) => {
-			const request: ListToolsRequest = await c.req.json();
-			const result = await this.listTools(request);
+			// listTools() ignores its request; parse only to reject malformed JSON.
+			if ((await readJsonBody(c)) === undefined) {
+				return c.json({ error: "Invalid JSON request body" }, 400);
+			}
+			const result = await this.listTools({ method: "tools/list" });
 			return c.json(result);
 		});
 
 		// MCP tools/call endpoint
 		this.app.post("/tools/call", async (c: Context) => {
-			const request: CallToolRequest = await c.req.json();
+			const body = await readJsonBody(c);
+			if (body === undefined) {
+				return c.json({ error: "Invalid JSON request body" }, 400);
+			}
+			const request = parseLegacyCallToolRequest(body);
+			if (!request) {
+				return c.json(
+					{
+						error:
+							"Invalid tools/call request: params.name must be a string; params.arguments, if present, must be an object",
+					},
+					400,
+				);
+			}
 			const result = await this.callTool(request);
 			return c.json(result);
 		});

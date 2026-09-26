@@ -6,6 +6,16 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const LOOPBACK_RUNTIME_ARGS = [
+	"--listmonk-url",
+	"http://127.0.0.1:9000/api",
+	"--listmonk-username",
+	"api-admin",
+	"--listmonk-api-token",
+	"dummy-token",
+	"--host",
+	"127.0.0.1",
+];
 const runningProcesses: Bun.Subprocess[] = [];
 
 function runtimeEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
@@ -201,6 +211,79 @@ describe("mcp runtime entrypoint", () => {
 		expect(authenticated.status).toBe(200);
 	});
 
+	test("published bin reports usage errors without a stack trace", async () => {
+		const cases: {
+			args: string[];
+			env: Record<string, string>;
+			message: string;
+		}[] = [
+			{ args: ["--bogus"], env: {}, message: "Unknown MCP option: --bogus" },
+			{
+				args: ["--listmonk-api-tokn=secret-value"],
+				env: {},
+				message: "Unknown MCP option: --listmonk-api-tokn",
+			},
+			{ args: ["--port", "abc"], env: {}, message: "Invalid --port: abc" },
+			{
+				args: ["--transport", "sse"],
+				env: {},
+				message: "Invalid --transport: sse",
+			},
+			{
+				args: LOOPBACK_RUNTIME_ARGS,
+				env: { MCP_SERVER_PORT: "abc" },
+				message: "Invalid MCP_SERVER_PORT: abc",
+			},
+			{
+				args: LOOPBACK_RUNTIME_ARGS,
+				env: { MCP_SERVER_PORT: "0" },
+				message: "Invalid MCP_SERVER_PORT: 0",
+			},
+		];
+		await Promise.all(
+			cases.map(async ({ args, env, message }) => {
+				const proc = Bun.spawn({
+					cmd: ["bun", "./bin/listmonk-mcp.js", ...args],
+					cwd: PACKAGE_ROOT,
+					stdout: "pipe",
+					stderr: "pipe",
+					env: runtimeEnv(env),
+				});
+				runningProcesses.push(proc);
+				const [exitCode, stdout, stderr] = await Promise.all([
+					proc.exited,
+					new Response(proc.stdout).text(),
+					new Response(proc.stderr).text(),
+				]);
+
+				expect({ message, exitCode, stdout }).toEqual({
+					message,
+					exitCode: 1,
+					stdout: "",
+				});
+				expect(stderr).toContain(`❌ ${message}`);
+				expect(stderr).toContain("Run `listmonk-mcp --help` for usage.");
+				expect(stderr).not.toContain("Unhandled error");
+				expect(stderr).not.toMatch(/^\s+at /m);
+				expect(stderr).not.toContain("secret-value");
+			}),
+		);
+	}, 20_000);
+
+	test("published bin listens on a valid MCP_SERVER_PORT", async () => {
+		const port = reservePort();
+		const proc = Bun.spawn({
+			cmd: ["bun", "./bin/listmonk-mcp.js", ...LOOPBACK_RUNTIME_ARGS],
+			cwd: PACKAGE_ROOT,
+			stdout: "pipe",
+			stderr: "pipe",
+			env: runtimeEnv({ MCP_SERVER_PORT: ` ${port} ` }),
+		});
+		runningProcesses.push(proc);
+
+		await waitForHealth(`http://127.0.0.1:${port}/health`);
+	});
+
 	test("published bin serves MCP over stdio", async () => {
 		const transport = new StdioClientTransport({
 			command: "bun",
@@ -216,7 +299,11 @@ describe("mcp runtime entrypoint", () => {
 			],
 			cwd: PACKAGE_ROOT,
 			stderr: "pipe",
-			env: runtimeEnv({ MCP_HTTP_ALLOWED_HOSTS: "mcp.example.com" }),
+			// stdio ignores HTTP listener settings, even invalid ones.
+			env: runtimeEnv({
+				MCP_HTTP_ALLOWED_HOSTS: "mcp.example.com",
+				MCP_SERVER_PORT: "not-a-port",
+			}),
 		});
 		const client = new Client({
 			name: "listmonk-ops-stdio-test",
