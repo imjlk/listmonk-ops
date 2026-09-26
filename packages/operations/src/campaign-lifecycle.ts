@@ -108,6 +108,9 @@ function transitionHint(
 	) {
 		return "; only running or paused campaigns can be cancelled, so delete it instead";
 	}
+	if (target === "draft" && current !== undefined) {
+		return "; only a scheduled campaign can be unscheduled back to draft";
+	}
 	return "";
 }
 

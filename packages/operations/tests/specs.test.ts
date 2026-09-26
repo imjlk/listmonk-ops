@@ -51,6 +51,7 @@ import {
 	webhookReconcileOperationSpec,
 	webhookRuntimeStatusOperationSpec,
 } from "../src/specs";
+import { CAMPAIGN_TRANSITIONS } from "../src/campaign-lifecycle";
 import {
 	campaignCancelOperationSpec,
 	campaignPreflightOperationSpec,
@@ -150,6 +151,24 @@ export function assertHighRiskOperationSpecContracts(): void {
 describe("email operations specification", () => {
 	test("directly anchors high-risk operation descriptor contracts", () => {
 		assertHighRiskOperationSpecContracts();
+	});
+
+	test("publishes the same campaign transitions the runtime validates", () => {
+		// The published resource graph and the runtime state machine are two
+		// declarations; keep them identical so planners see the real edges.
+		const published = Object.fromEntries(
+			Object.entries(campaignResource.transitions).map(([state, targets]) => [
+				state,
+				[...targets].sort(),
+			]),
+		);
+		const runtime = Object.fromEntries(
+			Object.entries(CAMPAIGN_TRANSITIONS).map(([state, targets]) => [
+				state,
+				[...targets].sort(),
+			]),
+		);
+		expect(published).toEqual(runtime);
 	});
 
 	test("normalizes contract JSON through one deterministic implementation", () => {

@@ -8,15 +8,17 @@ import type { AbTest } from "./types";
  * status transitions are stricter than the earlier "stop = cancel-first"
  * design assumed:
  *
- * - `cancelled` and `paused` are only accepted on `running` ("active")
- *   campaigns. A `draft` or `scheduled` campaign cannot be cancelled; the
- *   server replies `400 Only active campaigns can be cancelled`.
+ * - `cancelled` is only accepted on `running` or `paused` campaigns, and
+ *   `paused` only on `running` ones. A `draft` or `scheduled` campaign
+ *   cannot be cancelled; the server replies `400 Only active campaigns can
+ *   be cancelled`.
  * - `DELETE /campaigns/{id}` works from `draft`, `scheduled`, and terminal
  *   states, returning 404 for an already-deleted campaign.
  *
  * So to stop a test we must branch on each backing campaign's current
- * status: `running` -> cancel; `draft`/`scheduled` -> delete (otherwise a
- * scheduled campaign will still fire at its send_at). Terminal campaigns
+ * status: `running`/`paused` -> cancel (keeping delivery history);
+ * `draft`/`scheduled` -> delete (otherwise a scheduled campaign will still
+ * fire at its send_at). Terminal campaigns
  * (`finished`, `sent`, `cancelled`) are left alone to preserve delivery
  * history, unless an explicit `deleteTerminalCampaigns` flag is set.
  *
@@ -542,7 +544,7 @@ export async function fetchCampaignStatuses(
  *
  * This is the production entry point that `stopAbTest` should call instead
  * of the legacy cleanup paths, so that scheduled/draft campaigns are deleted
- * and running campaigns are cancelled per the observed remote status.
+ * and running/paused campaigns are cancelled per the observed remote status.
  */
 export async function cancelAbTest(
 	client: ListmonkClient,

@@ -1019,7 +1019,9 @@ describe("shared CRUD resource operations", () => {
 				campaignContext({ getById: statusOf("running"), updateStatus }),
 				{ id: 12 },
 			),
-		).rejects.toThrow(/running -> draft is not a valid lifecycle transition/);
+		).rejects.toThrow(
+			/running -> draft is not a valid lifecycle transition; only a scheduled campaign can be unscheduled back to draft/,
+		);
 		expect(updateStatus).toHaveBeenCalledTimes(1);
 	});
 
