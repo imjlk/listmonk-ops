@@ -23,6 +23,7 @@ import {
 } from "@listmonk-ops/automation";
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
+import { positiveIntegerIdSchema } from "../lib/command-utils";
 import { emitOperationErrorDetails } from "../lib/operation-errors";
 import { getOutput } from "../lib/output";
 
@@ -583,7 +584,7 @@ const inboundIngestCommand = defineCommand({
 		"subscriber-uuid": option(z.uuid().optional(), {
 			description: "Listmonk subscriber UUID when known",
 		}),
-		"campaign-id": option(z.coerce.number().int().positive().optional(), {
+		"campaign-id": option(positiveIntegerIdSchema.optional(), {
 			description: "Listmonk campaign ID when known",
 		}),
 		metadata: option(z.string().optional(), {

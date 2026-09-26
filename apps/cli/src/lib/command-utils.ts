@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export function toErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
@@ -22,28 +24,31 @@ export function toErrorMessage(error: unknown): string {
 	return String(error);
 }
 
-export function parseCsvNumbers(input: string | undefined): number[] {
-	if (!input) {
-		return [];
+const POSITIVE_DECIMAL_INTEGER = /^[1-9][0-9]*$/;
+
+/**
+ * Parse one Listmonk resource ID. Only positive decimal digits are accepted:
+ * `Number()` would turn `0x10` into 16, `1e1` into 10, and `1.0` into 1,
+ * silently addressing a different resource than the one typed.
+ */
+export function parsePositiveIntegerId(token: string, label: string): number {
+	const value = token.trim();
+	if (!POSITIVE_DECIMAL_INTEGER.test(value)) {
+		throw new Error(`Invalid ${label} '${value}': expected a positive integer`);
 	}
-
-	const numbers = input
-		.split(",")
-		.map((value) => Number(value.trim()))
-		.filter((value) => Number.isFinite(value) && value > 0);
-
-	if (numbers.length === 0) {
-		throw new Error("Expected a comma-separated list of positive numbers");
+	const id = Number(value);
+	if (!Number.isSafeInteger(id)) {
+		throw new Error(
+			`Invalid ${label} '${value}': exceeds the maximum safe integer (${Number.MAX_SAFE_INTEGER})`,
+		);
 	}
-
-	return numbers;
+	return id;
 }
 
 /**
- * Strict variant of {@link parseCsvNumbers} for bulk operations where a
- * single malformed ID must abort the entire command. Unlike
- * {@link parseCsvNumbers}, this rejects any token that is not a positive
- * finite integer — it does not silently drop invalid tokens.
+ * Parse a comma-separated ID list. One malformed entry aborts the command:
+ * dropping it would shrink a set that update commands write back as a
+ * replacement for the current memberships.
  */
 export function parseCsvNumbersStrict(
 	input: string | undefined,
@@ -52,24 +57,21 @@ export function parseCsvNumbersStrict(
 	if (!input) {
 		throw new Error(`Expected a comma-separated list of ${label}`);
 	}
-	const tokens = input.split(",").map((value) => value.trim());
-	const numbers: number[] = [];
-	for (const token of tokens) {
-		if (!/^[1-9][0-9]*$/.test(token)) {
-			throw new Error(
-				`Invalid ${label} '${token}': expected a positive integer`,
-			);
-		}
-		const num = Number(token);
-		if (!Number.isSafeInteger(num)) {
-			throw new Error(
-				`Invalid ${label} '${token}': exceeds the maximum safe integer (${Number.MAX_SAFE_INTEGER})`,
-			);
-		}
-		numbers.push(num);
-	}
-	return numbers;
+	return input.split(",").map((token) => parsePositiveIntegerId(token, label));
 }
+
+/** Option schema for a scalar resource ID flag such as `--id` or `--campaign-id`. */
+export const positiveIntegerIdSchema = z
+	.string()
+	.trim()
+	.regex(POSITIVE_DECIMAL_INTEGER, {
+		error: (issue) =>
+			`expected a positive decimal integer, received ${JSON.stringify(issue.input)}`,
+	})
+	.transform(Number)
+	.refine(Number.isSafeInteger, {
+		error: `exceeds the maximum safe integer (${Number.MAX_SAFE_INTEGER})`,
+	});
 
 export function parseJson<T>(input: string, label: string): T {
 	try {

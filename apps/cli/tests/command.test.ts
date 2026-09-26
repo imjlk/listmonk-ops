@@ -9,7 +9,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { defineCommand, option, prepareCliArgv } from "../src/lib/command";
+import {
+	defineCommand,
+	defineGroup,
+	isNegatableBooleanOption,
+	option,
+	prepareCliArgv,
+} from "../src/lib/command";
 
 const tempDirectories: string[] = [];
 
@@ -47,6 +53,100 @@ describe("CLI command adapter", () => {
 		});
 
 		expect(capturedFlags?.verbose).toBe(true);
+	});
+
+	test("treats options that already spell a negation as plain flags", async () => {
+		const calls: Record<string, unknown>[] = [];
+		const command = defineCommand({
+			name: "probe",
+			options: {
+				"no-body": option(z.boolean().optional()),
+				"dry-run": option(z.boolean().default(true)),
+			},
+			handler: ({ flags }) => {
+				calls.push(flags);
+			},
+		});
+		const run = async (argv: string[]) => {
+			calls.length = 0;
+			await cli(prepareCliArgv(argv), command, {
+				name: "probe",
+				usageSilent: true,
+				strict: true,
+			});
+			expect(calls).toHaveLength(1);
+			return calls[0];
+		};
+
+		expect(isNegatableBooleanOption("no-body")).toBe(false);
+		expect(isNegatableBooleanOption("dry-run")).toBe(true);
+		expect(command.args?.["no-body"]).toMatchObject({
+			type: "boolean",
+			negatable: false,
+		});
+		expect(command.args?.["dry-run"]).toMatchObject({
+			type: "boolean",
+			negatable: true,
+		});
+		const cases: Array<[string[], boolean | undefined]> = [
+			[["--no-body"], true],
+			[["--no-body=true"], true],
+			[["--no-body", "true"], true],
+			[["--no-body=false"], undefined],
+			[["--no-body", "false"], undefined],
+			[["--no-body=false", "--no-body"], true],
+			[["--no-body", "--no-body=false"], undefined],
+			[[], undefined],
+		];
+		for (const [argv, expected] of cases) {
+			const flags = await run(argv);
+			expect(flags?.["no-body"]).toBe(expected);
+			expect(flags?.["dry-run"]).toBe(true);
+		}
+
+		const combined = await run(["--no-dry-run", "--no-body"]);
+		expect(combined?.["dry-run"]).toBe(false);
+		expect(combined?.["no-body"]).toBe(true);
+		await expect(run(["--no-no-body"])).rejects.toThrow("--no-no-body");
+	});
+
+	test("rejects a plain no-* flag set to false on a command without it", async () => {
+		defineCommand({
+			name: "with-flag",
+			options: { "no-body": option(z.boolean().optional()) },
+			handler: () => undefined,
+		});
+		let calls = 0;
+		const command = defineCommand({
+			name: "probe",
+			handler: () => {
+				calls += 1;
+			},
+		});
+		const group = defineGroup({ name: "group", commands: [command] });
+
+		for (const target of [command, group]) {
+			for (const argv of [["--no-body=false"], ["--no-body"]]) {
+				await expect(
+					cli(prepareCliArgv(argv), target, {
+						name: "probe",
+						usageSilent: true,
+						strict: true,
+					}),
+				).rejects.toThrow("Unknown option: --no-body");
+			}
+		}
+		expect(calls).toBe(0);
+	});
+
+	test("rejects a plain no-* flag that would default to on", () => {
+		expect(() =>
+			defineCommand({
+				name: "probe",
+				options: { "no-body": option(z.boolean().default(true)) },
+				handler: () => undefined,
+			}),
+		).toThrow("cannot be negated");
 	});
 
 	test("preserves intercepted global flags over command defaults", async () => {

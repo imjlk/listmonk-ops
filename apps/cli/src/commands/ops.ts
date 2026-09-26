@@ -15,8 +15,8 @@ import { getOutput } from "../lib/output";
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
 import {
-	parseCsvNumbers,
 	parseCsvNumbersStrict,
+	positiveIntegerIdSchema,
 	toErrorMessage,
 } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
@@ -35,7 +35,7 @@ export default defineGroup({
 			operationId: "ops.campaign.preflight",
 			description: "Run pre-send campaign preflight checks",
 			options: {
-				"campaign-id": option(z.coerce.number().int().positive(), {
+				"campaign-id": option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				"max-audience": option(z.coerce.number().int().positive().optional(), {
@@ -80,7 +80,7 @@ export default defineGroup({
 			description:
 				"Evaluate deliverability guard and optionally pause campaign",
 			options: {
-				"campaign-id": option(z.coerce.number().int().positive(), {
+				"campaign-id": option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				"bounce-threshold": option(
@@ -157,7 +157,7 @@ export default defineGroup({
 					description: "Restrict candidates to these list IDs (csv)",
 				}),
 				"target-list-id": option(
-					z.coerce.number().int().positive().optional(),
+					positiveIntegerIdSchema.optional(),
 					{
 						description: "Target list ID for winback/sunset tagging",
 					},
@@ -192,7 +192,10 @@ export default defineGroup({
 				try {
 					const client = await getListmonkClient(args);
 					const sourceListIds = flags["source-list-ids"]
-						? parseCsvNumbers(flags["source-list-ids"])
+						? parseCsvNumbersStrict(
+								flags["source-list-ids"],
+								"source list IDs",
+							)
 						: undefined;
 					let subscriberGuards:
 						| Array<{ subscriber_id: number; expected_updated_at: string }>
@@ -271,7 +274,7 @@ export default defineGroup({
 				try {
 					const client = await getListmonkClient(args);
 					const listIds = flags["list-ids"]
-						? parseCsvNumbers(flags["list-ids"])
+						? parseCsvNumbersStrict(flags["list-ids"], "list IDs")
 						: undefined;
 					const result = await invokeSegmentDriftOperation(
 						{ client },
@@ -308,7 +311,7 @@ export default defineGroup({
 				try {
 					const client = await getListmonkClient(args);
 					const templateIds = flags["template-ids"]
-						? parseCsvNumbers(flags["template-ids"])
+						? parseCsvNumbersStrict(flags["template-ids"], "template IDs")
 						: undefined;
 					const result = await invokeTemplateRegistrySyncOperation(
 						{ client },
@@ -330,7 +333,7 @@ export default defineGroup({
 			operationId: "ops.templates.registry-history",
 			description: "Show template version history from local registry",
 			options: {
-				"template-id": option(z.coerce.number().int().positive(), {
+				"template-id": option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 			},
@@ -353,7 +356,7 @@ export default defineGroup({
 			operationId: "ops.templates.registry-promote",
 			description: "Promote a stored template version to active content",
 			options: {
-				"template-id": option(z.coerce.number().int().positive(), {
+				"template-id": option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 				"version-id": option(z.string().trim().min(1), {
@@ -393,7 +396,7 @@ export default defineGroup({
 			operationId: "ops.templates.registry-rollback",
 			description: "Rollback template to previous stored version",
 			options: {
-				"template-id": option(z.coerce.number().int().positive(), {
+				"template-id": option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 				"to-version-id": option(z.string().trim().min(1).optional(), {

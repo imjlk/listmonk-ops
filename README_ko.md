@@ -299,7 +299,18 @@ listmonk-mcp --stdio --profile production
 `--listmonk-username`, `--token-file` 인수는 프로필보다 우선합니다.
 MCP의 기존 인라인 토큰·비밀번호 인수도 유지됩니다. 프로필을 선택하지 않으면
 기존 환경변수와 기본값을 사용하며, `LISTMONK_API_TOKEN_FILE`이 인라인 토큰보다
-우선합니다. 두 실행 파일 모두 Bun의 `.env` 로딩을 사용합니다.
+우선합니다.
+
+독립 실행형 CLI 바이너리를 포함한 두 실행 파일 모두 Bun을 통해 현재 작업
+디렉터리의 `.env` 파일을 읽으며, 프로세스 환경에 이미 설정된 변수가 우선합니다.
+이 `.env`는 신뢰하는 설정으로만 취급하세요. `.env`는 다른 설정 파일이나
+프로필(`LISTMONK_OPS_CONFIG`, `LISTMONK_OPS_PROFILE`), API URL, 자격 증명 출처,
+상태 저장 위치를 바꿀 수 있으므로, 방금 복제한 저장소처럼 신뢰할 수 없는
+디렉터리에서 실행하면 토큰이 의도하지 않은 서버로 전송될 수 있습니다. CLI와 MCP
+서버는 신뢰하는 디렉터리에서만 실행하세요. 독립 실행형 바이너리는 `bunfig.toml`을
+읽지 않습니다. npm 패키지는 사용자의 `bun` 런타임으로 실행되므로 작업 디렉터리의
+`bunfig.toml`도 적용되며, 여기에는 코드를 실행하는 `preload` 스크립트가
+포함됩니다.
 
 `config show`와 MCP `listmonk_config`는 선택한 프로필, 사용 가능한 프로필 이름,
 필드별 설정 출처, 토큰 참조 위치, 기본 상태 저장 경로를 반환합니다. 토큰 값은
@@ -512,8 +523,15 @@ campaign, subscriber, template CRUD도 CLI와 MCP에서 동일한 타입드 Oper
 
 캠페인 필터는 `--tags news,updates`(MCP: `tags: ["news", "updates"]`)를 지원합니다. 클라이언트는 Listmonk 6.2에 맞게 반복된 `tag` 쿼리 파라미터를 전송하며, 지정한 태그를 모두 포함하는 캠페인만 반환합니다.
 
+`--id`, `--campaign-id` 같은 ID 인수와 `--lists 10,11`, `--media` 같은 쉼표 구분
+ID 목록은 양의 10진 정수만 받습니다. `12,O4`, `0x10`, `1e1`처럼 잘못된 항목은
+버리거나 다른 값으로 해석하지 않고 Listmonk를 호출하기 전에 명령을 실패시키므로,
+update 명령이 잘린 목록으로 기존 소속 목록을 대체하지 않습니다.
+
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
+# --no-body는 본문을 생략합니다. campaigns list와 templates list에서도 사용할 수 있습니다.
+listmonk-cli campaigns get --id 42 --no-body
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10
@@ -1018,6 +1036,10 @@ sequence 발송 단계에도 발송 전에 동일한 검증을 적용합니다.
 대응하는 MCP 도구는 `listmonk_send_transactional`입니다. 기존 클라이언트를
 위한 boolean 텍스트 결과는 유지하면서 `{"sent": true, "status": "accepted"}`
 형태의 structured content도 반환합니다.
+
+Listmonk가 메시지를 거부하면 결과는 `{"sent": false, "status": "failed"}`입니다.
+`tx send`는 이 JSON 결과를 그대로 stdout에 출력하고 거부 사실을 경고로 알린 뒤
+0이 아닌 종료 코드로 끝나며, 거부 결과를 재생(replay)한 경우도 같습니다.
 
 ### 멱등성(idempotent) 트랜잭셔널 발송
 

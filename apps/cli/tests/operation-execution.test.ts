@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	CliOperationAuditStartError,
+	CliOperationConfirmationRequiredError,
 	executeCliOperation,
 	getCliOperationExecution,
 	UnknownCliOperationError,
@@ -87,6 +88,39 @@ describe("CLI operation execution safety", () => {
 		expect(entries.every((entry) => entry.surface === "cli")).toBe(true);
 		expect(entries.every((entry) => entry.confirmed === false)).toBe(true);
 		expect(entries[0]?.executionId).toBe(entries[1]?.executionId);
+	});
+
+	test("names the --confirm flag when blocking an unconfirmed command", async () => {
+		const error = await executeCliOperation({
+			operationId: "campaigns.delete",
+			input: { id: 1 },
+			invoke: async () => undefined,
+			recordAudit: async () => undefined,
+		}).then(
+			() => undefined,
+			(caught: unknown) => caught,
+		);
+
+		expect(error).toBeInstanceOf(CliOperationConfirmationRequiredError);
+		expect(error).toBeInstanceOf(OperationConfirmationRequiredError);
+		expect(error).toMatchObject({
+			operationId: "campaigns.delete",
+			message:
+				"Operation campaigns.delete requires explicit confirmation; rerun with --confirm",
+		});
+		const cause = (error as Error).cause;
+		expect(cause).toBeInstanceOf(OperationConfirmationRequiredError);
+		expect(cause).not.toBeInstanceOf(CliOperationConfirmationRequiredError);
+		expect(cause).toMatchObject({
+			message: "Operation campaigns.delete requires explicit confirmation",
+		});
+		// Like `new Error(message, { cause })`, the cause is not enumerable.
+		expect(Object.getOwnPropertyDescriptor(error, "cause")).toMatchObject({
+			enumerable: false,
+			writable: true,
+			configurable: true,
+		});
+		expect(Object.keys(error as object)).not.toContain("cause");
 	});
 
 	test("records successful and failed writes without storing remote error text", async () => {

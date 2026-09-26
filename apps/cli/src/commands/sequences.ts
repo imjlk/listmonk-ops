@@ -29,7 +29,7 @@ import {
 	type HandlerArgs,
 	option,
 } from "../lib/command";
-import { parseJson } from "../lib/command-utils";
+import { parseJson, positiveIntegerIdSchema } from "../lib/command-utils";
 import { resolveListmonkSession } from "../lib/listmonk";
 import { getOutput } from "../lib/output";
 
@@ -198,7 +198,7 @@ const enrollCommand = defineCommand({
 	description: "Enroll one subscriber into the current sequence revision",
 	options: {
 		id: option(z.uuid(), { description: "Sequence ID" }),
-		"subscriber-id": option(z.coerce.number().int().positive(), {
+		"subscriber-id": option(positiveIntegerIdSchema, {
 			description: "Listmonk subscriber ID",
 		}),
 		context: option(z.string().optional(), {
@@ -239,7 +239,7 @@ const enrollmentListCommand = defineCommand({
 		"sequence-id": option(z.uuid().optional(), {
 			description: "Filter by sequence ID",
 		}),
-		"subscriber-id": option(z.coerce.number().int().positive().optional(), {
+		"subscriber-id": option(positiveIntegerIdSchema.optional(), {
 			description: "Filter by Listmonk subscriber ID",
 		}),
 		status: option(

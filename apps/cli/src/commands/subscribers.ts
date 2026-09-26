@@ -28,9 +28,9 @@ import {
 	option,
 } from "../lib/command";
 import {
-	parseCsvNumbers,
 	parseCsvNumbersStrict,
 	parseJson,
+	positiveIntegerIdSchema,
 	toErrorMessage,
 } from "../lib/command-utils";
 import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
@@ -461,7 +461,7 @@ export async function handleListSubscribersCommand({
 				page: flags.page,
 				per_page: flags["per-page"],
 				list_id: flags["list-id"]
-					? parseCsvNumbers(flags["list-id"])
+					? parseCsvNumbersStrict(flags["list-id"], "list IDs")
 					: undefined,
 				query: flags.query,
 				order_by: flags["order-by"],
@@ -508,7 +508,9 @@ export async function handleCreateSubscriberCommand({
 				email: flags.email,
 				name: flags.name,
 				status: flags.status,
-				lists: flags.lists ? parseCsvNumbers(flags.lists) : undefined,
+				lists: flags.lists
+					? parseCsvNumbersStrict(flags.lists, "list IDs")
+					: undefined,
 				list_uuids: flags["list-uuids"]
 					? flags["list-uuids"]
 						.split(",")
@@ -550,7 +552,9 @@ export async function handleUpdateSubscriberCommand({
 				email: flags.email,
 				name: flags.name,
 				status: flags.status,
-				lists: flags.lists ? parseCsvNumbers(flags.lists) : undefined,
+				lists: flags.lists
+					? parseCsvNumbersStrict(flags.lists, "list IDs")
+					: undefined,
 				list_uuids: flags["list-uuids"]
 					? flags["list-uuids"]
 						.split(",")
@@ -743,7 +747,7 @@ export default defineGroup({
 			operationId: "subscribers.get",
 			description: "Get subscriber details",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Subscriber ID",
 				}),
 			},
@@ -784,7 +788,7 @@ export default defineGroup({
 			operationId: "subscribers.update",
 			description: "Update a subscriber",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Subscriber ID",
 				}),
 				email: option(z.string().trim().email().optional(), {
@@ -817,7 +821,7 @@ export default defineGroup({
 			operationId: "subscribers.delete",
 			description: "Delete a subscriber",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Subscriber ID",
 				}),
 			},
@@ -914,7 +918,7 @@ export default defineGroup({
 			operationId: "subscribers.send-optin",
 			description: "Resend the double opt-in confirmation email",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Subscriber ID",
 				}),
 			},
@@ -926,7 +930,7 @@ export default defineGroup({
 			description:
 				"Read the complete data-portability export for a subscriber",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Subscriber ID",
 				}),
 			},

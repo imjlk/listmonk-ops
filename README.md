@@ -305,7 +305,17 @@ Explicit `--listmonk-url`, `--listmonk-username`, and `--token-file` overrides
 still apply. The MCP entrypoint also retains its inline token/password flags.
 Without a selected profile, existing environment-based configuration and defaults
 continue to work; `LISTMONK_API_TOKEN_FILE` takes precedence over an inline token.
-Bun loads `.env` for both executables.
+
+Both executables, including the standalone CLI binary, load `.env` files from the
+current working directory through Bun; variables already set in the process
+environment take precedence. Treat that `.env` as trusted configuration: it can
+select another configuration file or profile (`LISTMONK_OPS_CONFIG`,
+`LISTMONK_OPS_PROFILE`), API URL, credential source, or state location, so running
+in an untrusted directory, such as a freshly cloned repository, can send your token
+to a server you did not choose. Run the CLI and MCP server only from directories you
+trust. The standalone binary never loads `bunfig.toml`. The npm packages run
+through your `bun` runtime, which also applies a working-directory `bunfig.toml`,
+including `preload` scripts that execute code.
 
 `config show` and MCP `listmonk_config` return the selected profile, available
 profile names, field sources, credential reference, and default state directory.
@@ -520,8 +530,16 @@ well. The CLI includes the full CRUD command set where Listmonk exposes it:
 
 Campaign filters accept `--tags news,updates` (MCP: `tags: ["news", "updates"]`). The client sends repeated `tag` query parameters required by Listmonk 6.2; campaigns must contain all requested tags.
 
+ID flags such as `--id` and `--campaign-id`, and comma-separated ID lists such as
+`--lists 10,11` or `--media`, accept only positive decimal integers. A malformed
+entry such as `12,O4`, `0x10`, or `1e1` fails the command before Listmonk is
+called instead of being dropped or reinterpreted, so an update never replaces
+memberships with a truncated list.
+
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
+# --no-body omits bodies; campaigns list and templates list accept it too.
+listmonk-cli campaigns get --id 42 --no-body
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10
@@ -1077,6 +1095,10 @@ transport and are rejected before dispatch.
 The corresponding MCP tool is `listmonk_send_transactional`. It returns
 structured content like `{"sent": true, "status": "accepted"}` and keeps the
 legacy boolean text result for existing clients.
+
+When Listmonk declines the message, the result is `{"sent": false, "status":
+"failed"}`. `tx send` still prints that JSON result on stdout, reports the
+rejection as a warning, and exits nonzero; a replayed rejection behaves the same.
 
 ### Idempotent transactional sends
 

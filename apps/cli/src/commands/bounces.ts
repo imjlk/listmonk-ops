@@ -18,7 +18,11 @@ import {
 	type HandlerArgs,
 	option,
 } from "../lib/command";
-import { toErrorMessage } from "../lib/command-utils";
+import {
+	parseCsvNumbersStrict,
+	positiveIntegerIdSchema,
+	toErrorMessage,
+} from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
 
 type BouncesOutput = Pick<typeof OutputUtils, "info" | "json" | "success" | "table">;
@@ -237,10 +241,8 @@ export async function handlePruneBouncesCommand({
 	try {
 		const client = await getListmonkClient(args);
 		const bounceIds = flags["bounce-ids"]
-			?.split(",")
-			.map((value) => value.trim())
-			.filter((value) => value.length > 0)
-			.map(Number);
+			? parseCsvNumbersStrict(flags["bounce-ids"], "bounce IDs")
+			: undefined;
 		await renderPruneBounces(
 			{ client, output: getOutput() },
 			{
@@ -274,7 +276,7 @@ export default defineGroup({
 				"per-page": option(z.coerce.number().int().positive().optional(), {
 					description: "Items per page",
 				}),
-				"campaign-id": option(z.coerce.number().int().positive().optional(), {
+				"campaign-id": option(positiveIntegerIdSchema.optional(), {
 					description: "Filter bounces by campaign ID",
 				}),
 				source: option(z.string().trim().min(1).optional(), {
@@ -297,7 +299,7 @@ export default defineGroup({
 			operationId: "bounces.get",
 			description: "Get a recorded bounce event by ID",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Bounce ID",
 				}),
 			},
@@ -308,7 +310,7 @@ export default defineGroup({
 			operationId: "bounces.delete",
 			description: "Delete a recorded bounce event by ID",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Bounce ID",
 				}),
 			},
@@ -319,7 +321,7 @@ export default defineGroup({
 			operationId: "subscribers.bounces.get",
 			description: "List the bounce records of one subscriber",
 			options: {
-				"subscriber-id": option(z.coerce.number().int().positive(), {
+				"subscriber-id": option(positiveIntegerIdSchema, {
 					description: "Subscriber ID",
 				}),
 			},
@@ -331,7 +333,7 @@ export default defineGroup({
 			description:
 				"Delete every bounce record of one subscriber in one request",
 			options: {
-				"subscriber-id": option(z.coerce.number().int().positive(), {
+				"subscriber-id": option(positiveIntegerIdSchema, {
 					description: "Subscriber ID",
 				}),
 			},
@@ -356,7 +358,7 @@ export default defineGroup({
 						description: `Selection window size, at most ${MAX_BOUNCE_PRUNE_IDS} (dry run)`,
 					},
 				),
-				"campaign-id": option(z.coerce.number().int().positive().optional(), {
+				"campaign-id": option(positiveIntegerIdSchema.optional(), {
 					description: "Filter bounces by campaign ID (dry run)",
 				}),
 				source: option(z.string().trim().min(1).optional(), {
