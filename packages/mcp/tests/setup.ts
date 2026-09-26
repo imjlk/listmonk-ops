@@ -4,6 +4,7 @@ import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeListmonkApiUrl } from "@listmonk-ops/common";
 import { createListmonkClient } from "@listmonk-ops/openapi";
 import {
 	assertLocalListmonkTarget,
@@ -99,18 +100,6 @@ function readEnvValue(...keys: string[]): string | undefined {
 	return undefined;
 }
 
-function normalizeApiUrl(url: string): string {
-	const trimmed = url.trim();
-	const withoutTrailingSlash = trimmed.endsWith("/")
-		? trimmed.slice(0, -1)
-		: trimmed;
-	const withApiSuffix = withoutTrailingSlash.endsWith("/api")
-		? withoutTrailingSlash
-		: `${withoutTrailingSlash}/api`;
-
-	return new URL(withApiSuffix).toString().replace(/\/$/, "");
-}
-
 function formatError(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
@@ -192,7 +181,9 @@ function resolveApiTokenFromLocalStack(): string | undefined {
 	return token.length > 0 ? token : undefined;
 }
 
-const resolvedBaseUrl = normalizeApiUrl(
+// Normalize exactly like the shared CLI/MCP resolver, so the resolved-target
+// comparison below cannot fail on a normalization difference.
+const resolvedBaseUrl = normalizeListmonkApiUrl(
 	readEnvValue("LISTMONK_API_URL", "LISTMONK_URL") ||
 		"http://localhost:9000/api",
 );
