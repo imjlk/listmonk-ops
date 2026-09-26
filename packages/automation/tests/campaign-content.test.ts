@@ -182,20 +182,17 @@ test("ordinary third-party link paths remain eligible for link checks", () => {
 	);
 });
 test("redirects to control links are blocked before the target is fetched", async () => {
-	const original = globalThis.fetch;
 	let requests = 0;
-	globalThis.fetch = (async () => {
-		requests++;
-		return new Response(null, { status: 302, headers: { location: route } });
-	}) as typeof fetch;
-	try {
-		const result = await checkLink("https://example.com/start", 5_000);
-		expect(result.ok).toBe(false);
-		expect(result.error).toContain("campaign control link");
-		expect(requests).toBe(1);
-	} finally {
-		globalThis.fetch = original;
-	}
+	const result = await checkLink("https://example.com/start", 5_000, {
+		lookupHost: async () => [{ address: "93.184.216.34", family: 4 }],
+		send: async () => {
+			requests++;
+			return { status: 302, location: route };
+		},
+	});
+	expect(result.ok).toBe(false);
+	expect(result.error).toContain("campaign control link");
+	expect(requests).toBe(1);
 });
 test("raw words, unsupported schemes, URL credentials and unresolved expressions do not count", () => {
  for (const href of ["javascript:unsubscribe()", "{{ UnsubscribeURL }}", "mailto:unsubscribe@example.test", route.replace("https://", "https://user:pass@"), "https://example.test/unsubscribe"]) {
@@ -207,13 +204,23 @@ test("oversized and empty previews fail closed", () => {
  expect(() => inspectRenderedCampaignContent("x".repeat(MAX_RENDERED_CAMPAIGN_CHARACTERS + 1))).toThrow();
 });
 test("link-check mode does not fetch the rendered unsubscribe URL", async () => {
- const original = globalThis.fetch;
- let requests = 0;
- globalThis.fetch = (async () => { requests++; return new Response(null, { status: 200 }); }) as typeof fetch;
- try {
-  const result = await runCampaignPreflight(fixture(anchor), 1, { checkLinks: true });
-		expect(check(result, "unsubscribe_link")?.level).toBe("pass");
-		expect(check(result, "link_health")?.details).toMatchObject({ skippedControlLinks: 1 });
-		expect(requests).toBe(0);
- } finally { globalThis.fetch = original; }
+	let lookups = 0;
+	let requests = 0;
+	const result = await runCampaignPreflight(fixture(anchor), 1, {
+		checkLinks: true,
+		linkCheck: {
+			lookupHost: async () => {
+				lookups++;
+				return [{ address: "93.184.216.34", family: 4 }];
+			},
+			send: async () => {
+				requests++;
+				return { status: 200 };
+			},
+		},
+	});
+	expect(check(result, "unsubscribe_link")?.level).toBe("pass");
+	expect(check(result, "link_health")?.details).toMatchObject({ skippedControlLinks: 1 });
+	expect(lookups).toBe(0);
+	expect(requests).toBe(0);
 });

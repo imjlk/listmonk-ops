@@ -1281,9 +1281,14 @@ listmonk-cli ops templates-rollback --template-id 10 --confirm
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 ```
 
-프리플라이트 링크 검사는 private/internal 호스트(loopback, private
-CIDR, link-local, 클라우드 metadata IP)를 차단하며 redirect를 수동으로
-팔로우하며 각 hop마다 재검증합니다. 템플릿 promote는 `--expected-remote-hash`로
+프리플라이트 링크 검사는 private/internal 호스트(loopback,
+`localhost`/`*.localhost` 이름, private CIDR, link-local, 클라우드 metadata IP)를
+차단하며 redirect를 수동으로 팔로우하며 각 hop마다 재검증합니다. 각 hop은 DNS를
+한 번만 조회하고 HTTP(S) 연결을 검증된 주소에 고정하므로, DNS rebinding으로
+검사 요청을 내부 주소로 돌릴 수 없습니다. DNS 조회에 실패한 호스트는 검증
+불가(unverifiable)로 보고하며 요청을 보내지 않습니다. 깨진 링크 상세에는 정책
+사유, 상태 코드, 로컬 오류 코드만 담고 원격 오류 문구는 포함하지 않습니다.
+템플릿 promote는 `--expected-remote-hash`로
 optimistic concurrency를 지원합니다. MCP/CLI operation 출력은 더 이상
 절대 파일시스템 경로를 노출하지 않습니다.
 
@@ -1328,8 +1333,12 @@ listmonk-cli webhooks inbound ingest \
 
 필터는 정확한 event type, `campaign.*` 같은 family wildcard 또는 `*`를
 받습니다. 초기 계약은 operation, campaign, subscriber, delivery, A/B test,
-sequence, test event를 포함합니다. 자격 증명이나 개인정보 이름을 가진 payload 필드는
-저장 전에 재귀적으로 마스킹합니다.
+sequence, test event를 포함합니다. 자격 증명, 개인정보, 수신자 주소 이름을 가진
+payload 필드는 저장 전에 재귀적으로 마스킹합니다. `apiKeys`, `refresh_tokens`,
+`subscriberEmails` 같은 복수형·camelCase·snake_case·kebab-case 표기와 SES 형식의
+`destination`, `source`, `to`, `from` 필드도 포함됩니다. 이메일 주소(URL
+인코딩된 `%40` 형태 포함)가 들어 있는 문자열 값과 주소 자체인 객체 key도
+마스킹하며, 주변 객체·배열 구조는 그대로 유지합니다.
 감사 대상 CLI/MCP operation은 같은 execution ID로 `operation.started`,
 `operation.blocked`, `operation.succeeded`, `operation.failed`를 자동 enqueue합니다.
 Event 투영은 durable audit 저장 이후 best-effort로 처리하므로 webhook 저장소
@@ -1358,9 +1367,9 @@ breaker는 연속 실패 후 cooldown이 끝나거나 운영자가 reset할 때�
 claim을 멈춥니다. `webhooks runtime status`는 schema, backlog, circuit, DLQ,
 running, stale, stopped, failed worker 상태를 보고합니다. 인증을 마친 provider adapter는 delivered,
 bounced, complained, unsubscribed, delayed, rejected event를 같은 envelope로
-수집할 수 있습니다. 안정적인 provider event ID로 중복 수집을 막고 민감한
-metadata key는 저장 전에 마스킹합니다. 구독 해지 event에는 subscriber UUID가
-필수이며 provider metadata는 16 KiB로 제한합니다.
+수집할 수 있습니다. 안정적인 provider event ID로 중복 수집을 막고, provider
+metadata도 같은 마스킹을 거친 뒤에 저장되거나 endpoint로 전달됩니다. 구독 해지
+event에는 subscriber UUID가 필수이며 provider metadata는 16 KiB로 제한합니다.
 
 JSON 저장소는 설정이 필요 없는 단일 호스트 기본값으로 유지됩니다. 기존 v1
 파일은 호환되게 읽고 다음 mutation에서 v2로 저장합니다. 여러
@@ -1378,7 +1387,8 @@ dry-run이며, 파괴적 실행은 dry-run이 보고한 정확한 delivery 집�
 timestamp(`--before`)를 그대로 전달합니다. 확인된 삭제가 현재 시계로 흔들리지
 않고 retry도 아무것도 추가로 삭제하지 않습니다.
 
-자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용합니다.
+자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용하며,
+`localhost`, `localhost.`, `*.localhost` 이름은 endpoint 생성·수정 시 거부합니다.
 Dispatch 시 DNS/IP가 전역 라우팅 가능한 주소인지 다시 확인하고, 검증된 주소를
 차례로 시도하면서 각 HTTPS 연결에 고정하며 redirect는 허용하지 않습니다.
 `webhooks tick`을 scheduler에서 실행하거나 heartbeat를 기록하는

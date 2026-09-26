@@ -68,6 +68,14 @@ const digest = await generateDailyDigest(client);
 console.log(preflight.summary, guard.allowLaunch, digest.generatedAt);
 ```
 
+With `checkLinks`, each ordinary rendered link is requested with HEAD (GET
+after a 405/501) and at most five manually followed redirects. Every hop is
+revalidated, resolved once, and connected only to the validated public
+addresses through the same pinned transport as webhook delivery. Hosts that
+cannot be resolved are reported as unverifiable and never fetched, and failures
+report policy reasons, status codes, and local error codes instead of remote
+error text.
+
 ## Provider and deliverability diagnostics
 
 Set `LISTMONK_OPS_PROVIDER_CONFIG` to a versioned JSON document containing
@@ -196,12 +204,19 @@ and normalized provider delivery-event ingestion. Use
 leases before every bounded dispatch batch and retries transient tick failures
 with bounded exponential backoff. Normalized unsubscribe events require a
 subscriber UUID, and provider metadata is limited to 16 KiB.
+Event data, including provider metadata, is redacted before it is stored or
+delivered: credential, personal-data, and recipient-address keys in plural,
+camelCase, snake_case, or kebab-case spellings (for example `apiKeys`,
+`subscriberEmails`, and SES `destination`, `source`, `to`, and `from`), string
+values that contain an email address, and object keys that are addresses. The
+surrounding object and array structure is preserved.
 
 Only the environment-variable name in
 `secretRef` is persisted. Dispatch resolves its value at runtime, sends no
 redirects, revalidates public HTTPS destination addresses, and pins the
 validated address into the TLS connection to prevent DNS rebinding between
-validation and delivery.
+validation and delivery. Endpoint URLs that name `localhost`, `localhost.`, or
+`*.localhost` are rejected when an endpoint is created or updated.
 If a hostname has multiple validated addresses, dispatch tries them in order
 within the endpoint timeout. Audited CLI and MCP executions are projected into
 `operation.*` events automatically after the durable metadata-only audit write;

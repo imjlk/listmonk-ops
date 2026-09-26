@@ -5,8 +5,6 @@ import {
 	randomUUID,
 	timingSafeEqual,
 } from "node:crypto";
-import { lookup as dnsLookup } from "node:dns/promises";
-import { isIP } from "node:net";
 import { join } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
@@ -23,11 +21,16 @@ import type {
 	OperationResourceKind,
 } from "@listmonk-ops/operations/specs";
 import { z } from "zod";
-import { isPrivateHost, isSafeFetchUrl } from "./campaign";
 import {
-	postPinnedHttpsWebhookWithFallback,
-	type ResolvedWebhookAddress,
-} from "./webhook-transport";
+	isSafeFetchUrl,
+	type PublicHostResolution,
+	resolvePublicHostAddresses,
+} from "./campaign";
+import {
+	containsEmailAddress,
+	isSensitiveWebhookDataKey,
+} from "./webhook-redaction";
+import { postPinnedHttpsWebhookWithFallback } from "./webhook-transport";
 
 export const OUTBOUND_WEBHOOK_STORE_VERSION = 2;
 export const OUTBOUND_WEBHOOK_EVENT_SCHEMA_VERSION = 1;
@@ -684,8 +687,7 @@ const storeSchema = z.object({
 	probeIdKey: z.string().min(32).max(128).optional(),
 });
 
-const SENSITIVE_KEY_PATTERN =
-	/(?:^|[_-])(?:authorization|cookie|email|password|passwd|recipient|secret|token|api[_-]?key)(?:$|[_-])/iu;
+const REDACTED = "[REDACTED]";
 const MAX_REDACTION_DEPTH = 8;
 const MAX_ERROR_LENGTH = 500;
 
@@ -1022,14 +1024,20 @@ export function matchesOutboundWebhookEvent(
 	});
 }
 
+/**
+ * Redacts sensitive keys, string values containing an email address, and keys
+ * that are themselves addresses, while preserving object and array structure.
+ */
 function redactValue(
 	value: unknown,
 	depth: number,
 	seen: WeakSet<object>,
 ): unknown {
+	if (typeof value === "string") {
+		return containsEmailAddress(value) ? REDACTED : value;
+	}
 	if (
 		value === null ||
-		typeof value === "string" ||
 		typeof value === "number" ||
 		typeof value === "boolean"
 	) {
@@ -1050,20 +1058,28 @@ function redactValue(
 		}
 		seen.add(value);
 		const output: Record<string, unknown> = {};
+		let redactedKeyCount = 0;
 		for (const [key, nested] of Object.entries(value)) {
-			output[key] = isSensitiveKey(key)
-				? "[REDACTED]"
+			if (containsEmailAddress(key)) {
+				let placeholder: string;
+				do {
+					redactedKeyCount += 1;
+					placeholder = `[REDACTED_KEY_${redactedKeyCount}]`;
+				} while (
+					Object.hasOwn(value, placeholder) ||
+					Object.hasOwn(output, placeholder)
+				);
+				output[placeholder] = REDACTED;
+				continue;
+			}
+			output[key] = isSensitiveWebhookDataKey(key)
+				? REDACTED
 				: redactValue(nested, depth + 1, seen);
 		}
 		seen.delete(value);
 		return output;
 	}
 	return String(value);
-}
-
-function isSensitiveKey(key: string): boolean {
-	const normalized = key.replaceAll(/([a-z0-9])([A-Z])/gu, "$1_$2");
-	return SENSITIVE_KEY_PATTERN.test(normalized);
 }
 
 export function redactOutboundWebhookData(
@@ -2492,55 +2508,6 @@ async function resolveWithTimeout<T>(
 	}
 }
 
-type WebhookAddressResolution =
-	| Readonly<{
-			safe: true;
-			addresses: readonly ResolvedWebhookAddress[];
-	  }>
-	| Readonly<{
-			safe: false;
-			reason: string;
-	  }>;
-
-async function resolvePublicWebhookAddresses(
-	url: string,
-): Promise<WebhookAddressResolution> {
-	const parsed = new URL(url);
-	const staticSafety = isSafeFetchUrl(url);
-	if (!staticSafety.safe) {
-		return {
-			safe: false,
-			reason: staticSafety.reason ?? "URL is not public",
-		};
-	}
-	const hostname = parsed.hostname.replace(/^\[|\]$/gu, "");
-	const literalFamily = isIP(hostname);
-	const addresses =
-		literalFamily === 0
-			? await dnsLookup(hostname, {
-					all: true,
-					verbatim: true,
-				})
-			: [{ address: hostname, family: literalFamily }];
-	if (addresses.length === 0) {
-		throw new Error(`Endpoint host has no DNS addresses: ${hostname}`);
-	}
-	const normalized = addresses
-		.map(({ address, family }) => ({
-			address,
-			family: family === 6 ? (6 as const) : (4 as const),
-		}))
-		.sort((left, right) => left.family - right.family);
-	const blocked = normalized.find(({ address }) => isPrivateHost(address));
-	if (blocked) {
-		return {
-			safe: false,
-			reason: `Host ${hostname} resolves to private/internal address ${blocked.address}`,
-		};
-	}
-	return { safe: true, addresses: normalized };
-}
-
 async function deliverClaimedWebhook(
 	claimed: ClaimedOutboundWebhookDelivery,
 	options: Readonly<{
@@ -2581,10 +2548,10 @@ async function deliverClaimedWebhook(
 		};
 	}
 	const startedAt = Date.now();
-	let addressResolution: WebhookAddressResolution;
+	let addressResolution: PublicHostResolution;
 	try {
 		addressResolution = await resolveWithTimeout(
-			resolvePublicWebhookAddresses(endpoint.url),
+			resolvePublicHostAddresses(endpoint.url),
 			endpoint.timeoutMs,
 			"Endpoint DNS validation timed out",
 		);
