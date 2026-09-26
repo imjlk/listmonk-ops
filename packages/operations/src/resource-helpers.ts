@@ -66,27 +66,50 @@ export class ResourceResponseError extends Error {
 
 const NOT_FOUND_MESSAGE = /\bnot found\b/i;
 
+/** Listmonk resources whose "<Resource> not found" answers can be scoped. */
+export type ResourceLabel =
+	| "template"
+	| "campaign"
+	| "list"
+	| "subscriber"
+	| "bounce"
+	| "media";
+
 /**
  * Whether a lookup failed because the resource does not exist. Listmonk 6.2
  * answers a missing template, campaign, list, subscriber, or bounce with
  * HTTP 400 and an i18n "<Resource> not found" message (only media uses 404),
  * so a 400 counts as a miss only when the server message says so. Pass the
- * expected `resource` (for example "subscriber") so a 400 about some other
- * missing entity is not mistaken for the one the caller asked about.
+ * expected `resource` (for example "subscriber") so an answer about some
+ * other missing entity, or a 404 from a proxy or misrouted request, is not
+ * mistaken for the one the caller asked about. Without a label, any 404
+ * still counts as a miss.
  */
 export function isResourceMissingError(
 	error: unknown,
-	resource?: string,
+	resource?: ResourceLabel,
 ): boolean {
 	if (!(error instanceof ResourceResponseError)) return false;
-	if (error.status === 404) return true;
-	if (error.status !== 400) return false;
-	const message = toResourceErrorMessage(error.cause);
-	if (!NOT_FOUND_MESSAGE.test(message)) return false;
-	return (
-		resource === undefined ||
-		message.toLowerCase().includes(resource.toLowerCase())
-	);
+	if (error.status !== 400 && error.status !== 404) return false;
+	if (error.status === 404 && resource === undefined) return true;
+	// Match the server's answer, not the wrapper message: unwrapResourceResponse
+	// prefixes the caller's context (for example "Failed to get subscriber"),
+	// which names the expected resource whatever the server said. Errors
+	// raised without a cause, such as a bounce lookup's own 404, carry the
+	// answer in their message.
+	const message =
+		error.cause === undefined
+			? error.message
+			: toResourceErrorMessage(error.cause);
+	if (resource === undefined) return NOT_FOUND_MESSAGE.test(message);
+	// Listmonk's answer is "<Resource> not found", optionally with the lookup
+	// key ("Subscriber (42: ) not found", or "Bounce 7 not found" from a local
+	// lookup), so the label must directly precede "not found": "Subscriber
+	// list not found" is a list miss, not a subscriber miss.
+	return new RegExp(
+		`\\b${resource}\\b(?:\\s*\\([^)]*\\)|\\s+#?\\d+)?\\s+not found\\b`,
+		"i",
+	).test(message);
 }
 
 export function toResourceErrorMessage(error: unknown): string {

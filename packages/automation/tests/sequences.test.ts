@@ -1283,6 +1283,52 @@ describe("sequence execution", () => {
 		});
 	});
 
+	test("does not cancel an enrollment when the answer names another missing entity", async () => {
+		for (const [status, message] of [
+			[400, "Template not found"],
+			[404, "404 page not found"],
+		] as const) {
+			const { repository, idempotencyStore } = await createStores();
+			const now = new Date();
+			const definition = await repository.createDefinition(
+				createSequenceDefinition(
+					{
+						name: "other missing entity",
+						steps: [{ id: "send", type: "send", templateId: 9 }],
+					},
+					now,
+				),
+			);
+			const enrollment = await repository.createEnrollment(
+				createSequenceEnrollment(
+					definition,
+					{ sequenceId: definition.id, subscriberId: 42 },
+					now,
+				),
+			);
+
+			const result = await runSequenceTick(
+				executionContext(
+					repository,
+					idempotencyStore,
+					client({
+						subscriberGet: async () => ({
+							error: { message },
+							response: { status },
+						}),
+					}),
+				),
+				{ now },
+			);
+
+			expect(result).toMatchObject({ cancelled: 0 });
+			const stored = await repository.getEnrollment(enrollment.id);
+			expect(stored?.status).toBe("failed");
+			expect(stored?.lastError).toContain(message);
+			expect(stored?.lastError).not.toContain("no longer exists");
+		}
+	});
+
 	test("retries a definitive pre-dispatch failure instead of terminalizing", async () => {
 		const { repository, idempotencyStore } = await createStores();
 		const now = new Date("2026-08-01T09:00:00.000Z");

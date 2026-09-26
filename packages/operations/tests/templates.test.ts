@@ -58,6 +58,19 @@ describe("template operations", () => {
 			),
 		).rejects.toThrow(/non-existent or default template/);
 
+		// A 404 that does not name the template (a proxy or misrouted request)
+		// cannot prove the template is gone.
+		const proxyMiss = mock(async () => ({
+			error: { message: "404 page not found" },
+			response: { status: 404 },
+		})) as unknown as TemplateClient["template"]["getById"];
+		await expect(
+			invokeDeleteTemplateOperation(
+				context({ delete: remove, getById: proxyMiss }),
+				{ id: 998 },
+			),
+		).rejects.toThrow(/non-existent or default template/);
+
 		// Any other 400 from the probe keeps the explicit error.
 		const invalid = mock(async () => ({
 			error: { message: "Invalid ID" },
