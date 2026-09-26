@@ -43,19 +43,24 @@ async function temporaryDirectory(): Promise<string> {
 }
 
 /** A loopback stand-in for Listmonk that records every request it receives. */
-function startFakeListmonk(acceptedToken?: string) {
+function startFakeListmonk(
+	acceptedToken?: string,
+	beforeResponse?: (request: RecordedRequest) => Promise<void>,
+) {
 	const requests: RecordedRequest[] = [];
 	const server = Bun.serve({
 		hostname: "127.0.0.1",
 		port: 0,
-		fetch(request) {
+		async fetch(request) {
 			const url = new URL(request.url);
 			const authorization = request.headers.get("authorization");
-			requests.push({
+			const recorded = {
 				method: request.method,
 				path: `${url.pathname}${url.search}`,
 				authorization,
-			});
+			};
+			requests.push(recorded);
+			await beforeResponse?.(recorded);
 			if (url.pathname === "/health") {
 				return Response.json({ data: true });
 			}
@@ -74,8 +79,8 @@ function startFakeListmonk(acceptedToken?: string) {
 	return { url: `http://127.0.0.1:${server.port}/api`, requests };
 }
 
-/** Run the smoke with a minimal environment: no GITHUB_ENV or operator shell. */
-async function runSmoke(directory: string, env: Record<string, string>) {
+/** Start the smoke with a minimal environment: no GITHUB_ENV or operator shell. */
+function startSmoke(directory: string, env: Record<string, string>) {
 	const child = Bun.spawn(["bash", smokeScript], {
 		cwd: root,
 		env: {
@@ -89,12 +94,21 @@ async function runSmoke(directory: string, env: Record<string, string>) {
 		stdout: "pipe",
 		stderr: "pipe",
 	});
-	const [stdout, stderr, exitCode] = await Promise.all([
+	const result = Promise.all([
 		new Response(child.stdout).text(),
 		new Response(child.stderr).text(),
 		child.exited,
-	]);
-	return { stdout, stderr, exitCode, output: `${stdout}\n${stderr}` };
+	]).then(([stdout, stderr, exitCode]) => ({
+		stdout,
+		stderr,
+		exitCode,
+		output: `${stdout}\n${stderr}`,
+	}));
+	return { child, result };
+}
+
+function runSmoke(directory: string, env: Record<string, string>) {
+	return startSmoke(directory, env).result;
 }
 
 async function leftoverStateDirectories(directory: string): Promise<string[]> {
@@ -249,6 +263,43 @@ describe("ops smoke local target isolation", () => {
 					request.path.startsWith("/api/campaigns"),
 				),
 			).toBe(false);
+			expect(await leftoverStateDirectories(directory)).toEqual([]);
+		},
+		SMOKE_TIMEOUT_MS,
+	);
+
+	test(
+		"stops at an interrupted step even when its command exits normally",
+		async () => {
+			const directory = await temporaryDirectory();
+			const smoke: { child?: Bun.Subprocess } = {};
+			// Interrupt the script (not its CLI child) during `campaigns list`; the
+			// delayed response then lets that CLI step finish successfully.
+			const local = startFakeListmonk(TOKEN, async (request) => {
+				if (request.path.startsWith("/api/campaigns")) {
+					smoke.child?.kill("SIGINT");
+					await Bun.sleep(300);
+				}
+			});
+			const run = startSmoke(directory, {
+				LISTMONK_API_URL: local.url,
+				LISTMONK_USERNAME: USERNAME,
+				LISTMONK_API_TOKEN: TOKEN,
+			});
+			smoke.child = run.child;
+
+			const result = await run.result;
+
+			expect(result.exitCode, result.output).toBe(130);
+			expect(
+				local.requests.some((request) => request.path.startsWith("/api/campaigns")),
+			).toBe(true);
+			for (const laterStep of ["/api/templates", "/api/subscribers"]) {
+				expect(
+					local.requests.some((request) => request.path.startsWith(laterStep)),
+				).toBe(false);
+			}
+			expect(result.stdout).not.toContain("SUMMARY");
 			expect(await leftoverStateDirectories(directory)).toEqual([]);
 		},
 		SMOKE_TIMEOUT_MS,

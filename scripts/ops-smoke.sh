@@ -120,6 +120,10 @@ on_exit() {
 	exit "$status"
 }
 trap on_exit EXIT
+# Stop at the interrupted step and report failure. Without these traps, a step
+# whose CLI exits normally on Ctrl-C lets bash continue with the next step.
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Run every CLI step against the target this script resolves, never an
 # operator's shared profile: a profile selected by ~/.listmonk-ops/config.json
