@@ -305,7 +305,17 @@ Explicit `--listmonk-url`, `--listmonk-username`, and `--token-file` overrides
 still apply. The MCP entrypoint also retains its inline token/password flags.
 Without a selected profile, existing environment-based configuration and defaults
 continue to work; `LISTMONK_API_TOKEN_FILE` takes precedence over an inline token.
-Bun loads `.env` for both executables.
+
+Both executables, including the standalone CLI binary, load `.env` files from the
+current working directory through Bun; variables already set in the process
+environment take precedence. Treat that `.env` as trusted configuration: it can
+select another configuration file or profile (`LISTMONK_OPS_CONFIG`,
+`LISTMONK_OPS_PROFILE`), API URL, credential source, or state location, so running
+in an untrusted directory, such as a freshly cloned repository, can send your token
+to a server you did not choose. Run the CLI and MCP server only from directories you
+trust. The standalone binary never loads `bunfig.toml`. The npm packages run
+through your `bun` runtime, which also applies a working-directory `bunfig.toml`,
+including `preload` scripts that execute code.
 
 `config show` and MCP `listmonk_config` return the selected profile, available
 profile names, field sources, credential reference, and default state directory.
