@@ -268,40 +268,54 @@ describe("ops smoke local target isolation", () => {
 		SMOKE_TIMEOUT_MS,
 	);
 
-	test(
-		"stops at an interrupted step even when its command exits normally",
-		async () => {
-			const directory = await temporaryDirectory();
-			const smoke: { child?: Bun.Subprocess } = {};
-			// Interrupt the script (not its CLI child) during `campaigns list`; the
-			// delayed response then lets that CLI step finish successfully.
-			const local = startFakeListmonk(TOKEN, async (request) => {
-				if (request.path.startsWith("/api/campaigns")) {
-					smoke.child?.kill("SIGINT");
-					await Bun.sleep(300);
-				}
-			});
-			const run = startSmoke(directory, {
-				LISTMONK_API_URL: local.url,
-				LISTMONK_USERNAME: USERNAME,
-				LISTMONK_API_TOKEN: TOKEN,
-			});
-			smoke.child = run.child;
+	for (const [signal, exitCode] of [
+		["SIGINT", 130],
+		["SIGTERM", 143],
+		["SIGHUP", 129],
+	] as const) {
+		test(
+			`stops at the step interrupted by ${signal} even when it exits normally`,
+			async () => {
+				const directory = await temporaryDirectory();
+				const staleReport = join(directory, "logs", "report.json");
+				await writeFile(staleReport, '{"summary":{"pass":6,"fail":0}}\n');
+				const smoke: { child?: Bun.Subprocess } = {};
+				// Signal the script (not its CLI child) during `campaigns list`; the
+				// delayed response then lets that CLI step finish successfully.
+				const local = startFakeListmonk(TOKEN, async (request) => {
+					if (request.path.startsWith("/api/campaigns")) {
+						smoke.child?.kill(signal);
+						await Bun.sleep(300);
+					}
+				});
+				const run = startSmoke(directory, {
+					LISTMONK_API_URL: local.url,
+					LISTMONK_USERNAME: USERNAME,
+					LISTMONK_API_TOKEN: TOKEN,
+				});
+				smoke.child = run.child;
 
-			const result = await run.result;
+				const result = await run.result;
 
-			expect(result.exitCode, result.output).toBe(130);
-			expect(
-				local.requests.some((request) => request.path.startsWith("/api/campaigns")),
-			).toBe(true);
-			for (const laterStep of ["/api/templates", "/api/subscribers"]) {
+				expect(result.exitCode, result.output).toBe(exitCode);
+				expect(result.stdout).toContain(`[smoke] interrupted by ${signal}`);
 				expect(
-					local.requests.some((request) => request.path.startsWith(laterStep)),
-				).toBe(false);
-			}
-			expect(result.stdout).not.toContain("SUMMARY");
-			expect(await leftoverStateDirectories(directory)).toEqual([]);
-		},
-		SMOKE_TIMEOUT_MS,
-	);
+					local.requests.some((request) =>
+						request.path.startsWith("/api/campaigns"),
+					),
+				).toBe(true);
+				for (const laterStep of ["/api/templates", "/api/subscribers"]) {
+					expect(
+						local.requests.some((request) =>
+							request.path.startsWith(laterStep),
+						),
+					).toBe(false);
+				}
+				expect(result.stdout).not.toContain("SUMMARY");
+				expect(await Bun.file(staleReport).exists()).toBe(false);
+				expect(await leftoverStateDirectories(directory)).toEqual([]);
+			},
+			SMOKE_TIMEOUT_MS,
+		);
+	}
 });

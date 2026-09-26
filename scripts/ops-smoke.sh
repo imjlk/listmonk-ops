@@ -10,7 +10,8 @@ RESULTS_TSV="$LOG_DIR/results.tsv"
 TARGET_HELPER="$ROOT_DIR/scripts/local-test-target.ts"
 
 mkdir -p "$LOG_DIR"
-rm -f "$RESULTS_TSV"
+# A run that stops early must not leave the previous run's report looking current.
+rm -f "$RESULTS_TSV" "$REPORT_FILE"
 
 LISTMONK_API_URL="${LISTMONK_API_URL:-http://localhost:9000/api}"
 LISTMONK_USERNAME="${LISTMONK_USERNAME:-api-admin}"
@@ -114,16 +115,26 @@ SMOKE_STATE_DIR="$(mktemp -d "${SMOKE_TMP_ROOT%/}/listmonk-ops-smoke.XXXXXX")"
 
 on_exit() {
 	local status=$?
+	# Finish cleanup even when another interrupt or a hangup arrives. Cleanup CLI
+	# steps inherit the ignored signals and are bounded by the client timeout.
+	trap '' INT TERM HUP
 	trap - EXIT
 	cleanup_full_fixtures || true
 	rm -rf "$SMOKE_STATE_DIR"
 	exit "$status"
 }
-trap on_exit EXIT
+
 # Stop at the interrupted step and report failure. Without these traps, a step
 # whose CLI exits normally on Ctrl-C lets bash continue with the next step.
-trap 'exit 130' INT
-trap 'exit 143' TERM
+stop_on_signal() {
+	print_info "interrupted by SIG$1; stopping before the next step" || true
+	exit "$2"
+}
+
+trap on_exit EXIT
+trap 'stop_on_signal INT 130' INT
+trap 'stop_on_signal TERM 143' TERM
+trap 'stop_on_signal HUP 129' HUP
 
 # Run every CLI step against the target this script resolves, never an
 # operator's shared profile: a profile selected by ~/.listmonk-ops/config.json
