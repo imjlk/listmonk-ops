@@ -53,9 +53,25 @@ is accepted only for operations that explicitly advertise a real dry run;
 unsupported dry-run requests are rejected rather than simulated. Mutating
 shared operations append metadata-only `started`, `blocked`, `succeeded`, or
 `failed` events to the audit store. Inputs, outputs, credentials, and remote
-error text are never persisted. This staged policy currently applies to the
-shared operation registry; legacy transport-specific MCP tools keep their
-existing behavior until they are migrated.
+error text are never persisted. Every mutating MCP tool is a shared operation,
+so this policy covers every write. The remaining transport-specific tools
+(`listmonk_list_operations`, `listmonk_health_check`,
+`listmonk_get_server_config`, and `listmonk_get_campaign_running_stats`) are
+read-only. Every tool publishes `readOnlyHint`, `destructiveHint`,
+`idempotentHint`, and `openWorldHint` annotations.
+
+Legacy tools that bypassed confirmation and audit were removed:
+
+- `listmonk_delete_subscribers_by_query` and
+  `listmonk_blocklist_subscribers_by_query` applied an arbitrary SQL
+  expression in one unconfirmed call. Resolve subscriber IDs with
+  `listmonk_get_subscribers` (`query`), then call `listmonk_delete_subscriber`
+  or `listmonk_blocklist_subscribers` with `confirm: true`.
+- `listmonk_update_settings` passed any object to `PUT /api/settings`, which
+  reloads Listmonk. There is no MCP replacement: read settings with the
+  redacted `listmonk_get_settings` and change them in the Listmonk admin UI.
+- `listmonk_send_subscriber_optin` duplicated `listmonk_send_optin` without an
+  audit record. Call `listmonk_send_optin` with the same `id`.
 
 ### Lists
 
@@ -71,10 +87,11 @@ existing behavior until they are migrated.
 - `listmonk_get_subscriber` - Get specific subscriber by ID
 - `listmonk_create_subscriber` - Create new subscriber
 - `listmonk_update_subscriber` - Update existing subscriber
-- `listmonk_delete_subscriber` - Delete subscriber
-- `listmonk_send_subscriber_optin` - Send opt-in email to subscriber
-- `listmonk_delete_subscribers_by_query` - Bulk delete by SQL query
-- `listmonk_blocklist_subscribers_by_query` - Bulk blocklist by SQL query
+- `listmonk_delete_subscriber` - Delete subscriber (requires `confirm: true`)
+- `listmonk_blocklist_subscribers` - Blocklist subscribers by ID in chunks,
+  with optional `dry_run` and `max_items` (requires `confirm: true`)
+- `listmonk_send_optin` - Resend the double opt-in email (every call sends a
+  real message)
 
 ### Campaigns
 
@@ -258,6 +275,7 @@ another profile's event.
 ### Operations & Observability
 
 - `listmonk_health_check` - Verify API health
+- `listmonk_get_server_config` - Read server configuration
 - `listmonk_get_dashboard_counts` - Get dashboard summary counts
 - `listmonk_get_dashboard_charts` - Get dashboard chart series
 - `listmonk_get_logs` - Fetch server logs
@@ -577,7 +595,7 @@ src/
 │   ├── campaigns.ts  # Campaign management tools
 │   ├── templates.ts  # Template management tools
 │   ├── bounces.ts    # Bounce management tools
-│   ├── settings.ts   # Settings management tools
+│   ├── settings.ts   # Read-only health and server-config tools
 │   ├── media.ts      # Media management tools
 │   ├── transactional.ts # Transactional email tools
 │   └── index.ts      # Handler exports
