@@ -134,6 +134,26 @@ update; if Listmonk succeeds but the local registry commit cannot be confirmed,
 `TemplateRegistryWriteTransactionError` names the store and requires remote/
 local reconciliation before retrying.
 
+A template's active version is the stored version whose content is live in
+Listmonk. Sync records the live content: it keeps an active version that
+already holds it, activates the latest capture when that matches, and
+otherwise records and activates a new version. A capture that is not newer
+than every stored version, or that raced a promotion or rollback, is still
+recorded but never moves the active version. Promotion and rollback activate
+the version they write and record, as `lastWrite`, the template Listmonk's
+update response returned: Listmonk can normalize a write (an empty
+campaign-template subject becomes the template name), and that stored content
+still counts as the written version rather than drift. An unpinned rollback
+re-reads the live template inside the registry lock, resolves it with the same
+rule (`resolveTemplateLiveVersion()`), and writes the version captured
+immediately before it (`selectTemplateRollbackTarget()`). Live content that
+matches neither the active version nor the latest capture raises
+`TemplateRegistryDriftError` instead of guessing a target: sync first, or pin
+`toVersionId` to the version preceding the active one to overwrite it
+explicitly. `lastWrite` is an optional field, so existing schema version 1
+stores load unchanged; a stale active version left by earlier releases is
+resolved from the live content and corrected by the next sync.
+
 ## Outbound Webhook Foundation
 
 `@listmonk-ops/automation` owns the shared endpoint registry, event envelope,

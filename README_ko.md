@@ -133,7 +133,9 @@ Listmonk는 여러 template을 묶는 transaction을 제공하지 않습니다. 
 대상에서 제외됩니다. Visual template source를 강제하려면 값을 명시하세요.
 
 Manifest 적용 후 `syncTemplateRegistry()`로 원격 버전을 capture하여 승격과
-rollback workflow에 사용할 수 있습니다. 릴리스 시점 template credential과
+rollback workflow에 사용할 수 있습니다. sync는 적용된 내용을 각 template의 활성
+버전으로 기록하므로 registry rollback은 적용 직전에 capture된 버전을 복원합니다
+(그 버전이 존재하도록 적용 전에도 sync하세요). 릴리스 시점 template credential과
 런타임 전송 credential은 분리하세요. Transactional template을 승격하기 전에는
 로컬 Listmonk + Mailpit E2E를 실행합니다.
 
@@ -1274,12 +1276,26 @@ listmonk-cli ops templates-sync
 listmonk-cli ops templates-history --template-id 10
 listmonk-cli ops templates-promote --template-id 10 --version-id v_... --confirm
 listmonk-cli ops templates-rollback --template-id 10 --confirm
-# --to-version-id로 대상을 핀하면 애매한 재시도가 재생되거나 명시적으로
-# 실패하고, 다른 버전으로 rollback되지 않습니다.
+# sync는 live 내용을 활성 버전으로 기록하고, rollback은 그 직전에 capture된
+# 버전을 씁니다. --to-version-id로 대상을 핀하면 애매한 재시도가 재생되거나
+# 명시적으로 실패하고, 다른 버전으로 rollback되지 않습니다.
 
 # 6) 데일리 다이제스트
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 ```
+
+템플릿 registry의 활성 버전은 내용이 Listmonk에서 live 상태인 저장 버전입니다.
+`templates-sync`는 live 내용을 기록합니다. 활성 버전이 이미 그 내용을 담고
+있으면(예: 승격한 이전 버전) 그대로 두고, 최신 capture와 일치하면 그 버전을
+활성화하며, 그 외에는 새 버전을 기록해 활성화합니다. promote와 rollback은 자신이
+쓴 버전을 활성화하고 Listmonk가 저장한 내용도 기억합니다. Listmonk는 쓰기를
+정규화할 수 있기 때문입니다(빈 campaign template subject는 template 이름이 됨).
+핀 없는 rollback은 registry lock 안에서 live 템플릿을 다시 읽어 live 버전
+직전에 capture된 버전을 씁니다. live 내용이 활성 버전과도
+최신 capture와도 일치하지 않으면(마지막 sync 이후 registry 밖에서 변경됨)
+rollback은 대상을 추측하지 않고 실패합니다. 먼저 `templates-sync`로 live 내용을
+기록하거나, `--to-version-id`를 활성 버전 직전 버전으로 핀해 명시적으로
+덮어쓰세요.
 
 프리플라이트 링크 검사는 private/internal 호스트(loopback, private
 CIDR, link-local, 클라우드 metadata IP)를 차단하며 redirect를 수동으로

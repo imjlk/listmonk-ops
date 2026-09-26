@@ -132,7 +132,10 @@ An omitted `body_source` is unmanaged because Listmonk preserves that field on
 update; provide it when the manifest should enforce visual-template source.
 
 After applying a manifest, `syncTemplateRegistry()` can capture the resulting
-remote versions for promotion and rollback workflows. Keep release-time
+remote versions for promotion and rollback workflows. The sync records the
+applied content as each template's active version, so a registry rollback
+restores the version captured before the apply (sync before applying as well,
+so that version exists). Keep release-time
 template credentials separate from runtime delivery credentials. Before
 promoting a transactional template, run the local Listmonk + Mailpit E2E suite.
 
@@ -1346,12 +1349,29 @@ listmonk-cli ops templates-sync
 listmonk-cli ops templates-history --template-id 10
 listmonk-cli ops templates-promote --template-id 10 --version-id v_... --confirm
 listmonk-cli ops templates-rollback --template-id 10 --confirm
-# Pin the target with --to-version-id so an ambiguous retry replays or
-# fails explicitly instead of rolling to a different version.
+# Sync records the live content as the active version; rollback writes the
+# version captured immediately before it. Pin the target with
+# --to-version-id so an ambiguous retry replays or fails explicitly instead
+# of rolling to a different version.
 
 # 6) Daily digest
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 ```
+
+A template's active registry version is the stored version whose content is
+live in Listmonk. `templates-sync` records the live content: it keeps an active
+version that already holds it (for example, an older version you promoted),
+activates the latest capture when that matches, and otherwise records a new
+version and activates it. Promote and rollback activate the version they write
+and remember the content Listmonk stored for it, because Listmonk can normalize
+a write (an empty campaign-template subject becomes the template name).
+An unpinned rollback re-reads the live template inside the registry lock and
+writes the version captured immediately before the live one. When the live
+content matches neither the active version nor the latest capture — it changed
+outside the registry since the last sync — the rollback fails closed instead of
+guessing a target: run `templates-sync` to record the live content first, or pin
+`--to-version-id` to the version preceding the active one to overwrite it
+explicitly.
 
 Preflight link checking now blocks private/internal hosts (loopback,
 private CIDRs, link-local, cloud metadata IPs) and follows redirects
