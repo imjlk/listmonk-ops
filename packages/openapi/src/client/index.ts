@@ -28,6 +28,7 @@ export {
 	createListmonkClientFromEnv,
 } from "./factory";
 export { transformResponse } from "./response";
+export { ListmonkRedirectError } from "./transport";
 
 export type {
 	ListmonkReadiness,
