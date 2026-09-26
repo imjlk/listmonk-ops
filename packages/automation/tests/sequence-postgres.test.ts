@@ -4,7 +4,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import postgres from "postgres";
-import { computeTransactionalTargetHash } from "@listmonk-ops/common";
+import {
+	computeTransactionalTargetHash,
+	TransactionalStoreCapacityError,
+} from "@listmonk-ops/common";
 import {
 	invokeTransactionalRecordsOperation,
 	invokeTransactionalReconcileOperation,
@@ -263,6 +266,59 @@ describe("Postgres sequence repository", () => {
 		if (inheritedKey.kind !== "new") throw new Error("expected new claim");
 		expect(Object.hasOwn((await store.load()).records, "__proto__")).toBe(true);
 		await store.release({ key: "__proto__", claimToken: inheritedKey.record.claimToken });
+	});
+
+	postgresTest("honors the transactional record-cap override and reports occupancy", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		const store = repositories[0]?.idempotencyStore;
+		if (!store) throw new Error("Postgres transactional store unavailable");
+		const sql = postgres(databaseUrl, { max: 1, prepare: false });
+		const previous = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS;
+		const retainedKey = `postgres-cap-${randomUUID()}`;
+		const overflowKey = `postgres-cap-${randomUUID()}`;
+		// Pending claims can only be removed through the store, not DELETE.
+		const claimed: { key: string; claimToken: string }[] = [];
+		try {
+			// The first claim also sweeps expired definitive records, so the
+			// count below is exactly what the next claim will see.
+			const first = await store.claim({ key: retainedKey, payloadHash: "payload", targetHash: "target" });
+			if (first.kind !== "new") throw new Error("expected new claim");
+			claimed.push({ key: retainedKey, claimToken: first.record.claimToken });
+			const [row] = await sql<{ count: number }[]>`
+				SELECT count(*)::integer AS count FROM listmonk_ops.sequence_idempotency_records
+			`;
+			const retained = row?.count ?? 0;
+			process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = String(retained);
+
+			let capacityError: unknown;
+			try {
+				await store.claim({ key: overflowKey, payloadHash: "payload", targetHash: "target" });
+			} catch (error) {
+				capacityError = error;
+			}
+			if (!(capacityError instanceof TransactionalStoreCapacityError)) {
+				throw new Error("expected a TransactionalStoreCapacityError");
+			}
+			expect(capacityError.limit).toBe(retained);
+			const occupancy = capacityError.occupancy;
+			if (!occupancy) throw new Error("expected capacity occupancy");
+			expect(occupancy.pending).toBeGreaterThanOrEqual(1);
+			expect(occupancy.pending + occupancy.accepted + occupancy.failed + occupancy.unknown).toBe(retained);
+			expect(capacityError.message).toContain(`${retained} retained records (limit ${retained}:`);
+			expect(capacityError.message).toContain("raise LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS");
+			// Replays never need a new slot.
+			expect((await store.claim({ key: retainedKey, payloadHash: "payload", targetHash: "target" })).kind).toBe("replay");
+
+			process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = String(retained + 1);
+			const admitted = await store.claim({ key: overflowKey, payloadHash: "payload", targetHash: "target" });
+			if (admitted.kind !== "new") throw new Error("expected new claim");
+			claimed.push({ key: overflowKey, claimToken: admitted.record.claimToken });
+		} finally {
+			if (previous === undefined) delete process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS;
+			else process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = previous;
+			for (const claim of claimed) await store.release(claim);
+			await sql.end({ timeout: 5 });
+		}
 	});
 
 	postgresTest("migrates a version 2 idempotency store without discarding pending records", async () => {

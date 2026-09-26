@@ -7,6 +7,8 @@ import {
 	commitTransactionalSend,
 	computeTransactionalTargetHash,
 	createFileBackedTransactionalIdempotencyStore,
+	createTransactionalStoreCapacityError,
+	getTransactionalStoreMaxRecords,
 	getTransactionalStorePath,
 	hashTransactionalPayload,
 	isStoredTransactionalSendRecord,
@@ -1049,6 +1051,159 @@ describe("transactional idempotency file-backed store", () => {
 			expect(Object.keys(after.records)).toHaveLength(
 				TRANSACTIONAL_STORE_MAX_RECORDS,
 			);
+		});
+
+		test("honors the record-cap override and reports occupancy with real remedies", async () => {
+			const previous = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS;
+			try {
+				process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = "3";
+				await claimAndCommitAccepted(storePath, "accepted-order", "payload-1");
+				const failed = await claimTransactionalSend({
+					storePath,
+					key: "failed-order",
+					payloadHash: "payload-2",
+					targetHash: DEFAULT_TARGET_HASH,
+					now: fixedClock,
+				});
+				if (failed.kind !== "new") throw new Error("expected new claim");
+				await commitTransactionalSend({
+					storePath,
+					key: "failed-order",
+					claimToken: failed.record.claimToken,
+					status: "failed",
+					sent: false,
+					now: fixedClock,
+				});
+				await claimTransactionalSend({
+					storePath,
+					key: "pending-order",
+					payloadHash: "payload-3",
+					targetHash: DEFAULT_TARGET_HASH,
+					now: fixedClock,
+				});
+
+				let capacityError: unknown;
+				try {
+					await claimTransactionalSend({
+						storePath,
+						key: "overflow-order",
+						payloadHash: "payload-4",
+						targetHash: DEFAULT_TARGET_HASH,
+						now: fixedClock,
+					});
+				} catch (error) {
+					capacityError = error;
+				}
+				if (!(capacityError instanceof TransactionalStoreCapacityError)) {
+					throw new Error("expected a TransactionalStoreCapacityError");
+				}
+				expect(capacityError.limit).toBe(3);
+				expect(capacityError.occupancy).toEqual({
+					pending: 1,
+					accepted: 1,
+					failed: 1,
+					unknown: 0,
+				});
+				expect(capacityError.message).toContain(
+					"3 retained records (limit 3: 1 accepted, 1 failed, 1 pending, 0 unknown)",
+				);
+				expect(capacityError.message).toContain("listmonk-cli tx reconcile");
+				expect(capacityError.message).toContain(
+					"raise LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS",
+				);
+
+				// Replays never need a new slot.
+				const replay = await claimTransactionalSend({
+					storePath,
+					key: "accepted-order",
+					payloadHash: "payload-1",
+					targetHash: DEFAULT_TARGET_HASH,
+					now: fixedClock,
+				});
+				expect(replay.kind).toBe("replay");
+
+				// Raising the cap admits the next keyed send.
+				process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = " 4 ";
+				const admitted = await claimTransactionalSend({
+					storePath,
+					key: "overflow-order",
+					payloadHash: "payload-4",
+					targetHash: DEFAULT_TARGET_HASH,
+					now: fixedClock,
+				});
+				expect(admitted.kind).toBe("new");
+			} finally {
+				if (previous === undefined) {
+					delete process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS;
+				} else {
+					process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = previous;
+				}
+			}
+		});
+	});
+
+	describe("getTransactionalStoreMaxRecords", () => {
+		test("validates the record-cap override strictly", () => {
+			const previous = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS;
+			try {
+				delete process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS;
+				expect(getTransactionalStoreMaxRecords()).toBe(
+					TRANSACTIONAL_STORE_MAX_RECORDS,
+				);
+				process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = "50000";
+				expect(getTransactionalStoreMaxRecords()).toBe(50_000);
+				// Blank falls back to the default like an unset variable.
+				process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = "  ";
+				expect(getTransactionalStoreMaxRecords()).toBe(
+					TRANSACTIONAL_STORE_MAX_RECORDS,
+				);
+				for (const invalid of [
+					"10k",
+					"1e4",
+					"-5",
+					"0",
+					"1.5",
+					"99999999999999999999",
+				]) {
+					process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = invalid;
+					expect(() => getTransactionalStoreMaxRecords()).toThrow(
+						`LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS must be a positive integer (received '${invalid}')`,
+					);
+				}
+			} finally {
+				if (previous === undefined) {
+					delete process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS;
+				} else {
+					process.env.LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS = previous;
+				}
+			}
+		});
+	});
+
+	describe("createTransactionalStoreCapacityError", () => {
+		test("reports counts, the limit, and the remedies an operator can apply", () => {
+			const error = createTransactionalStoreCapacityError(10_000, {
+				accepted: 9_990,
+				failed: 5,
+				pending: 3,
+				unknown: 2,
+			});
+			expect(error).toBeInstanceOf(TransactionalStoreCapacityError);
+			expect(error.name).toBe("TransactionalStoreCapacityError");
+			expect(error.message).toBe(
+				[
+					"Transactional idempotency store is at capacity: 10000 retained records (limit 10000: 9990 accepted, 5 failed, 3 pending, 2 unknown), so new keyed sends are rejected instead of evicting a record.",
+					"Accepted and failed records free their slots when their idempotency TTL expires (24 hours by default); pending and unknown records remain until an operator reconciles them with `listmonk-cli tx records` and `listmonk-cli tx reconcile` (MCP: listmonk_transactional_records and listmonk_reconcile_transactional).",
+					"To retain more records, raise LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS.",
+				].join(" "),
+			);
+			// Missing statuses count as zero.
+			expect(createTransactionalStoreCapacityError(1, { pending: 1 }).occupancy).toEqual({
+				pending: 1,
+				accepted: 0,
+				failed: 0,
+				unknown: 0,
+			});
 		});
 	});
 

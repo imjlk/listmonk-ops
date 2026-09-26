@@ -36,7 +36,9 @@ export {
 	commitTransactionalSend,
 	computeTransactionalTargetHash,
 	createFileBackedTransactionalIdempotencyStore,
+	createTransactionalStoreCapacityError,
 	DEFAULT_TRANSACTIONAL_TTL_MS,
+	getTransactionalStoreMaxRecords,
 	getTransactionalStorePath,
 	hashTransactionalPayload,
 	isStoredTransactionalSendRecord,
@@ -47,6 +49,7 @@ export {
 	reconcileTransactionalSend,
 	TransactionalStoreCapacityError,
 	TRANSACTIONAL_STORE_MAX_RECORDS,
+	TRANSACTIONAL_STORE_MAX_RECORDS_ENV,
 	validateStoredTransactionalStore,
 } from "./transactional-idempotency-store";
 export type {
@@ -55,6 +58,7 @@ export type {
 	TransactionalIdempotencyStore,
 	TransactionalSendRecord,
 	TransactionalSendStatus,
+	TransactionalStoreOccupancy,
 	TransactionalReconciliationOptions,
 	TransactionalReconciliationResult,
 	TransactionalReconciliationEvent,
