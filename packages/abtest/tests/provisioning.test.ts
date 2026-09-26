@@ -157,6 +157,60 @@ describe("A/B test provisioning", () => {
 		// discards the draft instead of leaving an unreachable record.
 		await expect(service.getAllTests()).resolves.toHaveLength(0);
 	});
+
+	test("createTest rejects a revenue_per_recipient hypothesis before any Listmonk call", async () => {
+		const remoteCalls: string[] = [];
+		const integration = new Proxy(
+			{},
+			{
+				get: (_target, property) =>
+					// Not a thenable: only integration methods are recorded.
+					property === "then"
+						? undefined
+						: async () => {
+								remoteCalls.push(String(property));
+								throw new Error(
+									`unexpected Listmonk call ${String(property)}`,
+								);
+							},
+			},
+		) as unknown as ListmonkAbTestIntegration;
+		const service = new AbTestService(integration);
+
+		await expect(
+			service.createTest({
+				...createTestConfig(),
+				idempotencyKey: "revenue-create",
+				hypothesis: {
+					objective: "Grow revenue",
+					hypothesis: "Variant B raises revenue per recipient",
+					primaryMetric: {
+						type: "revenue_per_recipient",
+						direction: "maximize",
+					},
+					expectedLift: {
+						kind: "absolute",
+						value: 1,
+						unit: "currency_per_recipient",
+					},
+					owner: { id: "operator" },
+					experimentScope: {
+						channel: "email",
+						experimentFamilyKey: "revenue.test",
+						attributionWindowHours: 24,
+						exclusionWindowHours: 0,
+					},
+					createdAt: "2026-07-01T00:00:00Z",
+				},
+			}),
+		).rejects.toThrow(
+			"primaryMetric.type revenue_per_recipient is not supported as a primary metric yet",
+		);
+
+		expect(remoteCalls).toEqual([]);
+		// Even a keyed create records no replayable draft for the refusal.
+		await expect(service.getAllTests()).resolves.toHaveLength(0);
+	});
 });
 
 describe("deleteTestResources retry safety", () => {

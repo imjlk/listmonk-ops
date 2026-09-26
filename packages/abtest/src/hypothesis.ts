@@ -71,6 +71,46 @@ export class HypothesisValidationError extends Error {
 }
 
 /**
+ * Primary metrics the fixed-horizon significance test can decide on. The
+ * two-proportion z-test only applies to per-recipient rates, and
+ * `revenue_per_recipient` is a continuous monetary metric with no supported
+ * test yet, so a test pre-registered on it could never reach a decision.
+ * The type stays in `HypothesisMetadata` and the stable create contract so
+ * records written by earlier versions still load.
+ */
+export const ANALYZABLE_PRIMARY_METRICS = [
+	"click_rate",
+	"conversion_rate",
+] as const satisfies readonly HypothesisMetadata["primaryMetric"]["type"][];
+
+export const REVENUE_PER_RECIPIENT_UNSUPPORTED_MESSAGE =
+	"revenue_per_recipient is not supported as a primary metric yet: the significance test only analyzes click_rate and conversion_rate, so the test could never reach a decision. Pre-register conversion_rate instead; recorded conversion revenue is still reported per variant";
+
+export function isAnalyzablePrimaryMetric(
+	type: unknown,
+): type is (typeof ANALYZABLE_PRIMARY_METRICS)[number] {
+	return (ANALYZABLE_PRIMARY_METRICS as readonly unknown[]).includes(type);
+}
+
+/**
+ * Reject a pre-registered primary metric the significance test cannot
+ * analyze, before any recipient assignment or Listmonk provisioning runs.
+ */
+export function assertAnalyzablePrimaryMetric(type: unknown): void {
+	if (isAnalyzablePrimaryMetric(type)) {
+		return;
+	}
+	if (type === "revenue_per_recipient") {
+		throw new HypothesisValidationError(
+			`primaryMetric.type ${REVENUE_PER_RECIPIENT_UNSUPPORTED_MESSAGE}`,
+		);
+	}
+	throw new HypothesisValidationError(
+		`primaryMetric.type must be one of ${ANALYZABLE_PRIMARY_METRICS.join(", ")}, received ${JSON.stringify(type)}`,
+	);
+}
+
+/**
  * Strict ISO 8601 validation that rejects values `Date.parse` would silently
  * accept, including the year-zero string "0", localized formats like
  * "01/02/03", and overflowed calendar dates like "2026-02-30". The date
@@ -112,6 +152,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /**
  * Validate hypothesis metadata. When `strict` is true (launch/pre-registration),
  * all fields are required. When false (draft), missing fields are allowed.
+ * In both modes a primary metric outside ANALYZABLE_PRIMARY_METRICS is
+ * rejected.
  */
 export function validateHypothesisMetadata(
 	metadata: Partial<HypothesisMetadata>,
@@ -159,16 +201,9 @@ export function validateHypothesisMetadata(
 				`primaryMetric must be an object, received ${JSON.stringify(pm)}`,
 			);
 		}
-		const validTypes = [
-			"click_rate",
-			"conversion_rate",
-			"revenue_per_recipient",
-		];
-		if (!validTypes.includes(pm.type)) {
-			throw new HypothesisValidationError(
-				`primaryMetric.type must be one of ${validTypes.join(", ")}, received ${JSON.stringify(pm.type)}`,
-			);
-		}
+		// Only a metric the analysis can decide on may be pre-registered;
+		// otherwise the test would sit in analyzing forever.
+		assertAnalyzablePrimaryMetric(pm.type);
 		if (pm.direction !== "maximize" && pm.direction !== "minimize") {
 			throw new HypothesisValidationError(
 				`primaryMetric.direction must be "maximize" or "minimize", received ${JSON.stringify(pm.direction)}`,
@@ -206,9 +241,9 @@ export function validateHypothesisMetadata(
 		}
 	}
 	// Couple absolute-lift units to the primary metric so the pre-registered
-	// lift has an interpretable meaning. A click_rate / conversion_rate metric
-	// may use percentage_point lift; a revenue_per_recipient metric must use
-	// currency_per_recipient. Relative lift is unit-agnostic.
+	// lift has an interpretable meaning: the analyzable rate metrics
+	// (click_rate, conversion_rate) require percentage_point lift. Relative
+	// lift is unit-agnostic.
 	if (
 		metadata.primaryMetric !== undefined &&
 		metadata.expectedLift !== undefined &&
@@ -217,14 +252,6 @@ export function validateHypothesisMetadata(
 	) {
 		const metricType = metadata.primaryMetric.type;
 		const unit = (metadata.expectedLift as { unit?: unknown }).unit;
-		if (
-			metricType === "revenue_per_recipient" &&
-			unit !== "currency_per_recipient"
-		) {
-			throw new HypothesisValidationError(
-				`revenue_per_recipient metric requires currency_per_recipient absolute lift, received ${JSON.stringify(unit)}`,
-			);
-		}
 		if (
 			(metricType === "click_rate" || metricType === "conversion_rate") &&
 			unit !== "percentage_point"

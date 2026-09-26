@@ -48,8 +48,11 @@ export {
 	type VariantConversionAggregate,
 } from "./conversion-events";
 export {
+	ANALYZABLE_PRIMARY_METRICS,
+	assertAnalyzablePrimaryMetric,
 	computeHypothesisChecksum,
 	HypothesisValidationError,
+	isAnalyzablePrimaryMetric,
 	lockHypothesis,
 	validateHypothesisMetadata,
 	verifyHypothesisChecksum,

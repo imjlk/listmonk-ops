@@ -364,6 +364,49 @@ test("preserves typed not-found errors for lifecycle transitions", async () => {
 		});
 	});
 
+test("refuses a revenue_per_recipient hypothesis before touching the store", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-revenue-"));
+	const storePath = join(tempDir, "abtests.json");
+	await saveStoredAbTests([], storePath);
+	const before = await readFile(storePath, "utf8");
+	// Any Listmonk call would throw on this empty client.
+	const context = { client: {} as ListmonkClient, storePath };
+
+	await expect(
+		invokeCreateAbTestOperation(context, {
+			...createMinimalOperationInput(),
+			hypothesis: {
+				objective: "Grow revenue",
+				hypothesis: "Variant B raises revenue per recipient",
+				primary_metric: {
+					type: "revenue_per_recipient",
+					direction: "maximize",
+				},
+				expected_lift: {
+					kind: "absolute",
+					value: 1,
+					unit: "currency_per_recipient",
+				},
+				owner: { id: "operator" },
+				experiment_scope: {
+					channel: "email",
+					experiment_family_key: "revenue.test",
+					attribution_window_hours: 24,
+					exclusion_window_hours: 0,
+				},
+			},
+		}),
+	).rejects.toThrow(
+		"Invalid parameter hypothesis.primary_metric.type: revenue_per_recipient is not supported as a primary metric yet",
+	);
+	expect(await readFile(storePath, "utf8")).toBe(before);
+	// The stable contract keeps publishing the value for compatibility with
+	// records written by earlier versions; only new creates are refused.
+	expect(JSON.stringify(createAbTestOperation.inputJsonSchema)).toContain(
+		'"revenue_per_recipient"',
+	);
+});
+
 test("refuses winner deployment for a stopped test with typed details", async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-deploy-status-"));
 	const storePath = join(tempDir, "abtests.json");

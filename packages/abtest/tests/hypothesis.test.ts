@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+	ANALYZABLE_PRIMARY_METRICS,
+	assertAnalyzablePrimaryMetric,
 	computeHypothesisChecksum,
 	HypothesisValidationError,
+	isAnalyzablePrimaryMetric,
 	lockHypothesis,
 	validateHypothesisMetadata,
 	verifyHypothesisChecksum,
@@ -30,6 +33,37 @@ function makeHypothesis(
 		...overrides,
 	};
 }
+
+describe("assertAnalyzablePrimaryMetric", () => {
+	it("accepts the metrics the significance test can decide on", () => {
+		expect(ANALYZABLE_PRIMARY_METRICS).toEqual([
+			"click_rate",
+			"conversion_rate",
+		]);
+		for (const type of ANALYZABLE_PRIMARY_METRICS) {
+			expect(isAnalyzablePrimaryMetric(type)).toBe(true);
+			expect(() => assertAnalyzablePrimaryMetric(type)).not.toThrow();
+		}
+	});
+
+	it("rejects revenue_per_recipient with guidance toward conversion_rate", () => {
+		expect(isAnalyzablePrimaryMetric("revenue_per_recipient")).toBe(false);
+		expect(() =>
+			assertAnalyzablePrimaryMetric("revenue_per_recipient"),
+		).toThrow(
+			"primaryMetric.type revenue_per_recipient is not supported as a primary metric yet: the significance test only analyzes click_rate and conversion_rate, so the test could never reach a decision. Pre-register conversion_rate instead; recorded conversion revenue is still reported per variant",
+		);
+	});
+
+	it("rejects unknown and missing metric types", () => {
+		expect(() => assertAnalyzablePrimaryMetric("open_rate")).toThrow(
+			'primaryMetric.type must be one of click_rate, conversion_rate, received "open_rate"',
+		);
+		expect(() => assertAnalyzablePrimaryMetric(undefined)).toThrow(
+			HypothesisValidationError,
+		);
+	});
+});
 
 describe("validateHypothesisMetadata", () => {
 	it("accepts valid metadata in strict mode", () => {
@@ -246,7 +280,7 @@ describe("validateHypothesisMetadata", () => {
 		).toThrow(HypothesisValidationError);
 	});
 
-	it("rejects incompatible revenue metric with percentage_point lift", () => {
+	it("rejects a revenue metric before judging its lift unit", () => {
 		expect(() =>
 			validateHypothesisMetadata(
 				makeHypothesis({
@@ -261,7 +295,7 @@ describe("validateHypothesisMetadata", () => {
 					},
 				}),
 			),
-		).toThrow(HypothesisValidationError);
+		).toThrow("revenue_per_recipient is not supported as a primary metric yet");
 	});
 
 	it("rejects click metric with currency_per_recipient lift", () => {
@@ -278,22 +312,30 @@ describe("validateHypothesisMetadata", () => {
 		).toThrow(HypothesisValidationError);
 	});
 
-	it("accepts compatible revenue metric with currency_per_recipient lift", () => {
-		expect(() =>
-			validateHypothesisMetadata(
-				makeHypothesis({
-					primaryMetric: {
-						type: "revenue_per_recipient",
-						direction: "maximize",
-					},
-					expectedLift: {
-						kind: "absolute",
-						value: 1,
-						unit: "currency_per_recipient",
-					},
-				}),
-			),
-		).not.toThrow();
+	it("rejects a well-formed revenue_per_recipient hypothesis as unanalyzable", () => {
+		const revenueHypothesis = makeHypothesis({
+			primaryMetric: {
+				type: "revenue_per_recipient",
+				direction: "maximize",
+			},
+			expectedLift: {
+				kind: "absolute",
+				value: 1,
+				unit: "currency_per_recipient",
+			},
+		});
+		for (const strict of [true, false]) {
+			expect(() =>
+				validateHypothesisMetadata(revenueHypothesis, strict),
+			).toThrow(
+				"primaryMetric.type revenue_per_recipient is not supported as a primary metric yet",
+			);
+		}
+		// lockHypothesis validates strictly, so a revenue hypothesis can never
+		// be locked onto a new test.
+		expect(() => lockHypothesis(revenueHypothesis)).toThrow(
+			HypothesisValidationError,
+		);
 	});
 
 	it("rejects delimiter-only experimentFamilyKey", () => {

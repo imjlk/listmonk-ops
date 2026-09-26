@@ -14,6 +14,7 @@ import {
 	fixedHorizonGate,
 } from "./statistics";
 import {
+	assertAnalyzablePrimaryMetric,
 	isStrictIsoTimestamp,
 	lockHypothesis,
 	validateHypothesisMetadata,
@@ -332,6 +333,12 @@ export class AbTestService {
 			(!Number.isFinite(config.durationHours) || config.durationHours <= 0)
 		) {
 			throw new Error("durationHours must be a positive finite number");
+		}
+		// Reject a primary metric the analysis cannot decide on before any
+		// Listmonk read, so the refusal never depends on remote availability
+		// and no draft is recorded for a test that could never complete.
+		if (config.hypothesis !== undefined) {
+			assertAnalyzablePrimaryMetric(config.hypothesis.primaryMetric?.type);
 		}
 		// Validate test configuration and provide statistical recommendations
 		if (this.listmonkIntegration) {
