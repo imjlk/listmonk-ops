@@ -61,7 +61,7 @@ export const campaignStartOperationSpec = defineOperationSpec({
 	},
 	state: {
 		resource: "campaign",
-		from: ["draft", "scheduled", "paused"],
+		from: ["draft", "paused"],
 		to: "running",
 		allowNoopFromTarget: true,
 	},
@@ -129,7 +129,7 @@ export const campaignCancelOperationSpec = defineOperationSpec({
 	},
 	state: {
 		resource: "campaign",
-		from: ["running"],
+		from: ["running", "paused"],
 		to: "cancelled",
 		allowNoopFromTarget: true,
 	},

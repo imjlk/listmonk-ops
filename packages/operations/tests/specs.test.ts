@@ -121,13 +121,20 @@ export function assertHighRiskOperationSpecContracts(): void {
 	expect(transactionalSendOperationSpec.retry).toMatchObject({
 		kind: "conditional",
 	});
+	// Listmonk 6.2 starts only draft or paused campaigns (its scheduler starts
+	// scheduled ones) and cancels running or paused ones.
 	expect(campaignStartOperationSpec.state).toEqual({
 		resource: "campaign",
-		from: ["draft", "scheduled", "paused"],
+		from: ["draft", "paused"],
 		to: "running",
 		allowNoopFromTarget: true,
 	});
-	expect(campaignCancelOperationSpec.state?.to).toBe("cancelled");
+	expect(campaignCancelOperationSpec.state).toEqual({
+		resource: "campaign",
+		from: ["running", "paused"],
+		to: "cancelled",
+		allowNoopFromTarget: true,
+	});
 	expect(campaignPreflightOperationSpec.contract.output.schema.type).toBe(
 		"object",
 	);

@@ -25,7 +25,7 @@ Schedule a campaign to send at a specific time. Validates the current status all
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `stable` since `0.6.0`
-- State: `draft -> scheduled` (target-state no-op allowed)
+- State: `draft | paused -> scheduled` (target-state no-op allowed)
 
 ## `subscribers.blocklist`
 
@@ -51,7 +51,7 @@ Transition a campaign into the running status. Validates the current status allo
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `stable` since `0.7.0`
-- State: `draft | scheduled | paused -> running` (target-state no-op allowed)
+- State: `draft | paused -> running` (target-state no-op allowed)
 
 ## `campaigns.cancel`
 
@@ -64,7 +64,7 @@ Transition a campaign into the cancelled status. Validates the current status al
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `stable` since `0.7.0`
-- State: `running -> cancelled` (target-state no-op allowed)
+- State: `running | paused -> cancelled` (target-state no-op allowed)
 
 ## `transactional.send`
 

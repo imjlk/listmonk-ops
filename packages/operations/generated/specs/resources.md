@@ -13,7 +13,7 @@ Transitions:
 - `draft` → `scheduled`, `running`
 - `scheduled` → `running`
 - `running` → `paused`, `cancelled`
-- `paused` → `running`
+- `paused` → `running`, `scheduled`, `cancelled`
 - `finished` → none
 - `cancelled` → none
 
