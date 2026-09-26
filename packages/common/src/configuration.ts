@@ -85,14 +85,41 @@ export function getListmonkDataDirectory(): string {
 		: join(homedir(), ".listmonk-ops");
 }
 
+const FILE_ERROR_DESCRIPTIONS: Readonly<Record<string, string>> = {
+	ENOENT: "file does not exist",
+	EACCES: "permission denied",
+	EPERM: "permission denied",
+	ENOTDIR: "a parent path is not a directory",
+	ELOOP: "too many symbolic links",
+};
+
+function fileErrorCode(error: unknown): string | undefined {
+	return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+		? error.code
+		: undefined;
+}
+
+/** ` (ENOENT: file does not exist)` for an errno failure; never file contents. */
+function describeFileError(error: unknown): string {
+	const code = fileErrorCode(error);
+	if (code === undefined) return "";
+	const description = FILE_ERROR_DESCRIPTIONS[code];
+	return description === undefined
+		? ` (${code})`
+		: ` (${code}: ${description})`;
+}
+
 /** Bound allocation and reject non-regular files without blocking on a FIFO. */
 async function readConfigurationFile(path: string, limit: number, label: string, optional = false): Promise<string | undefined> {
 	let handle;
 	try {
 		handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
 	} catch (error) {
-		if (optional && typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return undefined;
-		throw new Error(`Unable to open ${label}`);
+		if (optional && fileErrorCode(error) === "ENOENT") return undefined;
+		throw new Error(
+			`Unable to open ${label} ${path}${describeFileError(error)}`,
+			{ cause: error },
+		);
 	}
 	try {
 		const stat = await handle.stat();
@@ -113,8 +140,12 @@ async function readConfigurationFile(path: string, limit: number, label: string,
 		return new TextDecoder("utf-8", { fatal: true }).decode(
 			buffer.subarray(0, size),
 		);
-	} catch {
-		throw new Error(`Unable to read ${label}: expected a bounded regular file`);
+	} catch (error) {
+		// Only the path and errno code are reported; the contents never are.
+		throw new Error(
+			`Unable to read ${label} ${path}${describeFileError(error)}: expected a bounded regular file`,
+			{ cause: error },
+		);
 	} finally {
 		await handle.close();
 	}
@@ -175,6 +206,25 @@ function parseProfiles(content: string): ProfileDocument {
 		...(typeof value.defaultProfile === "string" ? { defaultProfile: value.defaultProfile } : {}),
 	};
 }
+/** Name the requested profile and the ones that exist; never echo an invalid name. */
+function describeMissingProfile(input: {
+	name: string;
+	selectedBy?: string;
+	configFile: string;
+	configFileFound: boolean;
+	available: readonly string[];
+}): string {
+	const origin = input.selectedBy === undefined
+		? ""
+		: ` (selected by ${input.selectedBy})`;
+	if (!PROFILE_NAME.test(input.name)) {
+		return `Requested Listmonk profile name${origin} is invalid: use 1-64 letters, digits, "_", or "-", starting with a letter or digit`;
+	}
+	const requested = `Requested Listmonk profile "${input.name}"${origin} does not exist`;
+	if (!input.configFileFound) return `${requested}: no profile configuration file was found at ${input.configFile}`;
+	if (input.available.length === 0) return `${requested}: ${input.configFile} defines no profiles`;
+	return `${requested} in ${input.configFile}; available profiles: ${[...input.available].sort().join(", ")}`;
+}
 function credentialValue(value: string | undefined): string | undefined {
 	if (value === undefined || value.trim() === "") return undefined;
 	const normalized = value.trim();
@@ -207,7 +257,17 @@ export async function resolveListmonkConfiguration(options: ListmonkConfiguratio
 		? { schemaVersion: 1 as const, profiles: {} as Record<string, Profile> }
 		: parseProfiles(content);
 	const profileName = options.profile ?? (env.LISTMONK_OPS_PROFILE?.trim() || undefined) ?? document.defaultProfile;
-	if (profileName !== undefined && (!PROFILE_NAME.test(profileName) || !Object.hasOwn(document.profiles, profileName))) throw new Error("Requested Listmonk profile does not exist");
+	if (profileName !== undefined && (!PROFILE_NAME.test(profileName) || !Object.hasOwn(document.profiles, profileName))) {
+		// A valid defaultProfile always exists, so the name came from the
+		// caller or from LISTMONK_OPS_PROFILE (possibly via a Bun-loaded .env).
+		throw new Error(describeMissingProfile({
+			name: profileName,
+			...(options.profile === undefined ? { selectedBy: "LISTMONK_OPS_PROFILE" } : {}),
+			configFile: path,
+			configFileFound: content !== undefined,
+			available: Object.keys(document.profiles),
+		}));
+	}
 	const profile = profileName === undefined
 		? undefined
 		: document.profiles[profileName];

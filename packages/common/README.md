@@ -21,7 +21,9 @@ recover locks and recovery sentinels owned by confirmed-dead processes on the
 same host, and never expire a live owner's lock based only on age.
 `JsonFileLockTimeoutError` reports the lock file, its recorded owner (pid, host,
 and age, never the lock token), and any blocking recovery marker, so an operator
-can remove a lock whose owner is confirmed gone.
+can remove a lock whose owner is confirmed gone. A store that exists but cannot
+be read, parsed as JSON, or validated raises `JsonFileStoreReadError`, which
+names the file and keeps the original error as its `cause`.
 
 The `updateJsonFileStore` callback runs while the exclusive lock is held. Keep
 the callback bounded. A caller that intentionally performs a remote mutation

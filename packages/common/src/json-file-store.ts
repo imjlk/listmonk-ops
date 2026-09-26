@@ -736,17 +736,60 @@ async function writeJsonFileAtomic(
 	}
 }
 
+/**
+ * A persisted store exists but could not be read, parsed as JSON, or
+ * validated. The message and `path` name the file; the original error is the
+ * `cause`.
+ */
+export class JsonFileStoreReadError extends Error {
+	readonly path: string;
+
+	constructor(message: string, path: string, cause: unknown) {
+		super(message, { cause });
+		this.name = "JsonFileStoreReadError";
+		this.path = path;
+	}
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 export async function readJsonFileStore<T>(
 	store: JsonFileStore<T>,
 ): Promise<T> {
+	const path = resolve(store.path);
+	let raw: string;
 	try {
-		const raw = await readFile(resolve(store.path), "utf8");
-		return store.parse(JSON.parse(raw));
+		raw = await readFile(path, "utf8");
 	} catch (error) {
 		if (isErrnoException(error, "ENOENT")) {
 			return store.createDefault();
 		}
-		throw error;
+		throw new JsonFileStoreReadError(
+			`Unable to read JSON store ${path}: ${errorMessage(error)}`,
+			path,
+			error,
+		);
+	}
+	let value: unknown;
+	try {
+		value = JSON.parse(raw);
+	} catch (error) {
+		throw new JsonFileStoreReadError(
+			`JSON store ${path} is not valid JSON: ${errorMessage(error)}`,
+			path,
+			error,
+		);
+	}
+	try {
+		return store.parse(value);
+	} catch (error) {
+		throw new JsonFileStoreReadError(
+			`JSON store ${path} failed validation: ${errorMessage(error)}`,
+			path,
+			error,
+		);
 	}
 }
 
