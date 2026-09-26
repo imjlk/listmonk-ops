@@ -487,15 +487,11 @@ function describeLinkHopFailure(
 	if (failure.kind === "failed") {
 		return failure.reason;
 	}
-	const label =
-		failure.kind === "blocked"
-			? redirected
-				? "Redirect blocked"
-				: "Blocked"
-			: redirected
-				? "Redirect unverifiable"
-				: "Unverifiable";
-	return `${label}: ${failure.reason}`;
+	const labels = {
+		blocked: redirected ? "Redirect blocked" : "Blocked",
+		unverifiable: redirected ? "Redirect unverifiable" : "Unverifiable",
+	} as const;
+	return `${labels[failure.kind]}: ${failure.reason}`;
 }
 
 /**
@@ -575,6 +571,16 @@ export async function checkLink(
 			}
 			redirectCount += 1;
 		}
+	} catch {
+		// Never let an unexpected failure escape: one bad link must be reported
+		// as broken instead of failing the whole preflight batch.
+		return {
+			url,
+			ok: false,
+			error: controller.signal.aborted
+				? `Timed out after ${timeoutMs}ms`
+				: "Request failed",
+		};
 	} finally {
 		clearTimeout(timeout);
 	}
