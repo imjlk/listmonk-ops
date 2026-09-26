@@ -145,7 +145,14 @@ export function isStrictIsoTimestamp(value: unknown): boolean {
 	return true;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+/**
+ * The shape check validateHypothesisMetadata applies to nested objects.
+ * Callers that defer malformed values to that validation reuse it so the
+ * two classifications cannot drift apart.
+ */
+export function isPlainObject(
+	value: unknown,
+): value is Record<string, unknown> {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 

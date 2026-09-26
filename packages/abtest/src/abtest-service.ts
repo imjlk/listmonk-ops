@@ -20,6 +20,7 @@ import {
 } from "./statistics";
 import {
 	assertAnalyzablePrimaryMetric,
+	isPlainObject,
 	isStrictIsoTimestamp,
 	lockHypothesis,
 	validateHypothesisMetadata,
@@ -366,12 +367,8 @@ export class AbTestService {
 		// missing or malformed primaryMetric is left to the full hypothesis
 		// validation below, which names the structural problem precisely.
 		const primaryMetric: unknown = config.hypothesis?.primaryMetric;
-		if (
-			typeof primaryMetric === "object" &&
-			primaryMetric !== null &&
-			!Array.isArray(primaryMetric)
-		) {
-			assertAnalyzablePrimaryMetric((primaryMetric as { type?: unknown }).type);
+		if (isPlainObject(primaryMetric)) {
+			assertAnalyzablePrimaryMetric(primaryMetric.type);
 		}
 		// Validate test configuration and provide statistical recommendations
 		if (this.listmonkIntegration) {

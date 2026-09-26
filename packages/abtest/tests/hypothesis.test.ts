@@ -5,6 +5,7 @@ import {
 	computeHypothesisChecksum,
 	HypothesisValidationError,
 	isAnalyzablePrimaryMetric,
+	isPlainObject,
 	lockHypothesis,
 	validateHypothesisMetadata,
 	verifyHypothesisChecksum,
@@ -183,6 +184,20 @@ describe("validateHypothesisMetadata", () => {
 				validateHypothesisMetadata(makeHypothesis({ createdAt: bad })),
 			).toThrow(HypothesisValidationError);
 		}
+	});
+
+	it("classifies an array primaryMetric as a shape error, like isPlainObject", () => {
+		// createTest defers any value isPlainObject rejects to this
+		// validation, so both must classify arrays the same way.
+		expect(isPlainObject([])).toBe(false);
+		expect(isPlainObject({ type: "click_rate" })).toBe(true);
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					primaryMetric: [] as unknown as HypothesisMetadata["primaryMetric"],
+				}),
+			),
+		).toThrow("primaryMetric must be an object, received []");
 	});
 
 	it("rejects null nested metadata with a validation error", () => {
