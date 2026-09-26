@@ -29,6 +29,36 @@ describe("template operations", () => {
 		expect(getById).toHaveBeenCalledWith({ path: { id: 999 } });
 	});
 
+	test("recognizes Listmonk 6.2's 400 template-not-found probe", async () => {
+		const remove = mock(async () => ({
+			error: { message: "Cannot delete non-existent or default template" },
+			response: { status: 400 },
+		})) as unknown as TemplateClient["template"]["delete"];
+		// Listmonk 6.2 answers GET /templates/{missing} with 400, not 404.
+		const getById = mock(async () => ({
+			error: { message: "Template not found" },
+			response: { status: 400 },
+		})) as unknown as TemplateClient["template"]["getById"];
+
+		await expect(
+			invokeDeleteTemplateOperation(context({ delete: remove, getById }), {
+				id: 998,
+			}),
+		).resolves.toEqual({ id: 998, deleted: false });
+
+		// Any other 400 from the probe keeps the explicit error.
+		const invalid = mock(async () => ({
+			error: { message: "Invalid ID" },
+			response: { status: 400 },
+		})) as unknown as TemplateClient["template"]["getById"];
+		await expect(
+			invokeDeleteTemplateOperation(
+				context({ delete: remove, getById: invalid }),
+				{ id: 998 },
+			),
+		).rejects.toThrow(/non-existent or default template/);
+	});
+
 	test("still rejects deleting the protected default template", async () => {
 		const remove = mock(async () => ({
 			error: { message: "Cannot delete non-existent or default template" },

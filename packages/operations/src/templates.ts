@@ -27,7 +27,10 @@ import {
 } from "./resource-helpers";
 import { defineOperationCatalog } from "./catalog";
 import { executeKeyedCreate } from "./keyed-create";
-import { isDefinitivePreDispatchError } from "./transactional-idempotency";
+import {
+	isDefinitiveCreateRejection,
+	isDefinitivePreDispatchError,
+} from "./transactional-idempotency";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
@@ -531,16 +534,12 @@ export async function createTemplate(
 				};
 			}
 			if ("error" in response && response.error !== undefined) {
-				const status =
-					typeof response.response?.status === "number"
-						? response.response.status
-						: undefined;
 				return {
 					failure: {
 						error: new Error(
 							`Failed to create template: ${toResourceErrorMessage(response.error)}`,
 						),
-						definitive: status !== undefined && status >= 400 && status < 500,
+						definitive: isDefinitiveCreateRejection(response),
 					},
 				};
 			}

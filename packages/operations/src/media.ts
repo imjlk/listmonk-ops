@@ -25,7 +25,10 @@ import {
 	unwrapResourceResponse,
 } from "./resource-helpers";
 import { executeKeyedCreate } from "./keyed-create";
-import { isDefinitivePreDispatchError } from "./transactional-idempotency";
+import {
+	isDefinitiveCreateRejection,
+	isDefinitivePreDispatchError,
+} from "./transactional-idempotency";
 
 export interface MediaOperationContext {
 	client: Pick<ListmonkClient, "media">;
@@ -618,16 +621,12 @@ export async function uploadMediaFile(
 				};
 			}
 			if ("error" in response && response.error !== undefined) {
-				const status =
-					typeof response.response?.status === "number"
-						? response.response.status
-						: undefined;
 				return {
 					failure: {
 						error: new Error(
 							`Failed to upload media file: ${toResourceErrorMessage(response.error)}`,
 						),
-						definitive: status !== undefined && status >= 400 && status < 500,
+						definitive: isDefinitiveCreateRejection(response),
 					},
 				};
 			}

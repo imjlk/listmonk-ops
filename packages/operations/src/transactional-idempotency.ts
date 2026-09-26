@@ -565,6 +565,25 @@ export function isAmbiguousTransportError(error: unknown): boolean {
  * `fetch failed` is intentionally NOT included here because undici wraps
  * both pre- and post-connection failures under that message.
  */
+/**
+ * Classify a create response that carries an error envelope for the keyed
+ * create executor. The generated client catches transport failures and
+ * returns them as `{ error }` with no HTTP response, so a refused
+ * connection must be recognized from the error itself: a 4xx answer or a
+ * proven pre-dispatch transport failure never created anything and
+ * releases the key, while a 5xx or an unclassified failure stays ambiguous.
+ */
+export function isDefinitiveCreateRejection(response: {
+	error?: unknown;
+	response?: { status?: unknown };
+}): boolean {
+	const status = response.response?.status;
+	if (typeof status === "number") {
+		return status >= 400 && status < 500;
+	}
+	return isDefinitivePreDispatchError(response.error);
+}
+
 export function isDefinitivePreDispatchError(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;
 	// When the error carries an HTTP status, that status is authoritative:

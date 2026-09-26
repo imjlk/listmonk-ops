@@ -857,7 +857,10 @@ stolen by age, and an attempt that ends ambiguously marks its claim
 unknown so later same-key creates fail fast with reconciliation guidance
 — the key is intentionally not reused, because no name-based check can
 prove which same-named list a create produced (only an immutable uuid
-correlates one). A keyed create requires
+correlates one). A 4xx answer or a proven pre-dispatch transport failure,
+such as a refused connection that the client reports without any HTTP
+response, never created anything and releases the claim, so the same key can
+be retried. A keyed create requires
 that store, so surfaces without one reject the key instead of silently
 dropping the guarantee — promoting the operation with
 testing-mode-independent conditional semantics (unkeyed creates stay
