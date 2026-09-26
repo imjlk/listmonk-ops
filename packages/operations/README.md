@@ -129,6 +129,10 @@ not as a separate workspace. After changing a normalized contract or
 descriptor, run `bun run generate:specs`; generated references are checked in
 under `generated/specs`, including operation, resource, event, playbook,
 agent-skill, graph, stable compatibility, and migration-exemption artifacts.
+The npm package ships `operations-spec.json` and the Markdown references. The
+schema snapshot, graph expectations, stable baseline, and migration-exemption
+JSON files are repository gate inputs and are not published; the exemption
+list itself remains available from the `specs` subpath.
 Run `bun run specs:stable:accept` only after explicitly reviewing an intentional
 stable-contract change.
 
