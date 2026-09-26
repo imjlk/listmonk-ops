@@ -6,6 +6,10 @@ import {
 	renderSystemLogs,
 	type SystemCliContext,
 } from "../src/commands/system";
+import {
+	executeCliOperation,
+	getCliOperationExecution,
+} from "../src/operation-execution";
 
 function output() {
 	return {
@@ -41,7 +45,7 @@ describe("system CLI actions", () => {
 		});
 	});
 
-	test("renders the reload acknowledgement", async () => {
+	test("renders the restart acknowledgement", async () => {
 		const reload = mock(async () => ({ data: true }));
 		const cliContext = {
 			client: { system: { reload } } as unknown as Pick<
@@ -55,9 +59,38 @@ describe("system CLI actions", () => {
 			m.renderSystemReload(cliContext),
 		);
 		expect(cliContext.output.success).toHaveBeenCalledWith(
-			"Listmonk app configuration reloaded",
+			"Listmonk restart requested; saved settings apply once it is back up",
 		);
 		expect(cliContext.output.json).toHaveBeenCalledWith({ reloaded: true });
+	});
+
+	test("requires explicit confirmation before restarting Listmonk", async () => {
+		expect(getCliOperationExecution("system.reload", {}).policy).toEqual({
+			confirmationRequired: true,
+			auditRequired: true,
+			dryRunSupported: false,
+		});
+		const invoke = mock(async () => undefined);
+		const recordAudit = mock(async () => undefined);
+
+		await expect(
+			executeCliOperation({
+				operationId: "system.reload",
+				input: {},
+				invoke,
+				recordAudit,
+			}),
+		).rejects.toThrow("Operation system.reload requires explicit confirmation");
+		expect(invoke).not.toHaveBeenCalled();
+
+		await executeCliOperation({
+			operationId: "system.reload",
+			input: {},
+			confirmed: true,
+			invoke,
+			recordAudit,
+		});
+		expect(invoke).toHaveBeenCalledTimes(1);
 	});
 
 	test("renders and tail-selects server logs", async () => {

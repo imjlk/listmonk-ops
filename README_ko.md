@@ -703,7 +703,9 @@ listmonk-cli settings get
 # 실행할 때마다 수신자에게 실제 메시지를 보냅니다.
 listmonk-cli settings test-smtp --email reader@example.com \
   --host mailpit --port 1025
-listmonk-cli system reload
+# Listmonk를 재시작합니다. 실행 중인 캠페인이 중단되고 대기 중인
+# transactional 메시지가 유실되므로 먼저 실행 중인 캠페인을 확인하세요.
+listmonk-cli system reload --confirm
 # 일괄 파괴적 정리: 서버 측 미리보기가 없습니다.
 listmonk-cli maintenance gc-subscribers --type orphan --confirm
 listmonk-cli maintenance gc-unconfirmed \
@@ -911,7 +913,7 @@ Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 (`subscribers.send-optin`), 자격 증명 무권화 설정 읽기(`settings.get`), SMTP 설정 테스트
 (`settings.test-smtp`), 일괄 유지보수 정리(`maintenance.gc-subscribers`,
 `maintenance.gc-unconfirmed`, `maintenance.gc-analytics`),
-설정 다시 불러오기(`system.reload`)는
+확인이 필요한 설정 적용 재시작(`system.reload`)은
 관찰된 Listmonk 6.2 응답 형태를 로컬 스택으로 검증한 뒤 stable 호환성
 baseline에 승인되었습니다. runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API

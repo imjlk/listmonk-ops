@@ -389,7 +389,11 @@ interface SystemOperations {
 	getAbout(): Promise<FlattenedResponse<t.About>>;
 	getConfig(): Promise<FlattenedResponse<t.ServerConfig>>;
 	getLogs(): Promise<FlattenedResponse<string[]>>;
-	/** Reload app configuration without a restart; safe to repeat. */
+	/**
+	 * Restart Listmonk so saved settings apply. Listmonk 6.2 re-executes its
+	 * process shortly after acknowledging, interrupting running campaigns and
+	 * dropping queued transactional messages, so it is not safe to repeat.
+	 */
 	reload(): Promise<FlattenedResponse<boolean>>;
 }
 

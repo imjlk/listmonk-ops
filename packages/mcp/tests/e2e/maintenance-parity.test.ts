@@ -97,9 +97,10 @@ describe("Maintenance CLI and MCP parity", () => {
 			count?: number;
 		};
 		expect(cliResult.count).toBeGreaterThanOrEqual(0);
-		// system.reload is deliberately NOT exercised here: the observed
-		// reload gracefully restarts the HTTP server in-process and drops
-		// concurrent sockets, breaking tests that run after this file.
+		// system.reload is deliberately NOT exercised here: Listmonk 6.2
+		// answers and then re-executes its whole process, dropping concurrent
+		// sockets and queued messages and breaking tests that run after this
+		// file.
 	});
 
 	test("collects pre-history analytics through both adapters", async () => {

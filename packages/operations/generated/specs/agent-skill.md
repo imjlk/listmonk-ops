@@ -1766,19 +1766,19 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
-## Reload app configuration (`system.reload`)
+## Restart Listmonk to apply settings (`system.reload`)
 
-Contract maturity: `stable`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `maintenance:restart:destructive`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Settings were updated and must take effect without restarting the instance.
+Use when: Saved settings must take effect, no campaign is running, and transactional sending can pause for the restart.
 
-Avoid when: No settings changed since the last reload.
+Avoid when: A campaign is running — the restart interrupts it, which is why Listmonk's own settings save skips its automatic restart while campaigns run. Transactional messages were accepted moments ago — messages still queued in memory are dropped by the restart. No settings changed since the last restart.
 
-Prerequisites: `settings.get`
+Prerequisites: `settings.get`, `campaigns.list`
 
 Verify with: `system.about`
 
-Retry guidance: Repeat safely; the reload is a refresh, not a mutation.
+Retry guidance: Do not repeat blindly: every request restarts Listmonk again. After a lost response, wait until system.about answers before deciding whether another restart is still needed.
 
 ## Toggle the campaign archive page (`campaigns.archive`)
 

@@ -36983,12 +36983,12 @@
       },
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "retry": {
-        "kind": "safe",
-        "reason": "The reload is a repeatable configuration refresh; Listmonk acknowledges every attempt with the same success."
+        "kind": "unsafe",
+        "reason": "Every request restarts the Listmonk process again, interrupting running campaigns and dropping queued transactional messages. The acknowledgement is sent before the restart, so a lost response does not mean the restart failed."
       },
       "since": "0.17.0",
       "stability": "stable"

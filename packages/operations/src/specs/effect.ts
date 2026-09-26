@@ -74,7 +74,8 @@ export interface WebhookEffect extends OperationPreviewCapability {
  * Bounded control-plane maintenance. Destructive maintenance requires a
  * preview and confirmation by default; recoverable maintenance also defaults
  * to preview support. Set `preview: false` only when the runtime has no
- * no-mutation execution path.
+ * no-mutation execution path. `restart` restarts a running service, which
+ * interrupts its in-flight work.
  */
 export type MaintenanceEffect =
 	| ({
@@ -86,7 +87,7 @@ export type MaintenanceEffect =
 	| ({
 			kind: "maintenance";
 			resource: OperationResourceKind;
-			action: "prune" | "replay" | "resolve";
+			action: "prune" | "replay" | "resolve" | "restart";
 			destructive: true;
 	  } & OperationPreviewCapability);
 

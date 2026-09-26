@@ -715,7 +715,9 @@ listmonk-cli settings get
 # Every run sends a real message to the recipient.
 listmonk-cli settings test-smtp --email reader@example.com \
   --host mailpit --port 1025
-listmonk-cli system reload
+# Restarts Listmonk: running campaigns are interrupted and queued
+# transactional messages are dropped. Check for running campaigns first.
+listmonk-cli system reload --confirm
 # One-shot destructive collection: no server-side preview exists.
 listmonk-cli maintenance gc-subscribers --type orphan --confirm
 listmonk-cli maintenance gc-unconfirmed \
@@ -931,8 +933,8 @@ reads (`system.about`, `system.logs`), the campaign archive toggle
 (`settings.get`), the SMTP configuration test
 (`settings.test-smtp`), the one-shot maintenance collections
 (`maintenance.gc-subscribers`, `maintenance.gc-unconfirmed`,
-`maintenance.gc-analytics`), and the
-configuration reload (`system.reload`) joined the accepted stable
+`maintenance.gc-analytics`), and the confirmation-gated
+settings restart (`system.reload`) joined the accepted stable
 compatibility baseline after their observed Listmonk 6.2 response
 shapes were verified against the local stack. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone

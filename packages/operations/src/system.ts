@@ -96,9 +96,12 @@ export const readSystemAboutOperation = defineOperation({
 });
 
 /**
- * Reload the app configuration without a restart. The observed 6.2
- * endpoint acknowledges with a bare boolean; the shared contract echoes
- * it as `reloaded`.
+ * Ask Listmonk to restart itself so saved settings take effect. The observed
+ * 6.2 endpoint acknowledges with a bare boolean, which the shared contract
+ * echoes as `reloaded`, and re-executes the process shortly afterwards:
+ * running campaigns are interrupted and transactional messages still queued
+ * in memory are dropped, so every call is a destructive, non-idempotent
+ * restart rather than an in-place refresh.
  */
 export async function reloadSystem({
 	client,
@@ -106,11 +109,11 @@ export async function reloadSystem({
 	const response = await client.system.reload();
 	const acknowledged = unwrapResourceResponse(
 		response,
-		"Failed to reload app configuration",
+		"Failed to request a Listmonk restart",
 	);
 	if (acknowledged !== true) {
 		throw new Error(
-			"Failed to reload app configuration: Listmonk returned a negative acknowledgement",
+			"Failed to request a Listmonk restart: Listmonk returned a negative acknowledgement",
 		);
 	}
 	return { reloaded: true };
@@ -118,15 +121,15 @@ export async function reloadSystem({
 
 export const reloadSystemOperation = defineOperation({
 	id: "system.reload",
-	title: "Reload app configuration",
+	title: "Restart Listmonk to apply settings",
 	description:
-		"Reload the Listmonk app configuration without a restart. Safe to repeat; settings mutations only take effect after a reload.",
+		"Restart the Listmonk process so saved settings take effect. Listmonk 6.2 re-executes itself shortly after acknowledging, interrupting running campaigns and dropping transactional messages still queued in memory; each request restarts it again.",
 	inputSchema: z.object({}),
 	outputSchema: systemReloadOutputSchema,
 	safety: {
 		readOnlyHint: false,
-		destructiveHint: false,
-		idempotentHint: true,
+		destructiveHint: true,
+		idempotentHint: false,
 		openWorldHint: true,
 	},
 	mcp: {
