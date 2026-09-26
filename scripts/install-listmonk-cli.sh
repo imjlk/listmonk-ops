@@ -53,7 +53,7 @@ while [[ $# -gt 0 ]]; do
 			;;
 		*)
 			echo "Unknown option: $1" >&2
-			print_help
+			print_help >&2
 			exit 1
 			;;
 	esac

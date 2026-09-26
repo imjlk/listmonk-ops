@@ -123,17 +123,27 @@ for (const requestedVersion of ["0.3.0", "v0.3.0"]) {
 	});
 }
 
-for (const [label, args] of [
-	["--version at the end", ["--version"]],
-	["--install-dir at the end", ["--install-dir"]],
-	["--repo at the end", ["--repo"]],
-	["an empty --version", ["--version", ""]],
+for (const [label, args, message] of [
+	["--version at the end", ["--version"], "Option --version requires a value"],
+	[
+		"--install-dir at the end",
+		["--install-dir"],
+		"Option --install-dir requires a value",
+	],
+	["--repo at the end", ["--repo"], "Option --repo requires a value"],
+	[
+		"an empty --version",
+		["--version", ""],
+		"Option --version requires a value",
+	],
 	[
 		"--install-dir followed by an option",
 		["--install-dir", "--version", "0.3.0"],
+		"Option --install-dir requires a value",
 	],
+	["an unknown option", ["--bogus"], "Unknown option: --bogus"],
 ] as const) {
-	test(`CLI installer reports a missing option value for ${label}`, async () => {
+	test(`CLI installer rejects ${label} on stderr`, async () => {
 		const directory = await mkdtemp(join(tmpdir(), "listmonk-cli-installer-"));
 		try {
 			const stubDirectory = join(directory, "bin");
@@ -158,8 +168,9 @@ for (const [label, args] of [
 			const stderr = new TextDecoder().decode(result.stderr);
 
 			expect(result.exitCode).toBe(1);
-			expect(stderr).toContain(`Option ${args[0]} requires a value`);
+			expect(stderr).toContain(message);
 			expect(stderr).toContain("Usage:");
+			expect(new TextDecoder().decode(result.stdout)).toBe("");
 			expect(await readFile(curlLog, "utf8")).toBe("");
 		} finally {
 			await rm(directory, { recursive: true, force: true });
