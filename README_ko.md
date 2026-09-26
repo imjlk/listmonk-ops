@@ -1557,6 +1557,19 @@ single opt-in 리스트는 이 멤버에게도 발송합니다. 대상 리스트
 대상 멤버십이 이미 있거나 구독 취소 상태를 유지하기 위해 변경을 생략했고,
 다른 변경도 요청되지 않은 경우)를 보고합니다.
 
+템플릿 registry의 활성 버전은 내용이 Listmonk에서 live 상태인 저장 버전입니다.
+`templates-sync`는 live 내용을 기록합니다. 활성 버전이 이미 그 내용을 담고
+있으면(예: 승격한 이전 버전) 그대로 두고, 최신 capture와 일치하면 그 버전을
+활성화하며, 그 외에는 새 버전을 기록해 활성화합니다. promote와 rollback은 자신이
+쓴 버전을 활성화하고 Listmonk가 저장한 내용도 기억합니다. Listmonk는 쓰기를
+정규화할 수 있기 때문입니다(빈 campaign template subject는 template 이름이 됨).
+핀 없는 rollback은 registry lock 안에서 live 템플릿을 다시 읽어 live 버전
+직전에 capture된 버전을 씁니다. live 내용이 활성 버전과도
+최신 capture와도 일치하지 않으면(마지막 sync 이후 registry 밖에서 변경됨)
+rollback은 대상을 추측하지 않고 실패합니다. 먼저 `templates-sync`로 live 내용을
+기록하거나, `--to-version-id`를 활성 버전 직전 버전으로 핀해 명시적으로
+덮어쓰세요.
+
 프리플라이트 링크 검사는 private/internal 호스트(loopback,
 `localhost`/`*.localhost` 이름, private CIDR, link-local, 클라우드 metadata IP)를
 차단하며 redirect를 수동으로 팔로우하며 각 hop마다 재검증합니다. 각 hop은 DNS를

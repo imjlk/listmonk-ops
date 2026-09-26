@@ -1642,6 +1642,21 @@ subscriber whose list add landed before its blocklist failed), and
 membership already existed, or an unsubscribed target membership was left
 unchanged to preserve consent when no other mutation was requested).
 
+A template's active registry version is the stored version whose content is
+live in Listmonk. `templates-sync` records the live content: it keeps an active
+version that already holds it (for example, an older version you promoted),
+activates the latest capture when that matches, and otherwise records a new
+version and activates it. Promote and rollback activate the version they write
+and remember the content Listmonk stored for it, because Listmonk can normalize
+a write (an empty campaign-template subject becomes the template name).
+An unpinned rollback re-reads the live template inside the registry lock and
+writes the version captured immediately before the live one. When the live
+content matches neither the active version nor the latest capture — it changed
+outside the registry since the last sync — the rollback fails closed instead of
+guessing a target: run `templates-sync` to record the live content first, or pin
+`--to-version-id` to the version preceding the active one to overwrite it
+explicitly.
+
 Preflight link checking now blocks private/internal hosts (loopback,
 `localhost`/`*.localhost` names, private CIDRs, link-local, cloud metadata IPs)
 and follows redirects manually with per-hop revalidation. Each hop is resolved
