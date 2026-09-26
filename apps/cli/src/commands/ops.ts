@@ -142,7 +142,8 @@ export default defineGroup({
 		defineCommand({
 			name: "hygiene",
 			operationId: "ops.subscribers.hygiene",
-			description: "Run subscriber hygiene workflow (winback/sunset)",
+			description:
+				"Run subscriber hygiene (winback/sunset) for profiles unmodified for N days; updated_at ignores sends, opens, and clicks, and a sunset blocklist irreversibly unsubscribes every list membership",
 			options: {
 				mode: option(z.enum(["winback", "sunset"]).default("winback"), {
 					description: "Hygiene mode",
@@ -150,20 +151,24 @@ export default defineGroup({
 				"inactivity-days": option(
 					z.coerce.number().int().positive().default(90),
 					{
-						description: "Inactive threshold in days",
+						description:
+							"Minimum days since the profile's updated_at (moved by profile edits and blocklisting, not by sends, opens, or clicks)",
 					},
 				),
 				"source-list-ids": option(z.string().trim().optional(), {
-					description: "Restrict candidates to these list IDs (csv)",
+					description:
+						"Only count memberships on these list IDs (csv); a candidate needs one Listmonk would deliver to",
 				}),
 				"target-list-id": option(
 					z.coerce.number().int().positive().optional(),
 					{
-						description: "Target list ID for winback/sunset tagging",
+						description:
+							"List to add candidates to (required for winback); new memberships start unconfirmed",
 					},
 				),
 				blocklist: option(z.coerce.boolean().default(false), {
-					description: "Blocklist sunset candidates",
+					description:
+						"Blocklist sunset candidates (irreversible: every list membership becomes unsubscribed)",
 				}),
 				"dry-run": option(z.coerce.boolean().default(true), {
 					description: "Preview candidates without mutating subscribers",
@@ -185,7 +190,7 @@ export default defineGroup({
 				),
 				"subscriber-guards": option(z.string().optional(), {
 					description:
-						"Generation guard (JSON array of subscriber_id and expected_updated_at pairs — pair a dry run's subscriberIds and subscriberUpdatedAt arrays in order): a guarded destructive retry skips subscribers whose raw updated_at moved — its own first attempt's mutations advance it, and so does any external change or eligibility re-entry — while untouched members of the echoed set still run",
+						"Generation guard (JSON array of subscriber_id and expected_updated_at pairs — pair a dry run's subscriberIds and subscriberUpdatedAt arrays in order): a guarded destructive retry skips subscribers whose raw updated_at moved — its own first attempt's blocklist advances it, and so does any external profile edit — while untouched members of the echoed set still run; a list add does not move it, so an existing target membership is skipped instead",
 				}),
 			},
 			handler: async ({ flags, ...args }) => {

@@ -1392,15 +1392,15 @@ Retry guidance: Retry is safe; the guard re-reads current metrics.
 
 Contract maturity: `stable`; effects: `write:subscriber, suppression:audience`; confirmation: `required`; retry: `conditional`.
 
-Use when: Inactive subscribers must be identified for winback or sunset workflows.
+Use when: Subscribers whose Listmonk profile has not been modified for a period, and who can still receive mail, must be identified for winback or sunset workflows.
 
-Avoid when: No subscriber inactivity baseline has been established.
+Avoid when: Selection must reflect engagement: updated_at does not move on sends, opens, or clicks, so an engaged reader with an untouched profile is selected. The sunset must stay reversible: blocklisting marks every list membership unsubscribed and unblocklisting does not restore them.
 
 Prerequisites: `subscribers.list`
 
 Verify with: `subscribers.list`
 
-Retry guidance: Run dry_run first, then echo the reported subscriber_ids paired in order with the result's subscriberUpdatedAt observations as subscriber_guards — a guarded destructive retry skips subscribers whose raw updated_at moved (its own first attempt's mutations advance it, and so does any external change or eligibility re-entry) while untouched members still run; a partially applied subscriber recovers through a fresh dry run (the new guards reflect the moved timestamps and already-present list membership is skipped), and because Listmonk has no conditional mutation, verify with subscribers.list after a guarded run; without the guards, a re-eligible subscriber receives a new effect.
+Retry guidance: Run dry_run first, then echo the reported subscriber_ids paired in order with the result's subscriberUpdatedAt observations as subscriber_guards — a guarded destructive retry skips subscribers whose raw updated_at moved (its own first attempt's blocklist advances it, and so does any external profile edit) while untouched members still run, and an already-present target membership is skipped because a list add does not move updated_at; check failedSubscribers, recover a partially applied subscriber with a guarded retry or a fresh dry run, and because Listmonk has no conditional mutation, verify with subscribers.list after a guarded run; without the guards, a re-eligible subscriber receives a new effect.
 
 ## Sync template registry (`ops.templates.registry-sync`)
 

@@ -138,4 +138,75 @@ describe("automation operation registry", () => {
 		expect(result.campaignId).toBe(42);
 		expect(result.summary.fail).toBe(0);
 	});
+
+	test("round-trips Listmonk offset timestamps through hygiene guards", async () => {
+		// Listmonk serializes updated_at with the database session's offset;
+		// a non-UTC Postgres yields +09:00, and JSON rows yield +00:00.
+		for (const updatedAt of [
+			"2020-01-01T09:00:00.123456+09:00",
+			"2020-01-01T00:00:00.123456+00:00",
+			"2020-01-01T00:00:00.123456Z",
+		]) {
+			const blocklisted: number[] = [];
+			const client = {
+				subscriber: {
+					list: async () => ({
+						data: {
+							results: [
+								{
+									id: 7,
+									email: "offset@example.com",
+									status: "enabled",
+									updated_at: updatedAt,
+									lists: [{ id: 1, subscription_status: "confirmed" }],
+								},
+							],
+						},
+					}),
+					manageBlocklistById: async ({ path }: { path: { id: number } }) => {
+						blocklisted.push(path.id);
+						return { data: true };
+					},
+				},
+			} as unknown as ListmonkClient;
+
+			const preview = await invokeSubscriberHygieneOperation(
+				{ client },
+				{ mode: "sunset", blocklist: true },
+			);
+			expect(preview.subscriberUpdatedAt).toEqual([updatedAt]);
+			expect(preview.failedSubscribers).toBe(0);
+
+			const applied = await invokeSubscriberHygieneOperation(
+				{ client },
+				{
+					mode: "sunset",
+					blocklist: true,
+					dry_run: false,
+					subscriber_ids: preview.subscriberIds,
+					subscriber_guards: [
+						{
+							subscriber_id: 7,
+							expected_updated_at: preview.subscriberUpdatedAt[0],
+						},
+					],
+				},
+			);
+			expect(applied.processedSubscribers).toBe(1);
+			expect(applied.skippedGuarded).toBe(0);
+			expect(blocklisted).toEqual([7]);
+		}
+
+		await expect(
+			invokeSubscriberHygieneOperation(context, {
+				mode: "sunset",
+				blocklist: true,
+				dry_run: false,
+				subscriber_ids: [7],
+				subscriber_guards: [
+					{ subscriber_id: 7, expected_updated_at: "2020-01-01 00:00:00" },
+				],
+			}),
+		).rejects.toThrow();
+	});
 });

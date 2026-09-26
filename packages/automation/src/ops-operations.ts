@@ -129,17 +129,25 @@ const subscriberHygieneInputSchema = z
 		mode: z.enum(["winback", "sunset"]).default("winback"),
 		inactivity_days: positiveIntegerInput
 			.default(90)
-			.describe("Inactive threshold in days"),
+			.describe(
+				"Minimum days since the subscriber profile's updated_at, which Listmonk advances on profile edits and blocklisting, not on sends, opens, or clicks",
+			),
 		source_list_ids: z
 			.array(positiveIntegerInput)
 			.optional()
-			.describe("Optional source list IDs"),
+			.describe(
+				"Only memberships on these lists count; a candidate needs one Listmonk would deliver to (not unsubscribed, and confirmed on a double opt-in list). Without it, any list counts",
+			),
 		target_list_id: positiveIntegerInput
 			.optional()
-			.describe("Target list ID for subscriber tagging"),
+			.describe(
+				"List to add selected subscribers to (required for winback). New memberships start unconfirmed, which a single opt-in list delivers to; an existing unsubscribed membership stays unsubscribed",
+			),
 		blocklist: booleanInput
 			.default(false)
-			.describe("Blocklist sunset candidates"),
+			.describe(
+				"Blocklist sunset candidates. Irreversible for list subscriptions: Listmonk marks every membership unsubscribed and unblocklisting does not restore them",
+			),
 		subscriber_ids: z
 			.array(
 				positiveIntegerInput.refine(
@@ -160,7 +168,10 @@ const subscriberHygieneInputSchema = z
 						(value) => Number.isSafeInteger(value),
 						"subscriber ids must be safe integers",
 					),
-					expected_updated_at: z.iso.datetime(),
+					// Listmonk serializes updated_at with the database session's
+					// UTC offset (+09:00 on a non-UTC Postgres, Z on UTC); the
+					// guard echoes that raw string verbatim.
+					expected_updated_at: z.iso.datetime({ offset: true }),
 				}),
 			)
 			.min(1)
@@ -172,7 +183,7 @@ const subscriberHygieneInputSchema = z
 			)
 			.optional()
 			.describe(
-				"Generation guard: pair a dry run's subscriberIds with its subscriberUpdatedAt observations in order (updated_at per selected subscriber). Listmonk advances updated_at on the list-add and blocklist mutations, so a guarded destructive retry skips subscribers its own first attempt touched and ones that changed or re-entered eligibility externally, while untouched members of the echoed set still run",
+				"Generation guard: pair a dry run's subscriberIds with its subscriberUpdatedAt observations in order (updated_at per selected subscriber). Listmonk advances updated_at on profile edits and blocklisting, so a guarded destructive retry skips subscribers its own first attempt blocklisted and ones whose profile changed externally, while untouched members of the echoed set still run; a list add leaves updated_at unchanged, so an existing target membership is skipped structurally instead",
 			),
 		dry_run: booleanInput
 			.default(true)
@@ -200,7 +211,7 @@ const subscriberHygieneInputSchema = z
 					code: "custom",
 					path: ["subscriber_guards"],
 					message:
-						"subscriber_guards apply to destructive runs; the dry run reports candidate_updated_at to echo",
+						"subscriber_guards apply to destructive runs; the dry run reports subscriberUpdatedAt to echo",
 				});
 			}
 			if (value.subscriber_ids !== undefined) {
@@ -385,10 +396,11 @@ const subscriberHygieneOutputSchema = z.object({
 	totalSubscribersScanned: z.number().int().nonnegative(),
 	candidateSubscribers: z.number().int().nonnegative(),
 	processedSubscribers: z.number().int().nonnegative(),
+	failedSubscribers: z.number().int().nonnegative(),
 	skippedDueToLimit: z.number().int().nonnegative(),
 	skippedGuarded: z.number().int().nonnegative(),
 	subscriberIds: z.array(z.number().int().positive()),
-	subscriberUpdatedAt: z.array(z.iso.datetime()),
+	subscriberUpdatedAt: z.array(z.iso.datetime({ offset: true })),
 	targetListId: z.number().int().positive().optional(),
 	blocklist: z.boolean(),
 	sample: z.array(
@@ -700,7 +712,8 @@ export const deliverabilityGuardOperation = defineOperation({
 export const subscriberHygieneOperation = defineOperation({
 	id: "ops.subscribers.hygiene",
 	title: "Run subscriber hygiene",
-	description: "Run the winback or sunset subscriber hygiene workflow",
+	description:
+		"Preview or apply the winback or sunset workflow for enabled subscribers whose profile updated_at is older than inactivity_days and who still hold a list membership Listmonk would deliver to. Listmonk advances updated_at on profile edits and blocklisting, not on sends, opens, or clicks, so this selects unmodified profiles rather than disengaged readers. A sunset blocklist is irreversible for list subscriptions: every membership becomes unsubscribed and unblocklisting does not restore them.",
 	inputSchema: subscriberHygieneInputSchema,
 	outputSchema: subscriberHygieneOutputSchema,
 	safety: {
