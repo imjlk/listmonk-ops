@@ -48,6 +48,8 @@ export interface HolmCorrectionResult {
  *  4. Map results back to original order.
  *
  * Returns adjusted p-values, significance flags, and the family-wise alpha.
+ * Throws when alpha is outside (0, 1) or any p-value is not a finite
+ * number in [0, 1].
  */
 export function applyHolmCorrection(
 	pValues: number[],
@@ -66,6 +68,18 @@ export function applyHolmCorrection(
 		throw new Error(
 			`alpha must be a finite number in (0, 1), received ${alpha}`,
 		);
+	}
+	// Fail closed on undefined inputs: NaN compares false against every
+	// threshold (so it would be marked significant) and breaks the sort, and
+	// coercing it to 1 would turn an upstream defect into a silent
+	// "not significant" decision that run/tick would finalize as
+	// inconclusive. Refuse the family instead, like an invalid alpha.
+	for (const [index, pValue] of pValues.entries()) {
+		if (!Number.isFinite(pValue) || pValue < 0 || pValue > 1) {
+			throw new RangeError(
+				`p-values must be finite numbers in [0, 1], received ${pValue} at index ${index}`,
+			);
+		}
 	}
 
 	const m = pValues.length;
@@ -185,7 +199,7 @@ export interface SRMCheckResult {
 	passed: boolean;
 	/** Chi-square statistic. */
 	chiSquare: number;
-	/** p-value from the chi-square distribution. */
+	/** Exact chi-square upper-tail p-value; `passed` is `pValue >= alpha`. */
 	pValue: number;
 	/**
 	 * Distinct from `passed`: "pass" (ratios consistent), "fail" (SRM
@@ -237,26 +251,131 @@ export function pairSrmCountsByVariant(
 	return paired;
 }
 
+// Lanczos approximation (g = 7, n = 9) of log Γ, accurate to about 15
+// significant digits for the half-integer arguments chi-square uses.
+const LANCZOS_G = 7;
+const LANCZOS_COEFFICIENTS = [
+	0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+	771.32342877765313, -176.61502916214059, 12.507343278686905,
+	-0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
+] as const;
+const INCOMPLETE_GAMMA_EPSILON = 1e-15;
+const INCOMPLETE_GAMMA_MAX_ITERATIONS = 10_000;
+const INCOMPLETE_GAMMA_TINY = 1e-300;
+
+/** Natural log of Γ(z) for z ≥ 0.5. */
+function logGamma(z: number): number {
+	const shifted = z - 1;
+	let series = 0;
+	for (const [index, coefficient] of LANCZOS_COEFFICIENTS.entries()) {
+		series += index === 0 ? coefficient : coefficient / (shifted + index);
+	}
+	const t = shifted + LANCZOS_G + 0.5;
+	return (
+		0.5 * Math.log(2 * Math.PI) + (shifted + 0.5) * Math.log(t) - t +
+		Math.log(series)
+	);
+}
+
 /**
- * Chi-square critical values keyed by `df:alpha`. Covers df 1-2 (up to
- * 3 variants) at the three standard alpha levels. Avoids pulling in a
- * full chi-square CDF implementation.
+ * Regularized upper incomplete gamma function Q(a, x) = Γ(a, x) / Γ(a) for
+ * a ≥ 0.5 and x ≥ 0. Below x = a + 1 it sums the power series for
+ * P = 1 − Q; above it, where the series would lose the tail to
+ * cancellation, it evaluates Q's continued fraction (modified Lentz), so
+ * small upper-tail probabilities keep their relative precision.
  */
-const CHI_SQUARE_CRITICAL: Record<string, number> = {
-	// df=1
-	"1:0.001": 10.828,
-	"1:0.01": 6.635,
-	"1:0.05": 3.841,
-	// df=2
-	"2:0.001": 13.816,
-	"2:0.01": 9.210,
-	"2:0.05": 5.991,
-};
+export function regularizedUpperGamma(a: number, x: number): number {
+	if (!Number.isFinite(a) || a < 0.5) {
+		throw new RangeError(`a must be a finite number >= 0.5, received ${a}`);
+	}
+	if (Number.isNaN(x) || x < 0) {
+		throw new RangeError(`x must be a non-negative number, received ${x}`);
+	}
+	if (x === 0) {
+		return 1;
+	}
+	if (x === Number.POSITIVE_INFINITY) {
+		return 0;
+	}
+	const logPrefactor = a * Math.log(x) - x - logGamma(a);
+	if (x < a + 1) {
+		let term = 1 / a;
+		let sum = term;
+		for (
+			let index = 1;
+			index <= INCOMPLETE_GAMMA_MAX_ITERATIONS;
+			index += 1
+		) {
+			term *= x / (a + index);
+			sum += term;
+			if (Math.abs(term) < Math.abs(sum) * INCOMPLETE_GAMMA_EPSILON) {
+				return Math.min(1, Math.max(0, 1 - sum * Math.exp(logPrefactor)));
+			}
+		}
+	} else {
+		let b = x + 1 - a;
+		let c = 1 / INCOMPLETE_GAMMA_TINY;
+		let d = 1 / b;
+		let fraction = d;
+		for (
+			let index = 1;
+			index <= INCOMPLETE_GAMMA_MAX_ITERATIONS;
+			index += 1
+		) {
+			const numerator = -index * (index - a);
+			b += 2;
+			d = numerator * d + b;
+			if (Math.abs(d) < INCOMPLETE_GAMMA_TINY) {
+				d = INCOMPLETE_GAMMA_TINY;
+			}
+			c = b + numerator / c;
+			if (Math.abs(c) < INCOMPLETE_GAMMA_TINY) {
+				c = INCOMPLETE_GAMMA_TINY;
+			}
+			d = 1 / d;
+			const delta = d * c;
+			fraction *= delta;
+			if (Math.abs(delta - 1) < INCOMPLETE_GAMMA_EPSILON) {
+				return Math.min(1, Math.max(0, Math.exp(logPrefactor) * fraction));
+			}
+		}
+	}
+	// Unreachable for chi-square arguments; refuse rather than guess.
+	throw new RangeError(`incomplete gamma did not converge for a=${a}, x=${x}`);
+}
+
+/**
+ * Exact upper-tail probability P(X ≥ statistic) of a chi-square
+ * distribution with a positive integer number of degrees of freedom,
+ * Q(df / 2, statistic / 2). For df = 1 this is erfc(√(statistic / 2)); for
+ * df = 2 it is exactly exp(−statistic / 2), which is used directly.
+ */
+export function chiSquareSurvival(
+	statistic: number,
+	degreesOfFreedom: number,
+): number {
+	if (!Number.isInteger(degreesOfFreedom) || degreesOfFreedom < 1) {
+		throw new RangeError(
+			`degrees of freedom must be a positive integer, received ${degreesOfFreedom}`,
+		);
+	}
+	if (Number.isNaN(statistic) || statistic < 0) {
+		throw new RangeError(
+			`chi-square statistic must be a non-negative number, received ${statistic}`,
+		);
+	}
+	if (degreesOfFreedom === 2) {
+		return Math.exp(-statistic / 2);
+	}
+	return regularizedUpperGamma(degreesOfFreedom / 2, statistic / 2);
+}
 
 /**
  * Detect Sample Ratio Mismatch (SRM) by comparing expected assignment
  * ratios against observed successful-sent ratios using a chi-square
- * goodness-of-fit test.
+ * goodness-of-fit test. The reported p-value is the exact chi-square
+ * upper tail, and the check passes exactly when that p-value is at least
+ * alpha, so the decision and the reported p-value cannot disagree.
  *
  * @param expected - Expected counts per variant (from the assignment manifest).
  * @param observed - Observed counts per variant (e.g., successful sends).
@@ -272,7 +391,13 @@ export function checkSRM(
 			`alpha must be a finite number in (0, 1), received ${alpha}`,
 		);
 	}
-	if (expected.length !== observed.length || expected.length < 2) {
+	if (
+		expected.length !== observed.length ||
+		expected.length < 2 ||
+		[...expected, ...observed].some(
+			(count) => !Number.isFinite(count) || count < 0,
+		)
+	) {
 		return {
 			passed: false,
 			status: "indeterminate" as const,
@@ -337,43 +462,8 @@ export function checkSRM(
 
 	// df = number of active groups - 1 (after filtering zero/zero arms).
 	const df = activeIndices.length - 1;
-
-	// Use df-specific critical values from the precomputed table.
-	// Reject unsupported alpha levels rather than silently falling back.
-	const lookupKey = `${df}:${alpha}`;
-	const fallbackKey = `1:${alpha}`;
-	const criticalValue =
-		CHI_SQUARE_CRITICAL[lookupKey] ??
-		CHI_SQUARE_CRITICAL[fallbackKey];
-	if (criticalValue === undefined) {
-		return {
-			passed: false,
-			status: "indeterminate" as const,
-			chiSquare: 0,
-			pValue: 1,
-			reasonCode: `unsupported_alpha:${alpha}`,
-		};
-	}
-
-	const passed = chiSquare < criticalValue;
-
-	// Approximate p-value using the Wilson-Hilferty normal approximation
-	// to the chi-square distribution: for df degrees of freedom,
-	// z ≈ ((chiSquare / df)^(1/3) - (1 - 2/(9*df))) / sqrt(2/(9*df))
-	// This is more accurate than the raw sqrt approach for df > 1.
-	const wilsonHilfertyTerm = 1 - 2 / (9 * df);
-	const wilsonStd = Math.sqrt(2 / (9 * df));
-	const ratio = chiSquare / df;
-	let pValue: number;
-	if (ratio <= 0 || !Number.isFinite(ratio)) {
-		pValue = 1;
-	} else {
-		const zWH =
-			(Math.pow(ratio, 1 / 3) - wilsonHilfertyTerm) / wilsonStd;
-		// Chi-square p-value is the upper tail: P(X > chiSquare).
-		// Wilson-Hilferty approximates this as 1 - Phi(zWH).
-		pValue = 1 - normalCDF(zWH);
-	}
+	const pValue = chiSquareSurvival(chiSquare, df);
+	const passed = pValue >= alpha;
 
 	return {
 		passed,
@@ -382,31 +472,4 @@ export function checkSRM(
 		pValue,
 		reasonCode: passed ? undefined : "srm_detected",
 	};
-}
-
-/**
- * Standard normal CDF approximation (Abramowitz & Stegun 7.1.26).
- * Phi(x) = 0.5 * (1 + erf(x / sqrt(2))).
- */
-function normalCDF(x: number): number {
-	const a1 = 0.254829592;
-	const a2 = -0.284496736;
-	const a3 = 1.421413741;
-	const a4 = -1.453152027;
-	const a5 = 1.061405429;
-	const p = 0.3275911;
-
-	// erf approximation on x / sqrt(2)
-	const z = x / Math.sqrt(2);
-	const sign = z >= 0 ? 1 : -1;
-	const absZ = Math.abs(z);
-
-	const t = 1.0 / (1.0 + p * absZ);
-	const y =
-		1.0 -
-		((((a5 * t + a4) * t + a3) * t + a2) * t + a1) *
-			t *
-			Math.exp(-absZ * absZ);
-
-	return 0.5 * (1.0 + sign * y);
 }
