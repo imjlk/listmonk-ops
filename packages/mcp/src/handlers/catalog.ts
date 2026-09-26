@@ -1,4 +1,5 @@
 import {
+	listMcpOperationCatalogFamilies,
 	listMcpOperationCatalogSummaries,
 } from "../operation-catalog.js";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
@@ -79,8 +80,7 @@ export const operationCatalogTools: readonly MCPTool[] = [
 					type: "string",
 					minLength: 1,
 					pattern: "\\S",
-					description:
-						"Optional exact family: lists, subscribers, campaigns, templates, transactional, ops, or abtest",
+					description: `Optional exact family: ${listMcpOperationCatalogFamilies().join(", ")}. An unknown family is rejected with the known families.`,
 				},
 			},
 		},

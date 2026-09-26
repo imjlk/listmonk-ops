@@ -664,6 +664,9 @@ listmonk-cli status
 MCP 클라이언트에서는 같은 선택적 `family` 필터와 함께 read-only
 `listmonk_list_operations` 도구를 호출하면 됩니다. 이 카탈로그는 공용 타입드
 Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제공됩니다.
+`campaigns` 대신 `campaign`처럼 존재하지 않는 family를 지정하면 빈 카탈로그를
+반환하지 않고 사용 가능한 family 목록과 함께 오류를 반환합니다. `specs search`와
+`listmonk_schema_search`의 `family` 필터도 같은 방식으로 검증합니다.
 에이전트는 `listmonk_schema_search`, `listmonk_schema_describe`,
 `listmonk_list_playbooks`, `listmonk_playbook_get`,
 `listmonk_capabilities`, `listmonk_prime`, `listmonk_status` 도구도 사용할

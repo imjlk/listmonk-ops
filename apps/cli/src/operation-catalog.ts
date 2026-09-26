@@ -8,6 +8,7 @@ import {
 	maintenanceOperationCatalog,
 	listOperationCatalogSummaries,
 	mediaOperationCatalog,
+	resolveOperationCatalogFamily,
 	settingsOperationCatalog,
 	subscriberOperationCatalog,
 	systemOperationCatalog,
@@ -47,5 +48,8 @@ export const cliOperationCatalog = composeOperationCatalogs([
 export function listCliOperationCatalogSummaries(
 	family?: string,
 ): ReturnType<typeof listOperationCatalogSummaries> {
-	return listOperationCatalogSummaries(cliOperationCatalog, family);
+	return listOperationCatalogSummaries(
+		cliOperationCatalog,
+		resolveOperationCatalogFamily(cliOperationCatalog, family),
+	);
 }

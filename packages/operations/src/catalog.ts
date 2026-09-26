@@ -160,9 +160,51 @@ function toSummary(entry: OperationCatalogEntry): OperationCatalogSummary {
 	};
 }
 
+/** Distinct operation families in catalog order. */
+export function listOperationCatalogFamilies(
+	catalog: ComposedOperationCatalog,
+): readonly string[] {
+	return [...new Set(catalog.entries.map((entry) => entry.family))];
+}
+
+/** Raised when a discovery filter names a family the catalog does not have. */
+export class UnknownOperationFamilyError extends Error {
+	readonly family: string;
+	readonly knownFamilies: readonly string[];
+
+	constructor(family: string, knownFamilies: readonly string[]) {
+		super(
+			`Unknown operation family "${family}". Known families: ${knownFamilies.join(", ")}`,
+		);
+		this.name = "UnknownOperationFamilyError";
+		this.family = family;
+		this.knownFamilies = knownFamilies;
+	}
+}
+
+/**
+ * Validate an optional discovery family filter. An unknown family used to
+ * return an empty list, which looked like "no operations" rather than a typo.
+ */
+export function resolveOperationCatalogFamily(
+	catalog: ComposedOperationCatalog,
+	family: string | undefined,
+): string | undefined {
+	const normalizedFamily = family?.trim();
+	if (normalizedFamily === undefined) {
+		return undefined;
+	}
+	const knownFamilies = listOperationCatalogFamilies(catalog);
+	if (!knownFamilies.includes(normalizedFamily)) {
+		throw new UnknownOperationFamilyError(normalizedFamily, knownFamilies);
+	}
+	return normalizedFamily;
+}
+
 /**
  * Return transport-safe discovery data. An omitted family returns the stable
- * catalog order; an unknown family intentionally returns an empty list.
+ * catalog order; an unknown family returns an empty list, so user-facing
+ * filters validate it with resolveOperationCatalogFamily first.
  */
 export function listOperationCatalogSummaries(
 	catalog: ComposedOperationCatalog,

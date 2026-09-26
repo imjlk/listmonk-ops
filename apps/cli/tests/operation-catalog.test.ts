@@ -21,6 +21,9 @@ describe("CLI operation catalog", () => {
 			expect.objectContaining({ mcpName: "listmonk_transactional_records" }),
 			expect.objectContaining({ mcpName: "listmonk_reconcile_transactional" }),
 		]);
+		expect(() => getOperationCatalogOutput("campaign")).toThrow(
+			'Unknown operation family "campaign"',
+		);
 		expect(getOperationCatalogOutput("campaigns").operations).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({

@@ -44,8 +44,10 @@ listmonk-cli deliverability doctor --provider-id marketing-primary
 
 `listmonk-cli operations` lists the shared typed contracts available through
 both the CLI and MCP server. Use `--family` to filter by `lists`,
-`subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`,
-`abtest`, `discovery`, `webhooks`, `sequences`, or `providers`.
+`subscribers`, `campaigns`, `templates`, `media`, `bounces`, `dashboard`,
+`system`, `transactional`, `ops`, `abtest`, `discovery`, `webhooks`,
+`sequences`, `providers`, `user-roles`, `settings`, or `maintenance`. An
+unknown family exits with an error that lists the known families.
 
 `specs search` and `specs describe` expose effect-derived safety, execution
 requirements, retry semantics, and agent guidance. `playbooks` returns typed

@@ -14,6 +14,7 @@ import {
 	getOperationCatalogEntryById,
 	getOperationCatalogEntryByMcpName,
 	listOperationCatalogSummaries,
+	resolveOperationCatalogFamily,
 	type OperationCatalogSummary,
 } from "./catalog";
 import {
@@ -433,11 +434,11 @@ export async function searchOperationSpecs(
 	context: DiscoveryOperationContext,
 	input: z.output<typeof specSearchInputSchema>,
 ): Promise<z.output<typeof specSearchOutputSchema>> {
-	const matches = listOperationCatalogSummaries(context.catalog)
+	const family = resolveOperationCatalogFamily(context.catalog, input.family);
+	const matches = listOperationCatalogSummaries(context.catalog, family)
 		.filter((summary) => {
 			const spec = summary.spec;
 			return (
-				(input.family === undefined || summary.family === input.family) &&
 				(input.resource === undefined || spec?.resource === input.resource) &&
 				(input.verb === undefined || spec?.verb === input.verb)
 			);

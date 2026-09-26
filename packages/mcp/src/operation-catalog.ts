@@ -14,8 +14,10 @@ import {
 	discoveryOperationCatalog,
 	maintenanceOperationCatalog,
 	listOperationCatalog,
+	listOperationCatalogFamilies,
 	listOperationCatalogSummaries,
 	mediaOperationCatalog,
+	resolveOperationCatalogFamily,
 	settingsOperationCatalog,
 	subscriberOperationCatalog,
 	templateOperationCatalog,
@@ -47,5 +49,13 @@ export const mcpOperationCatalog = composeOperationCatalogs([
 export function listMcpOperationCatalogSummaries(
 	family?: string,
 ): ReturnType<typeof listOperationCatalogSummaries> {
-	return listOperationCatalogSummaries(mcpOperationCatalog, family);
+	return listOperationCatalogSummaries(
+		mcpOperationCatalog,
+		resolveOperationCatalogFamily(mcpOperationCatalog, family),
+	);
+}
+
+/** Families accepted by the `listmonk_list_operations` discovery tool. */
+export function listMcpOperationCatalogFamilies(): readonly string[] {
+	return listOperationCatalogFamilies(mcpOperationCatalog);
 }

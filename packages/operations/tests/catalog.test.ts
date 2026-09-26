@@ -6,10 +6,13 @@ import {
 	getOperationCatalogEntryById,
 	getOperationCatalogEntryByMcpName,
 	listOperationCatalog,
+	listOperationCatalogFamilies,
 	listOperationCatalogSummaries,
 	listOperations,
+	resolveOperationCatalogFamily,
 	subscriberOperations,
 	templateOperationCatalog,
+	UnknownOperationFamilyError,
 } from "../src";
 
 describe("operation catalog", () => {
@@ -26,6 +29,36 @@ describe("operation catalog", () => {
 					?.contract.input.source,
 			).toBe("typescript");
 		}
+	});
+
+	test("lists catalog families and rejects unknown family filters", () => {
+		const catalog = composeOperationCatalogs([
+			listOperationCatalog,
+			campaignOperationCatalog,
+		]);
+
+		expect(listOperationCatalogFamilies(catalog)).toEqual([
+			"lists",
+			"campaigns",
+		]);
+		expect(resolveOperationCatalogFamily(catalog, undefined)).toBeUndefined();
+		expect(resolveOperationCatalogFamily(catalog, " campaigns ")).toBe(
+			"campaigns",
+		);
+
+		let rejection: unknown;
+		try {
+			resolveOperationCatalogFamily(catalog, "campaign");
+		} catch (error) {
+			rejection = error;
+		}
+		expect(rejection).toBeInstanceOf(UnknownOperationFamilyError);
+		expect(rejection).toMatchObject({
+			family: "campaign",
+			knownFamilies: ["lists", "campaigns"],
+			message:
+				'Unknown operation family "campaign". Known families: lists, campaigns',
+		});
 	});
 
 	test("composes stable discovery summaries for shared operation families", () => {

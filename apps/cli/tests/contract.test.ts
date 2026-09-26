@@ -236,6 +236,24 @@ describe("CLI contract", () => {
 		expect(result.output).toContain('"mcpName": "listmonk_get_campaigns"');
 	});
 
+	test("rejects an unknown operation family instead of listing nothing", () => {
+		const operations = runCli(["operations", "--family", "campaign"]);
+		const search = runCli([
+			"specs",
+			"search",
+			"--query",
+			"schedule campaign",
+			"--family",
+			"campaign",
+		]);
+
+		for (const result of [operations, search]) {
+			expect(result.exitCode).toBe(1);
+			expect(result.output).toContain('Unknown operation family "campaign"');
+			expect(result.output).toContain("campaigns");
+		}
+	});
+
 	test("prints the package version", () => {
 		const result = runCli(["--version"]);
 

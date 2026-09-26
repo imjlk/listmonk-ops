@@ -9,6 +9,7 @@ import {
 } from "../../src/handlers/catalog.js";
 import {
 	mcpOperationCatalog,
+	listMcpOperationCatalogFamilies,
 	listMcpOperationCatalogSummaries,
 } from "../../src/operation-catalog.js";
 import { connectMCPTransport } from "../../src/protocol.js";
@@ -242,6 +243,32 @@ describe("operation catalog MCP adapter", () => {
 		);
 		expect(unknown.isError).toBe(true);
 		expect(unknown.content[0]?.text).toContain("Unknown tool");
+
+		const unknownFamily = await handleOperationCatalogTools(
+			request({ family: "campaign" }),
+			{} as never,
+		);
+		expect(unknownFamily.isError).toBe(true);
+		expect(unknownFamily.content[0]?.text).toContain(
+			'Unknown operation family "campaign"',
+		);
+		expect(unknownFamily.content[0]?.text).toContain("user-roles");
+	});
+
+	test("describes every catalog family in the discovery input schema", () => {
+		const families = listMcpOperationCatalogFamilies();
+		expect(families).toEqual([
+			...new Set(mcpOperationCatalog.entries.map((entry) => entry.family)),
+		]);
+		expect(families).toHaveLength(18);
+		const inputSchema = operationCatalogTools[0]?.inputSchema as {
+			properties?: { family?: { description?: string } };
+		};
+		const description = inputSchema.properties?.family?.description ?? "";
+		for (const family of families) {
+			expect(description).toContain(family);
+		}
+		expect(description).toContain("maintenance");
 	});
 
 	test("keeps catalog output in parity at CLI and MCP boundaries", async () => {

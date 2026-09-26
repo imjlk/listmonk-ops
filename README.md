@@ -674,6 +674,9 @@ listmonk-cli status
 MCP clients can call the read-only `listmonk_list_operations` tool with the
 same optional `family` filter. The catalog intentionally covers shared typed
 operations only; legacy transport-specific tools remain available separately.
+An unknown family, such as `campaign` instead of `campaigns`, is rejected with
+the list of known families instead of returning an empty catalog. The `family`
+filter of `specs search` and `listmonk_schema_search` is validated the same way.
 Agents can use the corresponding `listmonk_schema_search`,
 `listmonk_schema_describe`, `listmonk_list_playbooks`,
 `listmonk_playbook_get`, `listmonk_capabilities`, `listmonk_prime`, and
