@@ -183,6 +183,57 @@ describe("A/B test persistence", () => {
 		await expect(loadStoredAbTests(storePath)).resolves.toHaveLength(1);
 	});
 
+	test("loads legacy version 1 and current version 2 audience snapshots", async () => {
+		const storePath = await createStorePath();
+		const snapshot = {
+			capturedAt: "2026-01-01T00:00:00.000Z",
+			sourceListIds: [1],
+			subscriberCount: 1000,
+			subscriberChecksum: "audience-checksum",
+		};
+		const legacy = {
+			...createTest("legacy-snapshot"),
+			audienceSnapshot: { ...snapshot, eligibilityPolicyVersion: 1 },
+		};
+		const current = {
+			...createTest("current-snapshot"),
+			audienceSnapshot: { ...snapshot, eligibilityPolicyVersion: 2 },
+		};
+		await writeFile(
+			storePath,
+			`${JSON.stringify({ version: 2, tests: [legacy, current] })}\n`,
+			"utf8",
+		);
+
+		const loaded = await loadStoredAbTests(storePath);
+		expect(
+			loaded.map((entry) => entry.audienceSnapshot?.eligibilityPolicyVersion),
+		).toEqual([1, 2]);
+	});
+
+	test("rejects an unknown audience eligibility policy version", async () => {
+		const storePath = await createStorePath();
+		const invalidTest = {
+			...createTest("future-snapshot"),
+			audienceSnapshot: {
+				capturedAt: "2026-01-01T00:00:00.000Z",
+				sourceListIds: [1],
+				subscriberCount: 1000,
+				subscriberChecksum: "audience-checksum",
+				eligibilityPolicyVersion: 3,
+			},
+		};
+		await writeFile(
+			storePath,
+			`${JSON.stringify({ version: 2, tests: [invalidTest] })}\n`,
+			"utf8",
+		);
+
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+	});
+
 	test("rejects malformed collection entries", async () => {
 		const storePath = await createStorePath();
 		const malformedTest = {

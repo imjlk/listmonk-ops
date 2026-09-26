@@ -95,7 +95,8 @@ export interface AbTest {
 		sourceListIds: number[];
 		subscriberCount: number;
 		subscriberChecksum: string;
-		eligibilityPolicyVersion: 1;
+		/** 1 = legacy status-only snapshot; 2 = per-list consent enforced. */
+		eligibilityPolicyVersion: import("./audience").AudienceEligibilityPolicyVersion;
 	};
 	/** Per-test minimum sample size for the fixed-horizon gate. */
 	minimumTestSampleSize?: number;
