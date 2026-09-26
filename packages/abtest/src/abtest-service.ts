@@ -4,8 +4,12 @@ import type {
 	ListmonkAbTestIntegration,
 	ProvisionedAbTestResources,
 } from "./listmonk-integration";
-import type { MetricsCollector } from "./metrics";
-import { AbTestMetricsUnavailableError } from "./metrics";
+import type { ClickCountViolation, MetricsCollector } from "./metrics";
+import {
+	AbTestMetricsUnavailableError,
+	clickCountReasonCode,
+	findClicksExceedingSends,
+} from "./metrics";
 import { StatisticalUtils } from "./statistical-utils";
 import {
 	applyHolmCorrection,
@@ -1147,6 +1151,24 @@ export class AbTestService {
 		const n2 = testGroup.sampleSize;
 		const totalSampleSize = n1 + n2;
 
+		// Listmonk click totals include repeat clicks. Once any variant's
+		// clicks exceed its sends the click rate is not a per-recipient
+		// proportion (its pooled rate can exceed 1), so report the result as
+		// indeterminate with the offending variants instead of a decision.
+		if (metricLabel === "click rate") {
+			const clickViolations = findClicksExceedingSends(results);
+			if (clickViolations.length > 0) {
+				return {
+					zScore: 0,
+					pValue: 1,
+					isSignificant: false,
+					confidenceLevel: confidenceThreshold,
+					sampleSize: totalSampleSize,
+					fixedHorizonReasonCodes: clickViolations.map(clickCountReasonCode),
+				};
+			}
+		}
+
 		// Guard against zero-sample comparisons, which otherwise produce NaN.
 		if (n1 === 0 || n2 === 0) {
 			return {
@@ -1443,7 +1465,12 @@ export class AbTestService {
 			policy: testPolicy,
 			sampleSizes: results.map((r) => r.sampleSize),
 		});
-		analysis.fixedHorizonReasonCodes = gateResult.reasonCodes;
+		// Keep any reason the significance test already reported (such as
+		// click totals above sends) alongside the gate's reasons.
+		analysis.fixedHorizonReasonCodes = [
+			...(analysis.fixedHorizonReasonCodes ?? []),
+			...gateResult.reasonCodes,
+		];
 
 		// Run SRM check. Prefer assignment manifest group counts; for
 		// full-split tests without a manifest, derive expected counts from
@@ -1518,6 +1545,8 @@ export class AbTestService {
 			winner,
 			metricLabel,
 			metricRate,
+			metricLabel === "click rate" ? findClicksExceedingSends(results) : [],
+			test.variants,
 		);
 
 		return {
@@ -1682,10 +1711,23 @@ export class AbTestService {
 		winner: Variant | null,
 		metricLabel: "conversion rate" | "click rate" | "revenue per recipient",
 		metricRate: (r: TestResults) => number,
+		clickViolations: readonly ClickCountViolation[],
+		variants: readonly Variant[],
 	): string[] {
 		const recommendations: string[] = [];
 
-		if (!analysis.isSignificant) {
+		if (clickViolations.length > 0) {
+			// Running longer only adds repeat clicks, so say what would help.
+			const offenders = clickViolations
+				.map(
+					(violation) =>
+						`${variants.find((variant) => variant.id === violation.variantId)?.name ?? violation.variantId} (${violation.clicks} clicks / ${violation.sent} sends)`,
+				)
+				.join(", ");
+			recommendations.push(
+				`No click-rate decision is possible: click totals exceed sends for ${offenders}. Listmonk counts repeat clicks, so the click rate is not a per-recipient proportion. Record conversions and pre-register conversion_rate to decide this test.`,
+			);
+		} else if (!analysis.isSignificant) {
 			recommendations.push(
 				"Results are not statistically significant. Consider running the test longer or increasing sample size.",
 			);

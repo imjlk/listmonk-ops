@@ -27,6 +27,39 @@ export interface MetricsCollector {
 	collect(test: AbTest): Promise<TestResults[]>;
 }
 
+export interface ClickCountViolation {
+	variantId: string;
+	clicks: number;
+	sent: number;
+}
+
+/**
+ * Listmonk's campaign `clicks` counter totals link clicks, so a subscriber
+ * who clicks twice counts twice. The click-rate significance test treats
+ * clicks as a per-recipient proportion, which cannot hold once a variant's
+ * clicks exceed its sends: the counts then provably include repeat clicks,
+ * so no click-rate decision may be made from them. Returns every offending
+ * variant (empty when all click totals are within their sends).
+ */
+export function findClicksExceedingSends(
+	results: ReadonlyArray<
+		Pick<TestResults, "variantId" | "clicks" | "sampleSize">
+	>,
+): ClickCountViolation[] {
+	return results
+		.filter((result) => result.clicks > result.sampleSize)
+		.map((result) => ({
+			variantId: result.variantId,
+			clicks: result.clicks,
+			sent: result.sampleSize,
+		}));
+}
+
+/** Analysis reason code reported for a click total above its sends. */
+export function clickCountReasonCode(violation: ClickCountViolation): string {
+	return `clicks_exceed_sends:${violation.variantId}:${violation.clicks}/${violation.sent}`;
+}
+
 export class AbTestMetricsUnavailableError extends Error {
 	readonly testId: string;
 	// `cause` is a built-in property of Error (ES2022). Use `declare` so the
@@ -113,6 +146,9 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 					const campaign = response.data;
 					const sampleSize = campaign.sent ?? 0;
 					const opens = campaign.views ?? 0;
+					// A total that includes repeat clicks, so it may exceed
+					// `sent`; it is passed through unclamped and the analysis
+					// refuses a click-rate decision when it does.
 					const clicks = campaign.clicks ?? 0;
 					// Conversion events are separate from Listmonk click counts.
 					const aggregate = conversionByVariant.get(mapping.variantId);

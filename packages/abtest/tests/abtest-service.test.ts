@@ -367,6 +367,102 @@ describe("AbTestService.analyzeTest", () => {
 	});
 });
 
+describe("AbTestService click totals above sends", () => {
+	function clickResult(
+		variantId: string,
+		sampleSize: number,
+		clicks: number,
+		conversions = 0,
+	): TestResults {
+		return {
+			variantId,
+			sampleSize,
+			opens: 0,
+			clicks,
+			conversions,
+			openRate: 0,
+			clickRate: (clicks / sampleSize) * 100,
+			conversionRate: (conversions / sampleSize) * 100,
+		};
+	}
+
+	it("reports the click metric as indeterminate instead of testing it", async () => {
+		// Repeat clickers push B's raw total past its sends. Unguarded, the
+		// pooled rate exceeds 1 and the z-test silently returns p = 1.
+		const service = new AbTestService();
+		const analysis = await service.analyzeStatisticalSignificance(
+			[clickResult("A", 1000, 50), clickResult("B", 1000, 1200)],
+			0.95,
+		);
+		expect(analysis).toEqual({
+			zScore: 0,
+			pValue: 1,
+			isSignificant: false,
+			confidenceLevel: 0.95,
+			sampleSize: 2000,
+			fixedHorizonReasonCodes: ["clicks_exceed_sends:B:1200/1000"],
+		});
+	});
+
+	it("checks every variant of an A/B/C test", async () => {
+		const service = new AbTestService();
+		const analysis = await service.analyzeStatisticalSignificance(
+			[
+				clickResult("A", 1000, 50),
+				clickResult("B", 1000, 90),
+				clickResult("C", 500, 700),
+			],
+			0.95,
+		);
+		expect(analysis.isSignificant).toBe(false);
+		expect(analysis.holmCorrected).toBeUndefined();
+		expect(analysis.fixedHorizonReasonCodes).toEqual([
+			"clicks_exceed_sends:C:700/500",
+		]);
+	});
+
+	it("still decides a conversion metric when clicks exceed sends", async () => {
+		// Conversions count unique subscribers, so repeat clicks do not
+		// invalidate them: A 5% vs B 10% at n=1000 is significant.
+		const service = new AbTestService();
+		const analysis = await service.analyzeStatisticalSignificance(
+			[clickResult("A", 1000, 1500, 50), clickResult("B", 1000, 20, 100)],
+			0.95,
+		);
+		expect(analysis.isSignificant).toBe(true);
+		expect(analysis.fixedHorizonReasonCodes).toBeUndefined();
+	});
+
+	it("declares no winner and explains why through analyzeTest", async () => {
+		const service = new AbTestService(
+			undefined,
+			new SimulatedMetricsCollector(
+				new Map([
+					["test-1", [clickResult("A", 1000, 50), clickResult("B", 1000, 1200)]],
+				]),
+			),
+		);
+		service.hydrateTests([makeTest()]);
+
+		const analysis = await service.analyzeTest("test-1");
+
+		expect(analysis.winner).toBeNull();
+		expect(analysis.analysis.isSignificant).toBe(false);
+		// The gate itself passes; the click guard is the only reason.
+		expect(analysis.analysis.fixedHorizonReasonCodes).toEqual([
+			"clicks_exceed_sends:B:1200/1000",
+		]);
+		expect(analysis.recommendations).toContain(
+			"No click-rate decision is possible: click totals exceed sends for B (1200 clicks / 1000 sends). Listmonk counts repeat clicks, so the click rate is not a per-recipient proportion. Record conversions and pre-register conversion_rate to decide this test.",
+		);
+		expect(
+			analysis.recommendations.some((recommendation) =>
+				recommendation.includes("running the test longer"),
+			),
+		).toBe(false);
+	});
+});
+
 describe("orderByVariantOrder", () => {
 	it("restores the declared variant order and keeps unknown entries last", () => {
 		const variants = [{ id: "A" }, { id: "B" }, { id: "C" }];
