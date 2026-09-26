@@ -5,6 +5,7 @@ import {
 import { pauseCampaign } from "@listmonk-ops/operations";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { lookup as dnsLookup } from "node:dns/promises";
+import { isIP } from "node:net";
 
 import {
 	getCampaign,
@@ -13,6 +14,11 @@ import {
 	unwrapResponseData,
 } from "./api";
 import { extractResults, type RecordValue } from "./core";
+import {
+	type PinnedHttpSender,
+	type ResolvedWebhookAddress,
+	sendPinnedHttpRequestWithFallback,
+} from "./webhook-transport";
 
 export type CheckLevel = "pass" | "warn" | "fail";
 
@@ -43,6 +49,8 @@ export interface CampaignPreflightOptions {
 	maxAudience?: number;
 	checkLinks?: boolean;
 	linkCheckTimeoutMs?: number;
+	/** Network seams for link checks; production uses DNS and node:http(s). */
+	linkCheck?: LinkCheckOptions;
 }
 
 function summarizeChecks(checks: CampaignPreflightCheck[]) {
@@ -60,13 +68,14 @@ function summarizeChecks(checks: CampaignPreflightCheck[]) {
 async function checkLinksWithBoundedConcurrency(
 	urls: string[],
 	timeoutMs: number,
-): Promise<Array<{ url: string; ok: boolean; status?: number; error?: string }>> {
-	const results: Array<{ url: string; ok: boolean; status?: number; error?: string }> = [];
+	options: LinkCheckOptions,
+): Promise<LinkCheckResult[]> {
+	const results: LinkCheckResult[] = [];
 	const concurrency = 5;
 	for (let i = 0; i < urls.length; i += concurrency) {
 		const batch = urls.slice(i, i + concurrency);
 		const batchResults = await Promise.all(
-			batch.map((url) => checkLink(url, timeoutMs)),
+			batch.map((url) => checkLink(url, timeoutMs, options)),
 		);
 		results.push(...batchResults);
 	}
@@ -252,225 +261,310 @@ export function isSafeFetchUrl(url: string): { safe: boolean; reason?: string } 
 	return { safe: true };
 }
 
+/** Resolves every address of a hostname; the default uses the system resolver. */
+export type HostAddressLookup = (
+	hostname: string,
+) => Promise<readonly Readonly<{ address: string; family: number }>[]>;
+
+function lookupAllHostAddresses(
+	hostname: string,
+): Promise<readonly Readonly<{ address: string; family: number }>[]> {
+	return dnsLookup(hostname, { all: true, verbatim: true });
+}
+
+export type PublicHostResolution =
+	| Readonly<{ safe: true; addresses: readonly ResolvedWebhookAddress[] }>
+	| Readonly<{ safe: false; reason: string }>;
+
 /**
- * Resolve a hostname via DNS and check every resolved address against
- * isPrivateHost. This prevents DNS rebinding attacks where a hostname
- * like "evil.com" resolves to 127.0.0.1 or an internal IP.
- *
- * Uses Node's dns.promises.lookup which Bun supports. Falls open if
- * resolution fails (e.g. localhost with no DNS entry) because the
- * hostname-only check above already handles literal private IPs.
+ * Resolve the addresses that a pinned connection to `url` may use. The URL
+ * must pass the static policy and every resolved address must be globally
+ * routable. Callers connect only to the returned addresses, so a later lookup
+ * cannot rebind the host. Rejects when DNS fails or yields no usable address,
+ * so callers fail closed instead of treating an unverified host as safe.
  */
-async function isSafeResolvedHost(hostname: string): Promise<{ safe: boolean; reason?: string }> {
-	let addresses: Array<{ address: string }>;
-	try {
-		addresses = await dnsLookup(hostname, { all: true });
-	} catch {
-		// DNS resolution failed — the hostname-only check already caught
-		// literal private IPs. If it's a public hostname that doesn't
-		// resolve, the fetch will fail anyway. Allow it.
-		return { safe: true };
+export async function resolvePublicHostAddresses(
+	url: string,
+	lookupHost: HostAddressLookup = lookupAllHostAddresses,
+): Promise<PublicHostResolution> {
+	const staticSafety = isSafeFetchUrl(url);
+	if (!staticSafety.safe) {
+		return { safe: false, reason: staticSafety.reason ?? "URL is not public" };
 	}
-	for (const addr of addresses) {
-		if (isPrivateHost(addr.address)) {
+	const hostname = new URL(url).hostname.replace(/^\[|\]$/gu, "");
+	const literalFamily = isIP(hostname);
+	const answers =
+		literalFamily === 0
+			? await lookupHost(hostname)
+			: [{ address: hostname, family: literalFamily }];
+	if (answers.length === 0) {
+		throw new Error(`Host has no DNS addresses: ${hostname}`);
+	}
+	const addresses: ResolvedWebhookAddress[] = [];
+	for (const { address } of answers) {
+		const family = isIP(address);
+		if (family === 0) {
+			throw new Error(`Host resolved to a non-IP address: ${hostname}`);
+		}
+		if (isPrivateHost(address)) {
 			return {
 				safe: false,
-				reason: `Host ${hostname} resolves to private/internal address ${addr.address}`,
+				reason: `Host ${hostname} resolves to private/internal address ${address}`,
 			};
 		}
+		addresses.push({ address, family: family === 6 ? 6 : 4 });
 	}
-	return { safe: true };
+	return {
+		safe: true,
+		addresses: addresses.sort((left, right) => left.family - right.family),
+	};
 }
 
 /**
- * Asynchronously validate that a URL is safe to fetch: must be http(s),
- * not target a private/internal host, and the hostname must not resolve
- * to a private/internal IP (DNS rebinding defense).
+ * Validate a URL and every address its host currently resolves to. DNS
+ * failures fail closed. Validation alone cannot stop DNS rebinding: the later
+ * connection must be pinned to the validated addresses, as `checkLink` and
+ * webhook delivery do.
  */
-export async function isSafeFetchUrlAsync(url: string): Promise<{ safe: boolean; reason?: string }> {
-	let parsed: URL;
+export async function isSafeFetchUrlAsync(
+	url: string,
+): Promise<{ safe: boolean; reason?: string }> {
 	try {
-		parsed = new URL(url);
+		const resolution = await resolvePublicHostAddresses(url);
+		return resolution.safe
+			? { safe: true }
+			: { safe: false, reason: resolution.reason };
 	} catch {
-		return { safe: false, reason: "Invalid URL" };
-	}
-	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-		return { safe: false, reason: `Protocol ${parsed.protocol} not allowed` };
-	}
-	if (isPrivateHost(parsed.hostname)) {
 		return {
 			safe: false,
-			reason: `Host ${parsed.hostname} is private/internal`,
+			reason: `Host ${new URL(url).hostname} could not be resolved`,
 		};
 	}
-	// DNS resolution pinning: resolve and check every address.
-	const resolved = await isSafeResolvedHost(parsed.hostname);
-	if (!resolved.safe) {
-		return resolved;
-	}
-	return { safe: true };
 }
 
-export async function checkLink(
-	url: string,
-	timeoutMs: number,
-): Promise<{
+export interface LinkCheckResult {
 	url: string;
 	ok: boolean;
 	status?: number;
 	error?: string;
-}> {
-	try {
-		if (isCampaignControlLink(new URL(url))) {
-			return { url, ok: false, error: "Blocked: campaign control link" };
+}
+
+/** Network seams for link checks; tests inject them to avoid real traffic. */
+export interface LinkCheckOptions {
+	lookupHost?: HostAddressLookup;
+	send?: PinnedHttpSender;
+}
+
+const MAX_LINK_CHECK_REDIRECTS = 5;
+const LINK_CHECK_HEADERS: Readonly<Record<string, string>> = {
+	Accept: "*/*",
+	"User-Agent": "listmonk-ops-link-check/1",
+};
+const LOCAL_ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/u;
+
+type LinkHopFailure = Readonly<{
+	kind: "blocked" | "unverifiable" | "failed";
+	reason: string;
+}>;
+type LinkHopOutcome =
+	| Readonly<{ kind: "response"; status: number; location?: string }>
+	| LinkHopFailure;
+
+/**
+ * Summarize a failure by its runtime error code only. Error messages can carry
+ * remote text such as certificate names, so they are never echoed.
+ */
+function describeErrorCode(error: unknown): string {
+	const candidates = error instanceof AggregateError ? error.errors : [error];
+	for (const candidate of candidates) {
+		const code =
+			typeof candidate === "object" && candidate !== null
+				? (candidate as { code?: unknown }).code
+				: undefined;
+		if (typeof code === "string" && LOCAL_ERROR_CODE_PATTERN.test(code)) {
+			return ` (${code})`;
 		}
-	} catch {
-		return { url, ok: false, error: "Blocked: invalid URL" };
 	}
-	// SSRF defense: reject private/internal hosts before fetching,
-	// including DNS resolution pinning.
-	const safety = await isSafeFetchUrlAsync(url);
-	if (!safety.safe) {
-		return { url, ok: false, error: `Blocked: ${safety.reason}` };
-	}
+	return "";
+}
 
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), timeoutMs);
-	const maxRedirects = 5;
-	let currentUrl = url;
-	let redirectCount = 0;
-
-	try {
-		let response = await fetch(currentUrl, {
-			method: "HEAD",
-			redirect: "manual",
-			signal: controller.signal,
-		});
-
-		const headResult = await followRedirects(
-			response,
-			"HEAD",
-			currentUrl,
-			redirectCount,
-			maxRedirects,
-			controller,
-		);
-		if (headResult.error) {
-			return { url, ok: false, error: headResult.error };
+/** Stops waiting on abort; the abandoned promise stays handled. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const onAbort = () => reject(signal.reason);
+		if (signal.aborted) {
+			onAbort();
+		} else {
+			signal.addEventListener("abort", onAbort, { once: true });
 		}
-		response = headResult.response;
-		currentUrl = headResult.currentUrl;
-		redirectCount = headResult.redirectCount;
-
-		if (response.status === 405 || response.status === 501) {
-			response.body?.cancel().catch(() => {});
-			response = await fetch(currentUrl, {
-				method: "GET",
-				redirect: "manual",
-				signal: controller.signal,
-			});
-			const getResult = await followRedirects(
-				response,
-				"GET",
-				currentUrl,
-				redirectCount,
-				maxRedirects,
-				controller,
-			);
-			if (getResult.error) {
-				return { url, ok: false, error: getResult.error };
-			}
-			response = getResult.response;
-			currentUrl = getResult.currentUrl;
-			redirectCount = getResult.redirectCount;
-		}
-
-		// If a 3xx remains after followRedirects, distinguish between
-		// budget exhaustion and a Location-less 3xx.
-		if (response.status >= 300 && response.status < 400) {
-			const hasLocation = response.headers.get("location");
-			const reason =
-				redirectCount >= maxRedirects
-					? `Exceeded max redirects (${maxRedirects})`
-					: hasLocation
-						? `Unexpected redirect state`
-						: `Redirect ${response.status} without Location header`;
-			return {
-				url,
-				ok: false,
-				status: response.status,
-				error: reason,
-			};
-		}
-
-		response.body?.cancel().catch(() => {});
-		return {
-			url,
-			ok: response.status < 400,
-			status: response.status,
-		};
-	} catch (error) {
-		return {
-			url,
-			ok: false,
-			error: error instanceof Error ? error.message : String(error),
-		};
-	} finally {
-		clearTimeout(timeout);
-	}
+		promise
+			.then(resolve, reject)
+			.finally(() => signal.removeEventListener("abort", onAbort));
+	});
 }
 
 /**
- * Shared redirect-following loop with per-hop SSRF revalidation.
- * Used by both HEAD and GET paths in checkLink.
+ * Validate one hop and, only when every resolved address is public, send the
+ * request pinned to those addresses. A host that cannot be resolved makes the
+ * hop unverifiable, and nothing is fetched.
  */
-async function followRedirects(
-	response: Response,
-	method: string,
-	currentUrl: string,
-	redirectCount: number,
-	maxRedirects: number,
-	controller: AbortController,
-): Promise<{
-	response: Response;
-	currentUrl: string;
-	redirectCount: number;
-	error?: string;
-}> {
-	while (
-		response.status >= 300 &&
-		response.status < 400 &&
-		response.headers.get("location") &&
-		redirectCount < maxRedirects
-	) {
-		const location = response.headers.get("location")!;
-		response.body?.cancel().catch(() => {});
-		currentUrl = new URL(location, currentUrl).toString();
-		if (isCampaignControlLink(new URL(currentUrl))) {
-			return {
-				response,
-				currentUrl,
-				redirectCount,
-				error: "Redirect blocked: campaign control link",
-			};
-		}
-		const redirectSafety = await isSafeFetchUrlAsync(currentUrl);
-		if (!redirectSafety.safe) {
-			return {
-				response,
-				currentUrl,
-				redirectCount,
-				error: `Redirect blocked: ${redirectSafety.reason}`,
-			};
-		}
-		redirectCount += 1;
-		response = await fetch(currentUrl, {
-			method,
-			redirect: "manual",
-			signal: controller.signal,
-		});
+async function requestLinkHop(
+	url: string,
+	method: "GET" | "HEAD",
+	signal: AbortSignal,
+	timeoutMs: number,
+	options: LinkCheckOptions,
+): Promise<LinkHopOutcome> {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return { kind: "blocked", reason: "invalid URL" };
 	}
-	return { response, currentUrl, redirectCount };
+	if (isCampaignControlLink(parsed)) {
+		return { kind: "blocked", reason: "campaign control link" };
+	}
+	if (parsed.username || parsed.password) {
+		return { kind: "blocked", reason: "URL credentials are not allowed" };
+	}
+	const timedOut: LinkHopFailure = {
+		kind: "failed",
+		reason: `Timed out after ${timeoutMs}ms`,
+	};
+	let resolution: PublicHostResolution;
+	try {
+		resolution = await untilAborted(
+			resolvePublicHostAddresses(url, options.lookupHost),
+			signal,
+		);
+	} catch (error) {
+		return signal.aborted
+			? timedOut
+			: {
+					kind: "unverifiable",
+					reason: `DNS resolution failed for ${parsed.hostname}${describeErrorCode(error)}`,
+				};
+	}
+	if (!resolution.safe) {
+		return { kind: "blocked", reason: resolution.reason };
+	}
+	try {
+		const response = await sendPinnedHttpRequestWithFallback(
+			{
+				url,
+				addresses: resolution.addresses,
+				method,
+				headers: LINK_CHECK_HEADERS,
+				signal,
+			},
+			options.send,
+		);
+		return { kind: "response", ...response };
+	} catch (error) {
+		return signal.aborted
+			? timedOut
+			: { kind: "failed", reason: `Request failed${describeErrorCode(error)}` };
+	}
+}
+
+function describeLinkHopFailure(
+	failure: LinkHopFailure,
+	redirected: boolean,
+): string {
+	if (failure.kind === "failed") {
+		return failure.reason;
+	}
+	const label =
+		failure.kind === "blocked"
+			? redirected
+				? "Redirect blocked"
+				: "Blocked"
+			: redirected
+				? "Redirect unverifiable"
+				: "Unverifiable";
+	return `${label}: ${failure.reason}`;
+}
+
+/**
+ * Check one link with HEAD (GET after a 405/501) and at most five manually
+ * followed redirects. Every hop is revalidated against the URL policy,
+ * resolved once, and connected only to the validated addresses, so DNS
+ * rebinding cannot steer a request to a private or metadata address. Hosts
+ * that cannot be resolved are reported as unverifiable and never fetched.
+ * Results carry policy reasons, status codes, and local error codes only.
+ */
+export async function checkLink(
+	url: string,
+	timeoutMs: number,
+	options: LinkCheckOptions = {},
+): Promise<LinkCheckResult> {
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), timeoutMs);
+	let currentUrl = url;
+	let method: "GET" | "HEAD" = "HEAD";
+	let redirectCount = 0;
+	try {
+		for (;;) {
+			const hop = await requestLinkHop(
+				currentUrl,
+				method,
+				controller.signal,
+				timeoutMs,
+				options,
+			);
+			if (hop.kind !== "response") {
+				return {
+					url,
+					ok: false,
+					error: describeLinkHopFailure(hop, redirectCount > 0),
+				};
+			}
+			const { status, location } = hop;
+			if (!Number.isInteger(status) || status < 100 || status > 599) {
+				return {
+					url,
+					ok: false,
+					error: "Request failed (invalid HTTP status)",
+				};
+			}
+			if (method === "HEAD" && (status === 405 || status === 501)) {
+				method = "GET";
+				continue;
+			}
+			if (status < 300 || status >= 400) {
+				return { url, ok: status < 400, status };
+			}
+			if (!location) {
+				return {
+					url,
+					ok: false,
+					status,
+					error: `Redirect ${status} without Location header`,
+				};
+			}
+			if (redirectCount >= MAX_LINK_CHECK_REDIRECTS) {
+				return {
+					url,
+					ok: false,
+					status,
+					error: `Exceeded max redirects (${MAX_LINK_CHECK_REDIRECTS})`,
+				};
+			}
+			try {
+				currentUrl = new URL(location, currentUrl).toString();
+			} catch {
+				return {
+					url,
+					ok: false,
+					status,
+					error: "Redirect blocked: invalid Location header",
+				};
+			}
+			redirectCount += 1;
+		}
+	} finally {
+		clearTimeout(timeout);
+	}
 }
 
 export async function runCampaignPreflight(
@@ -649,6 +743,7 @@ export async function runCampaignPreflight(
 			const linkResults = await checkLinksWithBoundedConcurrency(
 				links,
 				linkCheckTimeoutMs,
+				options.linkCheck ?? {},
 			);
 			const brokenLinks = linkResults.filter((entry) => !entry.ok);
 			checks.push({
