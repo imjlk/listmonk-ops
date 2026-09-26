@@ -65,14 +65,16 @@ export function listmonkResponseStatus(response: unknown): number | undefined {
 /**
  * Render a client error envelope as `HTTP <status>: <message>`, or only the
  * message when the envelope carries no HTTP response. An absent body
- * renders as an empty message rather than "undefined".
+ * (undefined or null) renders as an empty message rather than
+ * "undefined" or "null".
  */
 export function formatListmonkErrorResponse(response: unknown): string {
 	const error =
 		response !== null && typeof response === "object"
 			? (response as { error?: unknown }).error
 			: undefined;
-	const message = error === undefined ? "" : formatListmonkError(error);
+	const message =
+		error === undefined || error === null ? "" : formatListmonkError(error);
 	const status = listmonkResponseStatus(response);
 	if (status === undefined) {
 		return message;

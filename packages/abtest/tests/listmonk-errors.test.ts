@@ -57,11 +57,13 @@ describe("formatListmonkErrorResponse", () => {
 		expect(listmonkResponseStatus(envelope("boom", 500))).toBe(500);
 	});
 
-	it("renders an absent body as empty instead of undefined", () => {
+	it("renders an absent body as empty instead of undefined or null", () => {
 		expect(formatListmonkErrorResponse(envelope(undefined, 500))).toBe(
 			"HTTP 500",
 		);
 		expect(formatListmonkErrorResponse(envelope(undefined))).toBe("");
+		expect(formatListmonkErrorResponse(envelope(null, 502))).toBe("HTTP 502");
+		expect(formatListmonkErrorResponse(envelope(null))).toBe("");
 	});
 
 	it("never renders the request or its credentials", () => {
