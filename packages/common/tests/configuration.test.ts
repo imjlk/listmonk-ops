@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -34,6 +34,16 @@ async function fixture(profiles?: Record<string, unknown>, defaultProfile?: stri
 afterEach(async () => {
 	await Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
+
+async function rejection(promise: Promise<unknown>): Promise<Error> {
+	try {
+		await promise;
+	} catch (error) {
+		if (error instanceof Error) return error;
+		throw error;
+	}
+	throw new Error("expected the promise to reject");
+}
 
 function withDataDirectoryEnvironment<T>(value: string, action: () => T): T {
 	const previous = process.env.LISTMONK_OPS_DATA_DIR;
@@ -249,6 +259,93 @@ describe("shared Listmonk configuration", () => {
 			await writeFile(options.configFile, JSON.stringify({ schemaVersion: 1, profiles: { one: { baseUrl: "https://one.test", username: "test", ...addition } } }));
 			await expect(resolveListmonkConfiguration(options)).rejects.toThrow("Invalid Listmonk profile entry");
 		}
+	});
+
+	test("names the requested profile, its origin, and the available profiles", async () => {
+		const options = await fixture({
+			two: { baseUrl: "https://two.test", username: "test" },
+			one: { baseUrl: "https://one.test", username: "test" },
+		});
+		await expect(
+			resolveListmonkConfiguration({ ...options, profile: "prod" }),
+		).rejects.toThrow(
+			`Requested Listmonk profile "prod" does not exist in ${options.configFile}; available profiles: one, two`,
+		);
+		await expect(
+			resolveListmonkConfiguration({
+				...options,
+				env: { LISTMONK_OPS_PROFILE: "prod" },
+			}),
+		).rejects.toThrow(
+			'Requested Listmonk profile "prod" (selected by LISTMONK_OPS_PROFILE) does not exist',
+		);
+		// An invalid name is described, not echoed.
+		const invalid = await rejection(
+			resolveListmonkConfiguration({ ...options, profile: "../../etc/passwd" }),
+		);
+		expect(invalid.message).toContain(
+			"Requested Listmonk profile name is invalid",
+		);
+		expect(invalid.message).not.toContain("passwd");
+
+		await writeFile(
+			options.configFile,
+			JSON.stringify({ schemaVersion: 1, profiles: {} }),
+		);
+		await expect(
+			resolveListmonkConfiguration({ ...options, profile: "prod" }),
+		).rejects.toThrow(`${options.configFile} defines no profiles`);
+
+		const empty = await fixture();
+		await expect(
+			resolveListmonkConfiguration({
+				homeDirectory: empty.homeDirectory,
+				env: {},
+				profile: "prod",
+			}),
+		).rejects.toThrow(
+			`no profile configuration file was found at ${join(empty.homeDirectory, ".listmonk-ops", "config.json")}`,
+		);
+	});
+
+	test("names the file and errno code when a configuration or token file cannot be opened", async () => {
+		const options = await fixture();
+		const missingConfig = join(options.homeDirectory, "absent.json");
+		await expect(
+			resolveListmonkConfiguration({ ...options, configFile: missingConfig }),
+		).rejects.toThrow(
+			`Unable to open Listmonk profile configuration ${missingConfig} (ENOENT: file does not exist)`,
+		);
+
+		const tokenFile = join(options.homeDirectory, "token");
+		const resolved = await resolveListmonkConfiguration({
+			homeDirectory: options.homeDirectory,
+			env: {},
+			tokenFile,
+		});
+		const missing = await rejection(resolved.readCredential());
+		expect(missing.message).toBe(
+			`Unable to open Listmonk token file ${tokenFile} (ENOENT: file does not exist)`,
+		);
+		expect(missing.cause).toMatchObject({ code: "ENOENT" });
+
+		// Root can read a mode-000 file, so only non-root runs can observe EACCES.
+		if (process.getuid?.() !== 0) {
+			await writeFile(tokenFile, "private-token-value\n");
+			await chmod(tokenFile, 0o000);
+			const denied = await rejection(resolved.readCredential());
+			await chmod(tokenFile, 0o600);
+			expect(denied.message).toBe(
+				`Unable to open Listmonk token file ${tokenFile} (EACCES: permission denied)`,
+			);
+			expect(denied.message).not.toContain("private-token-value");
+		}
+
+		await rm(tokenFile, { force: true });
+		await mkdir(tokenFile);
+		await expect(resolved.readCredential()).rejects.toThrow(
+			`Unable to read Listmonk token file ${tokenFile}: expected a bounded regular file`,
+		);
 	});
 
 	test("rejects oversized, empty, malformed, and non-regular authentication files", async () => {

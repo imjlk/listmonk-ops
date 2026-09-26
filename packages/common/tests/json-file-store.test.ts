@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
+	mkdir,
 	mkdtemp,
 	readdir,
 	readFile,
@@ -13,6 +14,7 @@ import { dirname, join } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
 	JsonFileLockTimeoutError,
+	JsonFileStoreReadError,
 	readJsonFileStore,
 	type JsonFileStore,
 	updateJsonFileStore,
@@ -124,6 +126,49 @@ describe("JSON file store", () => {
 		await expect(readJsonFileStore(store)).rejects.toThrow(
 			"Invalid counter store",
 		);
+	});
+
+	test("names the store file in read, JSON, and validation errors", async () => {
+		const store = await createCounterStore();
+		const capture = async (): Promise<JsonFileStoreReadError> => {
+			try {
+				await readJsonFileStore(store);
+			} catch (error) {
+				if (error instanceof JsonFileStoreReadError) return error;
+				throw error;
+			}
+			throw new Error("expected the store read to fail");
+		};
+
+		await writeFile(store.path, '{"version":1,"count":', "utf8");
+		const corrupt = await capture();
+		expect(corrupt.path).toBe(store.path);
+		expect(corrupt.message).toStartWith(
+			`JSON store ${store.path} is not valid JSON: `,
+		);
+		expect(corrupt.cause).toBeInstanceOf(SyntaxError);
+		// A write under the lock surfaces the same error and keeps the file.
+		await expect(
+			updateJsonFileStore(store, (current) =>
+				commitJsonFileStoreUpdate(current, undefined),
+			),
+		).rejects.toThrow(`JSON store ${store.path} is not valid JSON`);
+		expect(await readFile(store.path, "utf8")).toBe('{"version":1,"count":');
+
+		await writeFile(store.path, '{"version":2,"count":1}\n', "utf8");
+		const invalid = await capture();
+		expect(invalid.message).toBe(
+			`JSON store ${store.path} failed validation: Invalid counter store`,
+		);
+		expect((invalid.cause as Error).message).toBe("Invalid counter store");
+
+		await rm(store.path);
+		await mkdir(store.path);
+		const unreadable = await capture();
+		expect(unreadable.message).toStartWith(
+			`Unable to read JSON store ${store.path}: `,
+		);
+		expect(unreadable.cause).toMatchObject({ code: "EISDIR" });
 	});
 
 	test("serializes concurrent read-modify-write transactions", async () => {

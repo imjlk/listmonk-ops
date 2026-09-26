@@ -2,6 +2,7 @@ export { normalizeListmonkApiUrl } from "./listmonk-url";
 export {
 	commitJsonFileStoreUpdate,
 	JsonFileLockTimeoutError,
+	JsonFileStoreReadError,
 	readJsonFileStore,
 	updateJsonFileStore,
 	writeJsonFileStore,
