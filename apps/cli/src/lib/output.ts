@@ -73,7 +73,11 @@ export function captureCliDiagnostics(options: { stream?: boolean } = {}) {
 
 /**
  * Console methods that Bun writes to stdout, other than `info`, which
- * diagnostic capture already intercepts for the whole machine-mode run.
+ * diagnostic capture already intercepts for the whole machine-mode run. The
+ * CLI runs only on Bun, which writes timer and `assert` output to stderr. The
+ * MCP stdio router (packages/mcp/src/stdio-console.ts) also covers Node and
+ * rebinds a stderr console; this capture forwards arguments to the diagnostic
+ * sink so object details stay omitted.
  */
 const STDOUT_CONSOLE_METHODS = [
 	"log",
