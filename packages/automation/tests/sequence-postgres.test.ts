@@ -866,4 +866,43 @@ describe("Postgres sequence repository", () => {
 			}
 		},
 	);
+	postgresTest("health counts only fresh workers and tolerates stale records", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		const repository = createPostgresSequenceRepository({
+			connectionString: databaseUrl,
+			maxConnections: 1,
+		});
+		repositories.push(repository);
+		const now = new Date();
+		const crashedAt = new Date(now.getTime() - 86_400_000).toISOString();
+		// Upserting prunes records past the 30-day retention first, so take the
+		// baseline after the crashed record exists.
+		await repository.upsertWorker({
+			id: randomUUID(),
+			status: "running",
+			startedAt: crashedAt,
+			heartbeatAt: crashedAt,
+		});
+		const before = await repository.getRuntimeHealth({
+			now,
+			workerStaleMs: 60_000,
+		});
+		await repository.upsertWorker({
+			id: randomUUID(),
+			status: "running",
+			startedAt: now.toISOString(),
+			heartbeatAt: now.toISOString(),
+		});
+		const after = await repository.getRuntimeHealth({
+			now,
+			workerStaleMs: 60_000,
+		});
+
+		// The crashed record stays stale and is not counted as running; the
+		// fresh worker is, and it keeps the runtime healthy despite the crash.
+		expect(before.workers.stale).toBeGreaterThanOrEqual(1);
+		expect(after.workers.stale).toBe(before.workers.stale);
+		expect(after.workers.running).toBe(before.workers.running + 1);
+		expect(after.healthy).toBe(true);
+	});
 });

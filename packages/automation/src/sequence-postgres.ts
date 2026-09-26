@@ -1383,7 +1383,12 @@ export function createPostgresSequenceRepository(
 				`,
 				sql<WorkerHealthRow[]>`
 					SELECT
-						count(*) FILTER (WHERE status = 'running')::int AS running,
+						count(*) FILTER (
+							WHERE status = 'running'
+								AND heartbeat_at >=
+									${nowIso}::timestamptz -
+									${options.workerStaleMs} * interval '1 millisecond'
+						)::int AS running,
 						count(*) FILTER (
 							WHERE status = 'running'
 								AND heartbeat_at <
@@ -1428,10 +1433,10 @@ export function createPostgresSequenceRepository(
 			return {
 				store: "postgres",
 				schemaVersion: SEQUENCE_POSTGRES_SCHEMA_VERSION,
-				healthy:
-					workers.stale === 0 &&
-					(enrollments.due === 0 ||
-						workers.running > workers.stale),
+				// Same rule as the file store and the webhook runtime:
+				// `running` counts fresh workers only, and stale records do not
+				// fail health while a fresh worker covers due enrollments.
+				healthy: enrollments.due === 0 || workers.running > 0,
 				checkedAt: nowIso,
 				definitions,
 				enrollments: {

@@ -1196,10 +1196,21 @@ export function buildSequenceRuntimeHealth(
 			(entry.leaseExpiresAt === undefined ||
 				new Date(entry.leaseExpiresAt).getTime() <= nowMs),
 	);
-	const activeWorkers = workers.filter((worker) => worker.status === "running");
-	const staleWorkers = activeWorkers.filter(
+	// Match the webhook runtime: a `running` record whose heartbeat is older
+	// than workerStaleMs is a crashed or stopped worker. It is reported as
+	// stale, but only fresh workers count as running, and stale records do
+	// not make the runtime unhealthy while fresh workers cover due work
+	// (they otherwise linger until the 30-day retention sweep).
+	const runningWorkers = workers.filter(
+		(worker) => worker.status === "running",
+	);
+	const staleWorkers = runningWorkers.filter(
 		(worker) =>
 			nowMs - new Date(worker.heartbeatAt).getTime() > options.workerStaleMs,
+	);
+	const activeWorkers = runningWorkers.filter(
+		(worker) =>
+			nowMs - new Date(worker.heartbeatAt).getTime() <= options.workerStaleMs,
 	);
 	const heartbeatTimes = workers
 		.map((worker) => worker.heartbeatAt)
@@ -1214,9 +1225,7 @@ export function buildSequenceRuntimeHealth(
 					!entry.leaseExpiresAt ||
 					Number.isFinite(new Date(entry.leaseExpiresAt).getTime()),
 			) &&
-			staleWorkers.length === 0 &&
-			(dueEnrollments.length === 0 ||
-				activeWorkers.length > staleWorkers.length),
+			(dueEnrollments.length === 0 || activeWorkers.length > 0),
 		checkedAt: options.now.toISOString(),
 		definitions: {
 			total: definitions.length,
