@@ -79,7 +79,7 @@ CLI/OpenAPI 클라이언트는 토큰 인증을 사용합니다.
 export LISTMONK_API_URL="http://localhost:9000/api"
 export LISTMONK_USERNAME="api-admin"
 export LISTMONK_API_TOKEN="<your-token>"
-# 선택: 자동화 환경에서 A/B 통계 로그 출력 억제
+# 선택: stderr로 출력되는 A/B 통계 진단 억제
 export LISTMONK_OPS_ABTEST_SILENT="1"
 # 선택: CLI/MCP가 공유하는 상태 파일 경로 재정의
 export LISTMONK_OPS_ABTEST_STORE="$HOME/.listmonk-ops/abtests.json"
@@ -256,7 +256,9 @@ listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 1,024자). NDJSON은 각 진단을 `{"diagnostic":{"level":"info","message":"..."}}`
 형태로 stderr에 즉시 출력하므로 줄 단위로 파싱하세요. 성공·정보·경고·오류의
 의미를 각각 유지하며 임의 객체의 상세 값은 제외합니다. quiet 모드는 부가 진단을
-생략합니다. 장기 실행 sequence/webhook 워커는 NDJSON·human·quiet 모드를 지원하고
+생략합니다. 명령 실행 중 도메인 코드나 의존성이 console로 출력하는 내용은
+stdout 대신 info 진단으로 수집합니다. 장기 실행 sequence/webhook 워커는
+NDJSON·human·quiet 모드를 지원하고
 진단을 버퍼링하는 JSON 모드는 거부합니다. 결과를 파싱할 때 stderr를 stdout에
 합치지 마세요. 명시적인 도움말·버전·셸 자동완성 요청은 텍스트 형식을 유지합니다.
 대화형 입력과 `ops digest --markdown-only`는 `--format human`이 필요합니다.
@@ -356,7 +358,9 @@ listmonk-mcp \
   --port 3000
 ```
 
-명령 기반 MCP 클라이언트에서는 `listmonk-mcp --stdio`를 사용합니다. 기본
+명령 기반 MCP 클라이언트에서는 `listmonk-mcp --stdio`를 사용합니다. stdio
+모드의 stdout에는 JSON-RPC 메시지만 출력하며, 의존성 로그와 A/B 통계 진단을
+포함한 console 출력은 stderr로 보냅니다. 기본
 HTTP 런타임은 기존 REST 엔드포인트를 유지하면서 `/mcp`에서 표준
 Streamable HTTP MCP를 제공합니다. 로컬 HTTP는 추가 설정 없이 계속 동작합니다.
 loopback 외부에 바인딩하려면 별도의 MCP Bearer token, 허용 Host, 브라우저
@@ -1444,7 +1448,9 @@ enrollment 복구까지 유지해 worker가 재개돼도 중복 발송을 막습
 Postgres 구현은 `FOR UPDATE SKIP LOCKED`, lease-token fencing,
 advisory-lock 기반 schema 초기화를 사용합니다. Transactional idempotency
 claim도 같은 데이터베이스에 저장하므로 모든 worker가 하나의 발송 판단을
-공유합니다. `sequences status`는 due work,
+공유합니다. webhook 런타임과 마찬가지로 PgBouncer 같은 transaction-mode
+pooler를 위해 named prepared statement를 사용하지 않으며, 서버 NOTICE는
+출력하지 않고 버립니다. `sequences status`는 due work,
 ambiguous 상태, lease, running/stale/stopped/failed worker health를 보고하며
 오래된 worker 기록은 retention 기간 뒤 정리합니다. Sequence
 create/revise/enroll/pause/resume 및 운영자 reconcile은 typed `sequence.*`

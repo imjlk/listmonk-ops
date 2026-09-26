@@ -7,6 +7,7 @@ import {
 	getOutput,
 	renderCliDiagnostics,
 	renderCliError,
+	runWithStdoutConsoleCapture,
 } from "../src/lib/output";
 
 afterEach(() => prepareCliArgv([]));
@@ -68,6 +69,56 @@ describe("CLI diagnostic boundary", () => {
 			stdout.mockRestore();
 		}
 	});
+	test("captures stray stdout console output only while a machine-mode command runs", async () => {
+		prepareCliArgv(["--format=json"]);
+		const stderr = spyOn(console, "error").mockImplementation(() => undefined);
+		const log = spyOn(console, "log").mockImplementation(() => undefined);
+		const debug = spyOn(console, "debug").mockImplementation(() => undefined);
+		const table = spyOn(console, "table").mockImplementation(() => undefined);
+		const captured = captureCliDiagnostics();
+		try {
+			const result = await runWithStdoutConsoleCapture(() => {
+				console.log("dependency log");
+				console.debug("dependency debug");
+				console.table([{ row: 1 }]);
+				return "result";
+			});
+			expect(result).toBe("result");
+			expect(log).not.toHaveBeenCalled();
+			expect(debug).not.toHaveBeenCalled();
+			expect(table).not.toHaveBeenCalled();
+			await expect(
+				runWithStdoutConsoleCapture(() => {
+					throw new Error("handler failed");
+				}),
+			).rejects.toThrow("handler failed");
+			// Output outside a command handler, such as help, keeps stdout.
+			console.log("help text");
+			expect(log).toHaveBeenCalledWith("help text");
+			captured.restore();
+			renderCliDiagnostics(captured);
+			expect(JSON.parse(String(stderr.mock.calls[0]?.[0])).diagnostics).toEqual([
+				{ level: "info", message: "dependency log" },
+				{ level: "info", message: "dependency debug" },
+				{ level: "info", message: "[diagnostic details omitted]" },
+			]);
+		} finally {
+			captured.restore();
+			for (const spy of [stderr, log, debug, table]) spy.mockRestore();
+		}
+	});
+
+	test("leaves human-mode console output on stdout", async () => {
+		prepareCliArgv([]);
+		const log = spyOn(console, "log").mockImplementation(() => undefined);
+		try {
+			await runWithStdoutConsoleCapture(() => console.log("human output"));
+			expect(log).toHaveBeenCalledWith("human output");
+		} finally {
+			log.mockRestore();
+		}
+	});
+
 	test("caps diagnostics and omits object details without hiding quiet-mode errors", () => {
 		prepareCliArgv(["--format=json"]);
 		const stderr = spyOn(console, "error").mockImplementation(() => undefined);

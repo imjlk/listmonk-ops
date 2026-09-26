@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -123,6 +123,29 @@ describe("Postgres sequence repository", () => {
 			await observer.end({ timeout: 5 });
 			await blocker.end({ timeout: 5 });
 		}
+	});
+	postgresTest("keeps idempotent schema notices off stdout", async () => {
+		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");
+		// The schema already exists, so each CREATE ... IF NOT EXISTS emits a
+		// NOTICE that postgres.js would otherwise print with console.log,
+		// corrupting MCP stdio and CLI machine output.
+		const log = spyOn(console, "log").mockImplementation(() => undefined);
+		const write = spyOn(process.stdout, "write").mockImplementation(() => true);
+		const repository = createPostgresSequenceRepository({
+			connectionString: databaseUrl,
+			maxConnections: 1,
+		});
+		let stdoutCalls: unknown[][] = [];
+		try {
+			await repository.listDefinitions();
+		} finally {
+			// mockRestore() clears recorded calls, so snapshot them first.
+			stdoutCalls = [...log.mock.calls, ...write.mock.calls];
+			await repository.close?.();
+			log.mockRestore();
+			write.mockRestore();
+		}
+		expect(stdoutCalls).toEqual([]);
 	});
 	postgresTest("protects verified sequence acceptance until enrollment recovery", async () => {
 		if (!databaseUrl) throw new Error("Postgres integration database is unavailable");

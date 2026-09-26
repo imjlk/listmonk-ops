@@ -22,11 +22,21 @@ afterAll(() => {
 	rmSync(temporaryDirectory, { recursive: true, force: true });
 });
 
-function spawnCli(args: string[]) {
-	const executable = process.env.CLI_TEST_EXECUTABLE?.trim();
+const executable = process.env.CLI_TEST_EXECUTABLE?.trim();
+const noisyDependencyPreload = resolve(
+	cliDirectory,
+	"tests/fixtures/noisy-dependency-preload.ts",
+);
+
+function spawnCli(args: string[], options: { preload?: string } = {}) {
 	const command = executable
 		? [executable, ...args]
-		: ["bun", "src/index.ts", ...args];
+		: [
+				"bun",
+				...(options.preload ? ["--preload", options.preload] : []),
+				"src/index.ts",
+				...args,
+			];
 	return Bun.spawn(command, {
 		cwd: cliDirectory,
 		env: {
@@ -46,8 +56,8 @@ function spawnCli(args: string[]) {
 	});
 }
 
-async function runCli(args: string[]) {
-	const child = spawnCli(args);
+async function runCli(args: string[], options: { preload?: string } = {}) {
+	const child = spawnCli(args, options);
 	const [stdout, stderr, exitCode] = await Promise.all([
 		new Response(child.stdout).text(),
 		new Response(child.stderr).text(),
@@ -171,5 +181,36 @@ describe("CLI machine output", () => {
 		const version = await runCli(["--version", "--format=json"]);
 		expect(version.exitCode).toBe(0);
 		expect(version.stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+		const completion = await runCli(["complete", "zsh", "--format=json"]);
+		expect(completion.exitCode).toBe(0);
+		expect(completion.stdout).toStartWith("#compdef listmonk-cli");
 	});
+	// A preload can only inject the noisy dependency into the source entrypoint.
+	test.skipIf(Boolean(executable))(
+		"stray dependency logs during a command stay off machine stdout",
+		async () => {
+			const noisy = { level: "info", message: "noisy dependency log" };
+			for (const format of ["json", "ndjson", "quiet"]) {
+				const result = await runCli(["lists", "list", "--format", format], {
+					preload: noisyDependencyPreload,
+				});
+				expect(result.exitCode).toBe(0);
+				expect(JSON.parse(result.stdout)).toEqual([]);
+				if (format === "quiet") {
+					expect(result.stderr).toBe("");
+				} else if (format === "json") {
+					expect(JSON.parse(result.stderr).diagnostics).toContainEqual(noisy);
+				} else {
+					const records = result.stderr.trim().split("\n").map((line) => JSON.parse(line));
+					expect(records).toContainEqual({ diagnostic: noisy });
+				}
+			}
+			const human = await runCli(["lists", "list"], {
+				preload: noisyDependencyPreload,
+			});
+			expect(human.exitCode).toBe(0);
+			expect(human.stdout).toContain("noisy dependency log");
+		},
+		20_000,
+	);
 });

@@ -82,6 +82,57 @@ export function fingerprintAbTestConfig(config: AbTestConfig): string {
 		.digest("hex");
 }
 
+/**
+ * Render the create-time statistical validation as diagnostic lines:
+ * configuration warnings, sample-size recommendations, and the summary.
+ */
+export function formatAbTestConfigurationDiagnostics(
+	result: TestValidationResult,
+): string[] {
+	const lines: string[] = [];
+	if (result.warnings.length > 0) {
+		lines.push("⚠️ A/B Test Configuration Warnings:");
+		lines.push(...result.warnings.map((warning) => `  - ${warning}`));
+	}
+	const rec = result.sampleSizeRecommendation;
+	if (rec === undefined) {
+		return lines;
+	}
+	if (rec.recommendations.length > 0) {
+		lines.push("💡 A/B Test Recommendations:");
+		lines.push(...rec.recommendations.map((item) => `  - ${item}`));
+	}
+	lines.push(
+		"📊 Statistical Summary:",
+		`  - Total subscribers: ${rec.totalSubscribers.toLocaleString()}`,
+		`  - Test group: ${rec.currentTestPercentage}% (${Math.floor((rec.totalSubscribers * rec.currentTestPercentage) / 100).toLocaleString()} subscribers)`,
+		`  - Expected sample per variant: ${rec.expectedSamplePerVariant.toLocaleString()}`,
+		`  - Recommended minimum: ${rec.minimumSamplePerVariant.toLocaleString()} per variant`,
+		`  - Statistical power: ${(rec.statisticalPower * 100).toFixed(1)}%`,
+	);
+	if (rec.currentTestPercentage < rec.recommendedTestPercentage) {
+		lines.push(`  - Recommended test group: ${rec.recommendedTestPercentage}%`);
+	}
+	return lines;
+}
+
+/**
+ * Write the create-time statistical diagnostics to stderr unless
+ * LISTMONK_OPS_ABTEST_SILENT=1. Domain code never writes to stdout: the MCP
+ * stdio transport and CLI machine-output modes reserve it for protocol and
+ * result data, and Bun sends console.info as well as console.log there.
+ */
+export function reportAbTestConfigurationDiagnostics(
+	result: TestValidationResult,
+): void {
+	if (process.env.LISTMONK_OPS_ABTEST_SILENT === "1") {
+		return;
+	}
+	for (const line of formatAbTestConfigurationDiagnostics(result)) {
+		console.warn(line);
+	}
+}
+
 export class AbTestService {
 	private static readonly MAX_VARIANTS = 3;
 	private static readonly VARIANT_LABELS = ["A", "B", "C"];
@@ -229,8 +280,6 @@ export class AbTestService {
 		}
 		// Validate test configuration and provide statistical recommendations
 		if (this.listmonkIntegration) {
-			const shouldLogStatSummary =
-				process.env.LISTMONK_OPS_ABTEST_SILENT !== "1";
 			const totalSubscribers =
 				await this.listmonkIntegration.getTotalSubscribers(
 					config.baseConfig.lists,
@@ -253,52 +302,7 @@ export class AbTestService {
 				);
 			}
 
-			// Log warnings for user awareness
-			if (shouldLogStatSummary && validationResult.warnings.length > 0) {
-				console.warn("⚠️ A/B Test Configuration Warnings:");
-				validationResult.warnings.forEach((warning) => {
-					console.warn(`  - ${warning}`);
-				});
-			}
-
-			// Log recommendations
-			if (
-				shouldLogStatSummary &&
-				validationResult.sampleSizeRecommendation?.recommendations?.length
-			) {
-				console.info("💡 A/B Test Recommendations:");
-				validationResult.sampleSizeRecommendation.recommendations.forEach(
-					(rec) => {
-						console.info(`  - ${rec}`);
-					},
-				);
-			}
-
-			// Log statistical summary
-			if (shouldLogStatSummary && validationResult.sampleSizeRecommendation) {
-				const rec = validationResult.sampleSizeRecommendation;
-				console.info("📊 Statistical Summary:");
-				console.info(
-					`  - Total subscribers: ${rec.totalSubscribers.toLocaleString()}`,
-				);
-				console.info(
-					`  - Test group: ${rec.currentTestPercentage}% (${Math.floor((rec.totalSubscribers * rec.currentTestPercentage) / 100).toLocaleString()} subscribers)`,
-				);
-				console.info(
-					`  - Expected sample per variant: ${rec.expectedSamplePerVariant.toLocaleString()}`,
-				);
-				console.info(
-					`  - Recommended minimum: ${rec.minimumSamplePerVariant.toLocaleString()} per variant`,
-				);
-				console.info(
-					`  - Statistical power: ${(rec.statisticalPower * 100).toFixed(1)}%`,
-				);
-				if (rec.currentTestPercentage < rec.recommendedTestPercentage) {
-					console.info(
-						`  - Recommended test group: ${rec.recommendedTestPercentage}%`,
-					);
-				}
-			}
+			reportAbTestConfigurationDiagnostics(validationResult);
 		}
 		// Generate unique ID for the test
 		const testId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;

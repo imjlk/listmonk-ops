@@ -10,6 +10,7 @@ import {
 	closeSequenceRuntimeRepositories,
 } from "@listmonk-ops/automation";
 import type { ListmonkMCPServer } from "./server.js";
+import { routeConsoleStdoutToStderr } from "./stdio-console.js";
 
 interface RuntimeArgs {
 	profile?: string;
@@ -198,6 +199,11 @@ export async function main() {
 	const port = runtimeArgs.port || Number(process.env.MCP_SERVER_PORT) || 3000;
 	const host = runtimeArgs.host || process.env.MCP_SERVER_HOST || "localhost";
 	const transport = runtimeArgs.transport || "http";
+	if (transport === "stdio") {
+		// Stdout carries only JSON-RPC from here until exit, including during
+		// shutdown, so stray domain or library logging goes to stderr.
+		routeConsoleStdoutToStderr();
+	}
 	const resolved = await resolveListmonkConfiguration({
 		profile: runtimeArgs.profile,
 		configFile: runtimeArgs.configFile,
