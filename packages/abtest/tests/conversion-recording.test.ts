@@ -119,6 +119,29 @@ describe("A/B conversion recording", () => {
 		expect(recordAbTestConversionOperation.inputJsonSchema.properties?.currency).toMatchObject({ pattern: "^[A-Z]{3}$" });
 		expect(recordAbTestConversionOperation.inputSchema.parse({ ...base, test_id: " test-1 ", variant_id: " A " })).toMatchObject({ test_id: "test-1", variant_id: "A" });
 	});
+	it("names the Listmonk failure when the assignment lookup is rejected", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "abtest-recording-lookup-"));
+		try {
+			const storePath = join(directory, "abtests.json");
+			await saveStoredAbTests([makeTest()], storePath);
+			const client = {
+				subscriber: {
+					list: async () => ({
+						error: { message: "Permission denied." },
+						response: { status: 403 },
+					}),
+				},
+			} as unknown as ListmonkClient;
+
+			await expect(
+				recordAbTestConversion(client, makeEvent(), storePath),
+			).rejects.toThrow(
+				"Cannot verify variant assignment: HTTP 403: Permission denied.",
+			);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
 	it("validates assignment and window, persists idempotently, and feeds analysis metrics", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "abtest-recording-"));
 		try {

@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { AbTest, TestResults } from "./types";
 import type { ConversionEventStore } from "./conversion-events";
+import { formatListmonkErrorResponse } from "./listmonk-errors";
 
 /**
  * Metrics collection for A/B test analysis.
@@ -139,7 +140,9 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 					if ("error" in response || response.data === undefined) {
 						throw new Error(
 							`campaign ${mapping.campaignId} returned no data${
-								"error" in response ? `: ${String(response.error)}` : ""
+								"error" in response
+									? `: ${formatListmonkErrorResponse(response)}`
+									: ""
 							}`,
 						);
 					}
