@@ -726,6 +726,7 @@ listmonk-cli user-roles reconcile --manifest-file ./roles.json \
   --no-dry-run --confirm
 
 listmonk-cli media list --page 1 --per-page 20
+listmonk-cli media list --page 2 --query banner
 listmonk-cli media get --id 9
 listmonk-cli media delete --id 9 --confirm
 listmonk-cli media upload --file ./banner.png
@@ -751,7 +752,11 @@ Listmonk는 `scheduled` 캠페인을 `send_at`에 직접 시작하므로 일찍 
 취소할 수 있습니다. 구독자 일괄 작업은 ID를 청크
 단위(기본 500개)로 나누며 `--dry-run`, `--max-items`,
 `--continue-on-error`를 지원합니다. 미디어 업로드는 MIME 허용 목록과
-10 MiB 크기 제한을 적용합니다.
+10 MiB 크기 제한을 적용합니다. 미디어 목록은 Listmonk가 서버 측에서
+페이지를 나눕니다(최신순, 기본 페이지당 20개). `--page`/`--per-page`(MCP:
+`page`/`per_page`, 양의 정수만 허용)로 페이지를 고르고, `--query`(MCP:
+`query`)는 대소문자를 구분하지 않는 파일명 부분 일치로 거르며, MCP 결과에는
+서버의 `total`, `page`, `per_page`가 담깁니다.
 
 `subscribers update`는 부분 수정(Listmonk `PATCH`)입니다. 생략한 필드는 저장된
 값을 유지하고, `--lists`/`--list-uuids`는 지정했을 때만 리스트 멤버십을 교체하며,

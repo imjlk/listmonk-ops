@@ -330,10 +330,13 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			output: output(),
 		} satisfies MediaCliContext;
 
-		await renderMedia(cliContext, { page: 1, per_page: 20 });
+		await renderMedia(cliContext, { page: 3, per_page: 20, query: "news" });
 		await renderDeleteMedia(cliContext, { id: 14 });
 
 		expect(list).toHaveBeenCalledTimes(1);
+		expect(list).toHaveBeenCalledWith({
+			query: { page: 3, per_page: 20, query: "news" },
+		});
 		expect(cliContext.output.table).toHaveBeenCalledWith([
 			{ id: 14, filename: "newsletter.png" },
 		]);

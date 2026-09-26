@@ -73,6 +73,7 @@ const mediaListInputSchema = z.object({
 		.positive()
 		.default(20)
 		.describe("Items per page"),
+	query: z.string().trim().optional().describe("Filename substring filter"),
 });
 
 const mediaListOutputSchema = z.object({
@@ -99,30 +100,29 @@ function asMediaFile(value: unknown): MediaFile {
 }
 
 /**
- * Listmonk's media endpoint returns its complete collection rather than
- * accepting pagination query parameters. Keep that boundary detail here and
- * expose the same predictable page contract as the other shared resources.
+ * Read one server-side page of uploaded media. Listmonk 6.2 paginates
+ * `GET /api/media` newest first (20 per page by default) and filters by a
+ * case-insensitive filename substring, so page, page size, and filter are
+ * forwarded and the server's pagination metadata is returned. The contract
+ * admits positive page sizes only: `per_page=all` returns no media rows.
  */
 export async function listMedia(
 	{ client }: MediaOperationContext,
 	input: z.output<typeof mediaListInputSchema>,
 ): Promise<MediaListPage> {
-	const response = await client.media.list();
-	const data = unwrapResourceResponse(response, "Failed to fetch media");
-	const normalized = normalizeResourceList(data, {
-		page: 1,
-		per_page: data.results?.length ?? 0,
+	const response = await client.media.list({
+		query: {
+			page: input.page,
+			per_page: input.per_page,
+			...(input.query ? { query: input.query } : {}),
+		},
 	});
-	const start = (input.page - 1) * input.per_page;
-
-	return {
-		results: normalized.results
-			.slice(start, start + input.per_page)
-			.map(asMediaFile),
-		total: normalized.total,
-		per_page: input.per_page,
+	const data = unwrapResourceResponse(response, "Failed to fetch media");
+	const page = normalizeResourceList(data, {
 		page: input.page,
-	};
+		per_page: input.per_page,
+	});
+	return { ...page, results: page.results.map(asMediaFile) };
 }
 
 export async function getMediaFile(
@@ -498,7 +498,12 @@ async function findMediaByUuid(
 	client: Pick<ListmonkClient, "media">,
 	createdUuid: string,
 ): Promise<MediaFileRecord | undefined> {
-	const response = await client.media.list();
+	// Media is paginated newest first, so the just-uploaded record sits on
+	// the first page; read a wider one than the 20-item default. A miss
+	// marks the key unknown for manual reconciliation instead of guessing.
+	const response = await client.media.list({
+		query: { page: 1, per_page: 100 },
+	});
 	const files = unwrapResourceResponse(response, "Failed to list media files");
 	const correlated = (files.results ?? []).filter(
 		(file) => file.uuid === createdUuid && file.id !== undefined,

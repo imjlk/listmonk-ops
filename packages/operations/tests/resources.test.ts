@@ -819,17 +819,15 @@ describe("shared CRUD resource operations", () => {
 		});
 	});
 
-	test("applies media pagination locally and invokes named media operations", async () => {
+	test("forwards media pagination to Listmonk and invokes named media operations", async () => {
+		// Listmonk 6.2 paginates media server-side; the page it answers is
+		// returned with the server's own pagination metadata.
 		const list = mock(async () => ({
 			data: {
-				results: [
-					{ id: 1, filename: "first.png" },
-					{ id: 2, filename: "second.png" },
-					{ id: 3, filename: "third.png" },
-				],
+				results: [{ id: 2, filename: "second.png" }],
 				total: 3,
-				per_page: 3,
-				page: 1,
+				per_page: 1,
+				page: 2,
 			},
 		}));
 
@@ -845,6 +843,7 @@ describe("shared CRUD resource operations", () => {
 			page: 2,
 		});
 		expect(list).toHaveBeenCalledTimes(1);
+		expect(list).toHaveBeenCalledWith({ query: { page: 2, per_page: 1 } });
 
 		const getById = mock(async () => ({
 			data: { id: 12, filename: "selected.png" },

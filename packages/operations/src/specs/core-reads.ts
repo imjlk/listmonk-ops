@@ -49,6 +49,7 @@ import {
 	mediaCollectionOutputContract,
 	mediaDeleteInputContract,
 	mediaDeleteOutputContract,
+	mediaListInputContract,
 	mediaRecordContract,
 	mediaUploadInputContract,
 	paginationInputContract,
@@ -477,7 +478,7 @@ export const mediaListOperationSpec = defineOperationSpec({
 	title: "List media",
 	description: "Get uploaded media files from Listmonk",
 	contract: {
-		input: paginationInputContract,
+		input: mediaListInputContract,
 		output: mediaCollectionOutputContract,
 	},
 	effects: [{ kind: "read", resource: "media" }],

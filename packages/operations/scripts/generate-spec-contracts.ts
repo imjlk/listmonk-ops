@@ -26,6 +26,7 @@ import type {
 	DeliverabilityDoctorOutput,
 	EmptyInput,
 	MediaCollectionOutput,
+	MediaListInput,
 	MediaRecord,
 	PaginationInput,
 	PlaybookGetInput,
@@ -394,6 +395,7 @@ const contracts = {
 		typia.json.schema<MaintenanceGcAnalyticsOutput>(),
 	),
 	mediaRecordContract: contractSchema(typia.json.schema<MediaRecord>()),
+	mediaListInputContract: contractSchema(typia.json.schema<MediaListInput>()),
 	mediaCollectionOutputContract: contractSchema(
 		typia.json.schema<MediaCollectionOutput>(),
 	),

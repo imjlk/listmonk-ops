@@ -390,6 +390,6 @@ bun run graph:check
 
 Campaign listing accepts `query.tags` as a compatibility alias for `query.tag` (an array). Both serialize as repeated `tag` parameters; `tag` takes precedence when both are supplied. The public `/sdk` entry point also retains the deprecated `query.tags` alias; regenerated internals use `query.tag`.
 
-Campaign, subscriber, and list queries type `order` as lowercase `asc | desc`, the only values Listmonk 6.2 honors: it silently sorts descending for anything else, including uppercase `ASC`.
+Campaign, subscriber, and list queries type `order` as lowercase `asc | desc`, the only values Listmonk 6.2 honors: it silently sorts descending for anything else, including uppercase `ASC`. `media.list` accepts `query.page`, a positive-integer `query.per_page` (`all` returns no media rows), and a case-insensitive filename `query.query`, and returns the server's paginated envelope.
 
 With the refreshed raw SDK, `RequestResult.request` and `RequestResult.response` may be absent on request-construction or network failures. Check for their presence (for example, `result.response?.status`) when inspecting errors.

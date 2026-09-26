@@ -17958,7 +17958,7 @@
       "input": {
         "components": {
           "schemas": {
-            "PaginationInput": {
+            "MediaListInput": {
               "additionalProperties": false,
               "properties": {
                 "page": {
@@ -17968,6 +17968,10 @@
                 "per_page": {
                   "$ref": "#/components/schemas/PositiveInteger",
                   "description": "Number of records per page. Omitted values use the shared operation default."
+                },
+                "query": {
+                  "description": "Case-insensitive filename substring filter applied by Listmonk.",
+                  "type": "string"
                 }
               },
               "required": [],
@@ -17991,6 +17995,10 @@
             "per_page": {
               "$ref": "#/components/schemas/PositiveInteger",
               "description": "Number of records per page. Omitted values use the shared operation default."
+            },
+            "query": {
+              "description": "Case-insensitive filename substring filter applied by Listmonk.",
+              "type": "string"
             }
           },
           "required": [],

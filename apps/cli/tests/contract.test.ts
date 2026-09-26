@@ -362,12 +362,16 @@ describe("CLI contract", () => {
 
 	test("exposes shared media commands", () => {
 		const group = runCli(["media", "--help"]);
+		const list = runCli(["media", "list", "--help"]);
 		const get = runCli(["media", "get", "--help"]);
 		const remove = runCli(["media", "delete", "--help"]);
 
 		expect(group.exitCode).toBe(0);
 		for (const command of ["list", "get", "delete"]) {
 			expect(group.output).toContain(command);
+		}
+		for (const flag of ["--page", "--per-page", "--query"]) {
+			expect(list.output).toContain(flag);
 		}
 		expect(get.output).toContain("--id");
 		expect(remove.output).toContain("--id");

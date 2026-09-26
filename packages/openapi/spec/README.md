@@ -21,6 +21,9 @@ The overlay currently:
 - corrects the campaign, subscriber, and list `order` enums to the lowercase
   `asc`/`desc` Listmonk 6.2 honors (any other value, including uppercase,
   silently sorts descending);
+- documents `GET /media` pagination (`page`, a positive-integer `per_page`
+  because `all` returns no rows, and the filename `query` filter) and its
+  paginated response envelope;
 
 - keeps the optional `no_body` query parameter for `GET /templates`;
 - documents `GET /about` so tests can verify the running Listmonk version;

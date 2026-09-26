@@ -12,10 +12,12 @@ import {
 	getSubscribersOperation,
 	invokeGetSubscribersOperation,
 } from "../src/subscribers";
+import { getMediaOperation, invokeGetMediaOperation } from "../src/media";
 import { OperationInputError } from "../src/operation";
 
 type CampaignClient = Pick<ListmonkClient, "campaign">;
 type SubscriberClient = Pick<ListmonkClient, "subscriber">;
+type MediaClient = Pick<ListmonkClient, "media">;
 
 const emptyPage = { data: { results: [], total: 0, per_page: 20, page: 1 } };
 
@@ -81,6 +83,59 @@ describe("Listmonk sort order", () => {
 				{ order: "ascending" },
 			),
 		).rejects.toBeInstanceOf(OperationInputError);
+		expect(list).not.toHaveBeenCalled();
+	});
+});
+
+describe("media list pagination", () => {
+	test("forwards page, page size, and filename filter to Listmonk", async () => {
+		const list = mock(async () => ({
+			data: {
+				results: [{ id: 21, filename: "banner-21.png" }],
+				total: 41,
+				per_page: 20,
+				page: 2,
+			},
+		}));
+
+		await expect(
+			invokeGetMediaOperation(
+				{ client: { media: { list } } as unknown as MediaClient },
+				{ page: 2, per_page: 20, query: " banner " },
+			),
+		).resolves.toEqual({
+			results: [{ id: 21, filename: "banner-21.png" }],
+			total: 41,
+			per_page: 20,
+			page: 2,
+		});
+		expect(list).toHaveBeenCalledWith({
+			query: { page: 2, per_page: 20, query: "banner" },
+		});
+	});
+
+	test("omits an empty filename filter and defaults to the first page", async () => {
+		const list = mock(async () => emptyPage);
+		await invokeGetMediaOperation(
+			{ client: { media: { list } } as unknown as MediaClient },
+			{ query: "  " },
+		);
+		expect(list).toHaveBeenCalledWith({ query: { page: 1, per_page: 20 } });
+	});
+
+	test("admits positive page sizes only", async () => {
+		// `per_page=all` returns zero media rows in Listmonk 6.2.
+		expect(getMediaOperation.inputJsonSchema.properties?.per_page).toMatchObject({
+			type: "integer",
+			exclusiveMinimum: 0,
+		});
+		const list = mock(async () => emptyPage);
+		const context = { client: { media: { list } } as unknown as MediaClient };
+		for (const per_page of ["all", 0]) {
+			await expect(
+				invokeGetMediaOperation(context, { per_page }),
+			).rejects.toBeInstanceOf(OperationInputError);
+		}
 		expect(list).not.toHaveBeenCalled();
 	});
 });

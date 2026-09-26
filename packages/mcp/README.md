@@ -132,7 +132,8 @@ Legacy tools that bypassed confirmation and audit were removed:
 
 ### Media
 
-- `listmonk_get_media` - List uploaded media files
+- `listmonk_get_media` - List uploaded media files, paginated by Listmonk
+  (`page`, positive-integer `per_page`, filename `query`)
 - `listmonk_get_media_file` - Get an uploaded media file by ID
 - `listmonk_delete_media` - Delete an uploaded media file (requires
   `confirm: true`)

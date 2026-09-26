@@ -737,6 +737,7 @@ listmonk-cli user-roles reconcile --manifest-file ./roles.json \
   --no-dry-run --confirm
 
 listmonk-cli media list --page 1 --per-page 20
+listmonk-cli media list --page 2 --query banner
 listmonk-cli media get --id 9
 listmonk-cli media delete --id 9 --confirm
 listmonk-cli media upload --file ./banner.png
@@ -763,7 +764,11 @@ itself at its `send_at`, so to send one early run `campaigns unschedule`
 cancelled directly. Subscriber
 bulk operations chunk IDs (default 500 per chunk) and support
 `--dry-run`, `--max-items`, and `--continue-on-error`. Media uploads
-enforce a MIME allowlist and a 10 MiB size cap.
+enforce a MIME allowlist and a 10 MiB size cap. Media listing is paginated by
+Listmonk (newest first, 20 per page by default): `--page`/`--per-page` (MCP:
+`page`/`per_page`, positive integers only) select the page, `--query` (MCP:
+`query`) filters by a case-insensitive filename substring, and MCP results carry
+the server's `total`, `page`, and `per_page`.
 
 `subscribers update` is a partial update (Listmonk `PATCH`): fields you omit
 keep their stored values, `--lists`/`--list-uuids` replace list memberships

@@ -41,6 +41,7 @@ export interface MediaCliContext {
 export interface ListMediaInput {
 	page?: number;
 	per_page?: number;
+	query?: string;
 }
 
 export function createMediaCommandError(context: string, error: unknown): Error {
@@ -93,7 +94,11 @@ export async function renderUploadMedia(
 	context.output.json(result);
 }
 
-type ListMediaCommandFlags = { page?: number; "per-page"?: number };
+type ListMediaCommandFlags = {
+	page?: number;
+	"per-page"?: number;
+	query?: string;
+};
 
 export async function handleListMediaCommand({
 	flags,
@@ -103,7 +108,7 @@ export async function handleListMediaCommand({
 		const client = await getListmonkClient(args);
 		await renderMedia(
 			{ client, output: getOutput() },
-			{ page: flags.page, per_page: flags["per-page"] },
+			{ page: flags.page, per_page: flags["per-page"], query: flags.query },
 		);
 	} catch (error) {
 		throw createMediaCommandError("Failed to list media", error);
@@ -216,6 +221,9 @@ export default defineGroup({
 				}),
 				"per-page": option(z.coerce.number().int().positive().optional(), {
 					description: "Items per page",
+				}),
+				query: option(z.string().trim().optional(), {
+					description: "Filename search",
 				}),
 			},
 			handler: handleListMediaCommand,

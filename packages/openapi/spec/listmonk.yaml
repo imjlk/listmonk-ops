@@ -1723,6 +1723,25 @@ paths:
       operationId: getMedia
       tags:
         - Media
+      parameters:
+        - in: query
+          name: page
+          description: Page number for paginated results.
+          required: false
+          schema:
+            type: integer
+        - in: query
+          name: per_page
+          description: Number of items per page. Media does not support 'all' (it returns no rows).
+          required: false
+          schema:
+            type: integer
+        - in: query
+          name: query
+          description: Case-insensitive filename substring filter.
+          required: false
+          schema:
+            type: string
       responses:
         "200":
           description: response
@@ -1732,9 +1751,20 @@ paths:
                 type: object
                 properties:
                   data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/MediaFileObject"
+                    type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/MediaFileObject"
+                      query:
+                        type: string
+                      total:
+                        type: integer
+                      per_page:
+                        type: integer
+                      page:
+                        type: integer
     post:
       description: handles media file uploads.
       operationId: uploadMedia

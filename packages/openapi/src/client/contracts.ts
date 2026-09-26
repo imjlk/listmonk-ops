@@ -209,7 +209,11 @@ export interface CampaignOperations
 }
 
 export interface MediaOperations {
-	list(options?: t.GetMediaData): Promise<ListResult<t.MediaFileObject>>;
+	/**
+	 * Listmonk 6.2 paginates media newest first (20 per page by default).
+	 * `per_page` must be a positive integer: `all` returns no rows here.
+	 */
+	list(options?: GetData<t.GetMediaData>): Promise<ListResult<t.MediaFileObject>>;
 	getById(options: {
 		path: { id: number };
 	}): Promise<CrudResult<t.MediaFileObject>>;

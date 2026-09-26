@@ -250,28 +250,41 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 	});
 
 	test("routes media reads through the shared operation result adapter", async () => {
+		const queries: unknown[] = [];
 		const client = {
 			media: {
-				list: async () => ({
-					data: {
-						results: [
-							{ id: 7, filename: "newsletter.png" },
-							{ id: 8, filename: "archive.png" },
-						],
-						total: 2,
-						per_page: 2,
-						page: 1,
-					},
-				}),
+				// Listmonk 6.2 paginates media server-side.
+				list: async (options: { query?: unknown }) => {
+					queries.push(options.query);
+					return {
+						data: {
+							results: [{ id: 8, filename: "archive.png" }],
+							total: 2,
+							per_page: 1,
+							page: 2,
+						},
+					};
+				},
 			},
 		} as unknown as ListmonkClient;
 
+		expect(
+			Object.keys(
+				mediaTools.find((tool) => tool.name === "listmonk_get_media")
+					?.inputSchema.properties ?? {},
+			),
+		).toEqual(["page", "per_page", "query"]);
 		const result = await handleMediaTools(
-			request("listmonk_get_media", { page: "2", per_page: "1" }),
+			request("listmonk_get_media", {
+				page: "2",
+				per_page: "1",
+				query: "archive",
+			}),
 			client,
 		);
 
 		expect(result.isError).toBeFalsy();
+		expect(queries).toEqual([{ page: 2, per_page: 1, query: "archive" }]);
 		expect(result.structuredContent).toEqual({
 			results: [{ id: 8, filename: "archive.png" }],
 			total: 2,

@@ -2599,7 +2599,20 @@ export type TestCampaignByIdResponse = TestCampaignByIdResponses[keyof TestCampa
 export type GetMediaData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Page number for paginated results.
+         */
+        page?: number;
+        /**
+         * Number of items per page. Media does not support 'all' (it returns no rows).
+         */
+        per_page?: number;
+        /**
+         * Case-insensitive filename substring filter.
+         */
+        query?: string;
+    };
     url: '/media';
 };
 
@@ -2608,7 +2621,13 @@ export type GetMediaResponses = {
      * response
      */
     200: {
-        data?: Array<MediaFileObject>;
+        data?: {
+            results?: Array<MediaFileObject>;
+            query?: string;
+            total?: number;
+            per_page?: number;
+            page?: number;
+        };
     };
 };
 
