@@ -157,13 +157,13 @@ export default defineGroup({
 				),
 				"source-list-ids": option(z.string().trim().optional(), {
 					description:
-						"Only count memberships on these list IDs (csv); a candidate needs one Listmonk would deliver to",
+						"Only count memberships on these list IDs (csv); a candidate needs one Listmonk would deliver to (confirmed, or unconfirmed on a single opt-in list)",
 				}),
 				"target-list-id": option(
 					z.coerce.number().int().positive().optional(),
 					{
 						description:
-							"List to add candidates to (required for winback); new memberships start unconfirmed",
+							"List to add candidates to (required for winback with --no-dry-run); new memberships start unconfirmed",
 					},
 				),
 				blocklist: option(z.coerce.boolean().default(false), {

@@ -121,7 +121,9 @@ export function maskEmail(email: string): string {
  * (`next-campaign-subscribers`): an unsubscribed membership never receives
  * mail, a double opt-in list delivers only to confirmed members, and a
  * single opt-in list also delivers to unconfirmed ones. An unknown
- * subscription status or an undeterminable opt-in mode fails closed.
+ * subscription status or an undeterminable opt-in mode fails closed. The
+ * sequence consent check (sequence-consent.ts) applies the same rule to
+ * each required list; keep the two in step.
  */
 export function membershipPermitsDelivery(
 	subscriptionStatus: unknown,
@@ -134,17 +136,19 @@ export function membershipPermitsDelivery(
 }
 
 /**
- * Read each list's opt-in mode from the list endpoint — the authority the
- * sequence consent check uses too — rather than trusting the list row
- * Listmonk embeds in subscriber payloads. Lists the token cannot read are
- * absent from the map, so their unconfirmed memberships fail closed; a
- * failed read rejects the run before anything is selected or mutated.
+ * Read each list's opt-in mode from the full list rows of the list
+ * endpoint — the authority the sequence consent check uses too — rather
+ * than trusting the list row Listmonk embeds in subscriber payloads. A
+ * list the token cannot read, or a row without a recognizable opt-in mode,
+ * is absent from the map, so its unconfirmed memberships fail closed (and
+ * the run reports how many subscribers that skipped); a failed read
+ * rejects the run before anything is selected or mutated.
  */
 export async function loadListOptinModes(
 	client: ListmonkClient,
 ): Promise<Map<number, ListOptinMode>> {
 	const response = await client.list.list({
-		query: { per_page: "all", minimal: true },
+		query: { per_page: "all" },
 	});
 	const lists = extractResults<List>(
 		unwrapResponseData(
@@ -221,17 +225,24 @@ function eligibilityMemberships(
 	});
 }
 
+function membershipOptin(
+	membership: SubscriberMembership,
+	listOptinModes: ReadonlyMap<number, ListOptinMode>,
+): ListOptinMode | undefined {
+	const listId = toPositiveInt(membership.id);
+	return listId === undefined ? undefined : listOptinModes.get(listId);
+}
+
 function hasDeliverableMembership(
 	memberships: readonly SubscriberMembership[],
 	listOptinModes: ReadonlyMap<number, ListOptinMode>,
 ): boolean {
-	return memberships.some((membership) => {
-		const listId = toPositiveInt(membership.id);
-		return membershipPermitsDelivery(
+	return memberships.some((membership) =>
+		membershipPermitsDelivery(
 			membership.subscription_status,
-			listId === undefined ? undefined : listOptinModes.get(listId),
-		);
-	});
+			membershipOptin(membership, listOptinModes),
+		),
+	);
 }
 
 function formatMutationFailure(
@@ -299,12 +310,31 @@ export async function runSubscriberHygiene(
 	const listOptinModes = needsOptinModes
 		? await loadListOptinModes(client)
 		: new Map<number, ListOptinMode>();
-	const candidates = staleSubscribers.filter((subscriber) =>
-		hasDeliverableMembership(
-			eligibilityMemberships(subscriber, sourceListSet),
-			listOptinModes,
-		),
-	);
+	let skippedUnreadableOptin = 0;
+	const candidates = staleSubscribers.filter((subscriber) => {
+		const memberships = eligibilityMemberships(subscriber, sourceListSet);
+		if (hasDeliverableMembership(memberships, listOptinModes)) {
+			return true;
+		}
+		// Fail closed, but visibly: count subscribers whose only possible
+		// route to delivery is an unconfirmed membership on a list whose
+		// opt-in mode could not be read.
+		if (
+			memberships.some(
+				(entry) =>
+					entry.subscription_status === "unconfirmed" &&
+					membershipOptin(entry, listOptinModes) === undefined,
+			)
+		) {
+			skippedUnreadableOptin += 1;
+		}
+		return false;
+	});
+	if (skippedUnreadableOptin > 0) {
+		errors.push(
+			`Warning: ${skippedUnreadableOptin} subscriber${skippedUnreadableOptin === 1 ? "" : "s"} skipped because an unconfirmed membership's list opt-in mode could not be read`,
+		);
+	}
 
 	const echoedIds =
 		options.subscriberIds === undefined
