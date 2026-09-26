@@ -148,6 +148,7 @@ export async function findInstalledWorkspaceCopies(
 
 interface CommandResult {
 	exitCode: number;
+	signal: string | null;
 	stdout: string;
 	stderr: string;
 }
@@ -156,6 +157,10 @@ type Environment = Record<string, string | undefined>;
 
 const NPM_LIFECYCLE_VARIABLE =
 	/^npm_(?:command|execpath|node_execpath|lifecycle_\w+|package_\w+|config_local_prefix|config_user_agent)$/i;
+
+// A stalled registry fetch or CLI run must fail the check instead of holding
+// a CI runner until the job-level timeout.
+const COMMAND_TIMEOUT_MS = 5 * 60_000;
 
 async function runCommand(
 	command: readonly string[],
@@ -167,18 +172,23 @@ async function runCommand(
 		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
+		timeout: COMMAND_TIMEOUT_MS,
 	});
 	const [stdout, stderr, exitCode] = await Promise.all([
 		new Response(child.stdout).text(),
 		new Response(child.stderr).text(),
 		child.exited,
 	]);
-	return { exitCode, stdout, stderr };
+	return { exitCode, signal: child.signalCode, stdout, stderr };
 }
 
 function commandFailure(label: string, result: CommandResult): Error {
+	const outcome =
+		result.signal === null
+			? `exited with ${result.exitCode}`
+			: `was stopped by ${result.signal} (commands time out after ${COMMAND_TIMEOUT_MS / 1000}s)`;
 	return new Error(
-		`${label} exited with ${result.exitCode}\n${result.stdout}${result.stderr}`.trim(),
+		`${label} ${outcome}\n${result.stdout}${result.stderr}`.trim(),
 	);
 }
 
