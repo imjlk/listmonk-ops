@@ -63,7 +63,9 @@ export interface ConfiguredPathOptions {
  * caller anchors them to a profile file or an explicit command-line cwd.
  * Anchoring environment paths to the home directory rather than
  * `process.cwd()` keeps a CLI run from any directory and an MCP server started
- * elsewhere on the same state files.
+ * elsewhere on the same state files. A blank value is rejected rather than
+ * resolved to the anchor directory itself; callers treat blank settings as
+ * unset before calling.
  */
 export function resolveConfiguredPath(
 	value: string,
@@ -71,6 +73,7 @@ export function resolveConfiguredPath(
 ): string {
 	const home = options.homeDirectory ?? homedir();
 	const trimmed = value.trim();
+	if (trimmed === "") throw new Error("Configured path must not be blank");
 	if (trimmed === "~") return home;
 	if (trimmed.startsWith("~/")) return resolve(home, trimmed.slice(2));
 	return isAbsolute(trimmed)

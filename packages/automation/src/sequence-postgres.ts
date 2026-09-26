@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-
-const POSTGRES_UUID_TYPE_OID = 2950;
 import {
 	createTransactionalStoreCapacityError,
 	getTransactionalStoreMaxRecords,
@@ -31,6 +29,8 @@ import {
 	validateSequenceSteps,
 	canonicalStepsJson,
 } from "./sequences";
+
+const POSTGRES_UUID_TYPE_OID = 2950;
 
 export const SEQUENCE_POSTGRES_SCHEMA_VERSION = 3;
 
@@ -535,12 +535,10 @@ function createPostgresTransactionalIdempotencyStore(
 						FROM listmonk_ops.sequence_idempotency_records
 						GROUP BY status
 					`;
-					throw createTransactionalStoreCapacityError(
-						limit,
-						Object.fromEntries(
-							statusRows.map((row) => [row.status, row.count]),
-						),
-					);
+					const counts: Partial<Record<TransactionalSendStatus, number>> =
+						{};
+					for (const row of statusRows) counts[row.status] = row.count;
+					throw createTransactionalStoreCapacityError(limit, counts);
 				}
 				const createdAt = now.toISOString();
 				const record: TransactionalSendRecord = {

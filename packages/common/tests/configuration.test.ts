@@ -96,6 +96,25 @@ describe("resolveConfiguredPath", () => {
 		);
 	});
 
+	test("rejects a blank path instead of resolving to the anchor directory", async () => {
+		for (const value of ["", "   ", "\n\t"]) {
+			expect(() => resolveConfiguredPath(value, { homeDirectory })).toThrow(
+				"Configured path must not be blank",
+			);
+		}
+		const options = await fixture();
+		await expect(
+			resolveListmonkConfiguration({ ...options, configFile: "  " }),
+		).rejects.toThrow("Configured path must not be blank");
+		await expect(
+			resolveListmonkConfiguration({
+				homeDirectory: options.homeDirectory,
+				env: {},
+				tokenFile: " ",
+			}),
+		).rejects.toThrow("Configured path must not be blank");
+	});
+
 	test("defaults to the process home directory", () => {
 		expect(resolveConfiguredPath("~/lm-state")).toBe(
 			join(homedir(), "lm-state"),

@@ -10,6 +10,20 @@ const DEFAULT_LOCK_RETRY_DELAY_MS = 25;
 const LOCK_HOSTNAME = hostname();
 const knownAbandonedLockTokens = new Map<string, string>();
 
+/**
+ * The sibling file that serializes a store's writers. Locking and timeout
+ * diagnostics share these helpers so an operator is never told to delete a
+ * file the lock protocol does not use.
+ */
+function lockPathFor(storePath: string): string {
+	return `${storePath}.lock`;
+}
+
+/** The sentinel that serializes recovery of an abandoned lock. */
+function recoveryPathFor(lockPath: string): string {
+	return `${lockPath}.recovery`;
+}
+
 export interface JsonFileLockOptions {
 	timeoutMs?: number;
 	retryDelayMs?: number;
@@ -95,6 +109,9 @@ export function isSameLiveProcess(owner: {
 		// EPERM: the pid exists but belongs to another user, which can be a
 		// reused pid. Keep checking the recorded start identity, which Linux
 		// can still read from /proc; elsewhere the owner stays assumed alive.
+		// Like the same-user path, this assumes one hostname means one PID
+		// namespace, which host-networked containers sharing a state
+		// directory with the host would violate.
 		if (!isErrnoException(error, "EPERM")) return true;
 	}
 	if (owner.bootTicks !== undefined && process.platform === "linux") {
@@ -237,7 +254,7 @@ function describeLockTimeout(
 	}
 	const marker = diagnostics.recoveryMarker;
 	if (marker !== undefined && marker.status !== "absent") {
-		const recoveryPath = `${lockPath}.recovery`;
+		const recoveryPath = recoveryPathFor(lockPath);
 		sentences.push(
 			marker.status === "held"
 				? `Lock-recovery marker ${recoveryPath} (${describeLockOwner(marker, diagnostics.now ?? new Date())}) also blocks automatic recovery; delete it as well if that process is gone.`
@@ -259,7 +276,7 @@ export class JsonFileLockTimeoutError extends Error {
 		timeoutMs: number,
 		diagnostics: JsonFileLockTimeoutDiagnostics = {},
 	) {
-		const lockPath = diagnostics.lockPath ?? `${path}.lock`;
+		const lockPath = diagnostics.lockPath ?? lockPathFor(path);
 		super(describeLockTimeout(path, timeoutMs, lockPath, diagnostics));
 		this.name = "JsonFileLockTimeoutError";
 		this.storePath = path;
@@ -493,7 +510,7 @@ async function removeDeadOwnerFile(path: string): Promise<boolean> {
 }
 
 async function removeAbandonedLock(lockPath: string): Promise<boolean> {
-	const recoveryPath = `${lockPath}.recovery`;
+	const recoveryPath = recoveryPathFor(lockPath);
 	const recoveryMetadata = createLockMetadata();
 	if (!(await createLockFile(recoveryPath, recoveryMetadata))) {
 		// A recovery owner can crash too. Remove only a same-host sentinel whose
@@ -534,7 +551,7 @@ async function createLockTimeoutError(
 ): Promise<JsonFileLockTimeoutError> {
 	const [holder, recoveryMarker] = await Promise.all([
 		inspectLockHolder(lockPath),
-		inspectLockHolder(`${lockPath}.recovery`),
+		inspectLockHolder(recoveryPathFor(lockPath)),
 	]);
 	return new JsonFileLockTimeoutError(path, timeoutMs, {
 		lockPath,
@@ -552,7 +569,7 @@ async function acquireLock(
 		1,
 		options.retryDelayMs ?? DEFAULT_LOCK_RETRY_DELAY_MS,
 	);
-	const lockPath = `${path}.lock`;
+	const lockPath = lockPathFor(path);
 	const deadline = Date.now() + timeoutMs;
 
 	await mkdir(dirname(path), { recursive: true });

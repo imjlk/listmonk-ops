@@ -90,7 +90,7 @@ export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 # Optional: override the transactional idempotency store
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
 # Optional: raise the transactional record cap for the file and sequence
-# PostgreSQL stores (keyed sends are retained for their TTL; unresolved
+# PostgreSQL stores (direct keyed sends are retained for their TTL; unresolved
 # pending/unknown claims until reconciled)
 # export LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS=10000
 # Optional: override the keyed resource-create idempotency store
@@ -1161,10 +1161,11 @@ Without a sequence database, the store path defaults to
 store. Version 1 files migrate to version 2 on the next store access; older binaries reject version 2 instead of
 silently discarding unresolved claims or decision history.
 
-Both stores retain at most 10,000 records by default. Accepted and failed sends
-stay for their 24-hour TTL, and pending or unknown claims stay until reconciled.
-At the cap, a new keyed send fails with an error that reports the retained counts
-by status instead of evicting a record; replays of retained keys still work.
+Both stores retain at most 10,000 records by default. Accepted and failed direct
+sends stay for their 24-hour TTL, accepted sequence-step receipts until their
+enrollment advances, and pending or unknown claims until reconciled. At the cap,
+a new keyed send fails with an error that reports the retained counts by status
+instead of evicting a record; replays of retained keys still work.
 Reconcile ambiguous claims, or set `LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS`
 to a larger positive integer when an installation makes more keyed sends per TTL
 window. Every claim rewrites the whole file store, so prefer the sequence

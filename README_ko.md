@@ -90,7 +90,7 @@ export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 # 선택: 트랜잭션 멱등성(idempotency) 저장소 경로 재정의
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
 # 선택: 파일 저장소와 sequence PostgreSQL 저장소의 트랜잭션 레코드 상한 상향
-# (키 기반 발송은 TTL 동안, 미확정 pending/unknown claim은 재조정할 때까지 보존)
+# (직접 키 기반 발송은 TTL 동안, 미확정 pending/unknown claim은 재조정할 때까지 보존)
 # export LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS=10000
 # 선택: 키 기반 resource-create 멱등성 저장소 경로 재정의
 export LISTMONK_OPS_RESOURCE_CREATE_STORE="$HOME/.listmonk-ops/ops/resource-creates.json"
@@ -1102,10 +1102,12 @@ Sequence 데이터베이스를 사용하지 않을 때 저장소 경로 기본�
 다음 저장소 접근에서 version 2로 이전됩니다. 이전 바이너리는 version 2를
 거부하므로 미확정 claim이나 판단 이력을 조용히 삭제하지 않습니다.
 
-두 저장소 모두 기본적으로 최대 10,000개의 레코드를 보존합니다. accepted와
-failed 발송은 24시간 TTL 동안, pending과 unknown claim은 재조정할 때까지
-남습니다. 상한에 도달하면 레코드를 제거하는 대신 새 키 기반 발송이 상태별 보존
-개수를 알려 주는 오류와 함께 실패하며, 이미 보존된 키의 재생은 계속 동작합니다.
+두 저장소 모두 기본적으로 최대 10,000개의 레코드를 보존합니다. 직접 발송의
+accepted와 failed 레코드는 24시간 TTL 동안, accepted sequence 단계 영수증은
+enrollment가 다음 단계로 진행될 때까지, pending과 unknown claim은 재조정할
+때까지 남습니다. 상한에 도달하면 레코드를 제거하는 대신 새 키 기반 발송이
+상태별 보존 개수를 알려 주는 오류와 함께 실패하며, 이미 보존된 키의 재생은 계속
+동작합니다.
 미확정 claim을 재조정하거나, TTL 기간 동안 더 많은 키 기반 발송이 필요하면
 `LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS`를 더 큰 양의 정수로 설정하세요.
 파일 저장소는 claim마다 전체 파일을 다시 쓰므로, 지속적인 대량 발송에는

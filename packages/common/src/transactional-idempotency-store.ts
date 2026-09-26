@@ -325,7 +325,7 @@ export function createTransactionalStoreCapacityError(
 	return new TransactionalStoreCapacityError(
 		[
 			`Transactional idempotency store is at capacity: ${retained} retained records (limit ${limit}: ${occupancy.accepted} accepted, ${occupancy.failed} failed, ${occupancy.pending} pending, ${occupancy.unknown} unknown), so new keyed sends are rejected instead of evicting a record.`,
-			`Accepted and failed records free their slots when their idempotency TTL expires (${ttlHours} hours by default); pending and unknown records remain until an operator reconciles them with \`listmonk-cli tx records\` and \`listmonk-cli tx reconcile\` (MCP: listmonk_transactional_records and listmonk_reconcile_transactional).`,
+			`Failed records, and accepted records of direct sends, free their slots when their idempotency TTL expires (${ttlHours} hours by default); accepted sequence-step receipts are released once their enrollment advances. Pending and unknown records remain until an operator reconciles them with \`listmonk-cli tx records\` and \`listmonk-cli tx reconcile\` (MCP: listmonk_transactional_records and listmonk_reconcile_transactional).`,
 			`To retain more records, raise ${TRANSACTIONAL_STORE_MAX_RECORDS_ENV}.`,
 		].join(" "),
 		{ limit, occupancy },
