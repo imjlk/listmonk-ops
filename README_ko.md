@@ -1332,8 +1332,12 @@ listmonk-cli webhooks inbound ingest \
 
 필터는 정확한 event type, `campaign.*` 같은 family wildcard 또는 `*`를
 받습니다. 초기 계약은 operation, campaign, subscriber, delivery, A/B test,
-sequence, test event를 포함합니다. 자격 증명이나 개인정보 이름을 가진 payload 필드는
-저장 전에 재귀적으로 마스킹합니다.
+sequence, test event를 포함합니다. 자격 증명, 개인정보, 수신자 주소 이름을 가진
+payload 필드는 저장 전에 재귀적으로 마스킹합니다. `apiKeys`, `refresh_tokens`,
+`subscriberEmails` 같은 복수형·camelCase·snake_case·kebab-case 표기와 SES 형식의
+`destination`, `source`, `to`, `from` 필드도 포함됩니다. 이메일 주소(URL
+인코딩된 `%40` 형태 포함)가 들어 있는 문자열 값과 주소 자체인 객체 key도
+마스킹하며, 주변 객체·배열 구조는 그대로 유지합니다.
 감사 대상 CLI/MCP operation은 같은 execution ID로 `operation.started`,
 `operation.blocked`, `operation.succeeded`, `operation.failed`를 자동 enqueue합니다.
 Event 투영은 durable audit 저장 이후 best-effort로 처리하므로 webhook 저장소
@@ -1362,9 +1366,9 @@ breaker는 연속 실패 후 cooldown이 끝나거나 운영자가 reset할 때�
 claim을 멈춥니다. `webhooks runtime status`는 schema, backlog, circuit, DLQ,
 running, stale, stopped, failed worker 상태를 보고합니다. 인증을 마친 provider adapter는 delivered,
 bounced, complained, unsubscribed, delayed, rejected event를 같은 envelope로
-수집할 수 있습니다. 안정적인 provider event ID로 중복 수집을 막고 민감한
-metadata key는 저장 전에 마스킹합니다. 구독 해지 event에는 subscriber UUID가
-필수이며 provider metadata는 16 KiB로 제한합니다.
+수집할 수 있습니다. 안정적인 provider event ID로 중복 수집을 막고, provider
+metadata도 같은 마스킹을 거친 뒤에 저장되거나 endpoint로 전달됩니다. 구독 해지
+event에는 subscriber UUID가 필수이며 provider metadata는 16 KiB로 제한합니다.
 
 JSON 저장소는 설정이 필요 없는 단일 호스트 기본값으로 유지됩니다. 기존 v1
 파일은 호환되게 읽고 다음 mutation에서 v2로 저장합니다. 여러

@@ -1404,8 +1404,14 @@ listmonk-cli webhooks inbound ingest \
 
 Filters accept an exact event type, a family wildcard such as `campaign.*`, or
 `*`. Initial contracts cover operation, campaign, subscriber, delivery, A/B
-test, sequence, and test events. Payload fields with credential or personal-data names
-are recursively redacted before persistence.
+test, sequence, and test events. Payload fields with credential, personal-data,
+or recipient-address names are recursively redacted before persistence,
+including plural, camelCase, snake_case, and kebab-case spellings such as
+`apiKeys`, `refresh_tokens`, and `subscriberEmails`, and SES-style
+`destination`, `source`, `to`, and `from` fields. String values that contain an
+email address (including the URL-encoded `%40` form) and object keys that are
+addresses are redacted as well, while the surrounding object and array
+structure is preserved.
 Audited CLI and MCP operations automatically enqueue `operation.started`,
 `operation.blocked`, `operation.succeeded`, and `operation.failed` with the
 same execution ID. Event projection is best-effort after the durable audit
@@ -1436,7 +1442,8 @@ schema, backlog, circuit, DLQ, and running, stale, stopped, or failed worker
 health. Verified provider
 adapters can ingest delivered, bounced, complained, unsubscribed, delayed, and
 rejected events into the same envelope; stable provider event IDs make
-ingestion idempotent and sensitive metadata keys are redacted. Unsubscribe
+ingestion idempotent, and provider metadata passes through the same redaction
+before it is stored or forwarded to any endpoint. Unsubscribe
 events require a subscriber UUID, and provider metadata is capped at 16 KiB.
 
 The JSON store remains the zero-configuration single-host default. Existing v1

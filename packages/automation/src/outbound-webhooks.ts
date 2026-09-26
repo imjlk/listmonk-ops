@@ -26,6 +26,10 @@ import {
 	type PublicHostResolution,
 	resolvePublicHostAddresses,
 } from "./campaign";
+import {
+	containsEmailAddress,
+	isSensitiveWebhookDataKey,
+} from "./webhook-redaction";
 import { postPinnedHttpsWebhookWithFallback } from "./webhook-transport";
 
 export const OUTBOUND_WEBHOOK_STORE_VERSION = 2;
@@ -683,8 +687,7 @@ const storeSchema = z.object({
 	probeIdKey: z.string().min(32).max(128).optional(),
 });
 
-const SENSITIVE_KEY_PATTERN =
-	/(?:^|[_-])(?:authorization|cookie|email|password|passwd|recipient|secret|token|api[_-]?key)(?:$|[_-])/iu;
+const REDACTED = "[REDACTED]";
 const MAX_REDACTION_DEPTH = 8;
 const MAX_ERROR_LENGTH = 500;
 
@@ -1021,14 +1024,20 @@ export function matchesOutboundWebhookEvent(
 	});
 }
 
+/**
+ * Redacts sensitive keys, string values containing an email address, and keys
+ * that are themselves addresses, while preserving object and array structure.
+ */
 function redactValue(
 	value: unknown,
 	depth: number,
 	seen: WeakSet<object>,
 ): unknown {
+	if (typeof value === "string") {
+		return containsEmailAddress(value) ? REDACTED : value;
+	}
 	if (
 		value === null ||
-		typeof value === "string" ||
 		typeof value === "number" ||
 		typeof value === "boolean"
 	) {
@@ -1049,20 +1058,28 @@ function redactValue(
 		}
 		seen.add(value);
 		const output: Record<string, unknown> = {};
+		let redactedKeyCount = 0;
 		for (const [key, nested] of Object.entries(value)) {
-			output[key] = isSensitiveKey(key)
-				? "[REDACTED]"
+			if (containsEmailAddress(key)) {
+				let placeholder: string;
+				do {
+					redactedKeyCount += 1;
+					placeholder = `[REDACTED_KEY_${redactedKeyCount}]`;
+				} while (
+					Object.hasOwn(value, placeholder) ||
+					Object.hasOwn(output, placeholder)
+				);
+				output[placeholder] = REDACTED;
+				continue;
+			}
+			output[key] = isSensitiveWebhookDataKey(key)
+				? REDACTED
 				: redactValue(nested, depth + 1, seen);
 		}
 		seen.delete(value);
 		return output;
 	}
 	return String(value);
-}
-
-function isSensitiveKey(key: string): boolean {
-	const normalized = key.replaceAll(/([a-z0-9])([A-Z])/gu, "$1_$2");
-	return SENSITIVE_KEY_PATTERN.test(normalized);
 }
 
 export function redactOutboundWebhookData(
