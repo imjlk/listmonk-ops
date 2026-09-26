@@ -95,6 +95,36 @@ async function createMCPServer(
 	return new ListmonkMCPServer(config);
 }
 
+const DEFAULT_HTTP_PORT = 3000;
+
+/** Invalid options or environment; reported without a stack trace. */
+class McpUsageError extends Error {
+	public constructor(message: string) {
+		super(message);
+		this.name = "McpUsageError";
+	}
+}
+
+function parsePort(value: string, source: string): number {
+	const port = /^\d+$/.test(value) ? Number(value) : Number.NaN;
+	if (!Number.isInteger(port) || port < 1 || port > 65535) {
+		throw new McpUsageError(
+			`Invalid ${source}: ${value}. Use an integer from 1 to 65535.`,
+		);
+	}
+	return port;
+}
+
+function resolveHttpPort(flagPort: number | undefined): number {
+	if (flagPort !== undefined) {
+		return flagPort;
+	}
+	const environmentPort = process.env.MCP_SERVER_PORT?.trim();
+	return environmentPort
+		? parsePort(environmentPort, "MCP_SERVER_PORT")
+		: DEFAULT_HTTP_PORT;
+}
+
 function parseCommaSeparatedEnv(value: string | undefined): string[] {
 	return value
 		? value
@@ -173,31 +203,33 @@ function parseArgs(argv: string[]): RuntimeArgs {
 		}
 		const separator = argument.indexOf("=");
 		const flag = separator < 0 ? argument : argument.slice(0, separator);
-		if (!Object.hasOwn(options, flag) && flag !== "--port" && flag !== "--transport") throw new Error("Unknown MCP option");
+		if (!Object.hasOwn(options, flag) && flag !== "--port" && flag !== "--transport") throw new McpUsageError(`Unknown MCP option: ${flag}`);
 		const value = separator < 0 ? argv[++index] : argument.slice(separator + 1);
-		if (!value || value.startsWith("--")) throw new Error(`${flag} requires a value`);
+		if (!value || value.startsWith("--")) throw new McpUsageError(`${flag} requires a value`);
 		if (flag === "--port") {
-			const port = Number(value);
-			if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid MCP port");
-			args.port = port;
+			args.port = parsePort(value, "--port");
 		} else if (flag === "--transport") {
-			if (value !== "http" && value !== "stdio") throw new Error("Invalid MCP transport");
+			if (value !== "http" && value !== "stdio") throw new McpUsageError(`Invalid --transport: ${value}. Use http or stdio.`);
 			args.transport = value;
 		} else args[options[flag as keyof typeof options]] = value;
 	}
 	return args;
 }
 
-export async function main() {
-	const runtimeArgs = parseArgs(process.argv.slice(2));
+async function startRuntime(argv: string[]): Promise<void> {
+	const runtimeArgs = parseArgs(argv);
 	if (runtimeArgs.help) {
 		printHelp();
 		return;
 	}
 
-	const port = runtimeArgs.port || Number(process.env.MCP_SERVER_PORT) || 3000;
-	const host = runtimeArgs.host || process.env.MCP_SERVER_HOST || "localhost";
 	const transport = runtimeArgs.transport || "http";
+	// Like the MCP_HTTP_* variables, MCP_SERVER_PORT only applies to HTTP.
+	const port =
+		transport === "http"
+			? resolveHttpPort(runtimeArgs.port)
+			: DEFAULT_HTTP_PORT;
+	const host = runtimeArgs.host || process.env.MCP_SERVER_HOST || "localhost";
 	const resolved = await resolveListmonkConfiguration({
 		profile: runtimeArgs.profile,
 		configFile: runtimeArgs.configFile,
@@ -284,6 +316,19 @@ export async function main() {
 			reportShutdownError(shutdownError);
 		}
 		console.error("❌ Failed to start server:", error);
+		process.exit(1);
+	}
+}
+
+export async function main() {
+	try {
+		await startRuntime(process.argv.slice(2));
+	} catch (error) {
+		if (!(error instanceof McpUsageError)) {
+			throw error;
+		}
+		console.error(`❌ ${error.message}`);
+		console.error("   Run `listmonk-mcp --help` for usage.");
 		process.exit(1);
 	}
 }
