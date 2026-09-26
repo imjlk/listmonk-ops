@@ -1349,12 +1349,25 @@ ID is globally unique in the local store: identical retries return
 share the transactional `abtest-conversions.sqlite` store in the Listmonk data directory;
 set `LISTMONK_OPS_ABTEST_CONVERSION_STORE` to override its path. The store keeps
 UUIDs, event names, timestamps, and optional value/currency, without emails or
-names. Analysis counts unique converting subscribers per variant and sums
-event values as revenue. Keep the variant lists available until the attribution
-window closes so new events can be verified. Recording is append-only, so CLI
-requires `--confirm` and MCP requires `confirm: true` for each event. Automated
-`abtest run` and `abtest tick` wait for that attribution tail before analyzing
-or deploying a winner.
+names. Because subscriber UUIDs work as tokens on Listmonk's public
+subscription pages, the store is owner-only: missing directories are created
+`0700` and the database and its SQLite journal files `0600`, and a store created
+by an earlier version is tightened on its next use (an existing parent
+directory keeps its mode). Analysis counts unique converting subscribers per
+variant and sums event values as revenue. Keep the variant lists available
+until the attribution window closes so new events can be verified. Recording
+is append-only, so CLI requires `--confirm` and MCP requires `confirm: true`
+for each event. Automated `abtest run` and `abtest tick` wait for that
+attribution tail before analyzing or deploying a winner.
+
+`abtest deploy-winner` (MCP `listmonk_abtest_deploy_winner`) only deploys from
+an `analyzing` test, or from a `completed` test whose significant winner has
+not been deployed yet. A `cancelled`, `inconclusive`, or `failed` test, or one
+that has not reached analysis, is refused with `AbTestInvalidStatusError`
+(structured `test_id`, `status`, and `allowed_statuses` details) before any
+analysis or Listmonk call, so one CLI or MCP call cannot override an operator
+stop or a finalized no-decision. Repeating it for a test that already records
+its winner campaign is a no-op and never delivers to the holdout twice.
 
 MCP now also exposes A/B test lifecycle tools:
 
@@ -1414,11 +1427,26 @@ send results. Summary of the current behavior:
 - **Statistical hardening**: Holm-Bonferroni correction for A/B/C (3+
   variant) tests, fixed-horizon eligibility gate (endsAt, minimum
   duration, minimum sample per variant), and SRM (Sample Ratio
-  Mismatch) detection via chi-square goodness-of-fit. When the gate
-  fails or SRM is detected, `isSignificant` is suppressed and no winner
-  is declared. The `analyze` output includes `correctedPValue`,
-  `holmCorrected`, `srmPassed`, `srmPValue`, and
+  Mismatch) detection via chi-square goodness-of-fit. The reported
+  `srmPValue` is the exact chi-square tail probability, and SRM is
+  flagged exactly when it falls below 0.001. Expected and observed counts
+  are paired by variant id, results are listed in the declared variant
+  order, and the first declared variant is always the control, even after
+  a resumed create reconciled campaigns out of order. Holm correction
+  refuses non-finite or out-of-range p-values instead of counting them as
+  significant. When the gate fails or SRM is detected, `isSignificant` is
+  suppressed and no winner is declared. The `analyze` output includes
+  `correctedPValue`, `holmCorrected`, `srmPassed`, `srmPValue`, and
   `fixedHorizonReasonCodes` fields for operator diagnostics.
+- **Click-count guard**: click rate decides tests without conversions. When
+  any variant's campaign click total exceeds its sends, the total cannot be a
+  count of clicking recipients, so analysis declares no winner and reports
+  `clicks_exceed_sends:<variant>:<clicks>/<sent>` in `fixedHorizonReasonCodes`
+  instead of running the test (run/tick then finalize it as `inconclusive`).
+  Record conversions to decide such tests.
+- **Readable Listmonk errors**: failures name the HTTP status and Listmonk's
+  message (for example `HTTP 404: Campaign not found.`) instead of
+  `[object Object]`.
 
 See [`packages/abtest/README.md`](packages/abtest/README.md) for the
 underlying Listmonk API behavior and spike rationale.
@@ -1464,10 +1492,18 @@ heuristic. Reports include the hypothesis objective, expected lift, and a
 pre-registration status (`verified`/`not_available`/`checksum_mismatch`).
 Tests with a checksum-mismatched hypothesis are rejected before analysis.
 
+`revenue_per_recipient` is not accepted as a primary metric: the significance
+test only analyzes rates, so a test pre-registered on revenue could never
+reach a decision. `abtest create` rejects it with an explicit error before
+touching the store or Listmonk; the value stays in the published input schema
+for compatibility with tests created by earlier versions. Pre-register
+`conversion_rate` and record revenue with conversion events instead.
+
 When revenue data is present, the report includes `Revenue` and
 `Rev/Recipient` columns with an optional currency suffix (e.g.
-`Revenue (USD)`). A `revenue_per_recipient` primary metric always shows
-these columns even before metrics are collected.
+`Revenue (USD)`). Tests that an earlier version created with a
+`revenue_per_recipient` primary metric always show these columns even before
+metrics are collected.
 
 ### Preview and seed send gate
 
