@@ -553,7 +553,6 @@ export async function handleUpdateCampaignCommand({
 							"archive-meta",
 						)
 					: undefined,
-<<<<<<< HEAD
 				media: flags.media
 					? parseCsvNumbersStrict(flags.media, "media IDs")
 					: undefined,
