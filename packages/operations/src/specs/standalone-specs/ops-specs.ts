@@ -318,7 +318,8 @@ export const opsTemplateRegistryHistoryOperationSpec = defineOperationSpec({
 	resource: "template",
 	verb: "registry-history",
 	title: "Show template version history",
-	description: "Show the stored version history for a template",
+	description:
+		"Show stored template versions and each capture's rollback predecessor",
 	contract: {
 		input: templateIdInputContract,
 		output: templateRegistryHistoryOutputContract,
@@ -338,7 +339,8 @@ export const opsTemplateRegistryHistoryOperationSpec = defineOperationSpec({
 			"ops.templates.registry-promote",
 			"ops.templates.registry-rollback",
 		],
-		retryGuidance: "Retry transient read failures with bounded backoff.",
+		retryGuidance:
+			"Use a version's previousVersionId as to_version_id when pinning rollback; older versions without a link use the previous entry in capture order. Retry transient read failures with bounded backoff.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_history",
@@ -377,7 +379,7 @@ export const opsTemplateRegistryPromoteOperationSpec = defineOperationSpec({
 					reconcileWith: "templates.get",
 					idempotent: false,
 					reason:
-						"The hash pin conflicts on any remote change — another operator promoting a different version between the attempt and the retry included — before the update is re-issued. A retry therefore either lands the same content, is a documented no-op when the target version already matches the remote template (`promoted: false`, no write and no head-revision advance), or conflicts when the promotion changed the remote hash — that conflict is the reconciliation signal. The check stays best-effort because Listmonk offers no conditional update.",
+						"The hash pin conflicts on any remote change — another operator promoting a different version between the attempt and the retry included — before the update is re-issued. A retry therefore either lands the same content, is a documented no-op when the target version already matches the remote template (`promoted: false`, no write and no head-revision advance), or conflicts when the promotion changed the remote hash — that conflict is the reconciliation signal. The check stays best-effort because Listmonk offers no conditional update. A separate restore guard rejects a target without body_source when the live template has one, even when force is set, because Listmonk retains the live source.",
 				},
 			},
 			{
@@ -385,23 +387,26 @@ export const opsTemplateRegistryPromoteOperationSpec = defineOperationSpec({
 				semantics: {
 					kind: "unsafe",
 					reason:
-						"An unpinned or forced retry re-issues the last-write-wins update unconditionally and can overwrite an intervening promotion of a different version.",
+						"An unpinned or forced retry re-issues the last-write-wins update unconditionally and can overwrite an intervening promotion of a different version. A target without body_source is still rejected before writing when the live template has one, even with force, because Listmonk retains the live source.",
 				},
 			},
 		],
 		reason:
-			"Retry safety depends on pinning the observed remote template hash; Listmonk updates are last-write-wins.",
+			"Retry safety depends on pinning the observed remote template hash; Listmonk updates are last-write-wins. Promotion also fails closed, even with force, when the target lacks body_source but the live template has one.",
 	},
 	agent: {
 		useWhen: [
 			"A previously captured template version must be restored to Listmonk.",
 		],
-		avoidWhen: ["The target version is already the active remote template."],
+		avoidWhen: [
+			"The target version is already the active remote template.",
+			"The target version lacks body_source while the live template has one; Listmonk retains the live source and the executor rejects this restore, even with force.",
+		],
 		prerequisites: ["ops.templates.registry-history"],
 		verifyWith: ["templates.get"],
 		related: ["ops.templates.registry-sync", "ops.templates.registry-rollback"],
 		retryGuidance:
-			"Echo the observed remote template hash as expected_remote_hash — ops.templates.registry-sync's per-template hash output carries it for the current remote content, and registry-history exposes the stored snapshot hashes — so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; an already-current target is a documented `promoted: false` no-op that issues no write, while a promotion that changed the remote hash conflicts on its own echo — on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first.",
+			"Echo the observed remote template hash as expected_remote_hash — ops.templates.registry-sync's per-template hash output carries it for the current remote content, and registry-history exposes the stored snapshot hashes — so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; an already-current target is a documented `promoted: false` no-op that issues no write, while a promotion that changed the remote hash conflicts on its own echo — on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first. Promotion fails closed before writing if the target lacks body_source but the live template has one; force does not bypass this because Listmonk retains the live source.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_promote",
@@ -423,7 +428,8 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 	resource: "template",
 	verb: "registry-rollback",
 	title: "Rollback template version",
-	description: "Rollback a Listmonk template to its previous stored version",
+	description:
+		"Rollback a Listmonk template to the version that preceded its live version",
 	contract: {
 		input: templateRollbackInputContract,
 		output: templateRollbackOutputContract,
@@ -440,7 +446,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 					reconcileWith: "templates.get",
 					idempotent: false,
 					reason:
-						"Inside the store lock the head-revision pin conflicts on any registry transition — including an A → B → A cycle that restores the version id — the source pin conflicts when the active version moved, and the target pin makes an already-applied rollback a documented no-op for a freshly observed pin set. A successful rollback advances the head revision and changes the remote hash, so a retry echoing the original pins always conflicts after its own success; that conflict is the reconciliation signal — an already-applied rollback shows up in registry-history with the target active. The remote hash pin stays best-effort: Listmonk offers no conditional update, so an external writer can still interleave between the hash check and the write.",
+						"Inside the store lock the head-revision pin conflicts on any registry transition — including an A → B → A cycle that restores the version id — the source pin conflicts when the active version moved, and the target pin makes an already-applied rollback a documented no-op for a freshly observed pin set. A successful rollback advances the head revision and changes the remote hash, so a retry echoing the original pins always conflicts after its own success; that conflict is the reconciliation signal — an already-applied rollback shows up in registry-history with the target active. The remote hash pin stays best-effort: Listmonk offers no conditional update, so an external writer can still interleave between the hash check and the write. The executor rejects a target without body_source when the live template has one because Listmonk retains the live source.",
 				},
 			},
 			{
@@ -448,21 +454,26 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 				semantics: {
 					kind: "unsafe",
 					reason:
-						"Without the full pin set an ABA transition or out-of-registry drift is indistinguishable, and a repeat may roll a different version than the caller reviewed.",
+						"Without the full pin set an ABA transition or out-of-registry drift is indistinguishable, and a repeat may roll a different version than the caller reviewed. A target without body_source is still rejected before writing when the live template has one because Listmonk retains the live source.",
 				},
 			},
 		],
 		reason:
-			"Retry safety depends on whether the caller pins the observed registry head, target, and remote hash; even fully pinned retries re-issue a last-write-wins remote update.",
+			"Retry safety depends on whether the caller pins the observed registry head, target, and remote hash; even fully pinned retries re-issue a last-write-wins remote update. Rollback also fails closed when the target lacks body_source but the live template has one.",
 	},
 	agent: {
-		useWhen: ["A template must be reverted to its previous stored version."],
-		avoidWhen: ["No previous version exists in the registry."],
+		useWhen: [
+			"A template must be reverted to the stored version that was active before its latest captured edit.",
+		],
+		avoidWhen: [
+			"No previous version exists in the registry.",
+			"The rollback target lacks body_source while the live template has one; Listmonk retains the live source and the executor rejects this restore.",
+		],
 		prerequisites: ["ops.templates.registry-history"],
 		verifyWith: ["templates.get"],
 		related: ["ops.templates.registry-sync", "ops.templates.registry-promote"],
 		retryGuidance:
-			"Pin the full set — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op for a freshly observed pin set; a successful rollback advances the head revision, so a retry echoing the original pins conflicts even after its own success — on that conflict reconcile with ops.templates.registry-history and templates.get, where an already-applied rollback shows the target active; with any pin missing, do the same inspection before retrying.",
+			"Pin the full set — from_version_id (observed active), to_version_id (the resolved live version's recorded predecessor, or its prior capture for older versions without a link), expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op for a freshly observed pin set; when live content has drifted outside the registry, the explicit target authorizes overwriting it relative to the active version. A successful rollback advances the head revision, so a retry echoing the original pins conflicts even after its own success — on that conflict reconcile with ops.templates.registry-history and templates.get, where an already-applied rollback shows the target active; with any pin missing, do the same inspection before retrying. Rollback fails closed before writing if the target lacks body_source but the live template has one; no override is available because Listmonk retains the live source.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_rollback",

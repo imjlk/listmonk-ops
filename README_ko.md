@@ -1579,6 +1579,32 @@ single opt-in 리스트는 이 멤버에게도 발송합니다. 대상 리스트
 대상 멤버십이 이미 있거나 구독 취소 상태를 유지하기 위해 변경을 생략했고,
 다른 변경도 요청되지 않은 경우)를 보고합니다.
 
+템플릿 registry의 활성 버전은 내용이 Listmonk에서 live 상태인 저장 버전입니다.
+`templates-sync`는 live 내용을 기록합니다. 활성 버전이 이미 그 내용을 담고
+있으면(예: 승격한 이전 버전) 그대로 두고, 가장 최근에 관찰한 버전과 일치하면 그 버전을
+활성화하며, 그 외에는 새 버전을 기록해 활성화합니다. promote와 rollback은 자신이
+쓴 버전을 활성화합니다. Listmonk는 업데이트마다 transactional이 아닌 template의
+subject를 template 이름으로 저장하며, registry는 이를 여전히 쓴 버전으로
+취급합니다. Listmonk는 업데이트가 `body_source`를 생략하거나 비워도 기존 값을
+유지하므로, promote와 rollback은 `body_source`가 있는 live 템플릿 위에 그것이 없는
+버전을 쓰지 않고 거부합니다(두 버전이 섞인 상태를 남기지 않음).
+새 capture는 `previousVersionId`를 저장합니다. 같은 registry-write revision 안에서는
+관찰 순서상 직전 capture를 predecessor로 쓰고, 해당 revision의 첫 capture는
+읽기 전에 조회한 활성 버전을 사용합니다. 겹친 sync의 registry merge가 capture 순서와
+다르게 끝나도 링크를 capture 순서로 다시 맞춥니다. 각 capture는 읽기 직전의 관찰 순서
+watermark도 저장하므로, 지연된 merge가 그 사이의 변경 없는 관찰을 predecessor에서
+건너뛰지 않습니다. registry는 가장 최근의 현재 관찰이나 관리 쓰기와 일치한 버전도
+저장합니다. 이 포인터가 없는 기존 schema-v1 저장소는 다음 관찰 전까지 history 마지막
+버전을 사용하는 기존 동작을 유지합니다. CLI/MCP history 출력에 predecessor 링크를
+포함하며, 링크가 없는 기존 저장 버전은 capture 순서를 사용합니다. 핀 없는 rollback은
+registry lock 안에서 live 템플릿을 다시 읽어 predecessor를 복원합니다. 이 방식은 새
+편집 전에 더 오래된 버전을 promote했어도 실제 활성 상태였던 버전으로 돌아갑니다.
+`--to-version-id` 핀은 확인된 predecessor와 일치해야 하며, registry 밖에서 바뀐
+live 내용을 덮어쓰도록 명시적으로 허용합니다. live 내용이 활성 버전과도
+가장 최근에 관찰한 버전과도 일치하지 않으면(마지막 sync 이후 registry 밖에서 변경됨)
+rollback은 대상을 추측하지 않고 실패합니다. 먼저 `templates-sync`로 live 내용을
+기록하거나, `--to-version-id`로 rollback 대상을 명시하세요.
+
 프리플라이트 링크 검사는 private/internal 호스트(loopback,
 `localhost`/`*.localhost` 이름, private CIDR, link-local, 클라우드 metadata IP)를
 차단하며 redirect를 수동으로 팔로우하며 각 hop마다 재검증합니다. 각 hop은 DNS를

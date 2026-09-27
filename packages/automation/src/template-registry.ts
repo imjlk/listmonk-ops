@@ -30,6 +30,14 @@ export interface TemplateVersionSnapshot {
 export interface TemplateRegistryVersion {
 	versionId: string;
 	capturedAt: string;
+	/** Global order reserved immediately before the remote template read. */
+	captureOrder?: number;
+	/** Latest template observation order already merged when this read began. */
+	previousCaptureOrder?: number;
+	/** Prior observed version in this write epoch, or its active starting version. */
+	previousVersionId?: string;
+	/** Registry head revision observed immediately before this capture's read. */
+	captureHeadRevision?: number;
 	hash: string;
 	note?: string;
 	snapshot: TemplateVersionSnapshot;
@@ -38,18 +46,33 @@ export interface TemplateRegistryVersion {
 export interface TemplateRegistryTemplateRecord {
 	templateId: number;
 	templateName: string;
+	/**
+	 * The stored version whose content is live in Listmonk, as far as the
+	 * registry last observed: a sync points it at the capture of the live
+	 * content, and a promotion or rollback at the version it wrote. An
+	 * unpinned rollback re-verifies it against the live template.
+	 */
 	activeVersionId?: string;
+	/**
+	 * Version whose content matched the latest current observation or managed
+	 * write.
+	 */
+	latestObservedVersionId?: string;
 	/**
 	 * Monotonic counter of registry-managed template writes. It advances
 	 * even when a write restores the same active version, so a pinned retry
 	 * can tell an untouched registry from one that went A → X → A.
 	 */
 	headRevision?: number;
+	/** Newest sequenced read, including unchanged syncs and verified no-ops. */
+	latestCaptureOrder?: number;
 	versions: TemplateRegistryVersion[];
 }
 
 export interface TemplateRegistryStore {
 	version: 1;
+	/** Monotonic order assigned to each template read across concurrent clients. */
+	captureSequence?: number;
 	templates: Record<string, TemplateRegistryTemplateRecord>;
 }
 
@@ -107,14 +130,120 @@ export class TemplateRegistryWriteTransactionError extends Error {
 	}
 }
 
+/**
+ * The live Listmonk template changed outside the registry since the last
+ * sync: its content matches neither the active version nor the latest
+ * capture, so the registry cannot tell which stored version is live. An
+ * unpinned rollback fails closed with this error instead of guessing a
+ * target.
+ */
+export class TemplateRegistryDriftError extends Error {
+	readonly templateId: number;
+	readonly liveHash: string;
+	readonly activeVersionId?: string;
+	/** Older stored versions whose content equals the live template. */
+	readonly matchingVersionIds: readonly string[];
+
+	constructor(
+		details: Readonly<{
+			templateId: number;
+			liveHash: string;
+			activeVersionId?: string;
+			matchingVersionIds: readonly string[];
+		}>,
+	) {
+		const matches = details.matchingVersionIds;
+		const observed =
+			matches.length > 0
+				? `matches stored version${matches.length > 1 ? "s" : ""} ${matches.join(", ")} but neither the active version ${details.activeVersionId ?? "(none)"} nor the latest observed version`
+				: "matches no stored registry version";
+		super(
+			`Template ${details.templateId} live content (hash ${details.liveHash.slice(0, 10)}) ${observed}; it changed outside the registry since the last sync. Run registry-sync to record the live content before rolling back, or pin to_version_id to the version preceding the active one to overwrite it explicitly.`,
+		);
+		this.name = "TemplateRegistryDriftError";
+		this.templateId = details.templateId;
+		this.liveHash = details.liveHash;
+		this.activeVersionId = details.activeVersionId;
+		this.matchingVersionIds = details.matchingVersionIds;
+	}
+}
+
 function compareTemplateVersions(
 	left: TemplateRegistryVersion,
 	right: TemplateRegistryVersion,
 ): number {
+	if (left.captureOrder !== undefined && right.captureOrder !== undefined) {
+		return (
+			left.captureOrder - right.captureOrder ||
+			left.capturedAt.localeCompare(right.capturedAt) ||
+			left.versionId.localeCompare(right.versionId)
+		);
+	}
 	return (
 		left.capturedAt.localeCompare(right.capturedAt) ||
+		(left.captureOrder ?? 0) - (right.captureOrder ?? 0) ||
 		left.versionId.localeCompare(right.versionId)
 	);
+}
+
+function migrateLegacyTemplateCaptureOrders(
+	store: TemplateRegistryStore,
+): void {
+	const records = Object.values(store.templates);
+	const legacyVersions = records
+		.flatMap((record) => record.versions)
+		.filter((version) => version.captureOrder === undefined)
+		.sort(compareTemplateVersions);
+	if (legacyVersions.length === 0) {
+		return;
+	}
+
+	// Keep known modern observations in their monotonic order. Legacy entries
+	// have only wall-clock timestamps, so place them relative to that sequence
+	// by timestamp once, then persist a single global capture order.
+	const ordered = records
+		.flatMap((record) => record.versions)
+		.filter((version) => version.captureOrder !== undefined)
+		.sort(compareTemplateVersions);
+	for (const version of legacyVersions) {
+		const nextVersionIndex = ordered.findIndex(
+			(candidate) =>
+				candidate.capturedAt.localeCompare(version.capturedAt) > 0,
+		);
+		ordered.splice(
+			nextVersionIndex === -1 ? ordered.length : nextVersionIndex,
+			0,
+			version,
+		);
+	}
+	for (const [index, version] of ordered.entries()) {
+		version.captureOrder = index + 1;
+	}
+	for (const record of records) {
+		record.versions.sort(compareTemplateVersions);
+	}
+}
+
+function getTemplateRegistryCaptureSequenceHighWater(
+	store: TemplateRegistryStore,
+): number {
+	let highWater = store.captureSequence ?? 0;
+	let hasLegacyVersion = false;
+	let versionCount = 0;
+	for (const record of Object.values(store.templates)) {
+		versionCount += record.versions.length;
+		for (const version of record.versions) {
+			if (version.captureOrder !== undefined) {
+				highWater = Math.max(highWater, version.captureOrder);
+			} else {
+				hasLegacyVersion = true;
+			}
+		}
+	}
+	if (hasLegacyVersion) {
+		highWater = Math.max(highWater, versionCount);
+	}
+	return highWater;
 }
 
 function isTemplateVersionSnapshot(
@@ -141,6 +270,20 @@ function isTemplateRegistryVersion(
 		typeof value.versionId === "string" &&
 		typeof value.capturedAt === "string" &&
 		!Number.isNaN(new Date(value.capturedAt).getTime()) &&
+		(value.captureOrder === undefined ||
+			(typeof value.captureOrder === "number" &&
+				Number.isSafeInteger(value.captureOrder) &&
+				value.captureOrder > 0)) &&
+		(value.previousCaptureOrder === undefined ||
+			(typeof value.previousCaptureOrder === "number" &&
+				Number.isSafeInteger(value.previousCaptureOrder) &&
+				value.previousCaptureOrder >= 0)) &&
+		(value.previousVersionId === undefined ||
+			typeof value.previousVersionId === "string") &&
+		(value.captureHeadRevision === undefined ||
+			(typeof value.captureHeadRevision === "number" &&
+				Number.isSafeInteger(value.captureHeadRevision) &&
+				value.captureHeadRevision >= 0)) &&
 		typeof value.hash === "string" &&
 		(value.note === undefined || typeof value.note === "string") &&
 		isTemplateVersionSnapshot(value.snapshot)
@@ -158,10 +301,16 @@ function isTemplateRegistryRecord(
 		typeof value.templateName === "string" &&
 		(value.activeVersionId === undefined ||
 			typeof value.activeVersionId === "string") &&
+		(value.latestObservedVersionId === undefined ||
+			typeof value.latestObservedVersionId === "string") &&
 		(value.headRevision === undefined ||
 			(typeof value.headRevision === "number" &&
 				Number.isInteger(value.headRevision) &&
 				value.headRevision >= 0)) &&
+		(value.latestCaptureOrder === undefined ||
+			(typeof value.latestCaptureOrder === "number" &&
+				Number.isSafeInteger(value.latestCaptureOrder) &&
+				value.latestCaptureOrder > 0)) &&
 		Array.isArray(value.versions) &&
 		value.versions.length > 0 &&
 		value.versions.every(isTemplateRegistryVersion)
@@ -179,6 +328,16 @@ function parseTemplateRegistryStore(value: unknown): TemplateRegistryStore {
 			"Invalid template registry store: templates must be a record",
 		);
 	}
+	if (
+		value.captureSequence !== undefined &&
+		(typeof value.captureSequence !== "number" ||
+			!Number.isSafeInteger(value.captureSequence) ||
+			value.captureSequence < 0)
+	) {
+		throw new Error(
+			"Invalid template registry store: captureSequence must be a non-negative safe integer",
+		);
+	}
 	for (const [key, record] of Object.entries(value.templates)) {
 		if (!isTemplateRegistryRecord(record)) {
 			throw new Error(
@@ -193,7 +352,7 @@ function parseTemplateRegistryStore(value: unknown): TemplateRegistryStore {
 function createTemplateRegistryStore(): JsonFileStore<TemplateRegistryStore> {
 	return {
 		path: getOpsStorePaths().templateRegistryPath,
-		createDefault: () => ({ version: 1, templates: {} }),
+		createDefault: () => ({ version: 1, captureSequence: 0, templates: {} }),
 		parse: parseTemplateRegistryStore,
 		lock: { timeoutMs: TEMPLATE_REGISTRY_LOCK_TIMEOUT_MS },
 	};
@@ -224,6 +383,176 @@ function createTemplateHash(snapshot: TemplateVersionSnapshot): string {
 		.digest("hex");
 }
 
+export type TemplateLiveVersionResolution =
+	| Readonly<{
+			/** Which registry reference identified the live content. */
+			status: "active" | "latest";
+			version: TemplateRegistryVersion;
+	  }>
+	| Readonly<{
+			status: "drifted";
+			/** Older stored versions whose content equals the live template. */
+			matchingVersionIds: readonly string[];
+	  }>;
+
+/**
+ * The snapshot Listmonk stores when the registry writes `snapshot`. Verified
+ * against Listmonk 6.2: an update stores a non-transactional template's name
+ * as its subject. That is the only rewrite accepted as the written version;
+ * any other difference — such as a body_source Listmonk kept — is a
+ * different version. Returns `snapshot` itself when the write stores it
+ * unchanged.
+ */
+export function normalizeTemplateSnapshotForWrite(
+	snapshot: TemplateVersionSnapshot,
+): TemplateVersionSnapshot {
+	if (snapshot.type === "tx" || snapshot.subject === snapshot.name) {
+		return snapshot;
+	}
+	return { ...snapshot, subject: snapshot.name };
+}
+
+/**
+ * Whether live content with `liveHash` is `version`'s content: its stored
+ * snapshot, or what Listmonk stores when that snapshot is written.
+ */
+function versionHoldsLiveContent(
+	version: TemplateRegistryVersion,
+	liveHash: string,
+): boolean {
+	if (version.hash === liveHash) {
+		return true;
+	}
+	const written = normalizeTemplateSnapshotForWrite(version.snapshot);
+	return written !== version.snapshot && createTemplateHash(written) === liveHash;
+}
+
+/**
+ * Accept a hash previously reported by a sync or stored in registry history
+ * when Listmonk's verified write normalization produced the live content.
+ */
+function liveTemplateMatchesRemoteHashPin(
+	record: Pick<TemplateRegistryTemplateRecord, "versions"> | undefined,
+	liveHash: string,
+	expectedRemoteHash: string,
+): boolean {
+	return (
+		liveHash === expectedRemoteHash ||
+		(record?.versions.some(
+			(version) =>
+				version.hash === expectedRemoteHash &&
+				versionHoldsLiveContent(version, liveHash),
+		) ??
+			false)
+	);
+}
+
+/**
+ * Resolve which stored version is live in Listmonk from the live content
+ * hash. The active version wins when it holds the live content: it
+ * disambiguates duplicate content, such as an older version a promotion or
+ * rollback made active. Otherwise the latest observed version matches when
+ * nothing changed since the last observation. Other content is treated as
+ * registry-external drift, even when it equals an older stored version whose
+ * position in the live history is unknown. A sync applies the same rule, so
+ * rollback resolves exactly the version a sync would mark active without
+ * recording anything new.
+ */
+export function resolveTemplateLiveVersion(
+	record: Pick<
+		TemplateRegistryTemplateRecord,
+		"activeVersionId" | "latestObservedVersionId" | "versions"
+	>,
+	liveHash: string,
+): TemplateLiveVersionResolution {
+	const history = [...record.versions].sort(compareTemplateVersions);
+	const activeVersion = history.find(
+		(version) => version.versionId === record.activeVersionId,
+	);
+	if (activeVersion && versionHoldsLiveContent(activeVersion, liveHash)) {
+		return { status: "active", version: activeVersion };
+	}
+	// Older schema-v1 stores lack the observation pointer. Keep their existing
+	// history-tail behavior until a current observation or managed write adds
+	// it. Once present, the pointer is authoritative: an older matching history
+	// entry does not prove that it is still the live version.
+	const latestObservedVersion =
+		record.latestObservedVersionId === undefined
+			? history.at(-1)
+			: history.find(
+					(version) =>
+						version.versionId === record.latestObservedVersionId,
+					);
+	if (
+		latestObservedVersion &&
+		versionHoldsLiveContent(latestObservedVersion, liveHash)
+	) {
+		return { status: "latest", version: latestObservedVersion };
+	}
+	return {
+		status: "drifted",
+		matchingVersionIds: history
+			.filter((version) => versionHoldsLiveContent(version, liveHash))
+			.map((version) => version.versionId),
+	};
+}
+
+/**
+ * Select the recorded predecessor of the version resolved as live. A linked
+ * `previousVersionId` takes precedence; older versions without a link fall
+ * back to capture order. Unpinned, live content the registry cannot place
+ * fails closed with {@link TemplateRegistryDriftError}. An explicit
+ * `toVersionId` must still equal the selected target, so a pinned retry after
+ * an intervening change conflicts instead of rolling elsewhere; under drift
+ * the pin authorizes overwriting the unrecorded live content, and the target
+ * stays relative to the registry's active version.
+ */
+export function selectTemplateRollbackTarget(
+	record: Pick<
+		TemplateRegistryTemplateRecord,
+		"templateId" | "activeVersionId" | "latestObservedVersionId" | "versions"
+	>,
+	liveHash: string,
+	toVersionId?: string,
+): TemplateRegistryVersion {
+	const live = resolveTemplateLiveVersion(record, liveHash);
+	if (live.status === "drifted" && toVersionId === undefined) {
+		throw new TemplateRegistryDriftError({
+			templateId: record.templateId,
+			liveHash,
+			activeVersionId: record.activeVersionId,
+			matchingVersionIds: live.matchingVersionIds,
+		});
+	}
+
+	const baseVersionId =
+		live.status === "drifted" ? record.activeVersionId : live.version.versionId;
+	const history = [...record.versions].sort(compareTemplateVersions);
+	const baseIndex = history.findIndex(
+		(version) => version.versionId === baseVersionId,
+	);
+	const baseVersion = history[baseIndex];
+	let targetVersion: TemplateRegistryVersion | undefined;
+	if (baseVersion?.previousVersionId !== undefined) {
+		targetVersion = history.find(
+			(version) => version.versionId === baseVersion.previousVersionId,
+		);
+	} else if (baseIndex > 0) {
+		targetVersion = history[baseIndex - 1];
+	}
+	if (!targetVersion) {
+		throw new Error(
+			`Template ${record.templateId} has no previous version to roll back to`,
+		);
+	}
+	if (toVersionId !== undefined && targetVersion.versionId !== toVersionId) {
+		throw new Error(
+			`Rollback target ${toVersionId} is no longer the previous version of template ${record.templateId}`,
+		);
+	}
+	return targetVersion;
+}
+
 async function getTemplateIds(
 	client: ListmonkClient,
 	explicitTemplateIds?: number[],
@@ -246,34 +575,198 @@ async function getTemplateIds(
 
 interface CapturedTemplateVersion {
 	templateId: number;
+	/**
+	 * When this template was read, just before its request: a sync reads
+	 * templates one by one, so a template late in a long sync is observed well
+	 * after the sync began — possibly after an overlapping sync recorded older
+	 * content. History and the active version follow this observation order.
+	 */
+	capturedAt: string;
+	captureOrder: number;
+	previousCaptureOrder?: number;
+	headRevisionBeforeRead: number;
+	previousVersionId?: string;
 	snapshot: TemplateVersionSnapshot;
 	hash: string;
 }
 
 interface TemplateRegistryCapture {
+	/** When the sync began; each template carries its own observation time. */
 	capturedAt: string;
+	captureSequence: number;
 	versions: CapturedTemplateVersion[];
 	errors: string[];
+}
+
+interface TemplateRegistryCaptureSequenceStore {
+	version: 1;
+	captureSequence: number;
+}
+
+function createTemplateCaptureSequenceStore(
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
+	initialSequence: number,
+): JsonFileStore<TemplateRegistryCaptureSequenceStore> {
+	return {
+		path: `${storeDefinition.path}.capture-sequence.json`,
+		createDefault: () => ({ version: 1, captureSequence: initialSequence }),
+		parse: (value) => {
+			if (
+				!isRecord(value) ||
+				value.version !== 1 ||
+				typeof value.captureSequence !== "number" ||
+				!Number.isSafeInteger(value.captureSequence) ||
+				value.captureSequence < 0
+			) {
+				throw new Error("Invalid template registry capture sequence store");
+			}
+			return value as unknown as TemplateRegistryCaptureSequenceStore;
+		},
+		lock: storeDefinition.lock,
+	};
+}
+
+async function reserveTemplateCaptureRead(
+	sequenceStore: JsonFileStore<TemplateRegistryCaptureSequenceStore>,
+	minimumSequence: number,
+): Promise<{ captureOrder: number }> {
+	return updateJsonFileStore(sequenceStore, (store) => {
+		const captureOrder = Math.max(store.captureSequence, minimumSequence) + 1;
+		if (!Number.isSafeInteger(captureOrder)) {
+			throw new Error("Template registry capture sequence is exhausted");
+		}
+		return commitJsonFileStoreUpdate(
+			{ version: 1, captureSequence: captureOrder },
+			{ captureOrder },
+		);
+	});
+}
+
+async function reserveTemplateObservationOrder(
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
+	store: TemplateRegistryStore,
+): Promise<number> {
+	const highWater = getTemplateRegistryCaptureSequenceHighWater(store);
+	const sequenceStore = createTemplateCaptureSequenceStore(
+		storeDefinition,
+		highWater,
+	);
+	return (
+		await reserveTemplateCaptureRead(sequenceStore, highWater)
+	).captureOrder;
+}
+
+function recordTemplateObservation(
+	store: TemplateRegistryStore,
+	record: TemplateRegistryTemplateRecord,
+	versionId: string,
+	captureOrder: number,
+): void {
+	record.latestCaptureOrder = Math.max(
+		record.latestCaptureOrder ?? 0,
+		record.versions.at(-1)?.captureOrder ?? 0,
+		captureOrder,
+	);
+	record.latestObservedVersionId = versionId;
+	store.captureSequence = Math.max(store.captureSequence ?? 0, captureOrder);
+	store.templates[String(record.templateId)] = record;
+}
+
+/**
+ * Shared per-template sidecar lock for sync captures and managed mutations.
+ * Sync holds it across sequence reservation and the remote GET; mutations take
+ * it before the registry transaction. Its null payload avoids dummy writes.
+ */
+function createTemplateCaptureReadLockStore(
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
+	templateId: number,
+): JsonFileStore<null> {
+	return {
+		path: `${storeDefinition.path}.capture-${templateId}`,
+		createDefault: () => null,
+		parse: (value) => {
+			if (value !== null) {
+				throw new Error("Invalid template registry capture lock store");
+			}
+			return null;
+		},
+		lock: storeDefinition.lock,
+		skipUnchangedWrites: true,
+	};
+}
+
+async function withTemplateCaptureReadLock<Result>(
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
+	templateId: number,
+	action: () => Promise<Result>,
+): Promise<Result> {
+	return updateJsonFileStore(
+		createTemplateCaptureReadLockStore(storeDefinition, templateId),
+		async (lockState) => commitJsonFileStoreUpdate(lockState, await action()),
+	);
 }
 
 async function captureTemplateRegistry(
 	client: ListmonkClient,
 	options: TemplateRegistrySyncOptions,
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
 ): Promise<TemplateRegistryCapture> {
 	const capturedAt = new Date().toISOString();
 	const templateIds = await getTemplateIds(client, options.templateIds);
+	const registry = await readJsonFileStore(storeDefinition);
+	const captureSequenceHighWater =
+		getTemplateRegistryCaptureSequenceHighWater(registry);
+	const sequenceStore = createTemplateCaptureSequenceStore(
+		storeDefinition,
+		captureSequenceHighWater,
+	);
 	const versions: CapturedTemplateVersion[] = [];
 	const errors: string[] = [];
 
 	for (const templateId of templateIds) {
 		try {
-			const template = await getTemplateById(client, templateId);
-			const snapshot = createTemplateSnapshot(template, templateId);
-			versions.push({
-				templateId,
-				snapshot,
-				hash: createTemplateHash(snapshot),
-			});
+			const version = await updateJsonFileStore(
+				createTemplateCaptureReadLockStore(storeDefinition, templateId),
+				async (lockState) => {
+					let stamp = await reserveTemplateCaptureRead(
+						sequenceStore,
+						captureSequenceHighWater,
+					);
+					const latestRegistry = await readJsonFileStore(storeDefinition);
+					const latestCaptureSequence =
+						getTemplateRegistryCaptureSequenceHighWater(latestRegistry);
+					if (latestCaptureSequence >= stamp.captureOrder) {
+						stamp = await reserveTemplateCaptureRead(
+							sequenceStore,
+							latestCaptureSequence,
+						);
+					}
+					const headRevisionBeforeRead =
+						latestRegistry.templates[String(templateId)]?.headRevision ?? 0;
+					const previousCaptureOrder = Math.max(
+						latestRegistry.templates[String(templateId)]?.latestCaptureOrder ??
+							0,
+						latestRegistry.templates[String(templateId)]?.versions.at(-1)
+							?.captureOrder ?? 0,
+					);
+					const previousVersionId =
+						latestRegistry.templates[String(templateId)]?.activeVersionId;
+					const capturedAt = new Date().toISOString();
+					const template = await getTemplateById(client, templateId);
+					const snapshot = createTemplateSnapshot(template, templateId);
+					return commitJsonFileStoreUpdate(lockState, {
+						templateId,
+						...stamp,
+						...(previousCaptureOrder > 0 ? { previousCaptureOrder } : {}),
+						capturedAt,
+						headRevisionBeforeRead,
+						previousVersionId,
+						snapshot,
+						hash: createTemplateHash(snapshot),
+					});
+				},
+			);
+			versions.push(version);
 		} catch (error) {
 			try {
 				await options.onCaptureError?.({ templateId, error });
@@ -284,7 +777,68 @@ async function captureTemplateRegistry(
 		}
 	}
 
-	return { capturedAt, versions, errors };
+	const captureSequence = (await readJsonFileStore(
+		sequenceStore,
+	)).captureSequence;
+	return { capturedAt, captureSequence, versions, errors };
+}
+
+/**
+ * Whether a sync capture may move the active version. The capture runs
+ * outside the store lock, so it can be stale when it merges: a capture not
+ * newer than every stored version is superseded by those observations, and a
+ * capture that raced a promotion or rollback (the head revision moved while
+ * it was in flight) may have observed content that write replaced. A stale
+ * capture is still recorded in history, but it never describes what is live.
+ * `record.versions` must be in capture order.
+ */
+function isCurrentTemplateCapture(
+	record: TemplateRegistryTemplateRecord,
+	capturedAt: string,
+	captureOrder: number,
+	headRevisionBeforeRead: number,
+): boolean {
+	const latestVersion = record.versions.at(-1);
+	const latestCaptureOrder = Math.max(
+		record.latestCaptureOrder ?? 0,
+		latestVersion?.captureOrder ?? 0,
+	);
+	const followsLatest =
+		latestCaptureOrder > 0
+			? latestCaptureOrder < captureOrder
+			: latestVersion === undefined ||
+				latestVersion.capturedAt.localeCompare(capturedAt) < 0 ||
+				latestVersion.capturedAt === capturedAt;
+	return (
+		(record.headRevision ?? 0) === headRevisionBeforeRead && followsLatest
+	);
+}
+
+/**
+ * Captures can merge after a later same-template observation. Once both are
+ * present, rebuild their predecessor links in observation order within each
+ * registry-write epoch. A capture's previousCaptureOrder watermark protects a
+ * sampled predecessor from captures that merged late but were already
+ * superseded by an unchanged observation before this read.
+ */
+function reconcileTemplateCapturePredecessors(
+	record: TemplateRegistryTemplateRecord,
+): void {
+	const previousByHeadRevision = new Map<number, TemplateRegistryVersion>();
+	for (const version of record.versions) {
+		if (version.captureHeadRevision === undefined) {
+			continue;
+		}
+		const previous = previousByHeadRevision.get(version.captureHeadRevision);
+		if (
+			previous &&
+			(version.previousCaptureOrder === undefined ||
+				(previous.captureOrder ?? 0) > version.previousCaptureOrder)
+		) {
+			version.previousVersionId = previous.versionId;
+		}
+		previousByHeadRevision.set(version.captureHeadRevision, version);
+	}
 }
 
 function mergeTemplateRegistryCapture(
@@ -293,11 +847,25 @@ function mergeTemplateRegistryCapture(
 	store: TemplateRegistryStore,
 	storePath: string,
 ): TemplateRegistrySyncResult {
+	migrateLegacyTemplateCaptureOrders(store);
+	store.captureSequence = Math.max(
+		store.captureSequence ?? 0,
+		capture.captureSequence,
+	);
 	let createdVersions = 0;
 	let unchangedTemplates = 0;
 	const templates: TemplateRegistrySyncResult["templates"] = [];
 
-	for (const { templateId, snapshot, hash } of capture.versions) {
+	for (const {
+		templateId,
+		capturedAt,
+		captureOrder,
+		previousCaptureOrder,
+		headRevisionBeforeRead,
+		previousVersionId,
+		snapshot,
+		hash,
+	} of capture.versions) {
 		const key = String(templateId);
 		const record = store.templates[key] || {
 			templateId,
@@ -306,25 +874,73 @@ function mergeTemplateRegistryCapture(
 			activeVersionId: undefined,
 		};
 		record.versions.sort(compareTemplateVersions);
-		const latestVersion = record.versions.at(-1);
-		if (latestVersion?.hash === hash) {
+		const isCurrentCapture = isCurrentTemplateCapture(
+			record,
+			capturedAt,
+			captureOrder,
+			headRevisionBeforeRead,
+		);
+		record.latestCaptureOrder = Math.max(
+			record.latestCaptureOrder ?? 0,
+			record.versions.at(-1)?.captureOrder ?? 0,
+			captureOrder,
+		);
+		// The active version follows the live content, resolved exactly as a
+		// rollback resolves it. Content the active version already holds —
+		// possibly an older version a promotion or rollback made active —
+		// records nothing: a duplicate capture at the end of history would
+		// make the next rollback undo that write. Content matching the latest
+		// capture activates it, and anything else is recorded below as a new
+		// version. Only a current capture moves the active version.
+		const live = resolveTemplateLiveVersion(record, hash);
+		// A stale capture cannot move the active/latest-observed pointers. If its
+		// content already appears in history, recognize it here to avoid a
+		// duplicate version even though it no longer matches the current pointer.
+		const staleMatchingVersion =
+			live.status === "drifted" && !isCurrentCapture
+				? [...record.versions]
+						.reverse()
+						.find((version) => versionHoldsLiveContent(version, hash))
+				: undefined;
+		const observedVersion =
+			live.status === "drifted" ? staleMatchingVersion : live.version;
+		if (observedVersion) {
+			if (isCurrentCapture) {
+				// The live name: an active older version a promotion restored
+				// can carry a different name than the latest capture.
+				record.templateName = snapshot.name;
+			}
+			if (
+				live.status === "latest" &&
+				(isCurrentCapture || record.activeVersionId === undefined)
+			) {
+				record.activeVersionId = live.version.versionId;
+			}
+			if (isCurrentCapture) {
+				record.latestObservedVersionId = observedVersion.versionId;
+			}
 			unchangedTemplates += 1;
 			templates.push({
 				templateId,
 				templateName: snapshot.name,
 				changed: false,
 				hash,
-				versionId: latestVersion.versionId,
+				versionId: observedVersion.versionId,
 			});
 			store.templates[key] = record;
 			continue;
 		}
 
-		const versionId = `v_${capture.capturedAt}_${hash.slice(0, 10)}`;
+		const versionId = `v_${capturedAt}_${captureOrder}_${hash.slice(0, 10)}`;
 		const existingVersion = record.versions.find(
 			(version) => version.versionId === versionId,
 		);
 		if (existingVersion) {
+			if (isCurrentCapture) {
+				record.activeVersionId = existingVersion.versionId;
+				record.latestObservedVersionId = existingVersion.versionId;
+				record.templateName = snapshot.name;
+			}
 			unchangedTemplates += 1;
 			templates.push({
 				templateId,
@@ -339,15 +955,24 @@ function mergeTemplateRegistryCapture(
 
 		record.versions.push({
 			versionId,
-			capturedAt: capture.capturedAt,
+			capturedAt,
+			captureOrder,
+			...(previousCaptureOrder === undefined ? {} : { previousCaptureOrder }),
+			...(previousVersionId === undefined ? {} : { previousVersionId }),
+			captureHeadRevision: headRevisionBeforeRead,
 			hash,
 			note: options.note,
 			snapshot,
 		});
 		record.versions.sort(compareTemplateVersions);
-		record.templateName =
-			record.versions.at(-1)?.snapshot.name ?? snapshot.name;
-		if (!record.activeVersionId) {
+		reconcileTemplateCapturePredecessors(record);
+		// Like the active version, the name follows only current captures: a
+		// stale one may predate a promotion that restored another name.
+		if (isCurrentCapture) {
+			record.activeVersionId = versionId;
+			record.latestObservedVersionId = versionId;
+			record.templateName = snapshot.name;
+		} else if (!record.activeVersionId) {
 			record.activeVersionId = record.versions.at(-1)?.versionId || versionId;
 		}
 
@@ -377,7 +1002,11 @@ export async function syncTemplateRegistry(
 	options: TemplateRegistrySyncOptions = {},
 ): Promise<TemplateRegistrySyncResult> {
 	const storeDefinition = createTemplateRegistryStore();
-	const capture = await captureTemplateRegistry(client, options);
+	const capture = await captureTemplateRegistry(
+		client,
+		options,
+		storeDefinition,
+	);
 	return updateJsonFileStore(storeDefinition, (store) => {
 		const result = mergeTemplateRegistryCapture(
 			capture,
@@ -414,6 +1043,40 @@ export async function getTemplateRegistryHistory(templateId: number): Promise<{
 	};
 }
 
+/**
+ * Read the live template at most once per registry transaction, so every
+ * check inside the store lock works from the same observation.
+ */
+function createLiveTemplateReader(
+	client: ListmonkClient,
+	templateId: number,
+): () => Promise<Template> {
+	let liveTemplate: Promise<Template> | undefined;
+	return () => {
+		liveTemplate ??= getTemplateById(client, templateId);
+		return liveTemplate;
+	};
+}
+
+/**
+ * Listmonk 6.2 keeps a template's body_source when an update omits it or
+ * sends it empty or null, so a version without one cannot be restored over
+ * a live template that has one: the write would pair the version's body with
+ * the live visual-builder source, a state no stored version holds. Refuse
+ * before writing instead of reporting that hybrid as the restored version.
+ */
+function assertTemplateVersionRestorable(
+	templateId: number,
+	version: TemplateRegistryVersion,
+	liveTemplate: Template,
+): void {
+	if (!version.snapshot.bodySource && liveTemplate.body_source) {
+		throw new Error(
+			`Template ${templateId} version ${version.versionId} has no body_source, but the live template has one; Listmonk keeps a body_source that an update omits or clears, so writing this version would pair its body with a different visual source. Promote a version that has a body_source, or change the template in Listmonk.`,
+		);
+	}
+}
+
 // Call only from a JSON store transaction. The lock intentionally spans the
 // Listmonk update so concurrent CLI/MCP processes cannot commit active versions
 // in a different order than their remote template updates. Dead local owners
@@ -423,6 +1086,7 @@ async function promoteTemplateVersionInStore(
 	templateId: number,
 	versionId: string,
 	store: TemplateRegistryStore,
+	readLiveTemplate: () => Promise<Template>,
 ): Promise<TemplatePromoteResult> {
 	const record = store.templates[String(templateId)];
 	if (!record) {
@@ -437,6 +1101,11 @@ async function promoteTemplateVersionInStore(
 			`Version ${versionId} not found for template ${templateId}`,
 		);
 	}
+	assertTemplateVersionRestorable(
+		templateId,
+		targetVersion,
+		await readLiveTemplate(),
+	);
 
 	const response = await client.template.update({
 		path: { id: templateId },
@@ -464,6 +1133,9 @@ async function promoteTemplateVersionInStore(
 	// promoteTemplateVersion short-circuits the already-current case.
 	record.headRevision = (record.headRevision ?? 0) + 1;
 	record.activeVersionId = versionId;
+	record.latestObservedVersionId = versionId;
+	// The write restored this version's name in Listmonk.
+	record.templateName = targetVersion.snapshot.name;
 	store.templates[String(templateId)] = record;
 
 	return {
@@ -500,11 +1172,13 @@ async function commitRemoteTemplateMutation<
 ): Promise<Result> {
 	let remoteMutationCompleted = false;
 	try {
-		return await updateJsonFileStore(storeDefinition, async (store) => {
-			const outcome = await action(store);
-			remoteMutationCompleted = outcome.remoteMutated;
-			return commitJsonFileStoreUpdate(store, outcome.result);
-		});
+		return await withTemplateCaptureReadLock(storeDefinition, templateId, () =>
+			updateJsonFileStore(storeDefinition, async (store) => {
+				const outcome = await action(store);
+				remoteMutationCompleted = outcome.remoteMutated;
+				return commitJsonFileStoreUpdate(store, outcome.result);
+			}),
+		);
 	} catch (error) {
 		if (!remoteMutationCompleted) {
 			throw error;
@@ -531,10 +1205,22 @@ export async function promoteTemplateVersion(
 		async (
 			store,
 		): Promise<TemplateRemoteMutationOutcome<TemplatePromoteResult>> => {
+			const readLiveTemplate = createLiveTemplateReader(client, templateId);
+			const record = store.templates[String(templateId)];
+			let observationOrder: number | undefined;
+			if (!options?.force && options?.expectedRemoteHash) {
+				observationOrder = await reserveTemplateObservationOrder(
+					storeDefinition,
+					store,
+				);
+			}
 			// Hash check inside the lock so concurrent promotions cannot
 			// both pass the check before either acquires the lock.
 			if (!options?.force && options?.expectedRemoteHash) {
-				const remoteTemplate = await getTemplateById(client, templateId);
+				if (observationOrder === undefined) {
+					throw new Error("Template observation order was not reserved");
+				}
+				const remoteTemplate = await readLiveTemplate();
 				const remoteHash = createTemplateHash({
 					id: toPositiveInt(remoteTemplate.id) || templateId,
 					name: remoteTemplate.name || "",
@@ -543,11 +1229,18 @@ export async function promoteTemplateVersion(
 					body: remoteTemplate.body || "",
 					bodySource: remoteTemplate.body_source || undefined,
 				} satisfies TemplateVersionSnapshot);
-				if (remoteHash !== options.expectedRemoteHash) {
+				if (
+					!liveTemplateMatchesRemoteHashPin(
+						record,
+						remoteHash,
+						options.expectedRemoteHash,
+					)
+				) {
 					throw new Error(
 						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}. Use force=true to override.`,
 					);
 				}
+				store.captureSequence = Math.max(store.captureSequence ?? 0, observationOrder);
 			}
 
 			// An already-current promotion is a no-op: when the active
@@ -556,17 +1249,30 @@ export async function promoteTemplateVersion(
 			// callers' pins without changing anything. A drifted remote
 			// (hash differs) still takes the write below. force skips this
 			// short-circuit because it asks for an unconditional write.
-			const record = store.templates[String(templateId)];
 			if (!options?.force && record?.activeVersionId === versionId) {
 				const activeVersion = record.versions.find(
 					(version) => version.versionId === versionId,
 				);
 				if (activeVersion) {
-					const remoteTemplate = await getTemplateById(client, templateId);
+					// The shared template lock spans this order reservation and GET.
+					observationOrder ??= await reserveTemplateObservationOrder(
+						storeDefinition,
+						store,
+					);
+					const remoteTemplate = await readLiveTemplate();
 					const remoteHash = createTemplateHash(
 						createTemplateSnapshot(remoteTemplate, templateId),
 					);
-					if (remoteHash === activeVersion.hash) {
+					if (versionHoldsLiveContent(activeVersion, remoteHash)) {
+						if (observationOrder === undefined) {
+							throw new Error("Template observation order was not reserved");
+						}
+						recordTemplateObservation(
+							store,
+							record,
+							versionId,
+							observationOrder,
+						);
 						return {
 							result: {
 								templateId,
@@ -580,6 +1286,10 @@ export async function promoteTemplateVersion(
 							remoteMutated: false,
 						};
 					}
+					store.captureSequence = Math.max(
+						store.captureSequence ?? 0,
+						observationOrder,
+					);
 				}
 			}
 
@@ -589,6 +1299,7 @@ export async function promoteTemplateVersion(
 					templateId,
 					versionId,
 					store,
+					readLiveTemplate,
 				),
 				remoteMutated: true,
 			};
@@ -600,6 +1311,13 @@ export async function rollbackTemplateVersion(
 	client: ListmonkClient,
 	templateId: number,
 	options: {
+		/**
+		 * Target pin: the version the caller expects the rollback to write.
+		 * It must be the version preceding the live one (or already active),
+		 * so a retry after the registry moved conflicts instead of rolling
+		 * elsewhere. When the live content changed outside the registry, the
+		 * pin authorizes overwriting it relative to the active version.
+		 */
 		toVersionId?: string;
 		/**
 		 * Source pin: the active version the caller observed; a mismatch
@@ -659,13 +1377,24 @@ export async function rollbackTemplateVersion(
 				);
 			}
 
+			const readLiveTemplate = createLiveTemplateReader(client, templateId);
+			let observationOrder: number | undefined;
+			if (options.expectedRemoteHash !== undefined) {
+				observationOrder = await reserveTemplateObservationOrder(
+					storeDefinition,
+					store,
+				);
+			}
 			// Remote drift pin: same locked hash check as promotion, so a
 			// template mutated outside the registry cannot be rolled back
 			// over silently. Listmonk offers no conditional update, so this
 			// stays a best-effort pre-check — an external writer can still
 			// interleave between this GET and the update PUT below.
 			if (options.expectedRemoteHash !== undefined) {
-				const remoteTemplate = await getTemplateById(client, templateId);
+				if (observationOrder === undefined) {
+					throw new Error("Template observation order was not reserved");
+				}
+				const remoteTemplate = await readLiveTemplate();
 				const remoteHash = createTemplateHash({
 					id: toPositiveInt(remoteTemplate.id) || templateId,
 					name: remoteTemplate.name || "",
@@ -674,11 +1403,21 @@ export async function rollbackTemplateVersion(
 					body: remoteTemplate.body || "",
 					bodySource: remoteTemplate.body_source || undefined,
 				} satisfies TemplateVersionSnapshot);
-				if (remoteHash !== options.expectedRemoteHash) {
+				if (
+					!liveTemplateMatchesRemoteHashPin(
+						record,
+						remoteHash,
+						options.expectedRemoteHash,
+					)
+				) {
 					throw new Error(
 						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}`,
 					);
 				}
+				store.captureSequence = Math.max(
+					store.captureSequence ?? 0,
+					observationOrder,
+				);
 			}
 
 			// A pinned target that already equals the active version is the
@@ -696,22 +1435,41 @@ export async function rollbackTemplateVersion(
 					(version) => version.versionId === options.toVersionId,
 				);
 				if (targetVersion) {
-					const remoteTemplate = await getTemplateById(client, templateId);
+					// The shared template lock spans this order reservation and GET.
+					observationOrder ??= await reserveTemplateObservationOrder(
+						storeDefinition,
+						store,
+					);
+					const remoteTemplate = await readLiveTemplate();
 					const remoteHash = createTemplateHash(
 						createTemplateSnapshot(remoteTemplate, templateId),
 					);
-					if (remoteHash !== targetVersion.hash) {
+					if (!versionHoldsLiveContent(targetVersion, remoteHash)) {
+						if (observationOrder === undefined) {
+							throw new Error("Template observation order was not reserved");
+						}
+						store.captureSequence = Math.max(
+							store.captureSequence ?? 0,
+							observationOrder,
+						);
 						const promoted = await promoteTemplateVersionInStore(
 							client,
 							templateId,
 							targetVersion.versionId,
 							store,
+							readLiveTemplate,
 						);
 						return {
 							result: { ...promoted, rolledBack: true },
 							remoteMutated: true,
 						};
 					}
+					recordTemplateObservation(
+						store,
+						record,
+						targetVersion.versionId,
+						observationOrder,
+					);
 				}
 				return {
 					result: {
@@ -727,46 +1485,27 @@ export async function rollbackTemplateVersion(
 				};
 			}
 
-			let targetIndex: number | undefined = undefined;
-			if (record.activeVersionId) {
-				const activeIndex = record.versions.findIndex(
-					(version) => version.versionId === record.activeVersionId,
-				);
-				if (activeIndex > 0) {
-					targetIndex = activeIndex - 1;
-				}
-			}
-			if (targetIndex === undefined) {
-				throw new Error(
-					`Template ${templateId} has no previous version to roll back to`,
-				);
-			}
-
-			const targetVersion = record.versions[targetIndex];
-			if (!targetVersion) {
-				throw new Error(
-					`Unable to locate rollback target for template ${templateId}`,
-				);
-			}
-
-			// An explicit target pins the rollback: when the active version
-			// already equals it the rollback is already applied (a documented
-			// no-op), and when the registry moved so the resolved target is
-			// no longer reachable the request fails instead of silently
-			// rolling to a different version.
-			if (options.toVersionId !== undefined) {
-				if (targetVersion.versionId !== options.toVersionId) {
-					throw new Error(
-						`Rollback target ${options.toVersionId} is no longer the previous version of template ${templateId}`,
-					);
-				}
-			}
+			// Roll back from what is live in Listmonk, not from the stored
+			// pointer alone: the template may have changed since the registry
+			// last observed it. The live version is resolved the way a sync
+			// would mark it active, and live content the registry cannot place
+			// fails closed unless an explicit target pins the rollback. The
+			// pinned target must still be the resolved previous version, so a
+			// retry after the registry moved fails instead of silently rolling
+			// to a different version.
+			const remoteTemplate = await readLiveTemplate();
+			const targetVersion = selectTemplateRollbackTarget(
+				record,
+				createTemplateHash(createTemplateSnapshot(remoteTemplate, templateId)),
+				options.toVersionId,
+			);
 
 			const promoted = await promoteTemplateVersionInStore(
 				client,
 				templateId,
 				targetVersion.versionId,
 				store,
+				readLiveTemplate,
 			);
 			return { result: { ...promoted, rolledBack: true }, remoteMutated: true };
 		},

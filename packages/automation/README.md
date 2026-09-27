@@ -167,10 +167,46 @@ same host.
 Segment history retains the most recent 1,000 snapshots per list and compares a
 capture only with earlier observations, including when concurrent captures
 commit out of order. Template history is kept in capture order for the same
-reason. Promotion and rollback hold the registry lock across the Listmonk
+reason, stamping each template with when the sync read it rather than when the
+sync began. Promotion and rollback hold the registry lock across the Listmonk
 update; if Listmonk succeeds but the local registry commit cannot be confirmed,
 `TemplateRegistryWriteTransactionError` names the store and requires remote/
 local reconciliation before retrying.
+
+A template's active version is the stored version whose content is live in
+Listmonk. Sync records the live content: it keeps an active version that
+already holds it, activates the latest observed version when that matches, and
+otherwise records and activates a new version. A capture that is not newer
+than every stored version, or that raced a promotion or rollback, is still
+recorded but never moves the active version. The template name reported by
+history, promotion, and rollback follows the same rule, so it is the live
+template's name even after promoting an older version. Promotion and rollback
+activate the version they write. Listmonk 6.2 stores a non-transactional
+template's name as its subject on every update, so that rewrite
+(`normalizeTemplateSnapshotForWrite()`) still counts as the written version;
+any other difference does not. Listmonk also keeps a template's `body_source`
+when an update omits it or sends it empty or null, so promotion and rollback
+refuse to write a version without one over a live template that has one
+instead of leaving a mix of both versions. Each new capture stores a
+`previousVersionId`: the preceding capture in observation order within the same
+registry-write revision, or the active version sampled before the first
+capture in that revision. Each capture also stores the observation watermark
+it saw before reading, so a delayed merge cannot link across an intervening
+unchanged observation. The registry persists which version matched the latest
+current observation or managed write; older schema-v1 stores without that
+pointer continue to use the history tail until their next observation. The
+CLI/MCP history output exposes predecessor links; older versions without one
+fall back to capture order. An
+unpinned rollback re-reads the live template inside the registry lock, resolves
+it with the same rule (`resolveTemplateLiveVersion()`), and restores that
+predecessor (`selectTemplateRollbackTarget()`). A `toVersionId` pin must match
+the resolved predecessor and authorizes overwriting drifted live content. Live content that matches
+neither the active version nor the latest observed version raises
+`TemplateRegistryDriftError` instead of guessing a target: sync first, or pin
+`toVersionId` to the version preceding the active one to overwrite it
+explicitly. Existing schema version 1 stores load unchanged; a stale active
+version left by earlier releases is resolved from the live content and
+corrected by the next sync.
 
 ## Outbound Webhook Foundation
 

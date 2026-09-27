@@ -1236,7 +1236,7 @@ Capture Listmonk templates in the local version registry
 
 ## `ops.templates.registry-history`
 
-Show the stored version history for a template
+Show stored template versions and each capture's rollback predecessor
 
 - Resource / verb: `template.registry-history`
 - MCP tool: `listmonk_ops_template_registry_history`
@@ -1260,7 +1260,7 @@ Promote a stored template version back to Listmonk
 
 ## `ops.templates.registry-rollback`
 
-Rollback a Listmonk template to its previous stored version
+Rollback a Listmonk template to the version that preceded its live version
 
 - Resource / verb: `template.registry-rollback`
 - MCP tool: `listmonk_ops_template_registry_rollback`

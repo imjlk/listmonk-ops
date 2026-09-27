@@ -1666,6 +1666,37 @@ subscriber whose list add landed before its blocklist failed), and
 membership already existed, or an unsubscribed target membership was left
 unchanged to preserve consent when no other mutation was requested).
 
+A template's active registry version is the stored version whose content is
+live in Listmonk. `templates-sync` records the live content: it keeps an active
+version that already holds it (for example, an older version you promoted),
+activates the latest observed version when that matches, and otherwise records
+a new version and activates it. Promote and rollback activate the version they
+write;
+Listmonk stores a non-transactional template's name as its subject on every
+update, and the registry still treats that as the written version. Because
+Listmonk keeps a template's `body_source` when an update omits or clears it,
+promote and rollback refuse to write a version without one over a live template
+that has one instead of leaving a mix of both versions.
+Each new capture stores a `previousVersionId`: the preceding capture in
+observation order within the same registry-write revision, or the active
+version sampled before the first capture in that revision. Overlapping syncs
+repair these links by capture order even if their registry merges finish out of
+order. Each capture stores its previous observation watermark, so delayed merges
+cannot move a predecessor across an intervening unchanged observation. The
+registry also persists which version matched the latest current observation or
+managed write; older schema-v1 stores without that pointer retain history-tail
+resolution until their next observation. CLI and MCP history output includes
+the predecessor link; older stored versions without one use capture order. An
+unpinned rollback re-reads the live template
+inside the registry lock and restores that predecessor. This preserves an older
+version promoted before a new edit as the rollback target. A
+`--to-version-id` pin must match the resolved predecessor, and authorizes
+overwriting drifted live content. When the live content matches neither the
+active version nor the latest observed version — it changed outside the
+registry since the last sync — the rollback fails closed instead of guessing a
+target: run `templates-sync` to record the live content first, or pin
+`--to-version-id` to explicitly choose the rollback target.
+
 Preflight link checking now blocks private/internal hosts (loopback,
 `localhost`/`*.localhost` names, private CIDRs, link-local, cloud metadata IPs)
 and follows redirects manually with per-hop revalidation. Each hop is resolved

@@ -436,6 +436,7 @@ const segmentDriftOutputSchema = z.object({
 const templateRegistryVersionSchema = z.object({
 	versionId: z.string(),
 	capturedAt: z.string(),
+	previousVersionId: z.string().optional(),
 	hash: z.string(),
 	note: z.string().optional(),
 	snapshot: z.object({
@@ -758,7 +759,8 @@ export const templateRegistrySyncOperation = defineOperation({
 export const templateRegistryHistoryOperation = defineOperation({
 	id: "ops.templates.registry-history",
 	title: "Show template version history",
-	description: "Show the stored version history for a template",
+	description:
+		"Show stored template versions and each capture's rollback predecessor",
 	inputSchema: templateIdInputSchema,
 	outputSchema: templateRegistryHistoryOutputSchema,
 	safety: {
@@ -792,7 +794,8 @@ export const templateRegistryPromoteOperation = defineOperation({
 export const templateRegistryRollbackOperation = defineOperation({
 	id: "ops.templates.registry-rollback",
 	title: "Rollback template version",
-	description: "Rollback a Listmonk template to its previous stored version",
+	description:
+		"Rollback a Listmonk template to the version that preceded its live version",
 	inputSchema: templateRollbackInputSchema,
 	outputSchema: templateRollbackOutputSchema,
 	safety: {
