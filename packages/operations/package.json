@@ -24,7 +24,8 @@
 		}
 	},
 	"files": [
-		"dist",
+		"dist/**/*.js",
+		"dist/**/*.d.ts",
 		"generated/specs/*.md",
 		"generated/specs/operations-spec.json",
 		"README.md"
@@ -38,7 +39,7 @@
 		"specs:governance": "bun ./scripts/check-spec-governance.ts",
 		"specs:stable:check": "bun ./scripts/check-stable-spec-compatibility.ts",
 		"specs:stable:accept": "bun ./scripts/check-stable-spec-compatibility.ts --accept",
-		"build": "bun run generate:specs:check && bun run specs:governance && bun run specs:stable:check && bun run clean && ttsc -p tsconfig.build.json && esbuild src/index.ts src/specs/index.ts --bundle --platform=neutral --format=esm --outbase=src --outdir=dist --minify --external:@listmonk-ops/common --external:@listmonk-ops/openapi --external:zod && bun ./scripts/check-spec-subpath.ts",
+		"build": "bun run generate:specs:check && bun run specs:governance && bun run specs:stable:check && bun run clean && ttsc -p tsconfig.build.json && bun ../../scripts/rewrite-declaration-specifiers.ts dist && esbuild src/index.ts src/specs/index.ts --bundle --platform=neutral --format=esm --outbase=src --outdir=dist --minify --external:@listmonk-ops/common --external:@listmonk-ops/openapi --external:zod && bun ./scripts/check-spec-subpath.ts",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",

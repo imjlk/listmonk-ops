@@ -19,12 +19,13 @@
 		}
 	},
 	"files": [
-		"dist",
+		"dist/**/*.js",
+		"dist/**/*.d.ts",
 		"README.md"
 	],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify",
+		"build": "bun run clean && ttsc --emitDeclarationOnly && bun ../../scripts/rewrite-declaration-specifiers.ts dist && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",

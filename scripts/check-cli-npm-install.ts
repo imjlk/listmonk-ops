@@ -33,6 +33,9 @@ export interface WorkspaceManifest {
 	version: string;
 	private?: boolean;
 	main?: string;
+	types?: string;
+	exports?: unknown;
+	files?: string[];
 	scripts?: Record<string, string>;
 	dependencies?: DependencyMap;
 	optionalDependencies?: DependencyMap;
@@ -146,7 +149,7 @@ export async function findInstalledWorkspaceCopies(
 	return copies;
 }
 
-interface CommandResult {
+export interface CommandResult {
 	exitCode: number;
 	signal: string | null;
 	timedOut: boolean;
@@ -154,7 +157,7 @@ interface CommandResult {
 	stderr: string;
 }
 
-type Environment = Record<string, string | undefined>;
+export type Environment = Record<string, string | undefined>;
 
 const NPM_LIFECYCLE_VARIABLE =
 	/^npm_(?:command|execpath|node_execpath|lifecycle_\w+|package_\w+|config_local_prefix|config_user_agent)$/i;
@@ -169,7 +172,7 @@ function readOutput(path: string): string {
 	return existsSync(path) ? readFileSync(path, "utf8") : "";
 }
 
-async function runCommand(
+export async function runCommand(
 	command: readonly string[],
 	options: { cwd: string; env: Environment },
 ): Promise<CommandResult> {
@@ -218,7 +221,7 @@ function describeOutcome(result: CommandResult): string {
 	return `exited with ${result.exitCode}`;
 }
 
-function commandFailure(label: string, result: CommandResult): Error {
+export function commandFailure(label: string, result: CommandResult): Error {
 	return new Error(
 		`${label} ${describeOutcome(result)}\n${result.stdout}${result.stderr}`.trim(),
 	);
@@ -228,8 +231,37 @@ function log(message: string): void {
 	console.log(`[cli-npm-install] ${message}`);
 }
 
+/** Installs a throwaway project's dependencies with npm, as a consumer would. */
+export async function npmInstall(
+	npm: string,
+	projectDirectory: string,
+): Promise<void> {
+	// `bun run` exports npm lifecycle variables, including a local prefix that
+	// points at this repository; keep only the caller's own npm configuration.
+	const npmEnvironment: Environment = Object.fromEntries(
+		Object.entries(process.env).filter(
+			([key]) => !NPM_LIFECYCLE_VARIABLE.test(key),
+		),
+	);
+	const install = await runCommand(
+		[
+			npm,
+			"install",
+			"--no-audit",
+			"--no-fund",
+			"--prefer-offline",
+			"--ignore-scripts",
+			"--loglevel=error",
+		],
+		{ cwd: projectDirectory, env: npmEnvironment },
+	);
+	if (install.exitCode !== 0) {
+		throw commandFailure("npm install", install);
+	}
+}
+
 /** Packs one workspace exactly like the release workflow and returns the tarball path. */
-async function packWorkspace(
+export async function packWorkspace(
 	workspace: Workspace,
 	destination: string,
 ): Promise<string> {
@@ -503,28 +535,7 @@ export async function checkCliNpmInstall(
 				2,
 			)}\n`,
 		);
-		// `bun run` exports npm lifecycle variables, including a local prefix that
-		// points at this repository; keep only the caller's own npm configuration.
-		const npmEnvironment: Environment = Object.fromEntries(
-			Object.entries(process.env).filter(
-				([key]) => !NPM_LIFECYCLE_VARIABLE.test(key),
-			),
-		);
-		const install = await runCommand(
-			[
-				npm,
-				"install",
-				"--no-audit",
-				"--no-fund",
-				"--prefer-offline",
-				"--ignore-scripts",
-				"--loglevel=error",
-			],
-			{ cwd: projectDirectory, env: npmEnvironment },
-		);
-		if (install.exitCode !== 0) {
-			throw commandFailure("npm install", install);
-		}
+		await npmInstall(npm, projectDirectory);
 		log("installed the packed tarballs with npm");
 
 		await assertInstalledTree(projectDirectory, packed);

@@ -35,6 +35,7 @@
 런타임 정책:
 - 실행 패키지(`apps/cli`, `packages/mcp`)는 Bun 런타임을 대상으로 합니다.
 - 라이브러리 패키지는 ESM입니다. `openapi`와 `operations`는 런타임 중립을 유지하며, `common`, `automation`, `abtest`의 파일 저장 API는 Bun 같은 Node 호환 파일 시스템 런타임이 필요합니다.
+- 라이브러리 선언 파일은 TypeScript의 `bundler`, `node16`, `nodenext` 모듈 해석에서 모두 해석됩니다. `openapi`와 `common`은 TypeScript 5.0 이상을 지원합니다. `operations`, `automation`, `abtest`는 zod 4 타입을 노출하며, `skipLibCheck`를 끄면 zod 선언 파일 때문에 TypeScript 5.4 이상이 필요합니다.
 
 ## 사전 요구사항
 
