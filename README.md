@@ -886,7 +886,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 136 public shared operations now include a `spec` descriptor. Specs define
+All 137 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -895,8 +895,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 136 contracts are standalone TypeScript/Typia product contracts. The
-existing 135 remain `stable`; `abtest.conversion.record` is experimental. The
+All 137 contracts are standalone TypeScript/Typia product contracts. The
+existing 136 remain `stable`; `abtest.conversion.record` is experimental. The
 stable set includes the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and

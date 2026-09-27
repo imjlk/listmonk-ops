@@ -871,7 +871,7 @@ GET이며 자동 재시도하지 않습니다. `not_checked`는 자격 증명이
 `readiness.listmonk`가 true가 되지 않습니다. 대상 URL의 인라인 자격 증명,
 쿼리 문자열, 프래그먼트는 결과에서 제거합니다.
 
-136개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+137개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -880,7 +880,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-136개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 135개는
+137개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 136개는
 `stable`이며 `abtest.conversion.record`는 experimental입니다. 안정 계약에는
 바운스 패밀리(`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
