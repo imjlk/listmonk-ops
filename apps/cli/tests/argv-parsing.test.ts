@@ -155,6 +155,15 @@ describe("CLI argv parsing", () => {
 		]);
 	}, 30_000);
 
+	test("campaigns update help explains how to clear attachments", async () => {
+		const result = await runCli(["campaigns", "update", "--help"]);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain(
+			"Comma-separated media IDs (empty value clears attachments)",
+		);
+	});
+
 	test("campaigns update --media empty clears attachments without a read", async () => {
 		const result = await runCli([
 			"campaigns",

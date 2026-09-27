@@ -1010,7 +1010,8 @@ export default defineGroup({
 					description: "Archive metadata JSON",
 				}),
 				media: option(z.string().optional(), {
-					description: "Comma-separated media IDs",
+					description:
+						"Comma-separated media IDs (empty value clears attachments)",
 				}),
 				subscribers: option(z.string().optional(), {
 					description: "Comma-separated recipient emails",
