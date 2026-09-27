@@ -571,6 +571,14 @@ describe("settings URL credential redaction", () => {
 				"https://gw-user:correct horse battery@sms.example.com/send?token=t",
 				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send?token=${SETTINGS_REDACTED_VALUE}`,
 			],
+			[
+				"https://user:correct foo@bar@host.example/path",
+				`https://${SETTINGS_REDACTED_VALUE}@host.example/path`,
+			],
+			[
+				"https://user:pass?token=abc@host.example/path",
+				`https://${SETTINGS_REDACTED_VALUE}@host.example/path`,
+			],
 			// A second URL after a credential-free first one.
 			[
 				"https://a.example.com https://user:secret@b.example.com/cb?token=t",
@@ -693,6 +701,23 @@ describe("settings URL credential redaction", () => {
 			() => "token=[redacted]",
 		).join("&")}`;
 		expect(redactUrlCredentials(input)).toBe(expected);
+	});
+
+	test("redacts many encoded URLs without repeated full-string reconstruction", () => {
+		const count = 5000;
+		const input = Array.from(
+			{ length: count },
+			(_, index) =>
+				`https%3A%2F%2Fcdn${index}.example%2Fx%3Ftoken%3Dsecret${index}`,
+		).join(" ");
+		const expected = Array.from(
+			{ length: count },
+			(_, index) =>
+				`https%3A%2F%2Fcdn${index}.example%2Fx%3Ftoken%3D%5Bredacted%5D`,
+		).join(" ");
+		const startedAt = Date.now();
+		expect(redactUrlCredentials(input)).toBe(expected);
+		expect(Date.now() - startedAt).toBeLessThan(10_000);
 	});
 
 	test("redacts passphrases with delimiters or a leading port and every fragment parameter", () => {

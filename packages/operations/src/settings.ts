@@ -106,6 +106,18 @@ function findAbsoluteUrlPrefix(
 	return { index: fromIndex + match.index, prefix: match[0] };
 }
 
+function findAbsoluteUrlPrefixes(value: string): Array<{ index: number; prefix: string }> {
+	const pattern = new RegExp(ABSOLUTE_URL_PREFIX_ANYWHERE.source, "gi");
+	const prefixes: Array<{ index: number; prefix: string }> = [];
+	let match: RegExpExecArray | null;
+	while ((match = pattern.exec(value)) !== null) {
+		if (match.index !== undefined) {
+			prefixes.push({ index: match.index, prefix: match[0] });
+		}
+	}
+	return prefixes;
+}
+
 /** WHATWG special schemes, whose authority a "\" also ends. */
 const SPECIAL_URL_SCHEMES = new Set([
 	"file:",
@@ -188,6 +200,39 @@ function redactCredentialFragment(fragment: string): string {
 	return `#${redactCredentialParameterList(fragment.slice(1))}`;
 }
 
+/** Keep query-like characters inside a malformed URL authority as userinfo. */
+function isUrlAuthorityDelimiterInsideUserinfo(
+	value: string,
+	delimiterIndex: number,
+	urlPrefix: { index: number; prefix: string } | undefined,
+	closingAtByUrlPrefix: Map<number, number | null>,
+): boolean {
+	if (urlPrefix === undefined) return false;
+	const cachedClosingAt = closingAtByUrlPrefix.get(urlPrefix.index);
+	if (cachedClosingAt !== undefined) {
+		return cachedClosingAt !== null && delimiterIndex < cachedClosingAt;
+	}
+	const authorityStart = urlPrefix.index + urlPrefix.prefix.length;
+	const parsedBeforeDelimiter = parseUrl(
+		value.slice(urlPrefix.index, delimiterIndex),
+	);
+	if (parsedBeforeDelimiter !== undefined) {
+		closingAtByUrlPrefix.set(urlPrefix.index, null);
+		return false;
+	}
+	const relativeClosingAt = spacedUserinfoClosingAt(
+		urlPrefix.prefix,
+		value.slice(authorityStart),
+	);
+	if (relativeClosingAt === -1) {
+		closingAtByUrlPrefix.set(urlPrefix.index, null);
+		return false;
+	}
+	const closingAt = authorityStart + relativeClosingAt;
+	closingAtByUrlPrefix.set(urlPrefix.index, closingAt);
+	return delimiterIndex < closingAt;
+}
+
 /**
  * Redact complete credential query values before URL scanning splits on
  * whitespace. Some Listmonk settings contain unencoded values such as
@@ -199,21 +244,43 @@ function redactCredentialFragment(fragment: string): string {
  */
 function redactSpacedCredentialParameterValues(value: string): string {
 	const replacements: Array<{ start: number; end: number }> = [];
+	const urlPrefixes = findAbsoluteUrlPrefixes(value);
+	const closingAtByUrlPrefix = new Map<number, number | null>();
+	let urlPrefixCursor = 0;
+	let nearestUrlPrefix: { index: number; prefix: string } | undefined;
 	let scanFrom = 0;
 	while (scanFrom < value.length) {
 		const delimiterPattern = /[?&#;]/g;
 		delimiterPattern.lastIndex = scanFrom;
+		// Bare query assignments have no leading separator, e.g. token=…&channel=sms.
 		const hasStartAssignment =
 			scanFrom === 0 && /^[^=?&#;\s]+=/.test(value);
-		const delimiter = delimiterPattern.exec(value);
-		if (
-			!hasStartAssignment &&
-			(delimiter === null || delimiter.index === undefined)
-		) {
-			break;
+		let nameStart = 0;
+		if (!hasStartAssignment) {
+			const delimiter = delimiterPattern.exec(value);
+			if (delimiter === null || delimiter.index === undefined) break;
+			while (
+				urlPrefixCursor < urlPrefixes.length &&
+				(urlPrefixes[urlPrefixCursor]?.index ?? value.length) <
+					delimiter.index
+			) {
+				nearestUrlPrefix = urlPrefixes[urlPrefixCursor];
+				urlPrefixCursor += 1;
+			}
+			if (
+				isUrlAuthorityDelimiterInsideUserinfo(
+					value,
+					delimiter.index,
+					nearestUrlPrefix,
+					closingAtByUrlPrefix,
+				)
+			) {
+				scanFrom = delimiter.index + 1;
+				continue;
+			}
+			nameStart = delimiter.index + 1;
 		}
 
-		const nameStart = hasStartAssignment ? 0 : delimiter!.index + 1;
 		let equals = -1;
 		for (let index = nameStart; index < value.length; index += 1) {
 			const character = value[index];
@@ -690,46 +757,51 @@ function findEncodedUrlAuthorityDelimiterLength(value: string): number | undefin
 	return undefined;
 }
 
-function wrapperStackBefore(value: string, end: number): string[] {
-	const openers: string[] = [];
-	const openingFor: Record<string, string> = {
-		")": "(",
-		"]": "[",
-		"}": "{",
-	};
-	for (let index = 0; index < end; index += 1) {
+function openingWrapperForClosing(character: string): string | undefined {
+	switch (character) {
+		case ")":
+			return "(";
+		case "]":
+			return "[";
+		case "}":
+			return "{";
+		default:
+			return undefined;
+	}
+}
+
+function advanceWrapperStack(
+	value: string,
+	start: number,
+	end: number,
+	openers: string[],
+): void {
+	for (let index = start; index < end; index += 1) {
 		const character = value[index] ?? "";
 		if (character === "(" || character === "[" || character === "{") {
 			openers.push(character);
 			continue;
 		}
-		const matchingOpener = openingFor[character];
+		const matchingOpener = openingWrapperForClosing(character);
 		if (matchingOpener !== undefined && matchingOpener === openers.at(-1)) {
 			openers.pop();
 		}
 	}
-	return openers;
 }
 
 function encodedUrlCandidateEnd(
 	value: string,
 	fromIndex: number,
-	prefixIndex: number,
+	initialOpeners: readonly string[],
 ): number {
-	const initialOpeners = wrapperStackBefore(value, prefixIndex);
 	const openers = [...initialOpeners];
-	const openingFor: Record<string, string> = {
-		")": "(",
-		"]": "[",
-		"}": "{",
-	};
 	let index = fromIndex;
 	while (index < value.length && !/[\s&;'"<>]/.test(value[index] ?? "")) {
 		const character = value[index] ?? "";
 		if (character === "(" || character === "[" || character === "{") {
 			openers.push(character);
 		} else {
-			const matchingOpener = openingFor[character];
+			const matchingOpener = openingWrapperForClosing(character);
 			if (
 				matchingOpener !== undefined &&
 				matchingOpener === openers.at(-1)
@@ -750,17 +822,23 @@ function encodedUrlCandidateEnd(
  */
 function redactEncodedNestedUrlValues(value: string, depth: number): string {
 	if (depth >= MAX_ENCODED_URL_NESTING_DEPTH) return value;
-	let result = value;
+	const chunks: string[] = [];
+	let sourceCursor = 0;
 	let scanFrom = 0;
-	while (scanFrom < result.length) {
-		const prefix = findEncodedAbsoluteUrlPrefix(result, scanFrom);
+	const wrapperOpeners: string[] = [];
+	let wrapperScanFrom = 0;
+	let redactedAny = false;
+	while (scanFrom < value.length) {
+		const prefix = findEncodedAbsoluteUrlPrefix(value, scanFrom);
 		if (prefix === undefined) break;
+		advanceWrapperStack(value, wrapperScanFrom, prefix.index, wrapperOpeners);
+		wrapperScanFrom = prefix.index;
 		const end = encodedUrlCandidateEnd(
-			result,
+			value,
 			prefix.index + prefix.prefixLength,
-			prefix.index,
+			wrapperOpeners,
 		);
-		const candidate = result.slice(prefix.index, end);
+		const candidate = value.slice(prefix.index, end);
 		const decoded = decodeUrlTextWithSourceOffsets(candidate);
 		if (
 			decoded === undefined ||
@@ -793,13 +871,16 @@ function redactEncodedNestedUrlValues(value: string, depth: number): string {
 			sourceRanges,
 			encodeURIComponent(SETTINGS_REDACTED_VALUE),
 		);
-		result =
-			result.slice(0, prefix.index) +
-			redactedCandidate +
-			result.slice(end);
-		scanFrom = prefix.index + redactedCandidate.length;
+		if (redactedCandidate !== candidate) {
+			chunks.push(value.slice(sourceCursor, prefix.index), redactedCandidate);
+			sourceCursor = end;
+			redactedAny = true;
+		}
+		scanFrom = end;
 	}
-	return result;
+	if (!redactedAny) return value;
+	chunks.push(value.slice(sourceCursor));
+	return chunks.join("");
 }
 
 /**
@@ -845,20 +926,12 @@ function spacedUserinfoEnd(
 		for (let next = index + 2; next <= last; next += 2) {
 			const candidate = tokens[next] ?? "";
 			if (ABSOLUTE_URL_PREFIX.test(candidate)) return index;
-			const at = candidate.indexOf("@");
-			if (at === -1) continue;
-			const hostAndPath = candidate.slice(at + 1);
-			// After one or more passphrase words, require URL authority/path
-			// syntax or a valid bare service host. Reject numeric/version-shaped
-			// DNS labels because they are common in ordinary text.
-			return (
-				next === index + 2 ||
-				/[/?#\\]/.test(hostAndPath) ||
-				/:\d/.test(hostAndPath) ||
-				isBareUrlHost(hostAndPath)
-			)
-				? next
-				: index;
+			const joined = tokens.slice(index, next + 1).join("");
+			if (
+				spacedUserinfoClosingAt(prefix, joined.slice(prefix.length)) !== -1
+			) {
+				return next;
+			}
 		}
 		return index;
 	}
@@ -869,9 +942,32 @@ function spacedUserinfoEnd(
 	for (let next = index + 2; next <= last; next += 2) {
 		const candidate = tokens[next] ?? "";
 		if (ABSOLUTE_URL_PREFIX.test(candidate)) return index;
-		if (candidate.includes("@")) return next;
+		const joined = tokens.slice(index, next + 1).join("");
+		if (
+			spacedUserinfoClosingAt(prefix, joined.slice(prefix.length)) !== -1
+		) {
+			return next;
+		}
 	}
 	return index;
+}
+
+/** Locate the authority-closing @ for a URL whose userinfo contains spaces. */
+function spacedUserinfoClosingAt(prefix: string, rest: string): number {
+	const parsedUrl = parseUrl(`${prefix}${rest}`);
+	if (parsedUrl !== undefined && (parsedUrl.username !== "" || parsedUrl.password !== "")) {
+		return userinfoEnd(prefix, rest);
+	}
+	const nextUrl = findAbsoluteUrlPrefix(rest);
+	const searchEnd = nextUrl?.index ?? rest.length;
+	const at = rest.lastIndexOf("@", searchEnd - 1);
+	if (at === -1) return -1;
+	const hostAndPath = rest.slice(at + 1, searchEnd);
+	const authorityEnd = hostAndPath.search(/[/?#\\]/);
+	const host = authorityEnd === -1
+		? hostAndPath
+		: hostAndPath.slice(0, authorityEnd);
+	return isBareUrlHost(host) ? at : -1;
 }
 
 /** Check for a bare service host without confusing versions for DNS names. */
@@ -949,11 +1045,17 @@ function redactUrlCredentialsAtDepth(value: string, depth: number): string {
 			candidateTokens[0] = candidateToken;
 			const end = spacedUserinfoEnd(candidateTokens, 0, match.prefix);
 			const url = candidateTokens.slice(0, end + 1).join("");
-			const spacedAt = end > 0 ? url.indexOf("@", match.prefix.length) : -1;
+			const spacedAt =
+				end > 0
+					? spacedUserinfoClosingAt(
+							match.prefix,
+							url.slice(match.prefix.length),
+						)
+					: -1;
 			const redacted = redactAbsoluteUrl(
 				match.prefix,
 				url.slice(match.prefix.length),
-				spacedAt === -1 ? undefined : spacedAt - match.prefix.length,
+				spacedAt === -1 ? undefined : spacedAt,
 			);
 			const suffix = token.slice(candidateEnd);
 			const replacedToken =
