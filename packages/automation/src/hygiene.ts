@@ -485,7 +485,8 @@ export async function runSubscriberHygiene(
 				(candidate.lists || []).some(
 					(entry) =>
 						toPositiveInt(entry.id) === targetListId &&
-						entry.subscription_status !== "unsubscribed",
+						(entry.subscription_status === "confirmed" ||
+							entry.subscription_status === "unconfirmed"),
 				);
 			// Effects apply in order and the first failure stops this
 			// subscriber, so a retry applies whatever is still missing.

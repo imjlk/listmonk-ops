@@ -516,6 +516,14 @@ describe("automation workflows", () => {
 							staleSubscriber(302, [
 								{ id: 10, subscription_status: "confirmed" },
 							]),
+							staleSubscriber(303, [
+								{ id: 10, subscription_status: "confirmed" },
+								{ id: 99, subscription_status: "pending" },
+							]),
+							staleSubscriber(304, [
+								{ id: 10, subscription_status: "confirmed" },
+								{ id: 99, subscription_status: "blocklisted" },
+							]),
 						],
 					},
 				}),
@@ -530,7 +538,7 @@ describe("automation workflows", () => {
 			mode: "winback",
 			dryRun: true,
 		});
-		expect(preview.subscriberIds).toEqual([301, 302]);
+		expect(preview.subscriberIds).toEqual([301, 302, 303, 304]);
 		expect(preview.skippedAlreadyApplied).toBe(0);
 
 		const applied = await runSubscriberHygiene(client, {
@@ -541,8 +549,8 @@ describe("automation workflows", () => {
 		});
 		// Only the missing membership is added, and every selected
 		// subscriber lands in exactly one counter.
-		expect(listAdds).toEqual([302]);
-		expect(applied.processedSubscribers).toBe(1);
+		expect(listAdds).toEqual([302, 303, 304]);
+		expect(applied.processedSubscribers).toBe(3);
 		expect(applied.failedSubscribers).toBe(0);
 		expect(applied.skippedAlreadyApplied).toBe(1);
 		expect(
