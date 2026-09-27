@@ -1524,7 +1524,7 @@ Reload the Listmonk app configuration without a restart. Safe to repeat; setting
 
 ## `campaigns.archive`
 
-Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op. Archive slug, template ID, and metadata can be supplied to avoid reading the campaign first.
+Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op. Supplying all three archive settings (slug, template ID, and metadata) together skips the pre-read of the campaign.
 
 - Resource / verb: `campaign.archive`
 - MCP tool: `listmonk_archive_campaign`

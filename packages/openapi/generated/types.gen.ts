@@ -957,7 +957,7 @@ export type Campaign = {
     archive_template_id?: number | null;
     archive_meta?: {
         [key: string]: unknown;
-    };
+    } | null;
     media?: Array<MediaFileObject>;
 };
 

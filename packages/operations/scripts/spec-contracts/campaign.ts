@@ -296,6 +296,12 @@ export type CampaignAnalyticsDate = NonEmptyString &
 export type CampaignArchiveInput = ResourceIdInput & {
 	/** Whether the campaign's public archive page is enabled. */
 	archive: boolean;
+	/** Archive slug; provide with the other archive fields to skip the pre-read. */
+	archive_slug?: string | undefined;
+	/** Archive template ID; use 0 to clear it. */
+	archive_template_id?: NonNegativeInteger | undefined;
+	/** Archive metadata JSON; provide with the other archive fields to skip the pre-read. */
+	archive_meta?: Record<string, unknown> | undefined;
 };
 
 export interface CampaignArchiveOutput {

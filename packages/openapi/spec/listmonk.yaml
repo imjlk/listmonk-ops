@@ -4025,6 +4025,7 @@ components:
           nullable: true
         archive_meta:
           type: object
+          nullable: true
           additionalProperties: true
         media:
           type: array

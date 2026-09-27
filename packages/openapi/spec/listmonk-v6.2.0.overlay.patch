@@ -293,7 +293,7 @@
          to_send:
            type: integer
          sent:
-@@ -3902,22 +3981,55 @@
+@@ -3902,22 +3981,56 @@
          from_email:
            type: string
          body:
@@ -342,6 +342,7 @@
 +          nullable: true
 +        archive_meta:
 +          type: object
++          nullable: true
 +          additionalProperties: true
 +        media:
 +          type: array
@@ -350,7 +351,7 @@
  
      CampaignContentRequest:
        type: object
-@@ -3945,6 +4057,8 @@
+@@ -3945,6 +4058,8 @@
                  type: string
          started_at:
            type: string
@@ -359,7 +360,7 @@
          to_send:
            type: integer
          sent:
-@@ -3964,17 +4078,20 @@
+@@ -3964,17 +4079,20 @@
            type: string
          send_at:
            type: string
@@ -381,7 +382,7 @@
          messenger:
            type: string
          from:
-@@ -3992,30 +4109,64 @@
+@@ -3992,30 +4110,64 @@
          lists:
            type: array
            items:

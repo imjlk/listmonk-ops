@@ -4446,6 +4446,18 @@
               "description": "Whether the campaign's public archive page is enabled.",
               "type": "boolean"
             },
+            "archive_meta": {
+              "$ref": "#/components/schemas/Recordstringunknown",
+              "description": "Archive metadata JSON; provide with the other archive fields to skip the pre-read."
+            },
+            "archive_slug": {
+              "description": "Archive slug; provide with the other archive fields to skip the pre-read.",
+              "type": "string"
+            },
+            "archive_template_id": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Archive template ID; use 0 to clear it."
+            },
             "id": {
               "$ref": "#/components/schemas/ResourceId",
               "description": "Positive Listmonk resource ID."
@@ -4455,6 +4467,15 @@
             "id",
             "archive"
           ],
+          "type": "object"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
           "type": "object"
         },
         "ResourceId": {
@@ -4471,6 +4492,18 @@
         "archive": {
           "description": "Whether the campaign's public archive page is enabled.",
           "type": "boolean"
+        },
+        "archive_meta": {
+          "$ref": "#/components/schemas/Recordstringunknown",
+          "description": "Archive metadata JSON; provide with the other archive fields to skip the pre-read."
+        },
+        "archive_slug": {
+          "description": "Archive slug; provide with the other archive fields to skip the pre-read.",
+          "type": "string"
+        },
+        "archive_template_id": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Archive template ID; use 0 to clear it."
         },
         "id": {
           "$ref": "#/components/schemas/ResourceId",
