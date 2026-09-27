@@ -88,6 +88,15 @@ describe("Service operation factories", () => {
 			}),
 		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
 		expect(settingsUpdateRequests).toBe(0);
+		await expect(
+			settings.update({
+				body: {
+					redirect:
+						"https://app.example/login?redirect=https%253A%252F%252F%5Bredacted%5D%2540inner%ZZ",
+				},
+			}),
+		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		expect(settingsUpdateRequests).toBe(0);
 
 		const updated = await settings.update({
 			body: {

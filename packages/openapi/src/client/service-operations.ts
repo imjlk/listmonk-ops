@@ -248,19 +248,26 @@ function containsRedactedSettingsPlaceholderInString(
 	}
 
 	if (decodeDepth < 3 && value.includes("%")) {
-		try {
-			const decoded = decodeURIComponent(value.replace(/\+/g, " "));
-			if (
-				decoded !== value &&
-				containsRedactedSettingsPlaceholderInString(decoded, decodeDepth + 1)
-			) {
-				return true;
-			}
-		} catch {
-			// Direct marker checks still work when unrelated escapes are malformed.
+		const decoded = decodeValidPercentEscapes(value);
+		if (
+			decoded !== value &&
+			containsRedactedSettingsPlaceholderInString(decoded, decodeDepth + 1)
+		) {
+			return true;
 		}
 	}
 	return false;
+}
+
+/** Decode valid escape runs independently so malformed escapes don't hide later markers. */
+function decodeValidPercentEscapes(value: string): string {
+	return value.replace(/\+/g, " ").replace(/(?:%[\da-f]{2})+/gi, (run) => {
+		try {
+			return decodeURIComponent(run);
+		} catch {
+			return run;
+		}
+	});
 }
 
 function isCredentialQueryValueMarker(value: string, markerIndex: number): boolean {
