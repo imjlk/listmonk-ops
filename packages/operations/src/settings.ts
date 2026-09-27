@@ -235,11 +235,8 @@ function redactCredentialFragment(fragment: string): string {
  * credential parameter is also consumed as part of that same secret.
  */
 function redactSpacedCredentialParameterValues(value: string): string {
-	const firstUrl = findAbsoluteUrlPrefix(value);
-	if (firstUrl === undefined) return value;
-
 	const replacements: Array<{ start: number; end: number }> = [];
-	let scanFrom = firstUrl.index + firstUrl.prefix.length;
+	let scanFrom = 0;
 	while (scanFrom < value.length) {
 		const delimiterPattern = /[?&#;]/g;
 		delimiterPattern.lastIndex = scanFrom;
@@ -286,7 +283,8 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		) {
 			replacements.push({ start: valueStart, end: secretEnd });
 		}
-		scanFrom = nextSeparator === null ? value.length : valueEnd + 1;
+		// Resume at the separator so it can anchor the next parameter name.
+		scanFrom = nextSeparator === null ? value.length : valueEnd;
 	}
 
 	if (replacements.length === 0) return value;

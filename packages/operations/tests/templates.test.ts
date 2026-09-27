@@ -198,6 +198,18 @@ describe("template manifest reconciliation against Listmonk 6.2 persistence", ()
 				],
 			}).success,
 		).toBe(false);
+		expect(
+			reconcileTemplateManifestOperation.inputSchema.safeParse({
+				schema_version: 1,
+				templates: [
+					{
+						name: "   ",
+						type: "campaign",
+						body: CAMPAIGN_LAYOUT,
+					},
+				],
+			}).success,
+		).toBe(false);
 	});
 
 	test("re-plans an applied manifest as unchanged across every template type", async () => {

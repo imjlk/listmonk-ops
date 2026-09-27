@@ -438,6 +438,18 @@ describe("settings URL credential redaction", () => {
 				"https://sms.example/send?token=correct horse battery&to=1",
 				"https://sms.example/send?token=[redacted]&to=1",
 			],
+			[
+				"https://x.example/?token=a b&api_key=c d",
+				"https://x.example/?token=[redacted]&api_key=[redacted]",
+			],
+			[
+				"bounces@in.forwardemail.net?token=correct horse battery&to=1",
+				"bounces@in.forwardemail.net?token=[redacted]&to=1",
+			],
+			[
+				"?token=correct horse&to=1 https://fallback.example/x",
+				"?token=[redacted]&to=1 https://fallback.example/x",
+			],
 			// Percent-encoded names and the legacy ";" separator still match.
 			[
 				"https://hooks.example.com/in?q=a;%74oken=b",

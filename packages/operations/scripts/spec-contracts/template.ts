@@ -91,8 +91,6 @@ export interface TemplateCollectionOutput {
 	page: number;
 }
 
-export type TemplateManifestType = TemplateType;
-
 export interface TemplateManifestEntryCampaign {
 	name: TrimmedNonEmptyString & tags.MaxLength<120>;
 	/** Template type; omitted values default to campaign. */
