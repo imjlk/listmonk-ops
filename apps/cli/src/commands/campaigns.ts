@@ -38,6 +38,7 @@ import {
 	parseCsvNumbersStrict,
 	parseJson,
 	parsePositiveIntegerId,
+	nonNegativeIntegerIdSchema,
 	positiveIntegerIdSchema,
 	toErrorMessage,
 } from "../lib/command-utils";
@@ -1131,7 +1132,7 @@ export default defineGroup({
 					description: "Archive slug; provide with the other archive fields to skip the pre-read",
 				}),
 				"archive-template-id": option(
-					z.coerce.number().int().nonnegative().optional(),
+					nonNegativeIntegerIdSchema.optional(),
 					{ description: "Archive template ID (0 clears it)" },
 				),
 				"archive-meta": option(z.string().optional(), {

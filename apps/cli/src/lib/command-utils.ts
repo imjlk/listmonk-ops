@@ -25,6 +25,7 @@ export function toErrorMessage(error: unknown): string {
 }
 
 const POSITIVE_DECIMAL_INTEGER = /^[1-9][0-9]*$/;
+const NON_NEGATIVE_DECIMAL_INTEGER = /^(?:0|[1-9][0-9]*)$/;
 
 /**
  * Parse one Listmonk resource ID. Only positive decimal digits are accepted:
@@ -67,6 +68,19 @@ export const positiveIntegerIdSchema = z
 	.regex(POSITIVE_DECIMAL_INTEGER, {
 		error: (issue) =>
 			`expected a positive decimal integer, received ${JSON.stringify(issue.input)}`,
+	})
+	.transform(Number)
+	.refine(Number.isSafeInteger, {
+		error: `exceeds the maximum safe integer (${Number.MAX_SAFE_INTEGER})`,
+	});
+
+/** Option schema for non-negative decimal IDs with zero as a clear sentinel. */
+export const nonNegativeIntegerIdSchema = z
+	.string()
+	.trim()
+	.regex(NON_NEGATIVE_DECIMAL_INTEGER, {
+		error: (issue) =>
+			`expected a non-negative decimal integer, received ${JSON.stringify(issue.input)}`,
 	})
 	.transform(Number)
 	.refine(Number.isSafeInteger, {

@@ -203,6 +203,49 @@ describe("CLI argv parsing", () => {
 		expect(requests).toEqual([]);
 	}, 30_000);
 
+	test("campaign archive template IDs stay decimal while zero clears the template", async () => {
+		for (const id of ["0x10", "1e1", "9007199254740992"]) {
+			const result = await runCli([
+				"campaigns",
+				"archive",
+				"--id",
+				"1",
+				"--archive",
+				"true",
+				"--archive-template-id",
+				id,
+				"--format=json",
+			]);
+
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stdout).toBe("");
+			expect(result.stderr).toContain("--archive-template-id:");
+		}
+		expect(requests).toEqual([]);
+
+		const cleared = await runCli([
+			"campaigns",
+			"archive",
+			"--id",
+			"1",
+			"--archive",
+			"true",
+			"--archive-slug",
+			"newsletter-archive",
+			"--archive-template-id",
+			"0",
+			"--archive-meta",
+			"{}",
+			"--format=json",
+		]);
+
+		expect(cleared.exitCode).toBe(0);
+		expect(requests).toHaveLength(1);
+		expect(requests[0]?.method).toBe("PUT");
+		expect(requests[0]?.path).toBe("/api/campaigns/1/archive");
+		expect(requests[0]?.body).toMatchObject({ archive_template_id: 0 });
+	}, 30_000);
+
 	test("tx send exits nonzero with parseable output when Listmonk rejects it", async () => {
 		const send = [
 			"tx",
