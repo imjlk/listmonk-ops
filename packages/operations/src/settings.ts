@@ -356,8 +356,7 @@ function findSentenceEndingBoundary(
 	valueStart: number,
 	valueEnd: number,
 ): number | undefined {
-	const url = findAbsoluteUrlPrefix(value.slice(0, valueStart));
-	if (url === undefined || /\s/.test(value.slice(url.index, valueStart))) {
+	if (!/[a-z][a-z0-9+.-]*:[\\/]{2}\S*$/i.test(value.slice(0, valueStart))) {
 		return undefined;
 	}
 	const sentencePattern = /\.(?=\s+[A-Z])/g;

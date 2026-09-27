@@ -611,6 +611,10 @@ describe("settings URL credential redaction", () => {
 				`See https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}. Then continue.`,
 			],
 			[
+				"See https://a.example/x and https://host.example.com/?token=secret. Then ok.",
+				`See https://a.example/x and https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}. Then ok.`,
+			],
+			[
 				"https://host.example.com/?password=secret)",
 				`https://host.example.com/?password=${SETTINGS_REDACTED_VALUE}`,
 			],
