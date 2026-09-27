@@ -1,5 +1,12 @@
 import { getListmonkDataDirectory } from "@listmonk-ops/common";
-import { chmodSync, closeSync, mkdirSync, openSync, statSync } from "node:fs";
+import {
+	chmodSync,
+	closeSync,
+	lstatSync,
+	mkdirSync,
+	openSync,
+	statSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { AbTest } from "./types";
@@ -117,9 +124,27 @@ function restrictFileToOwner(path: string): void {
 		// A file owned by another account or on a read-only mount cannot be
 		// tightened here; leave it as it was rather than failing the store,
 		// and ignore a journal removed between the stat and the chmod.
-		if (!["EPERM", "EROFS", "ENOENT"].includes(String(errorCode(error)))) {
+		const code = errorCode(error);
+		if (code === "ENOENT") return;
+		if (code !== "EPERM" && code !== "EROFS") {
 			throw error;
 		}
+		console.warn(
+			`Could not restrict conversion store file to owner-only (${String(code)}): ${path}`,
+		);
+	}
+}
+
+function rejectSymbolicLink(path: string, allowMissing = false): void {
+	try {
+		if (lstatSync(path).isSymbolicLink()) {
+			throw new Error(
+				`Conversion store file must not be a symbolic link: ${path}`,
+			);
+		}
+	} catch (error) {
+		if (allowMissing && errorCode(error) === "ENOENT") return;
+		throw error;
 	}
 }
 
@@ -130,9 +155,11 @@ function restrictFileToOwner(path: string): void {
  * missing database file is created 0600 before SQLite opens it, so SQLite
  * gives its journal, WAL, and SHM files the same mode. A database or
  * leftover companion file that an earlier version created with broader
- * permissions loses its group and other access. Pre-existing directories
- * are left untouched because the store path can be overridden into a
- * shared directory.
+ * permissions loses its group and other access. Symbolic links at the
+ * database or companion paths are rejected. If the OS cannot tighten an
+ * existing file, a warning names the path and error code. Pre-existing
+ * directories are left untouched because the store path can be overridden
+ * into a shared directory.
  */
 export function prepareConversionStoreFiles(path: string): void {
 	mkdirSync(dirname(path), {
@@ -145,6 +172,10 @@ export function prepareConversionStoreFiles(path: string): void {
 		if (errorCode(error) !== "EEXIST") {
 			throw error;
 		}
+	}
+	rejectSymbolicLink(path);
+	for (const suffix of SQLITE_COMPANION_SUFFIXES) {
+		rejectSymbolicLink(`${path}${suffix}`, true);
 	}
 	if (process.platform === "win32") {
 		// POSIX permission bits do not describe Windows ACLs.

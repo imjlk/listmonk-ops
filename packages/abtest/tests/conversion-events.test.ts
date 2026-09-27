@@ -1,6 +1,7 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
+import * as fs from "node:fs";
 import { statSync } from "node:fs";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
@@ -289,6 +290,67 @@ describe("SqliteConversionEventStore", () => {
 					expect(permissionsOf(file)).toBe(0o600);
 				}
 			} finally {
+				await rm(root, { recursive: true, force: true });
+			}
+		},
+	);
+
+	it.skipIf(process.platform === "win32")(
+		"rejects dangling symlinks at the database and companion paths",
+		async () => {
+			const root = await mkdtemp(join(tmpdir(), "abtest-conversion-links-"));
+			try {
+				const path = join(root, "events.sqlite");
+				const target = join(root, "outside.sqlite");
+				await symlink(target, path);
+
+				await expect(
+					new SqliteConversionEventStore(path).record(makeEvent()),
+				).rejects.toThrow("must not be a symbolic link");
+				expect(() => statSync(target)).toThrow();
+
+				await rm(path);
+				await writeFile(path, "", { mode: 0o600 });
+				await symlink(target, `${path}-wal`);
+
+				expect(() => prepareConversionStoreFiles(path)).toThrow(
+					"must not be a symbolic link",
+				);
+				expect(() => statSync(target)).toThrow();
+			} finally {
+				await rm(root, { recursive: true, force: true });
+			}
+		},
+	);
+
+	it.skipIf(process.platform === "win32")(
+		"warns when the OS refuses to tighten an existing store file",
+		async () => {
+			const root = await mkdtemp(join(tmpdir(), "abtest-conversion-modes-"));
+			const path = join(root, "events.sqlite");
+			await writeFile(path, "", { mode: 0o644 });
+			await chmod(path, 0o644);
+			const originalChmodSync = fs.chmodSync;
+			const permissionError = Object.assign(new Error("permission denied"), {
+				code: "EPERM",
+			});
+			const chmodSpy = spyOn(fs, "chmodSync").mockImplementation(
+				(candidatePath, mode) => {
+					if (candidatePath === path) throw permissionError;
+					return originalChmodSync(candidatePath, mode);
+				},
+			);
+			const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+			try {
+				prepareConversionStoreFiles(path);
+
+				expect(warning).toHaveBeenCalledWith(
+					`Could not restrict conversion store file to owner-only (EPERM): ${path}`,
+				);
+				expect(permissionsOf(path)).toBe(0o644);
+			} finally {
+				warning.mockRestore();
+				chmodSpy.mockRestore();
 				await rm(root, { recursive: true, force: true });
 			}
 		},

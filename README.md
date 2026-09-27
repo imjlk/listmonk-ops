@@ -1350,15 +1350,18 @@ share the transactional `abtest-conversions.sqlite` store in the Listmonk data d
 set `LISTMONK_OPS_ABTEST_CONVERSION_STORE` to override its path. The store keeps
 UUIDs, event names, timestamps, and optional value/currency, without emails or
 names. Because subscriber UUIDs work as tokens on Listmonk's public
-subscription pages, the store is owner-only: missing directories are created
-`0700` and the database and its SQLite journal files `0600`, and a store created
-by an earlier version is tightened on its next use (an existing parent
-directory keeps its mode). Analysis counts unique converting subscribers per
-variant and sums event values as revenue. Keep the variant lists available
-until the attribution window closes so new events can be verified. Recording
-is append-only, so CLI requires `--confirm` and MCP requires `confirm: true`
-for each event. Automated `abtest run` and `abtest tick` wait for that
-attribution tail before analyzing or deploying a winner.
+subscription pages, the store rejects symbolic links at its database and
+SQLite companion paths. On POSIX, missing directories are created `0700` and
+the database and its SQLite journal files `0600`; a store created by an earlier
+version is tightened on its next use. If the OS refuses to tighten an existing
+file, the store warns with its path and error code and leaves the permissions
+unchanged. Existing parent directories keep their mode. Analysis counts unique
+converting subscribers per variant and sums event values as revenue. Keep
+variant lists available until the attribution window closes so new events can
+be verified. Recording is append-only, so the CLI requires `--confirm` and
+MCP requires `confirm: true` for each event. Automated `abtest run` and
+`abtest tick` wait for that attribution tail before analyzing or deploying a
+winner.
 
 `abtest deploy-winner` (MCP `listmonk_abtest_deploy_winner`) only deploys from
 an `analyzing` test, or from a `completed` test whose significant winner has

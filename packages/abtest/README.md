@@ -121,12 +121,14 @@ number of unique converting subscribers as `conversions` and sums values as
 `confirm: true`. Automated run/tick waits until the attribution tail closes
 before analysis or winner deployment. Retain variant lists until that time.
 The journal holds subscriber UUIDs, which work as tokens on Listmonk's public
-subscription pages, so the store keeps it owner-only on every open: missing
-directories are created `0700`, the database is created `0600` before SQLite
-opens it (SQLite gives its `-journal`, `-wal`, and `-shm` files the same
-mode), and files an earlier version created with broader permissions lose
-group and other access. Existing parent directories keep their mode because
-the path may be overridden into a shared directory.
+subscription pages, so the store rejects symbolic links at the database and
+SQLite companion paths. On POSIX, missing directories are created `0700`, the
+database is created `0600` before SQLite opens it (SQLite gives its `-journal`,
+`-wal`, and `-shm` files the same mode), and files an earlier version created
+with broader permissions lose group and other access. If the OS refuses to
+tighten an existing file, the store warns with its path and error code and
+leaves its permissions unchanged. Existing parent directories keep their
+mode because the path may be overridden into a shared directory.
 
 If a remote mutation fails, local state is not committed but Listmonk may
 contain partial resources. If the local commit fails after the remote action,
