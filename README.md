@@ -624,7 +624,7 @@ listmonk-cli bounces list --campaign-id 42 --source api \
   --order-by created_at --order desc
 listmonk-cli bounces get --id 7
 listmonk-cli bounces delete --id 7 --confirm
-listmonk-cli bounces subscriber --subscriber-id 7
+listmonk-cli bounces list-subscriber --subscriber-id 7
 listmonk-cli bounces delete-subscriber --subscriber-id 7 --confirm
 
 # Preview one bounded batch, then delete exactly the echoed ids.
