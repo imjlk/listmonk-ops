@@ -109,8 +109,12 @@ const URL_CREDENTIAL_PARAMETER_TOKENS = new Set([
 	"sessionid",
 	"sig",
 	"signature",
+	"token",
 	"user",
+	"username",
 ]);
+
+const URL_CREDENTIAL_PARAMETER_NAMES = new Set(["key_pair_id", "session_id"]);
 
 /**
  * The start of an absolute URL with an authority: an RFC 3986 scheme and
@@ -165,13 +169,21 @@ function isCredentialQueryParameter(encodedName: string): boolean {
 		.replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
 		.replace(/([a-z0-9])([A-Z])/g, "$1_$2")
 		.toLowerCase();
-	if (isCredentialFieldName(name)) return true;
-	return name
+	const normalizedName = name
 		.split(/[^a-z0-9]+/)
-		.some(
-			(token) =>
-				token.endsWith("key") || URL_CREDENTIAL_PARAMETER_TOKENS.has(token),
-		);
+		.filter(Boolean)
+	.join("_");
+	if (
+		CREDENTIAL_FIELD_NAMES.has(normalizedName) ||
+		URL_CREDENTIAL_PARAMETER_NAMES.has(normalizedName)
+	) {
+		return true;
+	}
+	const lastToken = normalizedName.split("_").at(-1);
+	return (
+		lastToken !== undefined &&
+		(lastToken.endsWith("key") || URL_CREDENTIAL_PARAMETER_TOKENS.has(lastToken))
+	);
 }
 
 /**
@@ -314,11 +326,7 @@ function redactSpacedCredentialParameterValues(value: string): string {
 	}
 
 	if (replacements.length === 0) return value;
-	let redacted = value;
-	for (const replacement of replacements.reverse()) {
-		redacted = `${redacted.slice(0, replacement.start)}${SETTINGS_REDACTED_VALUE}${redacted.slice(replacement.end)}`;
-	}
-	return redacted;
+	return replaceTextRanges(value, replacements, SETTINGS_REDACTED_VALUE);
 }
 
 /**
@@ -464,6 +472,22 @@ interface TextRange {
 	end: number;
 }
 
+function replaceTextRanges(
+	value: string,
+	ranges: readonly TextRange[],
+	replacement: string,
+): string {
+	if (ranges.length === 0) return value;
+	const parts: string[] = [];
+	let cursor = 0;
+	for (const range of ranges) {
+		parts.push(value.slice(cursor, range.start), replacement);
+		cursor = range.end;
+	}
+	parts.push(value.slice(cursor));
+	return parts.join("");
+}
+
 function readPercentEncodedByte(value: string, index: number): number | undefined {
 	if (value[index] !== "%") return undefined;
 	const hex = value.slice(index + 1, index + 3);
@@ -493,6 +517,17 @@ function decodeUrlTextWithSourceOffsets(
 	const decoded: string[] = [];
 	const sourceStarts: number[] = [];
 	const sourceEnds: number[] = [];
+	const preserveEncodedTriplet = (start: number): number => {
+		appendMappedText(
+			decoded,
+			sourceStarts,
+			sourceEnds,
+			value.slice(start, start + 3),
+			start,
+			start + 3,
+		);
+		return start + 3;
+	};
 	for (let index = 0; index < value.length; ) {
 		if (value[index] === "+") {
 			appendMappedText(
@@ -531,15 +566,7 @@ function decodeUrlTextWithSourceOffsets(
 								? 4
 								: 0;
 			if (byteCount === 0) {
-				appendMappedText(
-					decoded,
-					sourceStarts,
-					sourceEnds,
-					value.slice(index, index + 3),
-					index,
-					index + 3,
-				);
-				index += 3;
+				index = preserveEncodedTriplet(index);
 				continue;
 			}
 			let sourceEnd = index + 3;
@@ -555,30 +582,14 @@ function decodeUrlTextWithSourceOffsets(
 				sourceEnd += 3;
 			}
 			if (sourceEnd !== index + 3 * byteCount) {
-				appendMappedText(
-					decoded,
-					sourceStarts,
-					sourceEnds,
-					value.slice(index, index + 3),
-					index,
-					index + 3,
-				);
-				index += 3;
+				index = preserveEncodedTriplet(index);
 				continue;
 			}
 			let character: string;
 			try {
 				character = decodeURIComponent(value.slice(index, sourceEnd));
 			} catch {
-				appendMappedText(
-					decoded,
-					sourceStarts,
-					sourceEnds,
-					value.slice(index, index + 3),
-					index,
-					index + 3,
-				);
-				index += 3;
+				index = preserveEncodedTriplet(index);
 				continue;
 			}
 			if ([...character].length !== 1) return undefined;
@@ -712,16 +723,19 @@ function redactEncodedNestedUrlValues(value: string, depth: number): string {
 			scanFrom = end;
 			continue;
 		}
-		let redactedCandidate = candidate;
-		for (const range of ranges.reverse()) {
+		const sourceRanges: TextRange[] = [];
+		for (const range of ranges) {
 			const sourceStart = decoded.sourceStarts[range.start];
 			const sourceEnd = decoded.sourceEnds[range.end - 1];
-			if (sourceStart === undefined || sourceEnd === undefined) continue;
-			redactedCandidate =
-				redactedCandidate.slice(0, sourceStart) +
-				encodeURIComponent(SETTINGS_REDACTED_VALUE) +
-				redactedCandidate.slice(sourceEnd);
+			if (sourceStart !== undefined && sourceEnd !== undefined) {
+				sourceRanges.push({ start: sourceStart, end: sourceEnd });
+			}
 		}
+		const redactedCandidate = replaceTextRanges(
+			candidate,
+			sourceRanges,
+			encodeURIComponent(SETTINGS_REDACTED_VALUE),
+		);
 		result =
 			result.slice(0, prefix.index) +
 			redactedCandidate +
@@ -740,7 +754,9 @@ function redactEncodedNestedUrlValues(value: string, depth: number): string {
  * token, it continues through the first of the next few tokens that
  * contains "@". If it parses as `host:port`, a later token continues the
  * userinfo only when its suffix resembles a URL path, port, or syntactically
- * valid bare service host. A bare host and mailbox domain can be ambiguous.
+ * valid bare service host. A bare host and mailbox domain can be ambiguous;
+ * when a valid domain closes numeric-first userinfo, prefer masking the
+ * possible credential over preserving ambiguous prose.
  */
 function spacedUserinfoEnd(
 	tokens: readonly string[],
@@ -801,7 +817,7 @@ function isBareUrlHost(value: string): boolean {
 	}
 	if (url.hostname === "localhost") return true;
 	const labels = url.hostname.toLowerCase().split(".");
-	if (labels.length < 3 || !/^[a-z]{2,63}$/.test(labels.at(-1) ?? "")) {
+	if (labels.length < 2 || !/^[a-z]{2,63}$/.test(labels.at(-1) ?? "")) {
 		return false;
 	}
 	return (

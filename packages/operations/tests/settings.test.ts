@@ -427,6 +427,14 @@ describe("settings URL credential redaction", () => {
 				"https://bucket.s3.amazonaws.com/a.png?X-Amz-Date=20260927T000000Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Security-Token=[redacted]&X-Amz-Signature=[redacted]",
 			],
 			[
+				"https://id.example.com/cb#access_token=abc&token_type=Bearer&expires_in=3600",
+				"https://id.example.com/cb#access_token=[redacted]&token_type=Bearer&expires_in=3600",
+			],
+			[
+				"https://id.example.com/cb?passwordless=true&tokenizer=bert",
+				"https://id.example.com/cb?passwordless=true&tokenizer=bert",
+			],
+			[
 				"https://cdn.example.com/a.png?Expires=1798761600&Signature=a&Key-Pair-Id=b",
 				"https://cdn.example.com/a.png?Expires=1798761600&Signature=[redacted]&Key-Pair-Id=[redacted]",
 			],
@@ -557,10 +565,13 @@ describe("settings URL credential redaction", () => {
 			expect(redactUrlCredentials(input)).toBe(expected);
 			expect(redactUrlCredentials(expected)).toBe(expected);
 		}
-		// A URL that parses on its own is complete, so the words after it
-		// stay prose even when one of them contains "@".
+		// A valid bare host after numeric-first userinfo is ambiguous with prose;
+		// masking prevents credentials from being returned in that case.
+		expect(
+			redactUrlCredentials("http://listmonk:9000 contact ops@example.com"),
+		).toBe(`http://${SETTINGS_REDACTED_VALUE}@example.com`);
+		// Invalid/version-shaped hostnames remain prose after a complete URL.
 		for (const text of [
-			"http://listmonk:9000 contact ops@example.com",
 			"http://listmonk:9000 contact ops@v1.2.3",
 			"https://docs.example.com/guide#section-2",
 		]) {
@@ -629,6 +640,19 @@ describe("settings URL credential redaction", () => {
 		}
 	});
 
+	test("redacts large credential parameter lists without repeated string copies", () => {
+		const count = 2000;
+		const input = `https://hooks.example.com/in?${Array.from(
+			{ length: count },
+			(_, index) => `token=${index}`,
+		).join("&")}`;
+		const expected = `https://hooks.example.com/in?${Array.from(
+			{ length: count },
+			() => "token=[redacted]",
+		).join("&")}`;
+		expect(redactUrlCredentials(input)).toBe(expected);
+	});
+
 	test("redacts passphrases with delimiters or a leading port and every fragment parameter", () => {
 		const cases: ReadonlyArray<readonly [string, string]> = [
 			// "/", "?", and "#" inside a spaced passphrase.
@@ -656,6 +680,10 @@ describe("settings URL credential redaction", () => {
 			[
 				"https://gw-user:8080 correct horse@sms.example.com",
 				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com`,
+			],
+			[
+				"https://gw-user:8080 correct horse@example.com",
+				`https://${SETTINGS_REDACTED_VALUE}@example.com`,
 			],
 			[
 				"https://gw-user:correct/horse battery@sms.example.com/send",
@@ -715,6 +743,22 @@ describe("settings URL credential redaction", () => {
 			[
 				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%25ZZ",
 				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%25ZZ",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%ZZ",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%ZZ",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%A1zz",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%A1zz",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%C3x",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%C3x",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%ED%A0%80",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%ED%A0%80",
 			],
 		];
 		for (const [input, expected] of cases) {
