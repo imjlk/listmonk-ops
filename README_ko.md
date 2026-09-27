@@ -503,9 +503,29 @@ bun run ops:smoke:full
 
 스모크 스크립트 정보:
 - 파일: `scripts/ops-smoke.sh`
-- `LISTMONK_API_TOKEN` 또는 `bun run stack:bootstrap-auth`가 만든 토큰 파일 사용
 - `LISTMONK_OPS_SMOKE_MODE=quick|full` 모드 지원
-- JSON 리포트 경로: `${LISTMONK_OPS_SMOKE_REPORT:-/tmp/listmonk-ops-smoke/report.json}`
+- 모든 CLI 단계를 새로 생성한 빈 프로필 설정, 비운 `LISTMONK_OPS_PROFILE`과
+  `LISTMONK_API_TOKEN_FILE`, 임시 상태 디렉터리로 실행하므로 셸의
+  `defaultProfile`, `LISTMONK_OPS_CONFIG`, 저장소별 경로, 런타임 데이터베이스 URL이
+  대상을 바꾸지 못함
+- 첫 요청 전에 `listmonk-cli config show`로 실제 대상을 확인하고 `localhost`,
+  `127.0.0.1`, `[::1]`이 아니면 거부. 명시적으로 승인된 대상에만
+  `LISTMONK_OPS_SMOKE_ALLOW_REMOTE=1`을 설정 (원격 실행에는 `LISTMONK_API_TOKEN` 필요)
+- 로컬 대상이면 항상 `bun run stack:bootstrap-auth`를 실행해 `LISTMONK_API_TOKEN`
+  또는 캐시된 토큰 파일을 검증하고, 둘 다 만료되었으면(예: `docker compose down -v`
+  이후) 관리용 테스트 사용자를 다시 프로비저닝
+- 풀 모드는 실행이 중단되어도 직접 만든 구독자, 템플릿, A/B 테스트를 삭제. 픽스처
+  이름은 실행마다 고유하므로 동시 실행끼리 픽스처를 공유하거나 서로 삭제하지 않지만,
+  각 실행에 별도의 `LISTMONK_OPS_SMOKE_LOG_DIR`를 지정하지 않으면 단계 로그와
+  리포트는 공유됨
+- JSON 리포트 경로: `${LISTMONK_OPS_SMOKE_REPORT:-/tmp/listmonk-ops-smoke/report.json}`,
+  작업 감사 로그: `${LISTMONK_OPS_SMOKE_LOG_DIR:-/tmp/listmonk-ops-smoke}`의
+  `operation-audit.json`
+
+MCP E2E(`bun run test:e2e`)도 CLI/MCP 하위 프로세스에 같은 격리를 적용합니다.
+하네스는 로드 시점에 실제 대상을 확인하고, 대상이 loopback이 아니면 첫 요청 전에
+모든 테스트 파일을 실패시킵니다. 명시적으로 승인된 대상에만
+`LISTMONK_E2E_ALLOW_REMOTE=1`을 설정하세요.
 
 CI에서 자동 검증:
 - OpenAPI 생성 결과 drift 검증

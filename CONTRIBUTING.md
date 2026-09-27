@@ -179,6 +179,12 @@ bun run test:e2e
 bun run ops:smoke
 ```
 
+Both checks ignore shared connection profiles (`defaultProfile`,
+`LISTMONK_OPS_CONFIG`, `LISTMONK_OPS_PROFILE`) and stop before the first request
+unless the target they resolve is `localhost`, `127.0.0.1`, or `[::1]`. Set
+`LISTMONK_OPS_SMOKE_ALLOW_REMOTE=1` or `LISTMONK_E2E_ALLOW_REMOTE=1` only for an
+explicitly authorized remote target.
+
 ## After Merge
 
 This repository creates a bot-authored release commit on `main` after a successful publish.

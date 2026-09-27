@@ -20,6 +20,14 @@ test("CI reuses the full build without removing binary or integration coverage",
 	);
 });
 
+test("CI keeps the local-stack smoke and E2E behind their loopback guards", () => {
+	const workflow = read(".github/workflows/ci.yml");
+	expect(workflow).toContain("run: bun run ops:smoke");
+	expect(workflow).toContain("run: bun run test:e2e");
+	expect(workflow).not.toContain("LISTMONK_OPS_SMOKE_ALLOW_REMOTE");
+	expect(workflow).not.toContain("LISTMONK_E2E_ALLOW_REMOTE");
+});
+
 test("built tests preserve per-package isolation and do not invoke build hooks", () => {
 	const script = read("scripts/test-built-workspaces.sh");
 	expect(script).toContain("common openapi operations automation abtest");

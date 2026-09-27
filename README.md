@@ -510,9 +510,30 @@ bun run ops:smoke:full
 
 Smoke script details:
 - File: `scripts/ops-smoke.sh`
-- Uses `LISTMONK_API_TOKEN` or the token file produced by `bun run stack:bootstrap-auth`
 - Supports mode switch with `LISTMONK_OPS_SMOKE_MODE=quick|full`
+- Runs every CLI step with a generated empty profile configuration, blank
+  `LISTMONK_OPS_PROFILE` and `LISTMONK_API_TOKEN_FILE`, and a temporary state
+  directory, so a `defaultProfile`, `LISTMONK_OPS_CONFIG`, per-store path, or
+  runtime database URL from your shell cannot redirect it
+- Resolves the target with `listmonk-cli config show` before the first request
+  and refuses a target other than `localhost`, `127.0.0.1`, or `[::1]`; set
+  `LISTMONK_OPS_SMOKE_ALLOW_REMOTE=1` only for an explicitly authorized target
+  (a remote run requires `LISTMONK_API_TOKEN`)
+- For a local target, always runs `bun run stack:bootstrap-auth`, which validates
+  `LISTMONK_API_TOKEN` or the cached token file and reprovisions the managed
+  test user when both are stale (for example after `docker compose down -v`)
+- Full mode deletes the subscriber, template, and A/B test it creates, including
+  when the run is interrupted; fixture names are unique per run, so concurrent
+  runs never share or delete each other's fixtures, but they do share step logs
+  and the report unless each sets its own `LISTMONK_OPS_SMOKE_LOG_DIR`
 - Writes JSON report to `${LISTMONK_OPS_SMOKE_REPORT:-/tmp/listmonk-ops-smoke/report.json}`
+  and the operation audit log to `operation-audit.json` in
+  `${LISTMONK_OPS_SMOKE_LOG_DIR:-/tmp/listmonk-ops-smoke}`
+
+MCP E2E (`bun run test:e2e`) applies the same isolation to CLI and MCP
+subprocesses. The harness resolves their target while loading and fails every
+test file before the first request unless the target is loopback; set
+`LISTMONK_E2E_ALLOW_REMOTE=1` only for an explicitly authorized target.
 
 CI now enforces:
 - OpenAPI generation drift detection

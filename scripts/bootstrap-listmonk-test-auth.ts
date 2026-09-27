@@ -9,6 +9,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { isLoopbackHostname } from "./local-test-target";
 
 const EXPECTED_LISTMONK_VERSION = "6.2.0";
 const MANAGED_API_USER_NAME = "listmonk-ops local test API";
@@ -33,7 +34,7 @@ const tokenFile =
 	process.env.LISTMONK_TEST_TOKEN_FILE || "/tmp/listmonk-ops-api-token";
 
 const parsedApiUrl = new URL(apiUrl);
-if (!["localhost", "127.0.0.1", "::1"].includes(parsedApiUrl.hostname)) {
+if (!isLoopbackHostname(parsedApiUrl.hostname)) {
 	throw new Error(
 		`Refusing to bootstrap credentials for non-local URL ${apiUrl}`,
 	);

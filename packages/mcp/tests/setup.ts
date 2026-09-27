@@ -1,16 +1,21 @@
 import { afterAll, beforeAll, setDefaultTimeout } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeListmonkApiUrl } from "@listmonk-ops/common";
 import { createListmonkClient } from "@listmonk-ops/openapi";
+import {
+	assertLocalListmonkTarget,
+	createIsolatedListmonkEnvironment,
+	isLoopbackListmonkUrl,
+} from "./local-target.js";
 
 const TESTS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TESTS_DIR, "../../..");
 const TEST_ENV_PATH = resolve(TESTS_DIR, ".env.test");
 const TEST_ENV_LOCAL_PATH = resolve(TESTS_DIR, ".env.test.local");
-const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 const CLEANUP_PAGE_SIZE = 200;
 const LOCAL_TOKEN_PATH =
 	process.env.LISTMONK_TEST_TOKEN_FILE || "/tmp/listmonk-ops-api-token";
@@ -95,27 +100,6 @@ function readEnvValue(...keys: string[]): string | undefined {
 	return undefined;
 }
 
-function normalizeApiUrl(url: string): string {
-	const trimmed = url.trim();
-	const withoutTrailingSlash = trimmed.endsWith("/")
-		? trimmed.slice(0, -1)
-		: trimmed;
-	const withApiSuffix = withoutTrailingSlash.endsWith("/api")
-		? withoutTrailingSlash
-		: `${withoutTrailingSlash}/api`;
-
-	return new URL(withApiSuffix).toString().replace(/\/$/, "");
-}
-
-function isLocalTarget(baseUrl: string): boolean {
-	try {
-		const url = new URL(baseUrl);
-		return LOCAL_HOSTNAMES.has(url.hostname);
-	} catch {
-		return false;
-	}
-}
-
 function formatError(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
@@ -197,17 +181,40 @@ function resolveApiTokenFromLocalStack(): string | undefined {
 	return token.length > 0 ? token : undefined;
 }
 
-const resolvedBaseUrl = normalizeApiUrl(
+// Normalize exactly like the shared CLI/MCP resolver, so the resolved-target
+// comparison below cannot fail on a normalization difference.
+const resolvedBaseUrl = normalizeListmonkApiUrl(
 	readEnvValue("LISTMONK_API_URL", "LISTMONK_URL") ||
 		"http://localhost:9000/api",
 );
+const allowRemoteE2E = readEnvValue("LISTMONK_E2E_ALLOW_REMOTE") === "1";
+
+process.env.LISTMONK_API_URL = resolvedBaseUrl;
+// CLI and MCP subprocesses spread process.env, so pin them to this target
+// rather than an operator's shared connection profile or state directory.
+// The directory is left to the OS temp cleanup: Bun registers this shared
+// module's hooks only in the first test file that imports it, while later
+// files still spawn subprocesses that read this configuration.
+Object.assign(
+	process.env,
+	createIsolatedListmonkEnvironment(
+		mkdtempSync(join(tmpdir(), "listmonk-ops-e2e-")),
+	),
+);
+// Assert the resolved target during import instead of in beforeAll: a failing
+// hook would stop only the first importing file, whereas a rejected import
+// fails every E2E file before any request is sent.
+await assertLocalListmonkTarget({
+	env: process.env,
+	expectedBaseUrl: resolvedBaseUrl,
+	allowRemote: allowRemoteE2E,
+});
+
 const resolvedUsername = readEnvValue("LISTMONK_USERNAME") || "api-admin";
 const resolvedPassword = readEnvValue("LISTMONK_PASSWORD") || "";
 const resolvedApiToken =
 	readEnvValue("LISTMONK_API_TOKEN") || resolveApiTokenFromLocalStack();
-const allowRemoteE2E = readEnvValue("LISTMONK_E2E_ALLOW_REMOTE") === "1";
 
-process.env.LISTMONK_API_URL = resolvedBaseUrl;
 process.env.LISTMONK_USERNAME = resolvedUsername;
 process.env.LISTMONK_PASSWORD = resolvedPassword;
 process.env.LISTMONK_API_TOKEN = resolvedApiToken || "";
@@ -233,14 +240,6 @@ export function createTestClient() {
 			Authorization: `token ${authString}`,
 		},
 	});
-}
-
-function assertSafeTestTarget(): void {
-	if (!isLocalTarget(TEST_CONFIG.baseUrl) && !allowRemoteE2E) {
-		throw new Error(
-			`Refusing to run MCP E2E against non-local target ${TEST_CONFIG.baseUrl}. Set LISTMONK_E2E_ALLOW_REMOTE=1 to override.`,
-		);
-	}
 }
 
 // Test utilities
@@ -269,7 +268,7 @@ export async function waitForListmonk(maxRetries = 30) {
 
 // Clean up test data
 export async function cleanupTestData() {
-	if (!isLocalTarget(TEST_CONFIG.baseUrl) && !allowRemoteE2E) {
+	if (!isLoopbackListmonkUrl(TEST_CONFIG.baseUrl) && !allowRemoteE2E) {
 		console.warn("⚠️ Skipping cleanup for non-local MCP E2E target");
 		return;
 	}
@@ -389,7 +388,6 @@ export async function cleanupTestData() {
 // Setup and teardown for all tests
 beforeAll(async () => {
 	console.log("🚀 Setting up E2E tests...");
-	assertSafeTestTarget();
 	const ready = await waitForListmonk();
 	if (!ready) {
 		throw new Error(

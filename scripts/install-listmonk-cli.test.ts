@@ -123,6 +123,61 @@ for (const requestedVersion of ["0.3.0", "v0.3.0"]) {
 	});
 }
 
+for (const [label, args, message] of [
+	["--version at the end", ["--version"], "Option --version requires a value"],
+	[
+		"--install-dir at the end",
+		["--install-dir"],
+		"Option --install-dir requires a value",
+	],
+	["--repo at the end", ["--repo"], "Option --repo requires a value"],
+	[
+		"an empty --version",
+		["--version", ""],
+		"Option --version requires a value",
+	],
+	[
+		"--install-dir followed by an option",
+		["--install-dir", "--version", "0.3.0"],
+		"Option --install-dir requires a value",
+	],
+	["an unknown option", ["--bogus"], "Unknown option: --bogus"],
+] as const) {
+	test(`CLI installer rejects ${label} on stderr`, async () => {
+		const directory = await mkdtemp(join(tmpdir(), "listmonk-cli-installer-"));
+		try {
+			const stubDirectory = join(directory, "bin");
+			const curlLog = join(directory, "curl.log");
+			await mkdir(stubDirectory, { recursive: true });
+			await writeFile(curlLog, "");
+			await writeExecutable(join(stubDirectory, "curl"), [
+				"#!/usr/bin/env bash",
+				'printf "called\\n" >> "$CURL_LOG"',
+				"exit 99",
+			]);
+
+			const result = Bun.spawnSync(["bash", installer, ...args], {
+				env: {
+					...process.env,
+					CURL_LOG: curlLog,
+					PATH: `${stubDirectory}${delimiter}${process.env.PATH ?? ""}`,
+				},
+				stderr: "pipe",
+				stdout: "pipe",
+			});
+			const stderr = new TextDecoder().decode(result.stderr);
+
+			expect(result.exitCode).toBe(1);
+			expect(stderr).toContain(message);
+			expect(stderr).toContain("Usage:");
+			expect(new TextDecoder().decode(result.stdout)).toBe("");
+			expect(await readFile(curlLog, "utf8")).toBe("");
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+}
+
 test("CLI installer rejects macOS Intel before downloading an asset", async () => {
 	const directory = await mkdtemp(join(tmpdir(), "listmonk-cli-installer-"));
 	try {

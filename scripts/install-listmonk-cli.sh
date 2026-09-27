@@ -20,18 +20,31 @@ Examples:
 EOF
 }
 
+# Fail with a clear message instead of letting `shift 2` exit silently when an
+# option is missing its value or would swallow the next option.
+require_option_value() {
+	if [[ $# -lt 2 || -z "$2" || "$2" == -* ]]; then
+		echo "Option $1 requires a value" >&2
+		print_help >&2
+		exit 1
+	fi
+}
+
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--version|-v)
-			REQUESTED_VERSION="${2:-}"
+			require_option_value "$@"
+			REQUESTED_VERSION="$2"
 			shift 2
 			;;
 		--repo)
-			REPO="${2:-}"
+			require_option_value "$@"
+			REPO="$2"
 			shift 2
 			;;
 		--install-dir)
-			INSTALL_DIR="${2:-}"
+			require_option_value "$@"
+			INSTALL_DIR="$2"
 			shift 2
 			;;
 		--help|-h)
@@ -40,7 +53,7 @@ while [[ $# -gt 0 ]]; do
 			;;
 		*)
 			echo "Unknown option: $1" >&2
-			print_help
+			print_help >&2
 			exit 1
 			;;
 	esac
