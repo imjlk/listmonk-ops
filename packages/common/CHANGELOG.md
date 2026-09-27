@@ -1,5 +1,12 @@
 # @listmonk-ops/common
 
+## 0.7.2 — 2026-09-27
+
+### Fixed
+
+- [a5a7cb8](https://github.com/imjlk/listmonk-ops/commit/a5a7cb8170841cb567b14692e97926817dad0eec) Resolve the data directory, token files, and every store path override with one rule (trimmed, leading `~` expanded, relative paths from the home directory) so the CLI and MCP server use the same idempotency, audit, and automation state files; reject Listmonk API URLs with a bare `?` or `#`; report the lock file, its owner, and the manual fix when a JSON store lock times out, and detect reused pids that answer EPERM on Linux; name the file, errno code, or requested profile in configuration, token-file, and store read errors; and add `LISTMONK_OPS_TRANSACTIONAL_STORE_MAX_RECORDS` for the file and PostgreSQL transactional stores, whose capacity error now reports retained counts and real remedies. — Thanks @imjlk!
+- [4bb5c4a](https://github.com/imjlk/listmonk-ops/commit/4bb5c4aa963e589f29929fa9384eee6cd9f07407) Fixed the published TypeScript declarations for `"moduleResolution": "node16"` and `"nodenext"`. The declarations imported their sibling files without extensions (for example `./src/client/index`), which only `bundler` resolution follows, so node16 and nodenext consumers could not resolve the typings of any entry point or subpath export, including `@listmonk-ops/openapi/sdk`, `@listmonk-ops/openapi/runtime`, and `@listmonk-ops/operations/specs`. Every relative import in the published declarations now names its runtime file (`./client.js` or `./client/index.js`), and the runtime JavaScript is unchanged. `@listmonk-ops/openapi` and `@listmonk-ops/common` support TypeScript 5.0 or newer; `@listmonk-ops/operations`, `@listmonk-ops/automation`, and `@listmonk-ops/abtest` expose zod 4 types, whose declarations need TypeScript 5.4 or newer when `skipLibCheck` is off. — Thanks @imjlk!
+
 ## 0.7.1 — 2026-09-25
 
 ### Fixed
