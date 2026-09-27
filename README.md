@@ -716,6 +716,8 @@ listmonk-cli system logs --lines 50
 # [redacted]. URL values keep their scheme, host, and path, but their
 # userinfo and secret query or fragment values (token, api_key, signature,
 # access_token, ...) are replaced too.
+# Credential assignments in free-form values (token=..., api_key=...) are
+# also redacted; unrelated non-URL text remains visible.
 listmonk-cli settings get
 # Every run sends a real message to the recipient.
 listmonk-cli settings test-smtp --email reader@example.com \

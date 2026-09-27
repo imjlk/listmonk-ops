@@ -233,6 +233,29 @@ function isUrlAuthorityDelimiterInsideUserinfo(
 	return delimiterIndex < closingAt;
 }
 
+function hasParameterAssignmentAt(value: string, start: number): boolean {
+	for (let index = start; index < value.length; index += 1) {
+		const character = value[index] ?? "";
+		if (character === "=") return true;
+		if (/[\s?&#;]/.test(character)) return false;
+	}
+	return false;
+}
+
+function credentialParameterValueEnd(value: string, start: number): number {
+	for (let index = start; index < value.length; index += 1) {
+		const character = value[index] ?? "";
+		if (character === "&" || character === ";") return index;
+		if (
+			(character === "?" || character === "#") &&
+			hasParameterAssignmentAt(value, index + 1)
+		) {
+			return index;
+		}
+	}
+	return value.length;
+}
+
 /**
  * Redact complete credential query values before URL scanning splits on
  * whitespace. Some Listmonk settings contain unencoded values such as
@@ -302,10 +325,7 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		}
 
 		const valueStart = equals + 1;
-		const endPattern = /[&;#?]/g;
-		endPattern.lastIndex = valueStart;
-		const nextSeparator = endPattern.exec(value);
-		const explicitValueEnd = nextSeparator?.index ?? value.length;
+		const explicitValueEnd = credentialParameterValueEnd(value, valueStart);
 		const wrapperEnd = findCredentialValueWrapperBoundary(value, valueStart);
 		const nextUrl = findAbsoluteUrlPrefix(value, valueStart);
 		const nextUrlBoundary =

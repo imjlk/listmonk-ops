@@ -656,6 +656,14 @@ describe("settings URL credential redaction", () => {
 				`https://example.test/?token=${SETTINGS_REDACTED_VALUE}&x=1`,
 			],
 			[
+				"https://sms.example/send?token=correct?horse battery&to=1",
+				`https://sms.example/send?token=${SETTINGS_REDACTED_VALUE}&to=1`,
+			],
+			[
+				"https://sms.example/send?token=outer?api_key=inner&to=1",
+				`https://sms.example/send?token=${SETTINGS_REDACTED_VALUE}&to=1`,
+			],
+			[
 				'https://example.test/?password=" hunter2&to=1',
 				`https://example.test/?password=${SETTINGS_REDACTED_VALUE}&to=1`,
 			],
@@ -804,6 +812,14 @@ describe("settings URL credential redaction", () => {
 			[
 				"token=secret&channel=sms",
 				"token=[redacted]&channel=sms",
+			],
+			[
+				"token=correct?horse battery&channel=sms",
+				"token=[redacted]&channel=sms",
+			],
+			[
+				"token=outer?api_key=inner&channel=sms",
+				"token=[redacted]?api_key=[redacted]&channel=sms",
 			],
 			// A "/" after a port-like first word of a spaced passphrase.
 			[
