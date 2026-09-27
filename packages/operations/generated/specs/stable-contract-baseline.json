@@ -38130,7 +38130,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "reloaded": {
-                    "description": "Whether Listmonk acknowledged the configuration reload.",
+                    "description": "Whether Listmonk acknowledged the restart request before re-executing.",
                     "type": "boolean"
                   }
                 },
@@ -38146,7 +38146,7 @@
             "additionalProperties": false,
             "properties": {
               "reloaded": {
-                "description": "Whether Listmonk acknowledged the configuration reload.",
+                "description": "Whether Listmonk acknowledged the restart request before re-executing.",
                 "type": "boolean"
               }
             },

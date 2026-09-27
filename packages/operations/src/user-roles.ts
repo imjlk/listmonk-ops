@@ -93,6 +93,8 @@ export const LISTMONK_USER_ROLE_PERMISSIONS: readonly ListmonkUserRolePermission
 			!isListRolePermission(permission),
 	);
 
+export const MAX_USER_ROLE_PERMISSIONS = 28 as const;
+
 export const LISTMONK_USER_ROLE_PERMISSION_PRESETS = {
 	transactionalSubscriberRuntime: ["subscribers:manage", "tx:send"],
 	templateProvisioner: ["templates:get", "templates:manage"],
@@ -120,7 +122,7 @@ const userRoleDesiredStateSchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	permissions: z
 		.array(userPermissionSchema)
-		.max(LISTMONK_USER_ROLE_PERMISSIONS.length)
+		.max(MAX_USER_ROLE_PERMISSIONS)
 		.transform((permissions) => [...new Set(permissions)].sort()),
 });
 

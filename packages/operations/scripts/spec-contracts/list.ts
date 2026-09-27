@@ -1,4 +1,5 @@
 import type { tags } from "typia";
+import type { ListmonkListRolePermission } from "../../src/user-roles";
 import type { ResourceId, NonEmptyString, ResourceIdInput } from "./primitives";
 
 export type ListmonkUserPermission =
@@ -35,7 +36,7 @@ export type ListmonkUserPermission =
 
 export type ListmonkUserRolePermission = Exclude<
 	ListmonkUserPermission,
-	"list:get" | "list:manage"
+	ListmonkListRolePermission
 >;
 
 export type ListVisibility = "public" | "private";

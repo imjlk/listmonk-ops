@@ -97,6 +97,17 @@ function templateSubjectIssue(template: {
 		: undefined;
 }
 
+function addTemplateSubjectIssue(
+	template: { type: TemplateType; subject: string },
+	context: z.RefinementCtx,
+	path: (string | number)[],
+): void {
+	const message = templateSubjectIssue(template);
+	if (message !== undefined) {
+		context.addIssue({ code: "custom", message, path });
+	}
+}
+
 const templateSchema = z.looseObject({
 	id: z.number().int().positive().optional(),
 	created_at: z.string().optional(),
@@ -151,14 +162,7 @@ const templateCreateOutputSchema = z.object({
 /** One exact-name desired state whose subject Listmonk 6.2 can persist. */
 const templateDesiredStateSchema = createTemplateInputSchema.superRefine(
 	(template, context) => {
-		const subjectIssue = templateSubjectIssue(template);
-		if (subjectIssue !== undefined) {
-			context.addIssue({
-				code: "custom",
-				message: subjectIssue,
-				path: ["subject"],
-			});
-		}
+		addTemplateSubjectIssue(template, context, ["subject"]);
 	},
 );
 
@@ -210,14 +214,11 @@ const templateManifestSchema = z
 				});
 			}
 			names.add(template.name);
-			const subjectIssue = templateSubjectIssue(template);
-			if (subjectIssue !== undefined) {
-				context.addIssue({
-					code: "custom",
-					message: subjectIssue,
-					path: ["templates", index, "subject"],
-				});
-			}
+			addTemplateSubjectIssue(template, context, [
+				"templates",
+				index,
+				"subject",
+			]);
 		}
 	});
 

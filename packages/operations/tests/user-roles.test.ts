@@ -9,6 +9,7 @@ import {
 	LISTMONK_USER_PERMISSIONS,
 	LISTMONK_USER_ROLE_PERMISSION_PRESETS,
 	LISTMONK_USER_ROLE_PERMISSIONS,
+	MAX_USER_ROLE_PERMISSIONS,
 	OperationInputError,
 	reconcileUserRole,
 	reconcileUserRoleManifest,
@@ -225,6 +226,9 @@ describe("declarative user role reconciliation", () => {
 	test("publishes the complete Listmonk 6.2 permission vocabulary and safe presets", () => {
 		expect(LISTMONK_USER_PERMISSIONS).toHaveLength(30);
 		expect(LISTMONK_LIST_ROLE_PERMISSIONS).toEqual(["list:get", "list:manage"]);
+		expect(LISTMONK_USER_ROLE_PERMISSIONS).toHaveLength(
+			MAX_USER_ROLE_PERMISSIONS,
+		);
 		// Listmonk 6.2 permissions.json: the only names validateUserRole accepts.
 		expect(LISTMONK_USER_ROLE_PERMISSIONS).toEqual([
 			"lists:get_all",
