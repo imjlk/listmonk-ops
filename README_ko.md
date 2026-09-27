@@ -701,6 +701,9 @@ listmonk-cli dashboard charts
 listmonk-cli system about
 listmonk-cli system logs --lines 50
 # 인증 username을 포함한 자격 증명은 재귀적으로 [redacted]로 치환됩니다.
+# URL 값은 scheme, host, path를 유지하지만 userinfo와 비밀 query·fragment 값
+# (token, api_key, signature, access_token 등)도 [redacted]로 치환됩니다.
+# 일반 문자열의 token=..., api_key=... 형태도 치환되며 다른 텍스트는 유지됩니다.
 listmonk-cli settings get
 # 실행할 때마다 수신자에게 실제 메시지를 보냅니다.
 listmonk-cli settings test-smtp --email reader@example.com \
@@ -1865,6 +1868,10 @@ printf '%s' "$LISTMONK_SMTP_USERNAME" | shasum -a 256
 
 결과를 `smtp_username_fingerprints`에 `sha256:<hex>` 형태로 저장합니다.
 Doctor는 원본 username과 설정된 지문을 결과에 노출하지 않습니다.
+Listmonk 설정 중 doctor가 결과에 그대로 표시하는 값은 SMTP host와
+`app.from_email`뿐이며, 비밀번호·키·URL 값 설정은 읽지 않습니다. Host 필드에
+SMTP URL(`smtps://user:pass@host:465`)을 붙여 넣은 경우 userinfo는
+`[redacted]`로 치환되어 표시됩니다.
 
 ```bash
 listmonk-cli providers list

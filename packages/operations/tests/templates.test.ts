@@ -1,5 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
+import { z } from "zod";
 import {
 	invokeDeleteTemplateOperation,
 	invokeReconcileTemplateManifestOperation,
@@ -8,6 +9,7 @@ import {
 	planTemplateReconcile,
 	reconcileTemplate,
 	reconcileTemplateManifest,
+	reconcileTemplateManifestOperation,
 	templateOperations,
 } from "../src";
 import { createListmonk62TemplateStore } from "./helpers/listmonk-template-store";
@@ -148,6 +150,140 @@ describe("template operations", () => {
 });
 
 describe("template manifest reconciliation against Listmonk 6.2 persistence", () => {
+	test("publishes type-dependent subject constraints in the operation schema", () => {
+		const schema = z.toJSONSchema(reconcileTemplateManifestOperation.inputSchema, {
+			io: "input",
+		}) as {
+			properties?: {
+					templates?: {
+					items?: {
+						anyOf?: Array<{
+							properties?: Record<
+								string,
+								{ const?: string; maxLength?: number; pattern?: string }
+							>;
+							required?: string[];
+						}>;
+						oneOf?: Array<{
+							properties?: Record<
+								string,
+								{ const?: string; maxLength?: number; pattern?: string }
+							>;
+							required?: string[];
+						}>;
+					};
+				};
+			};
+		};
+		const itemSchema = schema.properties?.templates?.items;
+		const variants = itemSchema?.oneOf ?? itemSchema?.anyOf ?? [];
+		const campaign = variants.find(
+			(variant) => variant.properties?.type?.const === "campaign",
+		);
+		const tx = variants.find(
+			(variant) => variant.properties?.type?.const === "tx",
+		);
+
+		expect(variants).toHaveLength(3);
+		expect(campaign?.properties?.subject?.pattern).toBe("^$");
+		expect(campaign?.properties?.name?.pattern).toBe(
+			"^\\s*\\S[\\s\\S]*$",
+		);
+		expect(campaign?.properties?.name?.maxLength).toBe(120);
+		expect(tx?.properties?.subject?.pattern).toBe("^\\s*\\S[\\s\\S]*$");
+		expect(tx?.required).toContain("subject");
+		expect(
+			reconcileTemplateManifestOperation.inputSchema.safeParse({
+				schema_version: 1,
+				templates: [
+					{
+						name: "Newsletter layout",
+						type: "campaign",
+						subject: "   ",
+						body: CAMPAIGN_LAYOUT,
+					},
+				],
+			}).success,
+		).toBe(false);
+		expect(
+			reconcileTemplateManifestOperation.inputSchema.safeParse({
+				schema_version: 1,
+				templates: [
+					{
+						name: "   ",
+						type: "campaign",
+						body: CAMPAIGN_LAYOUT,
+					},
+				],
+			}).success,
+		).toBe(false);
+	});
+
+	test("keeps runtime and published subject rules in sync for every template type", async () => {
+		const list = mock(async () => ({ data: { results: [], total: 0 } }));
+		const templateContext = context({
+			list: list as unknown as TemplateClient["template"]["list"],
+		});
+		const cases = [
+			{ subject: undefined, expected: true },
+			{ type: "campaign", subject: "", expected: true },
+			{ type: "campaign", subject: "   ", expected: false },
+			{ type: "campaign", subject: "Monthly newsletter", expected: false },
+			{ type: "campaign_visual", subject: undefined, expected: true },
+			{ type: "campaign_visual", subject: "", expected: true },
+			{ type: "campaign_visual", subject: "   ", expected: false },
+			{ type: "campaign_visual", subject: "Visual title", expected: false },
+			{ type: "tx", subject: undefined, expected: false },
+			{ type: "tx", subject: "", expected: false },
+			{ type: "tx", subject: "   ", expected: false },
+			{ type: "tx", subject: "One-time code", expected: true },
+		] as const;
+
+		for (const [index, rule] of cases.entries()) {
+			const template = {
+				name: `Subject matrix ${index}`,
+				...(rule.type === undefined ? {} : { type: rule.type }),
+				...(rule.subject === undefined ? {} : { subject: rule.subject }),
+				body: CAMPAIGN_LAYOUT,
+			};
+			const manifest = { schema_version: 1 as const, templates: [template] };
+			const schemaAccepts = reconcileTemplateManifestOperation.inputSchema.safeParse(
+				manifest,
+			).success;
+			const runtimeAccepts = await reconcileTemplateManifest(
+				templateContext,
+				manifest,
+			)
+				.then(() => true)
+				.catch(() => false);
+
+			expect(schemaAccepts).toBe(rule.expected);
+			expect(runtimeAccepts).toBe(schemaAccepts);
+		}
+	});
+
+	test("rejects raw template names beyond the published length limit", async () => {
+		const list = mock(async () => ({ data: { results: [], total: 0 } }));
+		const templateContext = context({
+			list: list as unknown as TemplateClient["template"]["list"],
+		});
+		const name = `  ${"a".repeat(119)}`;
+		const manifest = {
+			schema_version: 1 as const,
+			templates: [{ name, type: "campaign" as const, body: CAMPAIGN_LAYOUT }],
+		};
+
+		expect(name).toHaveLength(121);
+		expect(name.trim()).toHaveLength(119);
+		expect(
+			reconcileTemplateManifestOperation.inputSchema.safeParse(manifest).success,
+		).toBe(false);
+		await expect(
+			reconcileTemplateManifest(templateContext, manifest),
+		).rejects.toThrow();
+		expect(list).not.toHaveBeenCalled();
+	});
+
 	test("re-plans an applied manifest as unchanged across every template type", async () => {
 		const listmonk = createListmonk62TemplateStore();
 		const templateContext = { client: { template: listmonk.template } };

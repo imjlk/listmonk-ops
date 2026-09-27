@@ -8,9 +8,11 @@ import { defineOperationSpec } from "../operation";
 
 /**
  * A redacted installation-settings read. The raw document carries SMTP
- * passwords, S3 keys, and OIDC client secrets; the shared read replaces
- * every credential-bearing field with "[redacted]" before it leaves the
- * executor, so no surface can persist or leak them.
+ * passwords, S3 keys, and OIDC client secrets, and its URL values can embed
+ * userinfo or signed query parameters; the shared read replaces every
+ * credential-bearing field and every embedded URL credential with
+ * "[redacted]" before it leaves the executor, so no surface can persist or
+ * leak them.
  */
 export const settingsGetOperationSpec = defineOperationSpec({
 	id: "settings.get",
@@ -18,7 +20,7 @@ export const settingsGetOperationSpec = defineOperationSpec({
 	verb: "get",
 	title: "Read installation settings (redacted)",
 	description:
-		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) recursively replaced by [redacted].",
+		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) and every credential embedded in a URL value (userinfo and secret query or fragment parameters) recursively replaced by [redacted].",
 	contract: {
 		input: emptyInputContract,
 		output: settingsGetOutputContract,

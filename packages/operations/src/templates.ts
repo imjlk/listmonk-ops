@@ -172,9 +172,57 @@ const templateDesiredStateSchema = createTemplateInputSchema.superRefine(
  * CLI surface does not inject the keyed-create store, so accepting the key
  * there would only produce a runtime rejection partway through a manifest.
  */
-const manifestTemplateEntrySchema = createTemplateInputSchema.omit({
-	idempotency_key: true,
-});
+// Manifest names are bounded by the standalone operation contract. The
+// shared createTemplateInputSchema stays unbounded so templates.create/update
+// can continue accepting longer Listmonk names.
+const templateManifestNameSchema = z
+	.string()
+	.max(120)
+	.regex(/^\s*\S[\s\S]*$/)
+	.trim();
+const manifestTemplateEntrySchema = createTemplateInputSchema
+	.omit({ idempotency_key: true })
+	.extend({ name: templateManifestNameSchema });
+
+const templateManifestEntryBaseSchema = createTemplateInputSchema
+	.omit({ idempotency_key: true, type: true, subject: true })
+	.extend({ name: templateManifestNameSchema });
+const templateManifestDefaultTypeDescription =
+	"Template type; omitted values default to campaign.";
+const templateManifestRequiredTypeDescription =
+	"Template type; this manifest entry must declare its type explicitly.";
+const templateManifestSubjectDescription =
+	"Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign.";
+const blankTemplateSubjectSchema = z
+	.string()
+	.regex(/^$/)
+	.optional()
+	.default("")
+	.describe(templateManifestSubjectDescription);
+const nonBlankTemplateSubjectSchema = z
+	.string()
+	.regex(/^\s*\S[\s\S]*$/)
+	.describe(templateManifestSubjectDescription);
+const templateManifestOperationEntrySchema = z.union([
+	templateManifestEntryBaseSchema.extend({
+		type: z
+			.literal("campaign")
+			.optional()
+			.default("campaign")
+			.describe(templateManifestDefaultTypeDescription),
+		subject: blankTemplateSubjectSchema,
+	}),
+	templateManifestEntryBaseSchema.extend({
+		type: z
+			.literal("campaign_visual")
+			.describe(templateManifestRequiredTypeDescription),
+		subject: blankTemplateSubjectSchema,
+	}),
+	templateManifestEntryBaseSchema.extend({
+		type: z.literal("tx").describe(templateManifestRequiredTypeDescription),
+		subject: nonBlankTemplateSubjectSchema,
+	}),
+]);
 
 export const MAX_TEMPLATE_MANIFEST_BYTES = 1024 * 1024;
 const TEMPLATE_MANIFEST_OPERATION_ID = "templates.reconcile";
@@ -222,15 +270,8 @@ const templateManifestSchema = z
 		}
 	});
 
-// Manifest entries are constrained to the 120-character name bound declared
-// by the standalone contract. The shared createTemplateInputSchema stays
-// unbounded so templates.create/update keep accepting longer Listmonk names.
-const templateManifestEntrySchema = manifestTemplateEntrySchema.extend({
-	name: z.string().trim().min(1).max(120),
-});
-
 const templateManifestOperationInputSchema = templateManifestSchema.safeExtend({
-	templates: z.array(templateManifestEntrySchema).min(1).max(500),
+	templates: z.array(templateManifestOperationEntrySchema).min(1).max(500),
 	dry_run: z.boolean().default(true),
 });
 
@@ -351,6 +392,15 @@ function parseTemplateManifestOperationInput(
 		throw new OperationInputError(
 			`Template manifest exceeds the ${MAX_TEMPLATE_MANIFEST_BYTES}-byte limit`,
 		);
+	}
+	const operationResult = templateManifestOperationInputSchema.safeParse(input);
+	if (operationResult.success) return operationResult.data;
+
+	// Preserve the detailed domain errors when both schemas reject the input;
+	// the operation-only limits (such as maxItems: 500) surface when the
+	// manifest schema accepts it.
+	if (!templateManifestSchema.safeParse(input).success) {
+		parseOperationInput(templateManifestSchema, input);
 	}
 	return parseOperationInput(templateManifestOperationInputSchema, input);
 }

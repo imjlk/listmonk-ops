@@ -8,8 +8,9 @@ const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // alternate body) while preserving a narrow single-endpoint Worker surface.
 const runtimeBundleBudgetBytes = 23_250;
 // The enhanced client keeps a per-attempt deadline through the response body,
-// strict timeout/retry validation, and a no-redirect guard for writes.
-const enhancedClientBudgetBytes = 32_500;
+// strict timeout/retry validation, and write guards for redirects and
+// redacted settings credentials, including encoded nested URL markers.
+const enhancedClientBudgetBytes = 35_000;
 
 async function buildRuntimeArtifact(): Promise<void> {
 	await build({

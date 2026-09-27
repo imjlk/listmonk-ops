@@ -118,5 +118,9 @@ describe("Settings CLI and MCP parity", () => {
 		expect(serialized).not.toMatch(
 			/"(?:password|client_secret|username)"\s*:\s*"(?!\[redacted\])/,
 		);
+		// URL values keep their shape, but never an unredacted userinfo.
+		expect(serialized).not.toMatch(
+			/[a-z][a-z0-9+.-]*:\/\/(?!\[redacted\]@)[^\s"/?#@]*@/i,
+		);
 	});
 });

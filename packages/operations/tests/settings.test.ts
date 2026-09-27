@@ -3,6 +3,7 @@ import { describe, expect, mock, test } from "bun:test";
 import {
 	invokeTestSmtpOperation,
 	redactSettingsCredentials,
+	redactUrlCredentials,
 	SETTINGS_REDACTED_VALUE,
 	invokeGetSettingsOperation,
 	invokeSettingsOperationByMcpName,
@@ -159,6 +160,56 @@ function listmonk62SettingsDocument() {
 	};
 }
 
+/**
+ * The same 6.2 document with credentials embedded in URL values, which GET
+ * /api/settings returns verbatim: a staging root URL behind basic auth, an
+ * Azure SAS logo link, a trusted redirect carrying a token, a presigned S3
+ * public URL, an SMS postback URL with basic auth and an API key, and SMTP
+ * and POP URLs pasted into `host` fields in the form other mailers accept.
+ */
+function listmonk62SettingsDocumentWithUrlCredentials() {
+	const document = listmonk62SettingsDocument();
+	const [postmark, ses] = document.smtp;
+	const [mailbox] = document["bounce.mailboxes"];
+	const [messenger] = document.messengers;
+	return {
+		...document,
+		"app.root_url": "https://stage-user:stage-basic-pass@lists.example.com",
+		"app.logo_url":
+			"https://media.blob.core.windows.net/brand/logo.png?sv=2024-11-04&sp=r&sig=azure-sas-signature",
+		"security.trusted_urls": [
+			"https://example.com/thanks?token=trusted-redirect-token",
+			"https://example.com/welcome",
+		],
+		"upload.s3.public_url":
+			"https://cdn.example.com/listmonk-media?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20260927%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Signature=s3-presign-signature",
+		smtp: [
+			postmark!,
+			ses!,
+			{
+				...postmark!,
+				name: "email-relay",
+				uuid: "7d1e4c2b-9a8f-4e6d-b5c4-3a2f1e0d9c8b",
+				enabled: false,
+				host: "smtps://relay-user:relay-pass@smtp.relay.example.com:465",
+			},
+		],
+		messengers: [
+			{
+				...messenger!,
+				root_url:
+					"https://gw-user:gw-pass@sms.example.com/listmonk?api_key=sms-api-key&channel=sms",
+			},
+		],
+		"bounce.mailboxes": [
+			{
+				...mailbox!,
+				host: "pop3s://bounce-user:bounce-pass@pop.example.com:995",
+			},
+		],
+	};
+}
+
 describe("settings credential redaction", () => {
 	test("redacts every credential in the Listmonk 6.2 settings document", () => {
 		const document = listmonk62SettingsDocument();
@@ -278,6 +329,603 @@ describe("settings credential redaction", () => {
 		expect(redactSettingsCredentials(7)).toBe(7);
 		expect(redactSettingsCredentials([])).toEqual([]);
 		expect(redactSettingsCredentials(null)).toBe(null);
+	});
+});
+
+describe("settings URL credential redaction", () => {
+	test("redacts credentials embedded in the 6.2 document's URL values", async () => {
+		const document = listmonk62SettingsDocumentWithUrlCredentials();
+		const get = mock(async () => ({ data: document }));
+
+		const { settings } = await invokeGetSettingsOperation(
+			settingsContext({
+				get: get as unknown as SettingsClient["settings"]["get"],
+			}),
+			{},
+		);
+		const redacted = settings as ReturnType<
+			typeof listmonk62SettingsDocumentWithUrlCredentials
+		>;
+
+		const embeddedCredentials = [
+			"stage-user",
+			"stage-basic-pass",
+			"azure-sas-signature",
+			"trusted-redirect-token",
+			"AKIAIOSFODNN7EXAMPLE",
+			"s3-presign-signature",
+			"relay-user",
+			"relay-pass",
+			"gw-user",
+			"gw-pass",
+			"sms-api-key",
+			"bounce-user",
+			"bounce-pass",
+		];
+		const serialized = JSON.stringify(redacted);
+		for (const credential of embeddedCredentials) {
+			expect(serialized).not.toContain(credential);
+		}
+
+		// Scheme, host, port, path, and the other parameters stay visible.
+		expect(redacted["app.root_url"]).toBe(
+			`https://${SETTINGS_REDACTED_VALUE}@lists.example.com`,
+		);
+		expect(redacted["app.logo_url"]).toBe(
+			`https://media.blob.core.windows.net/brand/logo.png?sv=2024-11-04&sp=r&sig=${SETTINGS_REDACTED_VALUE}`,
+		);
+		expect(redacted["security.trusted_urls"]).toEqual([
+			`https://example.com/thanks?token=${SETTINGS_REDACTED_VALUE}`,
+			"https://example.com/welcome",
+		]);
+		expect(redacted["upload.s3.public_url"]).toBe(
+			`https://cdn.example.com/listmonk-media?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${SETTINGS_REDACTED_VALUE}&X-Amz-Signature=${SETTINGS_REDACTED_VALUE}`,
+		);
+		expect(redacted.smtp[2]?.host).toBe(
+			`smtps://${SETTINGS_REDACTED_VALUE}@smtp.relay.example.com:465`,
+		);
+		expect(redacted.messengers[0]?.root_url).toBe(
+			`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/listmonk?api_key=${SETTINGS_REDACTED_VALUE}&channel=sms`,
+		);
+		expect(redacted["bounce.mailboxes"][0]?.host).toBe(
+			`pop3s://${SETTINGS_REDACTED_VALUE}@pop.example.com:995`,
+		);
+
+		// URLs without credentials and non-URL strings are untouched.
+		expect(redacted["upload.s3.url"]).toBe(
+			"https://s3.ap-northeast-2.amazonaws.com",
+		);
+		expect(redacted["security.oidc"].provider_url).toBe(
+			"https://id.example.com",
+		);
+		expect(redacted["app.from_email"]).toBe("listmonk <noreply@example.com>");
+		expect(redacted.smtp[0]?.host).toBe("smtp.postmarkapp.com");
+		expect(redacted["bounce.mailboxes"][0]?.return_path).toBe(
+			"bounces@example.com",
+		);
+		expect(redacted["maintenance.db"].vacuum_cron_interval).toBe("0 2 * * *");
+		// The source document keeps its original values.
+		expect(document.messengers[0]?.root_url).toContain("gw-pass");
+	});
+
+	test("redacts credential-named query parameters and keeps every other string", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			[
+				"https://sms.example.com/send?apiKey=a&X-Api-Key=b&access-token=c&page=2",
+				"https://sms.example.com/send?apiKey=[redacted]&X-Api-Key=[redacted]&access-token=[redacted]&page=2",
+			],
+			[
+				"https://sms.example.com/send?user=alice&pass=b&pwd=c&username=d&password=e&to=%2B15550100",
+				"https://sms.example.com/send?user=[redacted]&pass=[redacted]&pwd=[redacted]&username=[redacted]&password=[redacted]&to=%2B15550100",
+			],
+			[
+				"https://hooks.example.com/in?key=a&secret=b&client_secret=c&auth=d&jwt=e&session_id=f&utm_source=listmonk",
+				"https://hooks.example.com/in?key=[redacted]&secret=[redacted]&client_secret=[redacted]&auth=[redacted]&jwt=[redacted]&session_id=[redacted]&utm_source=listmonk",
+			],
+			[
+				"https://bucket.s3.amazonaws.com/a.png?X-Amz-Date=20260927T000000Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Security-Token=a&X-Amz-Signature=b",
+				"https://bucket.s3.amazonaws.com/a.png?X-Amz-Date=20260927T000000Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Security-Token=[redacted]&X-Amz-Signature=[redacted]",
+			],
+			[
+				"https://id.example.com/cb#access_token=abc&token_type=Bearer&expires_in=3600",
+				"https://id.example.com/cb#access_token=[redacted]&token_type=Bearer&expires_in=3600",
+			],
+			[
+				"https://id.example.com/cb?passwordless=true&tokenizer=bert",
+				"https://id.example.com/cb?passwordless=true&tokenizer=bert",
+			],
+			[
+				"https://games.example/?monkey=banana&hockey=nhl",
+				"https://games.example/?monkey=banana&hockey=nhl",
+			],
+			[
+				"https://hooks.example/?accesskey=a&secretkey=b&clientkey=c&privatekey=d&sendgridkey=e&forwardemailkey=f&monkey=banana&hockey=nhl",
+				"https://hooks.example/?accesskey=[redacted]&secretkey=[redacted]&clientkey=[redacted]&privatekey=[redacted]&sendgridkey=[redacted]&forwardemailkey=[redacted]&monkey=banana&hockey=nhl",
+			],
+			[
+				"https://hooks.example/?clientsecret=a&accesstoken=b&refreshtoken=c&sessiontoken=d&authtoken=e&apisecret=f&secretaccesskey=g&accesskeyid=h&signingkey=i&apikeysecret=j",
+				"https://hooks.example/?clientsecret=[redacted]&accesstoken=[redacted]&refreshtoken=[redacted]&sessiontoken=[redacted]&authtoken=[redacted]&apisecret=[redacted]&secretaccesskey=[redacted]&accesskeyid=[redacted]&signingkey=[redacted]&apikeysecret=[redacted]",
+			],
+			[
+				"https://hooks.example/?awsaccesskeyid=a&awssecretaccesskey=b",
+				"https://hooks.example/?awsaccesskeyid=[redacted]&awssecretaccesskey=[redacted]",
+			],
+			[
+				"https://id.example.com/logout?id_token_hint=jwt&client_assertion=assertion&assertion_token=saml&password_hint=visible",
+				"https://id.example.com/logout?id_token_hint=[redacted]&client_assertion=[redacted]&assertion_token=[redacted]&password_hint=visible",
+			],
+			[
+				"https://hooks.example.com/?smtp_password=a&db_password=b&shared_secret=c&api_secret=d&s3.password=e&access_key_id=f&api_key_id=g&secret_key_id=h&key_id=i&key_pair_id=j&session_id=k&password_hint=l&secret_mode=m&token_type=Bearer",
+				"https://hooks.example.com/?smtp_password=[redacted]&db_password=[redacted]&shared_secret=[redacted]&api_secret=[redacted]&s3.password=[redacted]&access_key_id=[redacted]&api_key_id=[redacted]&secret_key_id=[redacted]&key_id=[redacted]&key_pair_id=[redacted]&session_id=[redacted]&password_hint=l&secret_mode=m&token_type=Bearer",
+			],
+			[
+				"https://cdn.example.com/a.png?Expires=1798761600&Signature=a&Key-Pair-Id=b",
+				"https://cdn.example.com/a.png?Expires=1798761600&Signature=[redacted]&Key-Pair-Id=[redacted]",
+			],
+			[
+				"https://example.test/?token=https://secret.example/path",
+				"https://example.test/?token=[redacted]",
+			],
+			[
+				"https://sms.example/send?token=correct horse battery&to=1",
+				"https://sms.example/send?token=[redacted]&to=1",
+			],
+			[
+				"https://x.example/?token=a b&api_key=c d",
+				"https://x.example/?token=[redacted]&api_key=[redacted]",
+			],
+			[
+				"bounces@in.forwardemail.net?token=correct horse battery&to=1",
+				"bounces@in.forwardemail.net?token=[redacted]&to=1",
+			],
+			[
+				"?token=correct horse&to=1 https://fallback.example/x",
+				"?token=[redacted]&to=1 https://fallback.example/x",
+			],
+			[
+				"Visit https://x.test/g?token=abc then https://y.test/page",
+				"Visit https://x.test/g?token=[redacted] https://y.test/page",
+			],
+			[
+				"?token=[redacted]extra",
+				"?token=[redacted]",
+			],
+			[
+				"Visit https://x.test/g?token=abc then https://y.test/page",
+				"Visit https://x.test/g?token=[redacted] https://y.test/page",
+			],
+			[
+				"?token=[redacted]extra",
+				"?token=[redacted]",
+			],
+			// Percent-encoded names and the legacy ";" separator still match.
+			[
+				"https://hooks.example.com/in?q=a;%74oken=b",
+				"https://hooks.example.com/in?q=a;%74oken=[redacted]",
+			],
+			// Only the URL is rewritten; the text around it is kept.
+			[
+				"  https://user:pass@hooks.example.com/in  trailing note",
+				"  https://[redacted]@hooks.example.com/in  trailing note",
+			],
+		];
+		const unchanged = [
+			"HTTPS://Lists.Example.com/Path?page=2&keyword=news#Top",
+			"https://cdn.jsdelivr.net/npm/@listmonk/logo.png",
+			"https://hooks.example.com/in?token=",
+			"token_type=Bearer&channel=sms",
+			"mailto:ops@example.com?subject=token",
+			"listmonk <noreply@example.com>",
+			"bounces@example.com",
+			"smtp.example.com",
+			"mailpit:1025",
+			"a:hover { color: red }",
+			"https://example.com is the site; write to ops@example.com",
+			"0 2 * * *",
+			"",
+		];
+
+		const redacted = redactSettingsCredentials({
+			"security.trusted_urls": [
+				...cases.map(([input]) => input),
+				...unchanged,
+			],
+		}) as { "security.trusted_urls": string[] };
+
+		expect(redacted["security.trusted_urls"]).toEqual([
+			...cases.map(([, expected]) => expected),
+			...unchanged,
+		]);
+	});
+
+	test("redacts the userinfo of URLs the parser rejects", () => {
+		expect(
+			redactSettingsCredentials({
+				messengers: [
+					// A mistyped port.
+					{ root_url: "https://gw-user:gw-pass@sms.example.com:80a/send?token=t" },
+					// An unencoded "/" in the password ends the authority early.
+					{ root_url: "https://gw-user:gw/pass@sms.example.com/send" },
+					{ root_url: "https://sms.example.com:99999/send?api_key=k&to=1" },
+				],
+			}),
+		).toEqual({
+			messengers: [
+				{
+					root_url: `https://${SETTINGS_REDACTED_VALUE}@sms.example.com:80a/send?token=${SETTINGS_REDACTED_VALUE}`,
+				},
+				{
+					root_url: `https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+				},
+				{
+					root_url: `https://sms.example.com:99999/send?api_key=${SETTINGS_REDACTED_VALUE}&to=1`,
+				},
+			],
+		});
+	});
+
+	test("redacts spaced userinfo, every URL in a value, and fragment credentials", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			// A passphrase typed into the userinfo without encoding its spaces.
+			[
+				"https://gw-user:correct horse battery@sms.example.com/send?token=t",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			[
+				"https://user:correct foo@bar@host.example/path",
+				`https://${SETTINGS_REDACTED_VALUE}@host.example/path`,
+			],
+			[
+				"https://user:pass?token=abc@host.example/path",
+				`https://${SETTINGS_REDACTED_VALUE}@host.example/path`,
+			],
+			// A second URL after a credential-free first one.
+			[
+				"https://a.example.com https://user:secret@b.example.com/cb?token=t",
+				`https://a.example.com https://${SETTINGS_REDACTED_VALUE}@b.example.com/cb?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			// A parameter-shaped fragment and a client-side route's query.
+			[
+				"https://id.example.com/cb#access_token=eyJ.abc&state=xyz",
+				`https://id.example.com/cb#access_token=${SETTINGS_REDACTED_VALUE}&state=xyz`,
+			],
+			[
+				"https://app.example.com/#/welcome?token=abc&tab=1",
+				`https://app.example.com/#/welcome?token=${SETTINGS_REDACTED_VALUE}&tab=1`,
+			],
+		];
+		for (const [input, expected] of cases) {
+			expect(redactUrlCredentials(input)).toBe(expected);
+			expect(redactUrlCredentials(expected)).toBe(expected);
+		}
+		// A valid bare host after numeric-first userinfo is ambiguous with prose;
+		// masking prevents credentials from being returned in that case.
+		expect(
+			redactUrlCredentials("http://listmonk:9000 contact ops@example.com"),
+		).toBe(`http://${SETTINGS_REDACTED_VALUE}@example.com`);
+		// Invalid/version-shaped hostnames remain prose after a complete URL.
+		for (const text of [
+			"http://listmonk:9000 contact ops@v1.2.3",
+			"https://docs.example.com/guide#section-2",
+			"https://smtp.example.com:8080/docs contact ops@example.com/send",
+		]) {
+			expect(redactUrlCredentials(text)).toBe(text);
+		}
+	});
+
+	test("redacts URLs embedded in punctuation and preserves their wrappers", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			[
+				"appearance.css=background:url(https://user:pass@cdn.example/x?token=secret)",
+				`appearance.css=background:url(https://${SETTINGS_REDACTED_VALUE}@cdn.example/x?token=${SETTINGS_REDACTED_VALUE})`,
+			],
+			[
+				'"https://user:pass@cdn.example/x?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE"',
+				`"https://${SETTINGS_REDACTED_VALUE}@cdn.example/x?AWSAccessKeyId=${SETTINGS_REDACTED_VALUE}"`,
+			],
+			[
+				"background:url(https://cdn.example/x?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE),",
+				`background:url(https://cdn.example/x?AWSAccessKeyId=${SETTINGS_REDACTED_VALUE}),`,
+			],
+			[
+				"background:url(https://cdn.example/x?token=secret);color:red",
+				`background:url(https://cdn.example/x?token=${SETTINGS_REDACTED_VALUE});color:red`,
+			],
+			[
+				"background:url(https://cdn.example/x?token=secret) no-repeat center",
+				`background:url(https://cdn.example/x?token=${SETTINGS_REDACTED_VALUE}) no-repeat center`,
+			],
+			[
+				"background:url(https%3A%2F%2Fcdn.example%2Fx%3Ftoken%3Dsecret) no-repeat center",
+				"background:url(https%3A%2F%2Fcdn.example%2Fx%3Ftoken%3D%5Bredacted%5D) no-repeat center",
+			],
+			[
+				"https%3A%2F%2Fcdn.example%2Fx%3Ftoken%3Dsecret)",
+				"https%3A%2F%2Fcdn.example%2Fx%3Ftoken%3D%5Bredacted%5D",
+			],
+			[
+				"src:url(https://u:pass word@h/a),url(https://u2:p2@h2/b)",
+				`src:url(https://${SETTINGS_REDACTED_VALUE}@h/a),url(https://${SETTINGS_REDACTED_VALUE}@h2/b)`,
+			],
+			[
+				"https://user:foo://bar@host.example/path",
+				`https://${SETTINGS_REDACTED_VALUE}@host.example/path`,
+			],
+			[
+				"https://example.test/?token=one two) three&x=1",
+				`https://example.test/?token=${SETTINGS_REDACTED_VALUE}&x=1`,
+			],
+			[
+				"https://sms.example/send?token=correct?horse battery&to=1",
+				`https://sms.example/send?token=${SETTINGS_REDACTED_VALUE}&to=1`,
+			],
+			[
+				"https://sms.example/send?token=outer?api_key=inner&to=1",
+				`https://sms.example/send?token=${SETTINGS_REDACTED_VALUE}&to=1`,
+			],
+			[
+				'https://example.test/?password=" hunter2&to=1',
+				`https://example.test/?password=${SETTINGS_REDACTED_VALUE}&to=1`,
+			],
+			[
+				"https://example.test/?token=, secret words&x=1",
+				`https://example.test/?token=${SETTINGS_REDACTED_VALUE}&x=1`,
+			],
+			[
+				"See https://host.example.com/?token=secret. Then continue.",
+				`See https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			[
+				"See https://a.example/x and https://host.example.com/?token=secret. Then ok.",
+				`See https://a.example/x and https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			[
+				"https://host.example.com/?token=correct. Horse Battery.",
+				`https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			[
+				"https://host.example.com/?password=secret)",
+				`https://host.example.com/?password=${SETTINGS_REDACTED_VALUE}`,
+			],
+			[
+				"https://host.example.com/?password=))))",
+				`https://host.example.com/?password=${SETTINGS_REDACTED_VALUE}`,
+			],
+		];
+		for (const [input, expected] of cases) {
+			expect(redactUrlCredentials(input)).toBe(expected);
+			expect(redactUrlCredentials(expected)).toBe(expected);
+		}
+	});
+
+	test("redacts large credential parameter lists without repeated string copies", () => {
+		const count = 2000;
+		const input = `https://hooks.example.com/in?${Array.from(
+			{ length: count },
+			(_, index) => `token=${index}`,
+		).join("&")}`;
+		const expected = `https://hooks.example.com/in?${Array.from(
+			{ length: count },
+			() => "token=[redacted]",
+		).join("&")}`;
+		expect(redactUrlCredentials(input)).toBe(expected);
+	});
+
+	test("redacts many encoded URLs without repeated full-string reconstruction", () => {
+		const count = 5000;
+		const input = Array.from(
+			{ length: count },
+			(_, index) =>
+				`https%3A%2F%2Fcdn${index}.example%2Fx%3Ftoken%3Dsecret${index}`,
+		).join(" ");
+		const expected = Array.from(
+			{ length: count },
+			(_, index) =>
+				`https%3A%2F%2Fcdn${index}.example%2Fx%3Ftoken%3D%5Bredacted%5D`,
+		).join(" ");
+		const startedAt = Date.now();
+		expect(redactUrlCredentials(input)).toBe(expected);
+		expect(Date.now() - startedAt).toBeLessThan(10_000);
+	});
+
+	test("redacts passphrases with delimiters or a leading port and every fragment parameter", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			// "/", "?", and "#" inside a spaced passphrase.
+			[
+				"https://gw-user:correct horse/battery@sms.example.com/",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/`,
+			],
+			[
+				"https://gw-user:correct horse?battery#staple@sms.example.com/send?token=t",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			// A passphrase whose first word reads as a port.
+			[
+				"https://gw-user:8080 horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080 correct horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080 correct horse battery@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080/ correct horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:443/ correct horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"http://gw-user:80/ correct horse@sms.example.com/send",
+				`http://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080?mode=fast correct horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080#section correct horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080 correct horse@sms.example.com",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com`,
+			],
+			[
+				"https://gw-user:8080 correct horse@example.com",
+				`https://${SETTINGS_REDACTED_VALUE}@example.com`,
+			],
+			[
+				"https://gw-user:8080 correct horse@mailserver",
+				`https://${SETTINGS_REDACTED_VALUE}@mailserver`,
+			],
+			[
+				"https://gw-user:correct/horse battery@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			// Fragment parameters before a "?".
+			[
+				"https://id.example.com/cb#access_token=eyJ.abc&state=/home?next=1",
+				`https://id.example.com/cb#access_token=${SETTINGS_REDACTED_VALUE}&state=/home?next=1`,
+			],
+			[
+				"https://id.example.com/cb#access_token=ab?cd",
+				`https://id.example.com/cb#access_token=${SETTINGS_REDACTED_VALUE}`,
+			],
+		];
+		for (const [input, expected] of cases) {
+			expect(redactUrlCredentials(input)).toBe(expected);
+			expect(redactUrlCredentials(expected)).toBe(expected);
+		}
+		// The join is bounded, so text long after a broken URL stays intact.
+		const note = "https://listmonk:900x a b c d e f g h i ops@example.com";
+		expect(redactUrlCredentials(note)).toBe(note);
+	});
+
+	test("redacts credential parameters nested in other values", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			[
+				"token=secret&channel=sms",
+				"token=[redacted]&channel=sms",
+			],
+			[
+				"token=correct?horse battery&channel=sms",
+				"token=[redacted]&channel=sms",
+			],
+			[
+				"token=outer?api_key=inner&channel=sms",
+				"token=[redacted]?api_key=[redacted]&channel=sms",
+			],
+			// A "/" after a port-like first word of a spaced passphrase.
+			[
+				"https://gw-user:8080 horse/battery@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			// A credential parameter after a "?" inside another value.
+			[
+				"https://id.example.com/cb#state=/home?token=abc",
+				`https://id.example.com/cb#state=/home?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			[
+				"https://app.example.com/login?next=/dashboard?token=abc&page=2",
+				`https://app.example.com/login?next=/dashboard?token=${SETTINGS_REDACTED_VALUE}&page=2`,
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host",
+			],
+			[
+				"https://outer.example/?redirect=https%3A%2F%2Fuser%3Aabc%40host%40host",
+				"https://outer.example/?redirect=https%3A%2F%2F%5Bredacted%5D%40host",
+			],
+			[
+				"https://app.example/?redirect=https%253A%252F%252Fuser%253Apass%2540inner",
+				"https://app.example/?redirect=https%253A%252F%252F%5Bredacted%5D%2540inner",
+			],
+			[
+				"https://app.example/?redirect=https%25253A%25252F%25252Fuser%25253Apass%252540inner",
+				"https://app.example/?redirect=https%25253A%25252F%25252F%5Bredacted%5D%252540inner",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fcb%3Ftoken%3Dsecret%26page%3D2",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fcb%3Ftoken%3D%5Bredacted%5D%26page%3D2",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3a%2f%2fhost%2fcb%3ftoken%3dsecret%26page%3d2",
+				"https://app.example.com/login?redirect=https%3a%2f%2fhost%2fcb%3ftoken%3d%5Bredacted%5D%26page%3d2",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fhost%2Fcb%3Ftoken%3D%5Bredacted%5Dsecret",
+				"https://app.example.com/login?redirect=https%3A%2F%2Fhost%2Fcb%3Ftoken%3D%5Bredacted%5D",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%25ZZ",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%25ZZ",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%ZZ",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%ZZ",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%A1zz",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%A1zz",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%C3x",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%C3x",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%ED%A0%80",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%ED%A0%80",
+			],
+		];
+		for (const [input, expected] of cases) {
+			expect(redactUrlCredentials(input)).toBe(expected);
+			expect(redactUrlCredentials(expected)).toBe(expected);
+		}
+		const nested = "https://app.example.com/login?next=/dashboard?tab=2&page=2";
+		expect(redactUrlCredentials(nested)).toBe(nested);
+		const encodedWithoutCredentials =
+			"https://app.example.com/login?redirect=https%3a%2f%2fhost%2fcb%3fpage%3d2%26Q%3dhello";
+		expect(redactUrlCredentials(encodedWithoutCredentials)).toBe(
+			encodedWithoutCredentials,
+		);
+	});
+
+	test("keeps everything but the redacted parts as written", () => {
+		expect(
+			redactUrlCredentials("HTTPS://User:Pass@Lists.Example.com:443/Path"),
+		).toBe(`HTTPS://${SETTINGS_REDACTED_VALUE}@Lists.Example.com:443/Path`);
+		expect(redactUrlCredentials("https://Example.com:443/#access_token=x")).toBe(
+			`https://Example.com:443/#access_token=${SETTINGS_REDACTED_VALUE}`,
+		);
+		expect(
+			redactUrlCredentials("https:\\\\user:pass@host.example.com\\x?key=k"),
+		).toBe(
+			`https:\\\\${SETTINGS_REDACTED_VALUE}@host.example.com\\x?key=${SETTINGS_REDACTED_VALUE}`,
+		);
+	});
+
+	test("rewrites only URLs with credentials and is idempotent", () => {
+		const verbatim = "HTTPS://Lists.Example.com:8443/a//b?page=2#Top";
+		expect(redactUrlCredentials(verbatim)).toBe(verbatim);
+
+		const once = redactUrlCredentials(
+			"redis://:cache-pass@cache.example.com:6379/0?password=cache-pass",
+		);
+		expect(once).toBe(
+			`redis://${SETTINGS_REDACTED_VALUE}@cache.example.com:6379/0?password=${SETTINGS_REDACTED_VALUE}`,
+		);
+		expect(redactUrlCredentials(once)).toBe(once);
+
+		const document = listmonk62SettingsDocumentWithUrlCredentials();
+		const redactedOnce = redactSettingsCredentials(document);
+		expect(redactSettingsCredentials(redactedOnce)).toEqual(redactedOnce);
 	});
 });
 

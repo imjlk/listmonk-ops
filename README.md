@@ -712,7 +712,12 @@ listmonk-cli dashboard counts
 listmonk-cli dashboard charts
 listmonk-cli system about
 listmonk-cli system logs --lines 50
-# Credentials, including auth usernames, are recursively replaced by [redacted].
+# Credentials, including auth usernames, are recursively replaced by
+# [redacted]. URL values keep their scheme, host, and path, but their
+# userinfo and secret query or fragment values (token, api_key, signature,
+# access_token, ...) are replaced too.
+# Credential assignments in free-form values (token=..., api_key=...) are
+# also redacted; unrelated non-URL text remains visible.
 listmonk-cli settings get
 # Every run sends a real message to the recipient.
 listmonk-cli settings test-smtp --email reader@example.com \
@@ -1965,6 +1970,10 @@ printf '%s' "$LISTMONK_SMTP_USERNAME" | shasum -a 256
 
 Store the result as `sha256:<hex>` in `smtp_username_fingerprints`; the raw
 username and the configured fingerprints are never returned by the doctor.
+Of the Listmonk settings, the doctor echoes only the SMTP hosts and
+`app.from_email`, and never reads a password, key, or URL-valued setting. An
+SMTP URL pasted into a host field (`smtps://user:pass@host:465`) is shown
+with its userinfo replaced by `[redacted]`.
 
 ```bash
 listmonk-cli providers list

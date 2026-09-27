@@ -59,6 +59,11 @@ export type {
  */
 export type { About, Campaign, List, Subscriber, Template };
 
+export {
+	isSettingsCredentialQueryParameter,
+	SETTINGS_REDACTED_VALUE,
+} from "./src/client/settings-redaction";
+
 export type {
 	ListmonkReadiness,
 	ReadinessResource,

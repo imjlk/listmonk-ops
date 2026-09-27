@@ -1560,7 +1560,7 @@ Resend the double opt-in confirmation email to one subscriber. Every run sends a
 
 ## `settings.get`
 
-Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) recursively replaced by [redacted].
+Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) and every credential embedded in a URL value (userinfo and secret query or fragment parameters) recursively replaced by [redacted].
 
 - Resource / verb: `settings.get`
 - MCP tool: `listmonk_get_settings`

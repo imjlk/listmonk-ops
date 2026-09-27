@@ -31,6 +31,10 @@ import type {
 import type { SdkOptions } from "./crud";
 import type { CrudResult, FlattenedResponse } from "./response";
 import { normalizeListResult, transformResponse } from "./response";
+import {
+	isSettingsCredentialQueryParameter,
+	SETTINGS_REDACTED_VALUE,
+} from "./settings-redaction";
 
 export function createImportOperations(
 	sdkOptions: SdkOptions,
@@ -163,14 +167,138 @@ export function createSettingsOperations(
 			return (await transformResponse(result)) as FlattenedResponse<t.Settings>;
 		},
 		async update(options: { body: Record<string, unknown> }) {
+			assertNoRedactedSettingsPlaceholder(options.body, "update");
 			const result = await updateSettings({ ...sdkOptions, ...options });
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 		async testSmtp(options: { body: Record<string, unknown> }) {
+			assertNoRedactedSettingsPlaceholder(options.body, "test SMTP");
 			const result = await testSmtpSettings({ ...sdkOptions, ...options });
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 	};
+}
+
+/** Reject redacted display values before an operation can send them to Listmonk. */
+function assertNoRedactedSettingsPlaceholder(
+	value: unknown,
+	action: "update" | "test SMTP",
+): void {
+	if (!containsRedactedSettingsPlaceholder(value)) return;
+	throw new TypeError(
+		`Cannot ${action} settings with "${SETTINGS_REDACTED_VALUE}" placeholders; replace them with the actual values first.`,
+	);
+}
+
+/** Walk nested settings data for exact or URL/query-shaped redaction markers. */
+function containsRedactedSettingsPlaceholder(
+	value: unknown,
+	seen = new WeakSet<object>(),
+): boolean {
+	if (typeof value === "string") {
+		return containsRedactedSettingsPlaceholderInString(value);
+	}
+	if (value === null || typeof value !== "object") return false;
+	if (seen.has(value)) return false;
+	seen.add(value);
+	const entries = Array.isArray(value) ? value : Object.values(value);
+	return entries.some((entry) =>
+		containsRedactedSettingsPlaceholder(entry, seen),
+	);
+}
+
+/** Ignore prose mentions while detecting markers emitted as credential values. */
+function containsRedactedSettingsPlaceholderInString(
+	value: string,
+	decodeDepth = 0,
+): boolean {
+	let index = value.indexOf(SETTINGS_REDACTED_VALUE);
+	while (index !== -1) {
+		const prefix = value.slice(0, index);
+		const markerEnd = index + SETTINGS_REDACTED_VALUE.length;
+		const suffix = value.slice(markerEnd);
+		if (value === SETTINGS_REDACTED_VALUE) return true;
+		if (
+			suffix.startsWith("@") &&
+			/[a-z][a-z0-9+.-]*:[\\/]{2}[^/?#\\]*$/i.test(prefix)
+		) {
+			return true;
+		}
+		if (isCredentialQueryValueMarker(value, index)) return true;
+		index = value.indexOf(SETTINGS_REDACTED_VALUE, markerEnd);
+	}
+
+	const lowerCaseValue = value.toLowerCase();
+	const encodedMarker = "%5bredacted%5d";
+	let encodedIndex = lowerCaseValue.indexOf(encodedMarker);
+	while (encodedIndex !== -1) {
+		const prefix = value.slice(0, encodedIndex);
+		const suffix = lowerCaseValue.slice(encodedIndex + encodedMarker.length);
+		if (
+			(suffix.startsWith("%40") &&
+				/(?:%3a|:)(?:%2f|\x2f){2}$/i.test(prefix)) ||
+			isCredentialQueryValueMarker(value, encodedIndex)
+		) {
+			return true;
+		}
+		encodedIndex = lowerCaseValue.indexOf(
+			encodedMarker,
+			encodedIndex + encodedMarker.length,
+		);
+	}
+
+	if (decodeDepth < 3 && value.includes("%")) {
+		const decoded = decodeValidPercentEscapes(value);
+		if (
+			decoded !== value &&
+			containsRedactedSettingsPlaceholderInString(decoded, decodeDepth + 1)
+		) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** Decode valid escape runs independently so malformed escapes don't hide later markers. */
+function decodeValidPercentEscapes(value: string): string {
+	return value.replace(/\+/g, " ").replace(/(?:%[\da-f]{2})+/gi, (run) => {
+		try {
+			return decodeURIComponent(run);
+		} catch {
+			// Decode ASCII escapes such as %25/%3F without interpreting invalid
+			// non-ASCII byte sequences as Unicode.
+			return run.replace(/%([0-7][\da-f])/gi, (_, hex: string) =>
+				String.fromCharCode(Number.parseInt(hex, 16)),
+			);
+		}
+	});
+}
+
+function isCredentialQueryValueMarker(value: string, markerIndex: number): boolean {
+	const prefix = value.slice(0, markerIndex);
+	const assignmentPattern = /(?:=|%3d)/gi;
+	let assignment: RegExpExecArray | null;
+	let lastAssignment: RegExpExecArray | undefined;
+	while ((assignment = assignmentPattern.exec(prefix)) !== null) {
+		lastAssignment = assignment;
+	}
+	if (lastAssignment === undefined || lastAssignment.index === undefined) {
+		return false;
+	}
+
+	const separatorPattern = /(?:[?&#;]|%3f|%26|%23|%3b)/gi;
+	let separator: RegExpExecArray | null;
+	let lastSeparator: RegExpExecArray | undefined;
+	while ((separator = separatorPattern.exec(prefix)) !== null) {
+		if (separator.index >= lastAssignment.index) break;
+		lastSeparator = separator;
+	}
+	const nameStart = lastSeparator?.index === undefined
+		? 0
+		: lastSeparator.index + lastSeparator[0].length;
+	return isSettingsCredentialQueryParameter(
+		prefix.slice(nameStart, lastAssignment.index),
+	);
 }
 
 export function createDashboardOperations(

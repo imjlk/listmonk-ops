@@ -168,6 +168,126 @@ function context(
 	};
 }
 
+/**
+ * A Listmonk 6.2 `GET /api/settings` document (models.Settings) for the SES
+ * profile as the handler returns it: passwords and provider secrets arrive
+ * masked with "•", while every auth username, the S3 access key id, the
+ * hCaptcha site key, and credentials embedded in URL values arrive in
+ * clear text.
+ */
+function listmonk62ProviderSettings() {
+	return {
+		"app.site_name": "Newsletter",
+		"app.root_url":
+			"https://stage-user:stage-basic-pass@lists.news.example.com",
+		"app.from_email": "Newsletter <newsletter@news.example.com>",
+		"app.notify_emails": ["ops@example.com"],
+		"privacy.unsubscribe_header": true,
+		"security.captcha": {
+			altcha: { enabled: false, complexity: 300000 },
+			hcaptcha: {
+				enabled: true,
+				key: "10000000-ffff-ffff-ffff-000000000001",
+				secret: "••••••••••••",
+			},
+		},
+		"security.oidc": {
+			enabled: true,
+			provider_url: "https://id.example.com",
+			provider_name: "Example ID",
+			client_id: "listmonk-public-client",
+			client_secret: "••••••••••",
+			auto_create_users: false,
+			default_user_role_id: null,
+			default_list_role_id: null,
+		},
+		"security.trusted_urls": [
+			"https://news.example.com/thanks?token=trusted-redirect-token",
+		],
+		"upload.provider": "s3",
+		"upload.s3.url": "https://s3.ap-northeast-2.amazonaws.com",
+		"upload.s3.public_url":
+			"https://cdn.news.example.com/media?X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20260729%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Signature=s3-presign-signature",
+		"upload.s3.aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+		"upload.s3.aws_default_region": "ap-northeast-2",
+		"upload.s3.aws_secret_access_key": "••••••••••••••••••••",
+		smtp: [
+			{
+				name: "email-ses",
+				uuid: "5a9d7e61-8c2b-4f3a-b6d4-1e0f9c8b7a6d",
+				enabled: true,
+				host: "email-smtp.ap-northeast-2.amazonaws.com",
+				hello_hostname: "",
+				port: 465,
+				auth_protocol: "login",
+				username: sesSmtpUsername,
+				password: "••••••••••••••••••••••••••••••••••••••••••••",
+				email_headers: [],
+				max_conns: 10,
+				tls_type: "TLS",
+				tls_skip_verify: false,
+			},
+		],
+		messengers: [
+			{
+				uuid: "c0ffee00-1111-4222-8333-444455556666",
+				enabled: true,
+				name: "sms-gateway",
+				root_url:
+					"https://gw-user:gw-pass@sms.example.com/listmonk?api_key=sms-api-key",
+				username: "sms-gateway-user",
+				password: "••••••••",
+				max_conns: 5,
+				timeout: "5s",
+				max_msg_retries: 2,
+			},
+		],
+		"bounce.enabled": true,
+		"bounce.webhooks_enabled": true,
+		"bounce.ses_enabled": true,
+		"bounce.sendgrid_enabled": false,
+		"bounce.sendgrid_key": "••••••••••••••••••••",
+		"bounce.postmark": {
+			enabled: false,
+			username: "pm-webhook-server-token",
+			password: "••••••••••••",
+		},
+		"bounce.mailboxes": [
+			{
+				uuid: "0badf00d-aaaa-4bbb-8ccc-dddddddddddd",
+				enabled: true,
+				type: "pop",
+				host: "pop.news.example.com",
+				port: 995,
+				auth_protocol: "userpass",
+				return_path: "bounces@news.example.com",
+				username: "bounce-mailbox-user",
+				password: "••••••••••••",
+				tls_enabled: true,
+				tls_skip_verify: false,
+				scan_interval: "15m",
+			},
+		],
+	};
+}
+
+function contextWithSettings(
+	settings: Readonly<Record<string, unknown>>,
+	overrides: Partial<ProviderOperationContext> = {},
+): ProviderOperationContext {
+	return context({
+		client: {
+			...context().client!,
+			settings: {
+				async get() {
+					return { data: settings } as never;
+				},
+			},
+		},
+		...overrides,
+	});
+}
+
 describe("provider and deliverability operations", () => {
 	test("normalizes SES region identifiers before deriving DNS and SMTP hosts", () => {
 		const normalized = providerProfileSchema.parse({
@@ -826,6 +946,106 @@ describe("provider and deliverability operations", () => {
 		expect(JSON.stringify(output)).not.toContain("newsletter");
 		expect(JSON.stringify(output)).not.toContain("AKIA");
 		expect(JSON.stringify(output)).not.toContain("aws:profile");
+	});
+
+	test("never copies settings credentials or URL-valued settings into diagnostics", async () => {
+		const operationContext = contextWithSettings(listmonk62ProviderSettings());
+		const input = { provider_id: profile.id };
+		const status = await invokeProviderStatusOperation(operationContext, input);
+		const webhook = await invokeProviderWebhookStatusOperation(
+			operationContext,
+			input,
+		);
+		const doctor = await invokeDeliverabilityDoctorOperation(
+			operationContext,
+			input,
+		);
+
+		// The doctor read the raw document: it bound the SES SMTP username by
+		// fingerprint and echoes the pool host and the From address.
+		expect(status.listmonk).toMatchObject({
+			from_email: "Newsletter <newsletter@news.example.com>",
+			enabled_smtp_hosts: ["email-smtp.ap-northeast-2.amazonaws.com"],
+			smtp_credential_binding_required: true,
+			smtp_credentials_bound: true,
+		});
+		expect(webhook.provider_bounce_enabled).toBe(true);
+		expect(doctor.status.listmonk).toEqual(status.listmonk);
+
+		const serialized = JSON.stringify([status, webhook, doctor]);
+		for (const value of [
+			sesSmtpUsername,
+			sesSmtpUsernameFingerprint,
+			"sms-gateway-user",
+			"pm-webhook-server-token",
+			"bounce-mailbox-user",
+			"AKIAIOSFODNN7EXAMPLE",
+			"10000000-ffff-ffff-ffff-000000000001",
+			"stage-basic-pass",
+			"gw-pass",
+			"sms-api-key",
+			"s3-presign-signature",
+			"trusted-redirect-token",
+			"•",
+			// URL-valued settings are never read at all.
+			"lists.news.example.com",
+			"sms.example.com",
+			"cdn.news.example.com",
+		]) {
+			expect(serialized).not.toContain(value);
+		}
+	});
+
+	test("redacts an SMTP URL pasted into a Listmonk host field", async () => {
+		const postmarkProfile = providerProfileSchema.parse({
+			id: "postmark-relay",
+			kind: "smtp",
+			sending_domain: "news.example.com",
+			smtp_hosts: ["smtp.postmarkapp.com"],
+			webhook_source: "postmark",
+		});
+		const settings = listmonk62ProviderSettings();
+		// Postmark SMTP authenticates with the server token as both username
+		// and password; other mailers accept it as one SMTP URL.
+		const operationContext = contextWithSettings(
+			{
+				...settings,
+				smtp: [
+					{
+						...settings.smtp[0]!,
+						name: "email-postmark",
+						host: "smtps://pm-server-token-7c1d:pm-server-token-7c1d@smtp.postmarkapp.com:465",
+						username: "",
+					},
+				],
+				"bounce.postmark": { ...settings["bounce.postmark"], enabled: true },
+			},
+			{ profiles: [postmarkProfile], createInspector: () => undefined },
+		);
+		const input = { provider_id: postmarkProfile.id };
+		const redactedHost = "smtps://[redacted]@smtp.postmarkapp.com:465";
+
+		const status = await invokeProviderStatusOperation(operationContext, input);
+		expect(status.listmonk).toMatchObject({
+			smtp_hosts: [redactedHost],
+			enabled_smtp_hosts: [redactedHost],
+			smtp_pool_exact: false,
+		});
+		expect(status.checks).toContainEqual(
+			expect.objectContaining({
+				id: "listmonk.smtp",
+				status: "fail",
+				details: expect.objectContaining({ enabled_hosts: [redactedHost] }),
+			}),
+		);
+		const doctor = await invokeDeliverabilityDoctorOperation(
+			operationContext,
+			input,
+		);
+		expect(doctor.status.listmonk?.enabled_smtp_hosts).toEqual([redactedHost]);
+		expect(JSON.stringify([status, doctor])).not.toContain(
+			"pm-server-token-7c1d",
+		);
 	});
 
 	test("distinguishes SES error responses from network unreachability", async () => {
