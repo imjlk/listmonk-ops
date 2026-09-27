@@ -330,9 +330,8 @@ export async function runSubscriberHygiene(
 			`Echoed subscriber set (${echoedIds.size}) exceeds max_subscribers (${maxSubscribers}); raise max_subscribers to apply the full reviewed set`,
 		);
 	}
-	// An echoed request scopes both eligibility and the opt-in lookup: stale
-	// subscribers outside the reviewed set must not add a list-read
-	// prerequisite or produce warnings for this run.
+	// An echoed request scopes eligibility and opt-in lookup to the reviewed
+	// set; IDs that are no longer eligible are skipped on the same criteria.
 	const eligibilitySubscribers = echoedIds
 		? staleSubscribers.filter((subscriber) => {
 				const id = toPositiveInt(subscriber.id);
@@ -381,21 +380,8 @@ export async function runSubscriberHygiene(
 		);
 	}
 
-	// An echoed set is matched against the same eligibility criteria;
-	// subscribers that left the eligible set (blocklisted, no longer
-	// inactive, changed status, no deliverable membership left) are skipped
-	// so an identical retry never re-applies a sunset blocklist, and winback
-	// list additions are per-subscriber idempotent memberships.
-	const eligibleForEcho = echoedIds
-		? candidates.filter((subscriber) => {
-				const id = toPositiveInt(subscriber.id);
-				return id !== undefined && echoedIds.has(id);
-			})
-		: candidates;
-	const selected = eligibleForEcho.slice(0, maxSubscribers);
-	const skippedDueToLimit = echoedIds
-		? Math.max(0, eligibleForEcho.length - selected.length)
-		: Math.max(0, candidates.length - selected.length);
+	const selected = candidates.slice(0, maxSubscribers);
+	const skippedDueToLimit = Math.max(0, candidates.length - selected.length);
 	// The guard observations echo verbatim as subscriber_guards: the RAW
 	// updated_at string preserves Listmonk's microsecond precision (a
 	// Date-normalized comparison would treat revisions within one
