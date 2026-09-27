@@ -2576,13 +2576,17 @@ async function deliverClaimedWebhook(
 		};
 	}
 	const timestamp = nowIso();
-	const body = JSON.stringify(delivery.event);
+	const redactedEvent: OutboundWebhookEvent = {
+		...delivery.event,
+		data: redactOutboundWebhookData(delivery.event.data),
+	};
+	const body = JSON.stringify(redactedEvent);
 	const signature = signOutboundWebhookPayload(secret, timestamp, body);
 	const headers = {
 		"Content-Type": "application/json",
 		"User-Agent": "listmonk-ops-webhooks/1",
-		"X-Listmonk-Ops-Event-Id": delivery.event.id,
-		"X-Listmonk-Ops-Event-Type": delivery.event.type,
+		"X-Listmonk-Ops-Event-Id": redactedEvent.id,
+		"X-Listmonk-Ops-Event-Type": redactedEvent.type,
 		"X-Listmonk-Ops-Timestamp": timestamp,
 		"X-Listmonk-Ops-Signature": signature,
 	};

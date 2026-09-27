@@ -506,6 +506,26 @@ describe("SSRF defense — pinned link checks and DNS rebinding", () => {
 		).toEqual({ url: "https://multi.example/", ok: true, status: 204 });
 		expect(requests.map((request) => request.address.family)).toEqual([4, 6]);
 	});
+
+	it("reserves time for later validated addresses after a connection stalls", async () => {
+		const { lookupHost } = scriptedResolver({
+			"multi.example": [
+				[
+					{ address: "93.184.216.34", family: 4 },
+					{ address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 },
+				],
+			],
+		});
+		const { requests, send } = recordingSender((_input, index) =>
+			index === 0 ? new Promise(() => {}) : { status: 204 },
+		);
+
+		expect(
+			await checkLink("https://multi.example/", 400, { lookupHost, send }),
+		).toEqual({ url: "https://multi.example/", ok: true, status: 204 });
+		expect(requests.map((request) => request.address.family)).toEqual([4, 6]);
+		expect(requests[0]?.signal.aborted).toBe(true);
+	});
 });
 
 describe("SSRF defense — redirect chain with injected transport", () => {

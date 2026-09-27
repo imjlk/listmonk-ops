@@ -1,5 +1,5 @@
-import { request as httpRequest } from "node:http";
-import { request as httpsRequest } from "node:https";
+import { Agent as HttpAgent, request as httpRequest } from "node:http";
+import { Agent as HttpsAgent, request as httpsRequest } from "node:https";
 import { isIP, type LookupFunction } from "node:net";
 
 export type ResolvedWebhookAddress = Readonly<{
@@ -29,6 +29,11 @@ export type PinnedHttpResponse = Readonly<{
 export type PinnedHttpSender = (
 	input: PinnedHttpRequest,
 ) => Promise<PinnedHttpResponse>;
+
+type ValidatedAddressAttempt<T> = (
+	address: ResolvedWebhookAddress,
+	signal: AbortSignal,
+) => Promise<T>;
 
 type PinnedWebhookRequest = Readonly<{
 	url: string;
@@ -61,6 +66,16 @@ export function createPinnedLookup(
 }
 
 /**
+ * Use an explicit agent with an empty proxy environment. Bun's Node HTTP
+ * compatibility layer can otherwise route requests through process proxy
+ * variables even though the request has a pinned DNS lookup.
+ */
+function createDirectRequestAgent(secure: boolean): HttpAgent | HttpsAgent {
+	const options = { keepAlive: false, proxyEnv: {} };
+	return secure ? new HttpsAgent(options) : new HttpAgent(options);
+}
+
+/**
  * Send one HTTP(S) request pinned to a validated address. The URL hostname
  * still drives the Host header, TLS SNI, and certificate verification; only
  * the connection target is fixed. A fresh agent prevents reusing a socket
@@ -83,7 +98,7 @@ export async function sendPinnedHttpRequest(
 			{
 				method: input.method,
 				headers: input.headers,
-				agent: false,
+				agent: createDirectRequestAgent(secure),
 				lookup: createPinnedLookup(input.address),
 				family: input.address.family,
 				servername: secure && isIP(hostname) === 0 ? hostname : undefined,
@@ -109,17 +124,84 @@ async function tryValidatedAddresses<T>(
 	url: string,
 	addresses: readonly ResolvedWebhookAddress[],
 	signal: AbortSignal,
-	attempt: (address: ResolvedWebhookAddress) => Promise<T>,
+	attempt: ValidatedAddressAttempt<T>,
+	totalTimeoutMs?: number,
 ): Promise<T> {
+	if (addresses.length === 0) {
+		throw new Error("No validated addresses to attempt");
+	}
+	if (
+		totalTimeoutMs !== undefined &&
+		(!Number.isFinite(totalTimeoutMs) || totalTimeoutMs <= 0)
+	) {
+		throw new RangeError("Address attempt timeout must be a positive number");
+	}
+	const deadline =
+		totalTimeoutMs === undefined ? undefined : Date.now() + totalTimeoutMs;
 	const failures: unknown[] = [];
-	for (const address of addresses) {
+	for (let index = 0; index < addresses.length; index += 1) {
+		const address = addresses[index]!;
+		if (signal.aborted) {
+			throw signal.reason ?? new Error("Request aborted");
+		}
+		const remainingMs =
+			deadline === undefined ? undefined : deadline - Date.now();
+		if (remainingMs !== undefined && remainingMs <= 0) {
+			failures.push(
+				new Error("No time remains for a validated address attempt"),
+			);
+			break;
+		}
+		const remainingAddresses = addresses.length - index;
+		const attemptTimeoutMs =
+			remainingMs === undefined
+				? undefined
+				: Math.max(1, Math.ceil(remainingMs / remainingAddresses));
+		const controller = new AbortController();
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		let removeAbortListener = () => {};
+		const aborted = new Promise<never>((_, reject) => {
+			const abort = () => {
+				const reason = signal.reason ?? new Error("Request aborted");
+				controller.abort(reason);
+				reject(reason);
+			};
+			if (signal.aborted) {
+				abort();
+				return;
+			}
+			signal.addEventListener("abort", abort, { once: true });
+			removeAbortListener = () => signal.removeEventListener("abort", abort);
+		});
+		const attemptPromise = Promise.resolve().then(() =>
+			attempt(address, controller.signal),
+		);
+		const attempts: Promise<T>[] = [attemptPromise, aborted];
+		if (attemptTimeoutMs !== undefined) {
+			attempts.push(
+				new Promise<never>((_, reject) => {
+					timeout = setTimeout(() => {
+						const error = new Error(
+							`Validated address attempt timed out after ${attemptTimeoutMs}ms`,
+						);
+						controller.abort(error);
+						reject(error);
+					}, attemptTimeoutMs);
+				}),
+			);
+		}
 		try {
-			return await attempt(address);
+			return await Promise.race(attempts);
 		} catch (error) {
 			failures.push(error);
 			if (signal.aborted) {
 				throw error;
 			}
+		} finally {
+			if (timeout !== undefined) {
+				clearTimeout(timeout);
+			}
+			removeAbortListener();
 		}
 	}
 	let host = "the requested URL";
@@ -135,14 +217,26 @@ async function tryValidatedAddresses<T>(
 }
 
 /** Try each validated address in order until one of them answers. */
-export function sendPinnedHttpRequestWithFallback(
+export async function sendPinnedHttpRequestWithFallback(
 	input: Omit<PinnedHttpRequest, "address"> &
-		Readonly<{ addresses: readonly ResolvedWebhookAddress[] }>,
+		Readonly<{
+			addresses: readonly ResolvedWebhookAddress[];
+			totalTimeoutMs?: number;
+		}>,
 	send: PinnedHttpSender = sendPinnedHttpRequest,
 ): Promise<PinnedHttpResponse> {
-	const { addresses, ...request } = input;
-	return tryValidatedAddresses(input.url, addresses, input.signal, (address) =>
-		send({ ...request, address }),
+	const { addresses, totalTimeoutMs, ...request } = input;
+	if (request.method === "POST" && totalTimeoutMs !== undefined) {
+		throw new RangeError(
+			"Per-address timeout budgets are limited to retry-safe link checks",
+		);
+	}
+	return tryValidatedAddresses(
+		input.url,
+		addresses,
+		input.signal,
+		(address, signal) => send({ ...request, address, signal }),
+		totalTimeoutMs,
 	);
 }
 
@@ -171,13 +265,13 @@ export function postPinnedHttpsWebhookWithFallback(
 		input.url,
 		input.addresses,
 		input.signal,
-		(address) =>
+		(address, signal) =>
 			send({
 				url: input.url,
 				address,
 				headers: input.headers,
 				body: input.body,
-				signal: input.signal,
+				signal,
 			}),
 	);
 }

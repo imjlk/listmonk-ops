@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listOperationAuditEntries } from "@listmonk-ops/common";
@@ -407,6 +407,58 @@ describe("outbound webhook event outbox", () => {
 		expect(bodies[0]).toContain('"bounceType":"Permanent"');
 		expect(bodies[0]).not.toContain("@example.com");
 		expect(bodies[0]).not.toContain("Jane");
+	});
+
+	test("re-redacts legacy persisted event data before signing and delivery", async () => {
+		const path = await createStorePath();
+		await createEndpoint(path, { eventFilters: ["delivery.*"] });
+		await enqueueOutboundWebhookEvent(
+			{
+				type: "delivery.bounced",
+				source: "webhook",
+				data: { status: "bounced" },
+			},
+			{ path },
+		);
+
+		const persisted = JSON.parse(await readFile(path, "utf8")) as {
+			deliveries: Array<{
+				event: { data: Record<string, unknown> };
+			}>;
+		};
+		persisted.deliveries[0]!.event.data = {
+			diagnostic: "smtp; 550 5.1.1 <jane@example.com> unknown user",
+			mail: { source: "sender@example.com" },
+			"api.key": "legacy-api-secret",
+		};
+		await writeFile(path, JSON.stringify(persisted));
+
+		const bodies: string[] = [];
+		await dispatchOutboundWebhooks({
+			store: { path },
+			fetcher: (async (_url: string | URL | Request, init?: RequestInit) => {
+				bodies.push(String(init?.body));
+				const headers = new Headers(init?.headers);
+				expect(
+					verifyOutboundWebhookSignature({
+						secret: "test-secret",
+						timestamp: headers.get("X-Listmonk-Ops-Timestamp")!,
+						body: String(init?.body),
+						signature: headers.get("X-Listmonk-Ops-Signature")!,
+					}),
+				).toBe(true);
+				return new Response(null, { status: 204 });
+			}) as typeof fetch,
+			resolveSecret: () => "test-secret",
+		});
+
+		expect(bodies).toHaveLength(1);
+		expect(bodies[0]).toContain('"diagnostic":"[REDACTED]"');
+		expect(bodies[0]).toContain('"source":"[REDACTED]"');
+		expect(bodies[0]).toContain('"api.key":"[REDACTED]"');
+		expect(bodies[0]).not.toContain("jane@example.com");
+		expect(bodies[0]).not.toContain("sender@example.com");
+		expect(bodies[0]).not.toContain("legacy-api-secret");
 	});
 
 	test("filters endpoints and deduplicates the same event and endpoint", async () => {

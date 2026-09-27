@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 /**
  * Key and value classifiers for outbound webhook payload redaction. Keys and
  * values can come from third-party provider metadata, so both classifiers are
@@ -35,7 +37,7 @@ const RECIPIENT_KEY_NAMES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Two-word envelope fields (`reply_to`, `mail_from`, `envelopeTo`) that are
+ * Envelope fields (`reply_to`, `mail_from`, `original_to`, `mailto`) that are
  * specific enough to mark a key wherever they appear as adjacent words.
  */
 const RECIPIENT_KEY_COMPOUNDS: ReadonlySet<string> = new Set([
@@ -45,6 +47,8 @@ const RECIPIENT_KEY_COMPOUNDS: ReadonlySet<string> = new Set([
 	"envelopeto",
 	"forwardto",
 	"mailfrom",
+	"mailto",
+	"originalto",
 	"replyto",
 	"returnpath",
 ]);
@@ -132,26 +136,28 @@ function isSensitiveKeyWord(word: string): boolean {
  * Returns true for keys that name credentials, personal data, or recipient
  * addresses in any common spelling: plural, digit-suffixed, camelCase,
  * PascalCase, snake_case, kebab-case, split compounds (`api_key`, `e-mail`,
- * `mail_from`), and dotted paths such as `mail.source`.
+ * `mail_from`), and dotted paths such as `mail.source` or `api.key`.
  */
 export function isSensitiveWebhookDataKey(key: string): boolean {
+	const allWords: string[] = [];
 	for (const segment of key.split(".")) {
 		const words = keyWords(segment);
 		if (words.length === 0) {
 			continue;
 		}
+		allWords.push(...words);
 		if (hasWordOrPlural(RECIPIENT_KEY_NAMES, words.join(""))) {
 			return true;
 		}
-		for (let index = 0; index < words.length; index += 1) {
-			const word = words[index]!;
-			const next = words[index + 1];
-			if (
-				isSensitiveKeyWord(word) ||
-				(next !== undefined && isSensitiveKeyWord(`${word}${next}`))
-			) {
-				return true;
-			}
+	}
+	for (let index = 0; index < allWords.length; index += 1) {
+		const word = allWords[index]!;
+		const next = allWords[index + 1];
+		if (
+			isSensitiveKeyWord(word) ||
+			(next !== undefined && isSensitiveKeyWord(`${word}${next}`))
+		) {
+			return true;
 		}
 	}
 	return false;
@@ -195,6 +201,16 @@ function isDomainCharacter(code: number): boolean {
  * are therefore not addresses.
  */
 function isDomainLike(value: string, start: number, end: number): boolean {
+	if (value.charCodeAt(start) === 0x5b) {
+		if (end <= start + 2 || value.charCodeAt(end - 1) !== 0x5d) {
+			return false;
+		}
+		const literal = value.slice(start + 1, end - 1);
+		if (literal.slice(0, 5).toLowerCase() === "ipv6:") {
+			return isIP(literal.slice(5)) === 6;
+		}
+		return isIP(literal) === 4;
+	}
 	let last = end;
 	while (last > start && value.charCodeAt(last - 1) === 0x2e) {
 		last -= 1;
@@ -235,11 +251,20 @@ export function containsEmailAddress(value: string): boolean {
 			continue;
 		}
 		let domainEnd = domainStart;
-		while (
-			domainEnd < value.length &&
-			isDomainCharacter(value.charCodeAt(domainEnd))
-		) {
-			domainEnd += 1;
+		if (value.charCodeAt(domainStart) === 0x5b) {
+			while (domainEnd < value.length && value.charCodeAt(domainEnd) !== 0x5d) {
+				domainEnd += 1;
+			}
+			if (domainEnd < value.length) {
+				domainEnd += 1;
+			}
+		} else {
+			while (
+				domainEnd < value.length &&
+				isDomainCharacter(value.charCodeAt(domainEnd))
+			) {
+				domainEnd += 1;
+			}
 		}
 		if (
 			isLocalPartCharacter(value.charCodeAt(index - 1)) &&

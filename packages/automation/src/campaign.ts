@@ -426,6 +426,7 @@ async function requestLinkHop(
 	method: "GET" | "HEAD",
 	signal: AbortSignal,
 	timeoutMs: number,
+	deadlineAt: number,
 	options: LinkCheckOptions,
 ): Promise<LinkHopOutcome> {
 	let parsed: URL;
@@ -469,6 +470,7 @@ async function requestLinkHop(
 				method,
 				headers: LINK_CHECK_HEADERS,
 				signal,
+				totalTimeoutMs: Math.max(1, deadlineAt - Date.now()),
 			},
 			options.send,
 		);
@@ -508,6 +510,7 @@ export async function checkLink(
 	options: LinkCheckOptions = {},
 ): Promise<LinkCheckResult> {
 	const controller = new AbortController();
+	const deadlineAt = Date.now() + timeoutMs;
 	const timeout = setTimeout(() => controller.abort(), timeoutMs);
 	let currentUrl = url;
 	let method: "GET" | "HEAD" = "HEAD";
@@ -519,6 +522,7 @@ export async function checkLink(
 				method,
 				controller.signal,
 				timeoutMs,
+				deadlineAt,
 				options,
 			);
 			if (hop.kind !== "response") {

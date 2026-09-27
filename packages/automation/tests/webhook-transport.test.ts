@@ -72,6 +72,94 @@ describe("pinned HTTP transport", () => {
 		}
 	});
 
+	test("bypasses HTTP and HTTPS proxy environment variables for pinned requests", async () => {
+		const targetRequests: string[] = [];
+		const proxyRequests: string[] = [];
+		const target = createServer((request, response) => {
+			targetRequests.push(`${request.headers.host} ${request.url}`);
+			response.writeHead(201);
+			response.end("origin");
+		});
+		const proxy = createServer((request, response) => {
+			proxyRequests.push(`${request.method} ${request.url}`);
+			response.writeHead(200);
+			response.end("proxy");
+		});
+		proxy.on("connect", (request, socket) => {
+			proxyRequests.push(`CONNECT ${request.url}`);
+			socket.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+		});
+		await new Promise<void>((resolve) => target.listen(0, "127.0.0.1", resolve));
+		await new Promise<void>((resolve) => proxy.listen(0, "127.0.0.1", resolve));
+		const targetPort = (target.address() as AddressInfo).port;
+		const proxyPort = (proxy.address() as AddressInfo).port;
+		const proxyUrl = `http://127.0.0.1:${proxyPort}`;
+		const variableNames = [
+			"HTTP_PROXY",
+			"http_proxy",
+			"HTTPS_PROXY",
+			"https_proxy",
+			"ALL_PROXY",
+			"all_proxy",
+			"NO_PROXY",
+			"no_proxy",
+			"NODE_USE_ENV_PROXY",
+		] as const;
+		const previous = new Map(
+			variableNames.map((name) => [name, process.env[name]]),
+		);
+		for (const name of [
+			"HTTP_PROXY",
+			"http_proxy",
+			"HTTPS_PROXY",
+			"https_proxy",
+			"ALL_PROXY",
+			"all_proxy",
+		]) {
+			process.env[name] = proxyUrl;
+		}
+		process.env.NO_PROXY = "";
+		process.env.no_proxy = "";
+		process.env.NODE_USE_ENV_PROXY = "1";
+		try {
+			const response = await sendPinnedHttpRequest({
+				url: `http://target.example:${targetPort}/pinned`,
+				address: { address: "127.0.0.1", family: 4 },
+				method: "GET",
+				headers: {},
+				signal: AbortSignal.timeout(2_000),
+			});
+			expect(response.status).toBe(201);
+			expect(targetRequests).toEqual([`target.example:${targetPort} /pinned`]);
+
+			await expect(
+				sendPinnedHttpRequest({
+					url: `https://target.example:${targetPort}/pinned`,
+					address: { address: "127.0.0.1", family: 4 },
+					method: "HEAD",
+					headers: {},
+					signal: AbortSignal.timeout(2_000),
+				}),
+			).rejects.toThrow();
+			expect(proxyRequests).toEqual([]);
+		} finally {
+			for (const name of variableNames) {
+				const value = previous.get(name);
+				if (value === undefined) {
+					delete process.env[name];
+				} else {
+					process.env[name] = value;
+				}
+			}
+			target.closeAllConnections();
+			proxy.closeAllConnections();
+			await Promise.all([
+				new Promise<void>((resolve) => target.close(() => resolve())),
+				new Promise<void>((resolve) => proxy.close(() => resolve())),
+			]);
+		}
+	});
+
 	test("rejects protocols other than HTTP and HTTPS before connecting", async () => {
 		await expect(
 			sendPinnedHttpRequest({
@@ -124,7 +212,6 @@ describe("pinned HTTP transport", () => {
 	test("stops trying further addresses once the request is aborted", async () => {
 		const controller = new AbortController();
 		const attempted: string[] = [];
-		const abortError = new Error("aborted");
 		await expect(
 			sendPinnedHttpRequestWithFallback(
 				{
@@ -140,11 +227,72 @@ describe("pinned HTTP transport", () => {
 				async (input) => {
 					attempted.push(input.address.address);
 					controller.abort();
-					throw abortError;
+					throw new Error("aborted");
 				},
 			),
-		).rejects.toBe(abortError);
+		).rejects.toMatchObject({ name: "AbortError" });
 		expect(attempted).toEqual(["93.184.216.34"]);
+	});
+
+	test("shares a total timeout across validated addresses", async () => {
+		const attempted: string[] = [];
+		const attemptSignals: AbortSignal[] = [];
+		const response = await sendPinnedHttpRequestWithFallback(
+			{
+				url: "https://multi.example/",
+				addresses: [
+					PUBLIC_ADDRESS,
+					{ address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 },
+				],
+				method: "HEAD",
+				headers: {},
+				signal: new AbortController().signal,
+				totalTimeoutMs: 200,
+			},
+			async (input) => {
+				attempted.push(input.address.address);
+				attemptSignals.push(input.signal);
+				if (attempted.length === 1) {
+					return new Promise(() => {});
+				}
+				return { status: 200 };
+			},
+		);
+
+		expect(response).toEqual({ status: 200 });
+		expect(attempted).toEqual([
+			"93.184.216.34",
+			"2606:2800:220:1:248:1893:25c8:1946",
+		]);
+		expect(attemptSignals[0]?.aborted).toBe(true);
+	});
+
+	test("does not apply per-address timeouts to non-idempotent POST requests", async () => {
+		await expect(
+			sendPinnedHttpRequestWithFallback({
+				url: "https://multi.example/",
+				addresses: [PUBLIC_ADDRESS],
+				method: "POST",
+				headers: {},
+				body: "{}",
+				signal: new AbortController().signal,
+				totalTimeoutMs: 200,
+			}),
+		).rejects.toThrow(
+			"Per-address timeout budgets are limited to retry-safe link checks",
+		);
+	});
+
+	test("rejects an empty validated-address list clearly", async () => {
+		await expect(
+			sendPinnedHttpRequestWithFallback({
+				url: "https://empty.example/",
+				addresses: [],
+				method: "HEAD",
+				headers: {},
+				signal: new AbortController().signal,
+			}),
+		).rejects.toThrow("No validated addresses to attempt");
 	});
 
 	test("keeps webhook delivery HTTPS-only on the shared transport", async () => {

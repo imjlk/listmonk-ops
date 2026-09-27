@@ -84,6 +84,13 @@ describe("webhook payload key classification", () => {
 			"envelopeTo",
 			"forwardTo",
 			"bounce-to",
+			"mailto",
+			"originalto",
+			"original.to",
+			"mail.to",
+			"api.key",
+			"e.mail",
+			"pass.word",
 		]) {
 			expect({ key, sensitive: isSensitiveWebhookDataKey(key) }).toEqual({
 				key,
@@ -139,6 +146,9 @@ describe("email-address value detection", () => {
 	test("finds plain, display-name, encoded, and internationalized addresses", () => {
 		for (const value of [
 			"jane@example.com",
+			"jane@[192.0.2.1]",
+			"jane@[IPv6:2001:db8::1]",
+			"smtp; 550 5.1.1 <jane@[IPv6:2001:db8::1]>: Recipient address rejected",
 			"Jane Doe <jane.doe+news@example.co.uk>",
 			'"Jane Doe"@example.com',
 			"smtp; 550 5.1.1 <jane@example.com>: Recipient address rejected",
@@ -165,6 +175,8 @@ describe("email-address value detection", () => {
 			"user@localhost",
 			"user@.com",
 			"user@example.",
+			"user@[not-an-ip]",
+			"user@[2001:db8::1]",
 			"zod@4.6.5",
 			"webpack@4.0.0-beta",
 			"foo@1.2-rc1",
