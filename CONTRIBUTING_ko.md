@@ -182,6 +182,22 @@ CI는 워크스페이스 빌드 후 이 검사를 실행합니다.
 파일이 생성되지 않은 파일을 import하면 빌드가 실패하며, 런타임 JavaScript는
 수정하지 않습니다.
 
+`bun run build` 이후 다음 명령으로 패킹된 선언 파일을 사용자와 같은 방식으로
+타입 검사합니다.
+
+```bash
+bun run check:package-types
+```
+
+이 명령은 선언 파일을 배포하는 모든 패키지를 `bun pm pack`으로 패킹해
+TypeScript 5.0, 5.4, 5.9와 저장소의 TypeScript 7 릴리스를 사용하는 임시 npm
+프로젝트에 설치하고, 모든 공개 엔트리포인트와 서브패스 export를 import하는
+모듈을 `bundler`, `node16`, `nodenext` 해석과 `skipLibCheck: false`로
+컴파일합니다. `operations`, `automation`, `abtest`의 zod 4 타입은
+TypeScript 5.4가 필요하므로 TypeScript 5.0에서는 이 패키지들을 건너뜁니다.
+CLI 설치 검사와 마찬가지로 npm 레지스트리나 캐시를 사용하고, npm이 설치되어
+있지 않으면 검사를 건너뛰며, CI는 워크스페이스 빌드 후 이 검사를 실행합니다.
+
 ### TypeScript 코드 그래프
 
 `@ttsc/graph`는 코딩 에이전트와 로컬 아키텍처 탐색에서 바로 사용할 수

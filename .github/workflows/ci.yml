@@ -54,6 +54,9 @@ jobs:
       - name: Verify npm-installed CLI package
         run: bun run check:cli-npm-install
 
+      - name: Type-check published declarations
+        run: bun run check:package-types
+
       - name: Run unit tests
         run: bun run test:built
 

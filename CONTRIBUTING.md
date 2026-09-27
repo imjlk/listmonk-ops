@@ -182,6 +182,23 @@ with `bundler`, `node16`, and `nodenext` alike without extension edits in
 source. The script fails the build when a declaration imports a file that was
 not emitted, and it never modifies runtime JavaScript.
 
+After `bun run build`, type-check the packed declarations the way consumers
+compile them with:
+
+```bash
+bun run check:package-types
+```
+
+It packs every package that ships declarations with `bun pm pack`, installs
+the tarballs into temporary npm projects for TypeScript 5.0, 5.4, 5.9, and the
+repository's TypeScript 7 release, and compiles a module that imports every
+public entry point and subpath export with `skipLibCheck: false` under
+`bundler`, `node16`, and `nodenext` resolution. TypeScript 5.0 skips
+`operations`, `automation`, and `abtest` because their zod 4 types need
+TypeScript 5.4. Like the CLI install check, it reads packages from the npm
+registry or cache, is skipped when npm is not installed, and runs in CI after
+the workspace build.
+
 ### TypeScript code graph
 
 `@ttsc/graph` is available to coding agents and for local architecture
