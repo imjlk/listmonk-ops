@@ -93,23 +93,29 @@ export interface TemplateCollectionOutput {
 
 export type TemplateManifestType = TemplateType;
 
-export type TemplateManifestEntry = {
-	name: NonEmptyString & tags.MaxLength<120>;
+export interface TemplateManifestEntryCampaign {
+	name: TrimmedNonEmptyString & tags.MaxLength<120>;
+	/** Template type; omitted values default to campaign. */
+	type?: "campaign" | "campaign_visual" | undefined;
+	/** Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign. */
+	subject?: (string & tags.Pattern<"^$">) | undefined;
 	body_source?: string;
 	body: NonEmptyString & tags.MaxLength<1048576>;
-} & (
-	{
-		/** Template type; omitted values default to campaign. */
-		type?: "campaign" | "campaign_visual" | undefined;
-		/** Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign. */
-		subject?: (string & tags.Pattern<"^\\s*$">) | undefined;
-	} | {
-		/** Template type; omitted values default to campaign. */
-		type: "tx";
-		/** Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign. */
-		subject: TrimmedNonEmptyString;
-	}
-);
+}
+
+export interface TemplateManifestEntryTx {
+	name: TrimmedNonEmptyString & tags.MaxLength<120>;
+	/** Template type; omitted values default to campaign. */
+	type: "tx";
+	/** Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign. */
+	subject: TrimmedNonEmptyString;
+	body_source?: string;
+	body: NonEmptyString & tags.MaxLength<1048576>;
+}
+
+export type TemplateManifestEntry =
+	| TemplateManifestEntryCampaign
+	| TemplateManifestEntryTx;
 
 export interface TemplateManifestReconcileInput {
 	schema_version: 1;

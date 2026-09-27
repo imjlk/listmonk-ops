@@ -178,14 +178,21 @@ const manifestTemplateEntrySchema = createTemplateInputSchema.omit({
 
 const templateManifestEntryBaseSchema = createTemplateInputSchema
 	.omit({ idempotency_key: true, type: true, subject: true })
-	.extend({ name: z.string().trim().min(1).max(120) });
+	.extend({
+		name: z
+			.string()
+			.regex(/^\s*\S[\s\S]*$/)
+			.trim()
+			.min(1)
+			.max(120),
+	});
 const templateManifestTypeDescription =
 	"Template type; omitted values default to campaign.";
 const templateManifestSubjectDescription =
 	"Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign.";
 const blankTemplateSubjectSchema = z
 	.string()
-	.regex(/^\s*$/)
+	.regex(/^$/)
 	.optional()
 	.default("")
 	.describe(templateManifestSubjectDescription);

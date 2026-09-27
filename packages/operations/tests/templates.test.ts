@@ -179,9 +179,25 @@ describe("template manifest reconciliation against Listmonk 6.2 persistence", ()
 		);
 
 		expect(variants).toHaveLength(3);
-		expect(campaign?.properties?.subject?.pattern).toBe("^\\s*$");
+		expect(campaign?.properties?.subject?.pattern).toBe("^$");
+		expect(campaign?.properties?.name?.pattern).toBe(
+			"^\\s*\\S[\\s\\S]*$",
+		);
 		expect(tx?.properties?.subject?.pattern).toBe("^\\s*\\S[\\s\\S]*$");
 		expect(tx?.required).toContain("subject");
+		expect(
+			reconcileTemplateManifestOperation.inputSchema.safeParse({
+				schema_version: 1,
+				templates: [
+					{
+						name: "Newsletter layout",
+						type: "campaign",
+						subject: "   ",
+						body: CAMPAIGN_LAYOUT,
+					},
+				],
+			}).success,
+		).toBe(false);
 	});
 
 	test("re-plans an applied manifest as unchanged across every template type", async () => {

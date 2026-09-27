@@ -18291,12 +18291,86 @@
             "TemplateManifestEntry": {
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/__type__type"
+                  "$ref": "#/components/schemas/TemplateManifestEntryCampaign"
                 },
                 {
-                  "$ref": "#/components/schemas/__type__type-o1"
+                  "$ref": "#/components/schemas/TemplateManifestEntryTx"
                 }
               ]
+            },
+            "TemplateManifestEntryCampaign": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {
+                  "maxLength": 1048576,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "body_source": {
+                  "type": "string"
+                },
+                "name": {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "pattern": "^\\s*\\S[\\s\\S]*$",
+                  "type": "string"
+                },
+                "subject": {
+                  "description": "Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign.",
+                  "pattern": "^$",
+                  "type": "string"
+                },
+                "type": {
+                  "description": "Template type; omitted values default to campaign.",
+                  "oneOf": [
+                    {
+                      "const": "campaign"
+                    },
+                    {
+                      "const": "campaign_visual"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "body"
+              ],
+              "type": "object"
+            },
+            "TemplateManifestEntryTx": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {
+                  "maxLength": 1048576,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "body_source": {
+                  "type": "string"
+                },
+                "name": {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "pattern": "^\\s*\\S[\\s\\S]*$",
+                  "type": "string"
+                },
+                "subject": {
+                  "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                  "description": "Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign."
+                },
+                "type": {
+                  "const": "tx",
+                  "description": "Template type; omitted values default to campaign."
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "subject",
+                "body"
+              ],
+              "type": "object"
             },
             "TemplateManifestReconcileInput": {
               "additionalProperties": false,
@@ -18327,78 +18401,6 @@
               "minLength": 1,
               "pattern": "^\\s*\\S[\\s\\S]*$",
               "type": "string"
-            },
-            "__type__type": {
-              "additionalProperties": false,
-              "properties": {
-                "body": {
-                  "maxLength": 1048576,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "body_source": {
-                  "type": "string"
-                },
-                "name": {
-                  "maxLength": 120,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "subject": {
-                  "description": "Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign.",
-                  "pattern": "^\\s*$",
-                  "type": "string"
-                },
-                "type": {
-                  "description": "Template type; omitted values default to campaign.",
-                  "oneOf": [
-                    {
-                      "const": "campaign"
-                    },
-                    {
-                      "const": "campaign_visual"
-                    }
-                  ]
-                }
-              },
-              "required": [
-                "name",
-                "body"
-              ],
-              "type": "object"
-            },
-            "__type__type-o1": {
-              "additionalProperties": false,
-              "properties": {
-                "body": {
-                  "maxLength": 1048576,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "body_source": {
-                  "type": "string"
-                },
-                "name": {
-                  "maxLength": 120,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "subject": {
-                  "$ref": "#/components/schemas/TrimmedNonEmptyString",
-                  "description": "Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign."
-                },
-                "type": {
-                  "const": "tx",
-                  "description": "Template type; omitted values default to campaign."
-                }
-              },
-              "required": [
-                "name",
-                "body",
-                "type",
-                "subject"
-              ],
-              "type": "object"
             }
           }
         },
