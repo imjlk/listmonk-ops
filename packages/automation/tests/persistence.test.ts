@@ -1266,12 +1266,18 @@ describe("template registry active version", () => {
 		expect(remote.writes).toEqual([]);
 	});
 
-	test("orders an already-current promotion before an in-flight sync read", async () => {
+	test("serializes an already-current promotion before a later sync read", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let body = "<p>v1</p>";
 		let heldCapture:
 			| { observed: () => void; release: Promise<void> }
 			| undefined;
+		let monitorSyncRead = false;
+		let syncReadStarted = (): void => {};
+		const syncRead = new Promise<void>((resolve) => {
+			syncReadStarted = resolve;
+		});
+		let observationSequenceAtRead: number | undefined;
 		const remoteWrites: string[] = [];
 		const client = {
 			template: {
@@ -1280,8 +1286,17 @@ describe("template registry active version", () => {
 					const hold = heldCapture;
 					heldCapture = undefined;
 					if (hold) {
+						const sequenceStore = JSON.parse(
+							await readFile(
+								`${templateStorePath}.capture-sequence.json`,
+								"utf8",
+							),
+						) as { captureSequence: number };
+						observationSequenceAtRead = sequenceStore.captureSequence;
 						hold.observed();
 						await hold.release;
+					} else if (monitorSyncRead) {
+						syncReadStarted();
 					}
 					return { data };
 				},
@@ -1299,6 +1314,8 @@ describe("template registry active version", () => {
 		const v1 = versionIdFor(history, "<p>v1</p>");
 		await promoteTemplateVersion(client, 53, v1);
 		remoteWrites.length = 0;
+		const v1Hash = history.versions.find((version) => version.versionId === v1)!
+			.hash;
 
 		let captureObserved = (): void => {};
 		let releaseCapture = (): void => {};
@@ -1311,19 +1328,41 @@ describe("template registry active version", () => {
 				releaseCapture = resolve;
 			}),
 		};
+		body = "<p>v1</p>";
+		let promotionCompleted = false;
+		const pendingPromotion = promoteTemplateVersion(client, 53, v1, {
+			expectedRemoteHash: v1Hash,
+		}).then((result) => {
+			promotionCompleted = true;
+			return result;
+		});
+		await observed;
+		monitorSyncRead = true;
 		body = "<p>v2</p>";
 		const delayedSync = syncTemplateRegistry(client, { templateIds: [53] });
-		await observed;
-		body = "<p>v1</p>";
-		expect(await promoteTemplateVersion(client, 53, v1)).toMatchObject({
-			promoted: false,
-		});
+		const syncReadStartedEarly = await Promise.race([
+			syncRead.then(() => true),
+			Bun.sleep(10).then(() => false),
+		]);
+		expect(syncReadStartedEarly).toBe(false);
+		expect(promotionCompleted).toBe(false);
+		expect(remoteWrites).toEqual([]);
 		releaseCapture();
-		expect(await delayedSync).toMatchObject({ createdVersions: 0 });
+		const [promotionResult, syncResult] = await Promise.all([
+			pendingPromotion,
+			delayedSync,
+		]);
+		expect(syncResult.createdVersions).toBe(1);
+		expect(promotionResult.promoted).toBe(false);
+		expect(observationSequenceAtRead).toBe(3);
 
 		const finalHistory = await getTemplateRegistryHistory(53);
-		expect(finalHistory).toMatchObject({ activeVersionId: v1 });
-		expect(finalHistory.versions).toHaveLength(2);
+		const latestVersion = finalHistory.versions.at(-1);
+		expect(latestVersion?.snapshot.body).toBe("<p>v2</p>");
+		expect(finalHistory).toMatchObject({
+			activeVersionId: latestVersion?.versionId,
+		});
+		expect(finalHistory.versions).toHaveLength(3);
 		const persisted = JSON.parse(await readFile(templateStorePath, "utf8")) as {
 			captureSequence: number;
 			templates: Record<
@@ -1334,12 +1373,160 @@ describe("template registry active version", () => {
 				}
 			>;
 		};
-		expect(persisted.templates["53"]?.latestObservedVersionId).toBe(v1);
-		expect(persisted.templates["53"]?.latestCaptureOrder).toBe(
-			persisted.captureSequence,
+		expect(persisted.templates["53"]?.latestObservedVersionId).toBe(
+			latestVersion?.versionId,
 		);
-		expect(body).toBe("<p>v1</p>");
+		expect(persisted.templates["53"]?.latestCaptureOrder).toBe(4);
+		expect(persisted.captureSequence).toBe(4);
+		expect(body).toBe("<p>v2</p>");
 		expect(remoteWrites).toEqual([]);
+	});
+
+	test("serializes a managed promotion with an in-flight sync GET", async () => {
+		await useTemporaryStores();
+		let body = "<p>v1</p>";
+		let heldCapture:
+			| { observed: () => void; release: Promise<void> }
+			| undefined;
+		const remoteWrites: string[] = [];
+		const client = {
+			template: {
+				getById: async () => {
+					const data = { id: 54, name: "Current", type: "campaign", body };
+					const hold = heldCapture;
+					heldCapture = undefined;
+					if (hold) {
+						hold.observed();
+						await hold.release;
+					}
+					return { data };
+				},
+				update: async ({ body: update }: { body: { body: string } }) => {
+					body = update.body;
+					remoteWrites.push(body);
+					return { data: true };
+				},
+			},
+		} as unknown as ListmonkClient;
+		await syncTemplateRegistry(client, { templateIds: [54] });
+		body = "<p>v2</p>";
+		await syncTemplateRegistry(client, { templateIds: [54] });
+		const history = await getTemplateRegistryHistory(54);
+		const v1 = versionIdFor(history, "<p>v1</p>");
+
+		let captureObserved = (): void => {};
+		let releaseCapture = (): void => {};
+		const observed = new Promise<void>((resolve) => {
+			captureObserved = resolve;
+		});
+		heldCapture = {
+			observed: () => captureObserved(),
+			release: new Promise<void>((resolve) => {
+				releaseCapture = resolve;
+			}),
+		};
+		body = "<p>v3</p>";
+		const delayedSync = syncTemplateRegistry(client, { templateIds: [54] });
+		await observed;
+
+		let promotionCompleted = false;
+		const pendingPromotion = promoteTemplateVersion(client, 54, v1).then(
+			(result) => {
+				promotionCompleted = true;
+				return result;
+			},
+		);
+		await Bun.sleep(5);
+		expect(promotionCompleted).toBe(false);
+		expect(remoteWrites).toEqual([]);
+
+		releaseCapture();
+		const [syncResult, promotion] = await Promise.all([
+			delayedSync,
+			pendingPromotion,
+		]);
+		expect(syncResult.createdVersions).toBe(1);
+		expect(promotion).toMatchObject({
+			versionId: v1,
+			activeVersionId: v1,
+			promoted: true,
+		});
+		expect((await getTemplateRegistryHistory(54)).activeVersionId).toBe(v1);
+		expect(body).toBe("<p>v1</p>");
+		expect(remoteWrites).toEqual(["<p>v1</p>"]);
+	});
+
+	test("serializes a managed rollback with an in-flight sync GET", async () => {
+		await useTemporaryStores();
+		let body = "<p>v1</p>";
+		let heldCapture:
+			| { observed: () => void; release: Promise<void> }
+			| undefined;
+		const remoteWrites: string[] = [];
+		const client = {
+			template: {
+				getById: async () => {
+					const data = { id: 55, name: "Current", type: "campaign", body };
+					const hold = heldCapture;
+					heldCapture = undefined;
+					if (hold) {
+						hold.observed();
+						await hold.release;
+					}
+					return { data };
+				},
+				update: async ({ body: update }: { body: { body: string } }) => {
+					body = update.body;
+					remoteWrites.push(body);
+					return { data: true };
+				},
+			},
+		} as unknown as ListmonkClient;
+		await syncTemplateRegistry(client, { templateIds: [55] });
+		body = "<p>v2</p>";
+		await syncTemplateRegistry(client, { templateIds: [55] });
+		const history = await getTemplateRegistryHistory(55);
+		const v1 = versionIdFor(history, "<p>v1</p>");
+
+		let captureObserved = (): void => {};
+		let releaseCapture = (): void => {};
+		const observed = new Promise<void>((resolve) => {
+			captureObserved = resolve;
+		});
+		heldCapture = {
+			observed: () => captureObserved(),
+			release: new Promise<void>((resolve) => {
+				releaseCapture = resolve;
+			}),
+		};
+		const delayedSync = syncTemplateRegistry(client, { templateIds: [55] });
+		await observed;
+
+		let rollbackCompleted = false;
+		const pendingRollback = rollbackTemplateVersion(client, 55, {
+			toVersionId: v1,
+		}).then((result) => {
+			rollbackCompleted = true;
+			return result;
+		});
+		await Bun.sleep(10);
+		expect(rollbackCompleted).toBe(false);
+		expect(remoteWrites).toEqual([]);
+
+		releaseCapture();
+		const [syncResult, rollback] = await Promise.all([
+			delayedSync,
+			pendingRollback,
+		]);
+		expect(syncResult.createdVersions).toBe(0);
+		expect(rollback).toMatchObject({
+			versionId: v1,
+			activeVersionId: v1,
+			rolledBack: true,
+		});
+		expect((await getTemplateRegistryHistory(55)).activeVersionId).toBe(v1);
+		expect(body).toBe("<p>v1</p>");
+		expect(remoteWrites).toEqual(["<p>v1</p>"]);
 	});
 
 	test("lets a pinned rollback overwrite unrecorded live content explicitly", async () => {
@@ -1653,7 +1840,7 @@ describe("template registry active version", () => {
 		);
 	});
 
-	test("does not let a capture that raced a promotion move the active version", async () => {
+	test("serializes a pending capture before an overlapping promotion", async () => {
 		await useTemporaryStores();
 		let name = "Race";
 		let body = "<p>v1</p>";
@@ -1704,14 +1891,21 @@ describe("template registry active version", () => {
 		// Newer than every stored version, so only the race makes it stale.
 		await Bun.sleep(2);
 		const racingSync = syncTemplateRegistry(client, { templateIds: [27] });
-		// The sync read the live v2 content; a promotion commits while that
-		// capture is still in flight...
+		// The sync reads the live v2 content first. A promotion that starts
+		// while that capture is in flight must wait for its template lock.
 		await observed;
-		await promoteTemplateVersion(client, 27, v1);
+		let promotionCompleted = false;
+		const promotion = promoteTemplateVersion(client, 27, v1).then((result) => {
+			promotionCompleted = true;
+			return result;
+		});
+		await Bun.sleep(10);
+		expect(promotionCompleted).toBe(false);
 		releaseCapture();
-		// ...so the stale v2 observation must not reactivate v2 over it, nor
-		// restore the name v2 had.
-		expect(await racingSync).toMatchObject({ createdVersions: 0 });
+		const [syncResult] = await Promise.all([racingSync, promotion]);
+		// The capture is persisted before the promotion writes v1, so it cannot
+		// reactivate v2 afterward or restore the name v2 had.
+		expect(syncResult).toMatchObject({ createdVersions: 0 });
 		expect(await getTemplateRegistryHistory(27)).toMatchObject({
 			activeVersionId: v1,
 			templateName: "Race",

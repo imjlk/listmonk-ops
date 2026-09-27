@@ -673,9 +673,9 @@ function recordTemplateObservation(
 }
 
 /**
- * The per-template lock spans sequence reservation and the remote GET. Its
- * payload stays null, so skipUnchangedWrites creates only the lock sidecar and
- * avoids rewriting a dummy JSON document; reads for other templates proceed.
+ * Shared per-template sidecar lock for sync captures and managed mutations.
+ * Sync holds it across sequence reservation and the remote GET; mutations take
+ * it before the registry transaction. Its null payload avoids dummy writes.
  */
 function createTemplateCaptureReadLockStore(
 	storeDefinition: JsonFileStore<TemplateRegistryStore>,
@@ -693,6 +693,17 @@ function createTemplateCaptureReadLockStore(
 		lock: storeDefinition.lock,
 		skipUnchangedWrites: true,
 	};
+}
+
+async function withTemplateCaptureReadLock<Result>(
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
+	templateId: number,
+	action: () => Promise<Result>,
+): Promise<Result> {
+	return updateJsonFileStore(
+		createTemplateCaptureReadLockStore(storeDefinition, templateId),
+		async (lockState) => commitJsonFileStoreUpdate(lockState, await action()),
+	);
 }
 
 async function captureTemplateRegistry(
@@ -1161,11 +1172,13 @@ async function commitRemoteTemplateMutation<
 ): Promise<Result> {
 	let remoteMutationCompleted = false;
 	try {
-		return await updateJsonFileStore(storeDefinition, async (store) => {
-			const outcome = await action(store);
-			remoteMutationCompleted = outcome.remoteMutated;
-			return commitJsonFileStoreUpdate(store, outcome.result);
-		});
+		return await withTemplateCaptureReadLock(storeDefinition, templateId, () =>
+			updateJsonFileStore(storeDefinition, async (store) => {
+				const outcome = await action(store);
+				remoteMutationCompleted = outcome.remoteMutated;
+				return commitJsonFileStoreUpdate(store, outcome.result);
+			}),
+		);
 	} catch (error) {
 		if (!remoteMutationCompleted) {
 			throw error;
@@ -1194,9 +1207,19 @@ export async function promoteTemplateVersion(
 		): Promise<TemplateRemoteMutationOutcome<TemplatePromoteResult>> => {
 			const readLiveTemplate = createLiveTemplateReader(client, templateId);
 			const record = store.templates[String(templateId)];
+			let observationOrder: number | undefined;
+			if (!options?.force && options?.expectedRemoteHash) {
+				observationOrder = await reserveTemplateObservationOrder(
+					storeDefinition,
+					store,
+				);
+			}
 			// Hash check inside the lock so concurrent promotions cannot
 			// both pass the check before either acquires the lock.
 			if (!options?.force && options?.expectedRemoteHash) {
+				if (observationOrder === undefined) {
+					throw new Error("Template observation order was not reserved");
+				}
 				const remoteTemplate = await readLiveTemplate();
 				const remoteHash = createTemplateHash({
 					id: toPositiveInt(remoteTemplate.id) || templateId,
@@ -1217,6 +1240,7 @@ export async function promoteTemplateVersion(
 						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}. Use force=true to override.`,
 					);
 				}
+				store.captureSequence = Math.max(store.captureSequence ?? 0, observationOrder);
 			}
 
 			// An already-current promotion is a no-op: when the active
@@ -1230,9 +1254,8 @@ export async function promoteTemplateVersion(
 					(version) => version.versionId === versionId,
 				);
 				if (activeVersion) {
-					// Order this verification with sync reads so an older in-flight
-					// capture cannot replace its confirmed observation on merge.
-					const observationOrder = await reserveTemplateObservationOrder(
+					// The shared template lock spans this order reservation and GET.
+					observationOrder ??= await reserveTemplateObservationOrder(
 						storeDefinition,
 						store,
 					);
@@ -1241,6 +1264,9 @@ export async function promoteTemplateVersion(
 						createTemplateSnapshot(remoteTemplate, templateId),
 					);
 					if (versionHoldsLiveContent(activeVersion, remoteHash)) {
+						if (observationOrder === undefined) {
+							throw new Error("Template observation order was not reserved");
+						}
 						recordTemplateObservation(
 							store,
 							record,
@@ -1352,12 +1378,22 @@ export async function rollbackTemplateVersion(
 			}
 
 			const readLiveTemplate = createLiveTemplateReader(client, templateId);
+			let observationOrder: number | undefined;
+			if (options.expectedRemoteHash !== undefined) {
+				observationOrder = await reserveTemplateObservationOrder(
+					storeDefinition,
+					store,
+				);
+			}
 			// Remote drift pin: same locked hash check as promotion, so a
 			// template mutated outside the registry cannot be rolled back
 			// over silently. Listmonk offers no conditional update, so this
 			// stays a best-effort pre-check — an external writer can still
 			// interleave between this GET and the update PUT below.
 			if (options.expectedRemoteHash !== undefined) {
+				if (observationOrder === undefined) {
+					throw new Error("Template observation order was not reserved");
+				}
 				const remoteTemplate = await readLiveTemplate();
 				const remoteHash = createTemplateHash({
 					id: toPositiveInt(remoteTemplate.id) || templateId,
@@ -1378,6 +1414,10 @@ export async function rollbackTemplateVersion(
 						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}`,
 					);
 				}
+				store.captureSequence = Math.max(
+					store.captureSequence ?? 0,
+					observationOrder,
+				);
 			}
 
 			// A pinned target that already equals the active version is the
@@ -1395,9 +1435,8 @@ export async function rollbackTemplateVersion(
 					(version) => version.versionId === options.toVersionId,
 				);
 				if (targetVersion) {
-					// Use the same sequence as sync reads for a durable no-op
-					// observation and stale-capture check.
-					const observationOrder = await reserveTemplateObservationOrder(
+					// The shared template lock spans this order reservation and GET.
+					observationOrder ??= await reserveTemplateObservationOrder(
 						storeDefinition,
 						store,
 					);
@@ -1406,6 +1445,9 @@ export async function rollbackTemplateVersion(
 						createTemplateSnapshot(remoteTemplate, templateId),
 					);
 					if (!versionHoldsLiveContent(targetVersion, remoteHash)) {
+						if (observationOrder === undefined) {
+							throw new Error("Template observation order was not reserved");
+						}
 						store.captureSequence = Math.max(
 							store.captureSequence ?? 0,
 							observationOrder,
