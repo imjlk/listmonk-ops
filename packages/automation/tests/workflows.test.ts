@@ -248,13 +248,8 @@ describe("automation workflows", () => {
 						],
 					},
 				}),
-				manageListById: async ({
-					path,
-				}: {
-					path: { id: number };
-					body: { target_list_ids: number[] };
-				}) => {
-					listAdds.push(path.id);
+				manageLists: async ({ body }: { body: { ids: number[] } }) => {
+					listAdds.push(body.ids[0]!);
 					// Listmonk 6.2 adds the membership as unconfirmed and leaves
 					// the subscriber's updated_at untouched.
 					subscriber101Lists = [
@@ -357,7 +352,7 @@ describe("automation workflows", () => {
 						],
 					},
 				}),
-				manageListById: async () => {
+				manageLists: async () => {
 					throw new Error(
 						"remote token=private-subscriber-token https://internal.example",
 					);
@@ -454,11 +449,11 @@ describe("automation workflows", () => {
 						],
 					},
 				}),
-				manageListById: async (options: {
-					path: { id: number };
-					body: unknown;
-				}) => {
-					listAdds.push({ id: options.path.id, body: options.body });
+				manageLists: async (options: { body: unknown }) => {
+					listAdds.push({
+						id: (options.body as { ids: number[] }).ids[0]!,
+						body: options.body,
+					});
 					return acknowledged;
 				},
 			},
@@ -531,8 +526,8 @@ describe("automation workflows", () => {
 						],
 					},
 				}),
-				manageListById: async (options: { path: { id: number } }) => {
-					listAdds.push(options.path.id);
+				manageLists: async ({ body }: { body: { ids: number[] } }) => {
+					listAdds.push(body.ids[0]!);
 					return acknowledged;
 				},
 			},
@@ -580,7 +575,7 @@ describe("automation workflows", () => {
 						],
 					},
 				}),
-				manageListById: async () => {
+				manageLists: async () => {
 					listAdds += 1;
 					return acknowledged;
 				},
@@ -634,6 +629,86 @@ describe("automation workflows", () => {
 		expect(anyList.subscriberIds).toEqual([301]);
 	});
 
+	test("scopes opt-in reads and warnings to the echoed subscriber set", async () => {
+		let listReads = 0;
+		const listAdds: Array<{
+			action: "add";
+			ids: number[];
+			target_list_ids: number[];
+		}> = [];
+		const client = createWorkflowClient({
+			list: {
+				list: async () => {
+					listReads += 1;
+					return { error: "list access is unavailable" };
+				},
+			},
+			subscriber: {
+				list: async () => ({
+					data: {
+						results: [
+							staleSubscriber(601, [
+								{ id: 10, subscription_status: "confirmed" },
+							]),
+							// This unrelated subscriber must not force the echoed run
+							// to read list metadata or report an opt-in warning.
+							staleSubscriber(602, [
+								{ id: 20, subscription_status: "unconfirmed" },
+							]),
+						],
+					},
+				}),
+				manageLists: async ({ body }: { body: { action: "add"; ids: number[]; target_list_ids: number[] } }) => {
+					listAdds.push(body);
+					return acknowledged;
+				},
+			},
+		});
+
+		const result = await runSubscriberHygiene(client, {
+			mode: "winback",
+			targetListId: 99,
+			subscriberIds: [601],
+			dryRun: false,
+		});
+
+		expect(listReads).toBe(0);
+		expect(listAdds).toEqual([
+			{ action: "add", ids: [601], target_list_ids: [99] },
+		]);
+		expect(result.subscriberIds).toEqual([601]);
+		expect(result.errors).toEqual([]);
+		expect(result.processedSubscribers).toBe(1);
+	});
+
+	test("ignores confirmed memberships without a valid list ID", async () => {
+		const client = createWorkflowClient({
+			subscriber: {
+				list: async () => ({
+					data: {
+						results: [
+							staleSubscriber(701, [
+								{ subscription_status: "confirmed" },
+							]),
+							staleSubscriber(702, [
+								{ id: 0, subscription_status: "confirmed" },
+								{ id: "invalid", subscription_status: "confirmed" },
+							]),
+							staleSubscriber(703, [
+								{ id: 12, subscription_status: "confirmed" },
+							]),
+						],
+					},
+				}),
+			},
+		});
+
+		const result = await runSubscriberHygiene(client);
+
+		expect(result.subscriberIds).toEqual([703]);
+		expect(result.candidateSubscribers).toBe(1);
+	});
+
 	test("fails closed when list opt-in modes cannot be read", async () => {
 		let mutations = 0;
 		const client = createWorkflowClient({
@@ -653,7 +728,7 @@ describe("automation workflows", () => {
 						],
 					},
 				}),
-				manageListById: async () => {
+				manageLists: async () => {
 					mutations += 1;
 					return acknowledged;
 				},
@@ -744,8 +819,8 @@ describe("automation workflows", () => {
 						),
 					},
 				}),
-				manageListById: async ({ path }: { path: { id: number } }) =>
-					listAddResponses.get(path.id),
+				manageLists: async ({ body }: { body: { ids: number[] } }) =>
+					listAddResponses.get(body.ids[0]!),
 				manageBlocklistById: async ({ path }: { path: { id: number } }) => {
 					if (path.id === 503) {
 						return {

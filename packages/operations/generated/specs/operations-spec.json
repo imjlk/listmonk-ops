@@ -33446,7 +33446,8 @@
           "The sunset must stay reversible: blocklisting marks every list membership unsubscribed and unblocklisting does not restore them."
         ],
         "prerequisites": [
-          "subscribers.list"
+          "subscribers.list",
+          "lists.list"
         ],
         "related": [],
         "retryGuidance": "Run dry_run first, then echo the reported subscriber_ids paired in order with the result's subscriberUpdatedAt observations as subscriber_guards — a guarded destructive retry skips subscribers whose raw updated_at moved (its own first attempt's blocklist advances it, and so does any external profile edit) while untouched members still run, and an already-present target membership is skipped because a list add does not move updated_at; check failedSubscribers, recover a partially applied subscriber with a guarded retry or a fresh dry run, and because Listmonk has no conditional mutation, verify with subscribers.list after a guarded run; without the guards, a re-eligible subscriber receives a new effect.",

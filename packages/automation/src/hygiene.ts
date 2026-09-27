@@ -225,12 +225,12 @@ function eligibilityMemberships(
 	sourceListSet: ReadonlySet<number>,
 ): SubscriberMembership[] {
 	const memberships = subscriber.lists ?? [];
-	if (sourceListSet.size === 0) {
-		return memberships;
-	}
 	return memberships.filter((membership) => {
 		const listId = toPositiveInt(membership.id);
-		return listId !== undefined && sourceListSet.has(listId);
+		return (
+			listId !== undefined &&
+			(sourceListSet.size === 0 || sourceListSet.has(listId))
+		);
 	});
 }
 
@@ -303,48 +303,6 @@ export async function runSubscriberHygiene(
 		const updatedAt = toDate(subscriber.updated_at || subscriber.created_at);
 		return updatedAt !== undefined && updatedAt <= cutoffDate;
 	});
-	// Consent: a candidate must still hold a membership Listmonk would
-	// deliver to (on a source list when given). Someone unsubscribed from
-	// every list is never selected, so winback cannot add them to a target
-	// list that then mails them. Opt-in modes decide only unconfirmed
-	// memberships, so the lists are read once, and only when a subscriber
-	// without a confirmed membership has an unconfirmed one.
-	const needsOptinModes = staleSubscribers.some((subscriber) => {
-		const memberships = eligibilityMemberships(subscriber, sourceListSet);
-		return (
-			!memberships.some((entry) => entry.subscription_status === "confirmed") &&
-			memberships.some((entry) => entry.subscription_status === "unconfirmed")
-		);
-	});
-	const listOptinModes = needsOptinModes
-		? await loadListOptinModes(client)
-		: new Map<number, ListOptinMode>();
-	let skippedUnreadableOptin = 0;
-	const candidates = staleSubscribers.filter((subscriber) => {
-		const memberships = eligibilityMemberships(subscriber, sourceListSet);
-		if (hasDeliverableMembership(memberships, listOptinModes)) {
-			return true;
-		}
-		// Fail closed, but visibly: count subscribers whose only possible
-		// route to delivery is an unconfirmed membership on a list whose
-		// opt-in mode could not be read.
-		if (
-			memberships.some(
-				(entry) =>
-					entry.subscription_status === "unconfirmed" &&
-					membershipOptin(entry, listOptinModes) === undefined,
-			)
-		) {
-			skippedUnreadableOptin += 1;
-		}
-		return false;
-	});
-	if (skippedUnreadableOptin > 0) {
-		errors.push(
-			`Warning: ${skippedUnreadableOptin} subscriber${skippedUnreadableOptin === 1 ? "" : "s"} skipped because an unconfirmed membership's list opt-in mode could not be read`,
-		);
-	}
-
 	const echoedIds =
 		options.subscriberIds === undefined
 			? undefined
@@ -372,6 +330,57 @@ export async function runSubscriberHygiene(
 			`Echoed subscriber set (${echoedIds.size}) exceeds max_subscribers (${maxSubscribers}); raise max_subscribers to apply the full reviewed set`,
 		);
 	}
+	// An echoed request scopes both eligibility and the opt-in lookup: stale
+	// subscribers outside the reviewed set must not add a list-read
+	// prerequisite or produce warnings for this run.
+	const eligibilitySubscribers = echoedIds
+		? staleSubscribers.filter((subscriber) => {
+				const id = toPositiveInt(subscriber.id);
+				return id !== undefined && echoedIds.has(id);
+			})
+		: staleSubscribers;
+	// Consent: a candidate must still hold a membership Listmonk would
+	// deliver to (on a source list when given). Someone unsubscribed from
+	// every list is never selected, so winback cannot add them to a target
+	// list that then mails them. Opt-in modes decide only unconfirmed
+	// memberships, so the lists are read once, and only when a subscriber
+	// without a confirmed membership has an unconfirmed one.
+	const needsOptinModes = eligibilitySubscribers.some((subscriber) => {
+		const memberships = eligibilityMemberships(subscriber, sourceListSet);
+		return (
+			!memberships.some((entry) => entry.subscription_status === "confirmed") &&
+			memberships.some((entry) => entry.subscription_status === "unconfirmed")
+		);
+	});
+	const listOptinModes = needsOptinModes
+		? await loadListOptinModes(client)
+		: new Map<number, ListOptinMode>();
+	let skippedUnreadableOptin = 0;
+	const candidates = eligibilitySubscribers.filter((subscriber) => {
+		const memberships = eligibilityMemberships(subscriber, sourceListSet);
+		if (hasDeliverableMembership(memberships, listOptinModes)) {
+			return true;
+		}
+		// Fail closed, but visibly: count subscribers whose only possible
+		// route to delivery is an unconfirmed membership on a list whose
+		// opt-in mode could not be read.
+		if (
+			memberships.some(
+				(entry) =>
+					entry.subscription_status === "unconfirmed" &&
+					membershipOptin(entry, listOptinModes) === undefined,
+			)
+		) {
+			skippedUnreadableOptin += 1;
+		}
+		return false;
+	});
+	if (skippedUnreadableOptin > 0) {
+		errors.push(
+			`Warning: ${skippedUnreadableOptin} subscriber${skippedUnreadableOptin === 1 ? "" : "s"} skipped because an unconfirmed membership's list opt-in mode could not be read`,
+		);
+	}
+
 	// An echoed set is matched against the same eligibility criteria;
 	// subscribers that left the eligible set (blocklisted, no longer
 	// inactive, changed status, no deliverable membership left) are skipped
@@ -504,10 +513,9 @@ export async function runSubscriberHygiene(
 				!preserveExistingUnsubscribe
 			) {
 				const code = await applyHygieneMutation(() =>
-					client.subscriber.manageListById({
-						path: { id },
-						// Listmonk 6.2 answers 400 "No IDs given." unless the
-						// body repeats the subscriber id from the path.
+					client.subscriber.manageLists({
+						// The bulk endpoint accepts subscriber IDs and target list
+						// IDs separately; manageListById's path is a list ID.
 						body: {
 							action: "add",
 							ids: [id],

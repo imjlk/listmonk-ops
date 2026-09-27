@@ -1410,7 +1410,7 @@ Use when: Subscribers whose Listmonk profile has not been modified for a period,
 
 Avoid when: Selection must reflect engagement: updated_at does not move on sends, opens, or clicks, so an engaged reader with an untouched profile is selected. The sunset must stay reversible: blocklisting marks every list membership unsubscribed and unblocklisting does not restore them.
 
-Prerequisites: `subscribers.list`
+Prerequisites: `subscribers.list`, `lists.list`
 
 Verify with: `subscribers.list`
 

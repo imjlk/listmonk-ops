@@ -248,7 +248,7 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 			"Selection must reflect engagement: updated_at does not move on sends, opens, or clicks, so an engaged reader with an untouched profile is selected.",
 			"The sunset must stay reversible: blocklisting marks every list membership unsubscribed and unblocklisting does not restore them.",
 		],
-		prerequisites: ["subscribers.list"],
+		prerequisites: ["subscribers.list", "lists.list"],
 		verifyWith: ["subscribers.list"],
 		related: [],
 		retryGuidance:
