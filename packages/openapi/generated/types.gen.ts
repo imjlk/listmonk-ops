@@ -1415,9 +1415,9 @@ export type GetSubscribersData = {
          */
         order_by?: 'name' | 'status' | 'created_at' | 'updated_at';
         /**
-         * ASC|DESC Sort by ascending or descending order.
+         * asc|desc Sort by ascending or descending order. Listmonk matches lowercase only and sorts descending for any other value.
          */
-        order?: 'ASC' | 'DESC';
+        order?: 'asc' | 'desc';
         /**
          * Subscription status to filter by if there are one or more list_ids.
          */
@@ -1956,9 +1956,9 @@ export type GetListsData = {
          */
         order_by?: 'name' | 'status' | 'created_at' | 'updated_at';
         /**
-         * ASC|DESC Sort by ascending or descending order.
+         * asc|desc Sort by ascending or descending order. Listmonk matches lowercase only and sorts descending for any other value.
          */
-        order?: 'ASC' | 'DESC';
+        order?: 'asc' | 'desc';
         /**
          * When set to true, returns response without body content
          */
@@ -2189,9 +2189,9 @@ export type GetCampaignsData = {
          */
         tag?: Array<string>;
         /**
-         * Determines the sort order of results. ASC for ascending, DESC for descending order
+         * Determines the sort order of results. asc for ascending, desc for descending order; Listmonk sorts descending for any other value
          */
-        order?: 'ASC' | 'DESC';
+        order?: 'asc' | 'desc';
         /**
          * Specifies the field by which to sort the campaigns. Available options are 'name', 'status', 'created_at', and 'updated_at'
          */
@@ -2599,7 +2599,20 @@ export type TestCampaignByIdResponse = TestCampaignByIdResponses[keyof TestCampa
 export type GetMediaData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Page number for paginated results.
+         */
+        page?: number;
+        /**
+         * Number of items per page. Media does not support 'all' (it returns no rows).
+         */
+        per_page?: number;
+        /**
+         * Case-insensitive filename substring filter.
+         */
+        query?: string;
+    };
     url: '/media';
 };
 
@@ -2608,7 +2621,13 @@ export type GetMediaResponses = {
      * response
      */
     200: {
-        data?: Array<MediaFileObject>;
+        data?: {
+            results?: Array<MediaFileObject>;
+            query?: string;
+            total?: number;
+            per_page?: number;
+            page?: number;
+        };
     };
 };
 

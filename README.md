@@ -649,6 +649,18 @@ memberships with a truncated list.
 listmonk-cli campaigns list --page 1 --per-page 20
 # --no-body omits bodies; campaigns list and templates list accept it too.
 listmonk-cli campaigns get --id 42 --no-body
+```
+
+Campaign and subscriber lists sort with `--order asc|desc` (MCP: `order`).
+Listmonk 6.2 honors only the lowercase directions and silently sorts
+descending for any other value, so the legacy uppercase `ASC`/`DESC` spellings
+remain accepted and are sent lowercase.
+
+```bash
+listmonk-cli campaigns list --page 1 --per-page 20
+listmonk-cli campaigns list --order-by created_at --order asc
+```
+```bash
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10
@@ -669,6 +681,8 @@ listmonk-cli campaigns stats --id 42
 listmonk-cli campaigns preview --id 42
 # Recipients must be existing subscribers; each run sends a real message.
 listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
+# --from and --to are inclusive days in the database time zone, so
+# --from 2026-08-31 --to 2026-08-31 reads that whole day.
 listmonk-cli campaigns analytics --type views --from 2026-08-01 \
   --to 2026-08-31 --campaign-ids 42,43
 listmonk-cli campaigns archive --id 42 --archive=true
@@ -702,8 +716,11 @@ listmonk-cli subscribers blocklist --subscriber-ids 1,2,3 --confirm
 listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 
 # Import a CSV asynchronously; poll progress; cancel if needed.
+# --subscription-status takes unconfirmed, confirmed, or unsubscribed
+# (omitted: Listmonk picks unconfirmed for subscribe mode); the former
+# `pending` value is a deprecated alias sent as unconfirmed.
 listmonk-cli subscribers import --mode subscribe --lists 1 \
-  --file ./subscribers.csv --confirm
+  --subscription-status confirmed --file ./subscribers.csv --confirm
 listmonk-cli subscribers export --id 7
 # Every run sends a real opt-in message.
 listmonk-cli subscribers send-optin --id 7
@@ -725,6 +742,7 @@ listmonk-cli user-roles reconcile --manifest-file ./roles.json \
   --no-dry-run --confirm
 
 listmonk-cli media list --page 1 --per-page 20
+listmonk-cli media list --page 2 --query banner
 listmonk-cli media get --id 9
 listmonk-cli media delete --id 9 --confirm
 listmonk-cli media upload --file ./banner.png
@@ -751,7 +769,11 @@ itself at its `send_at`, so to send one early run `campaigns unschedule`
 cancelled directly. Subscriber
 bulk operations chunk IDs (default 500 per chunk) and support
 `--dry-run`, `--max-items`, and `--continue-on-error`. Media uploads
-enforce a MIME allowlist and a 10 MiB size cap.
+enforce a MIME allowlist and a 10 MiB size cap. Media listing is paginated by
+Listmonk (newest first, 20 per page by default): `--page`/`--per-page` (MCP:
+`page`/`per_page`, positive integers only) select the page, `--query` (MCP:
+`query`) filters by a case-insensitive filename substring, and MCP results carry
+the server's `total`, `page`, and `per_page`.
 
 `subscribers update` is a partial update (Listmonk `PATCH`): fields you omit
 keep their stored values, `--lists`/`--list-uuids` replace list memberships

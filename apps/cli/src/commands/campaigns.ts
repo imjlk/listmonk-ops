@@ -17,6 +17,8 @@ import {
 	invokeGetCampaignAnalyticsOperation,
 	invokeGetCampaignStatsOperation,
 	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
+	LISTMONK_SORT_ORDERS,
+	type ListmonkSortOrder,
 	MAX_CAMPAIGN_ANALYTICS_IDS,
 	invokePreviewCampaignOperation,
 	invokeTestCampaignOperation,
@@ -67,7 +69,7 @@ export interface ListCampaignsInput {
 	status?: string;
 	query?: string;
 	tags?: string[];
-	order?: "ASC" | "DESC";
+	order?: ListmonkSortOrder;
 	order_by?: "name" | "status" | "created_at" | "updated_at";
 	no_body?: boolean;
 }
@@ -361,7 +363,7 @@ type ListCommandFlags = {
 	status?: string;
 	query?: string;
 	tags?: string;
-	order?: "ASC" | "DESC";
+	order?: ListmonkSortOrder;
 	"order-by"?: "name" | "status" | "created_at" | "updated_at";
 	"no-body"?: boolean;
 };
@@ -843,8 +845,9 @@ export default defineGroup({
 				tags: option(z.string().trim().optional(), {
 					description: "Comma-separated tags",
 				}),
-				order: option(z.enum(["ASC", "DESC"]).optional(), {
-					description: "Sort order",
+				order: option(z.enum(LISTMONK_SORT_ORDERS).optional(), {
+					description:
+						"Sort direction (asc|desc; uppercase is accepted and sent lowercase)",
 				}),
 				"order-by": option(
 					z.enum(["name", "status", "created_at", "updated_at"]).optional(),

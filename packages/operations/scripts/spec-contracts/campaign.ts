@@ -17,6 +17,7 @@ import type {
 	ResourceIdInput,
 } from "./primitives";
 import type { CAMPAIGN_SEND_AT_PATTERN_SOURCE } from "../../src/campaign-send-at";
+import type { ListmonkSortOrder } from "../../src/listmonk-sort-order";
 
 export type CampaignSendAt = string &
 	tags.Pattern<typeof CAMPAIGN_SEND_AT_PATTERN_SOURCE>;
@@ -86,7 +87,8 @@ export interface CampaignListInput {
 	no_body?: boolean | undefined;
 	query?: string | undefined;
 	tags?: string[] | undefined;
-	order?: "ASC" | "DESC" | undefined;
+	/** Sort direction; uppercase is accepted and sent lowercase. */
+	order?: ListmonkSortOrder | undefined;
 	order_by?: "name" | "status" | "created_at" | "updated_at" | undefined;
 }
 

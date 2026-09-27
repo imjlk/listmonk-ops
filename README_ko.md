@@ -638,6 +638,18 @@ update 명령이 잘린 목록으로 기존 소속 목록을 대체하지 않습
 listmonk-cli campaigns list --page 1 --per-page 20
 # --no-body는 본문을 생략합니다. campaigns list와 templates list에서도 사용할 수 있습니다.
 listmonk-cli campaigns get --id 42 --no-body
+```
+
+캠페인과 구독자 목록은 `--order asc|desc`(MCP: `order`)로 정렬합니다.
+Listmonk 6.2는 소문자 방향만 인식하고 그 밖의 값은 조용히 내림차순으로
+처리하므로, 기존 대문자 `ASC`/`DESC` 표기도 계속 받되 소문자로 변환해
+전송합니다.
+
+```bash
+listmonk-cli campaigns list --page 1 --per-page 20
+listmonk-cli campaigns list --order-by created_at --order asc
+```
+```bash
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10
@@ -658,6 +670,8 @@ listmonk-cli campaigns stats --id 42
 listmonk-cli campaigns preview --id 42
 # 수신자는 기존 구독자여야 하며, 실행할 때마다 실제 메시지를 보냅니다.
 listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
+# --from과 --to는 데이터베이스 시간대 기준으로 양 끝 날짜를 포함하므로
+# --from 2026-08-31 --to 2026-08-31은 그날 하루 전체를 읽습니다.
 listmonk-cli campaigns analytics --type views --from 2026-08-01 \
   --to 2026-08-31 --campaign-ids 42,43
 listmonk-cli campaigns archive --id 42 --archive=true
@@ -691,8 +705,11 @@ listmonk-cli subscribers blocklist --subscriber-ids 1,2,3 --confirm
 listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 
 # CSV를 비동기로 임포트하고 진행 상황을 확인하며 필요하면 취소합니다.
+# --subscription-status는 unconfirmed, confirmed, unsubscribed 중 하나이며
+# (생략하면 subscribe 모드에서 Listmonk가 unconfirmed를 사용), 기존 `pending`
+# 값은 unconfirmed로 전송되는 deprecated 별칭입니다.
 listmonk-cli subscribers import --mode subscribe --lists 1 \
-  --file ./subscribers.csv --confirm
+  --subscription-status confirmed --file ./subscribers.csv --confirm
 listmonk-cli subscribers export --id 7
 # 실행할 때마다 실제 옵트인 메시지를 보냅니다.
 listmonk-cli subscribers send-optin --id 7
@@ -714,6 +731,7 @@ listmonk-cli user-roles reconcile --manifest-file ./roles.json \
   --no-dry-run --confirm
 
 listmonk-cli media list --page 1 --per-page 20
+listmonk-cli media list --page 2 --query banner
 listmonk-cli media get --id 9
 listmonk-cli media delete --id 9 --confirm
 listmonk-cli media upload --file ./banner.png
@@ -739,7 +757,11 @@ Listmonk는 `scheduled` 캠페인을 `send_at`에 직접 시작하므로 일찍 
 취소할 수 있습니다. 구독자 일괄 작업은 ID를 청크
 단위(기본 500개)로 나누며 `--dry-run`, `--max-items`,
 `--continue-on-error`를 지원합니다. 미디어 업로드는 MIME 허용 목록과
-10 MiB 크기 제한을 적용합니다.
+10 MiB 크기 제한을 적용합니다. 미디어 목록은 Listmonk가 서버 측에서
+페이지를 나눕니다(최신순, 기본 페이지당 20개). `--page`/`--per-page`(MCP:
+`page`/`per_page`, 양의 정수만 허용)로 페이지를 고르고, `--query`(MCP:
+`query`)는 대소문자를 구분하지 않는 파일명 부분 일치로 거르며, MCP 결과에는
+서버의 `total`, `page`, `per_page`가 담깁니다.
 
 `subscribers update`는 부분 수정(Listmonk `PATCH`)입니다. 생략한 필드는 저장된
 값을 유지하고, `--lists`/`--list-uuids`는 지정했을 때만 리스트 멤버십을 교체하며,

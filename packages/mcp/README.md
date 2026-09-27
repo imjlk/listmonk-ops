@@ -111,7 +111,8 @@ Legacy tools that bypassed confirmation and audit were removed:
 - `listmonk_get_campaign_stats` - Read delivery stats for a campaign
 - `listmonk_test_campaign` - Send test campaign
 - `listmonk_get_campaign_running_stats` - Get live run metrics
-- `listmonk_get_campaign_analytics` - Get timeseries analytics
+- `listmonk_get_campaign_analytics` - Get timeseries analytics over inclusive
+  `from`/`to` dates (a single day works with `from` equal to `to`)
 
 ### Templates
 
@@ -132,7 +133,8 @@ Legacy tools that bypassed confirmation and audit were removed:
 
 ### Media
 
-- `listmonk_get_media` - List uploaded media files
+- `listmonk_get_media` - List uploaded media files, paginated by Listmonk
+  (`page`, positive-integer `per_page`, filename `query`)
 - `listmonk_get_media_file` - Get an uploaded media file by ID
 - `listmonk_delete_media` - Delete an uploaded media file (requires
   `confirm: true`)

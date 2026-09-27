@@ -19,6 +19,7 @@ import {
 	renderBlocklistSubscribers,
 	renderCreateSubscriber,
 	renderRemoveSubscribersFromLists,
+	renderSubscribers,
 	renderUnblocklistSubscribers,
 	type SubscribersCliContext,
 } from "../src/commands/subscribers";
@@ -88,6 +89,43 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		expect(update).toHaveBeenCalledWith({
 			path: { id: 9 },
 			body: { lists: [1], media: [], attribs: {} },
+		});
+	});
+
+	test("sends the lowercase sort order Listmonk honors from --order", async () => {
+		const campaignList = mock(async () => ({
+			data: { results: [], total: 0 },
+		}));
+		const subscriberList = mock(async () => ({
+			data: { results: [], total: 0 },
+		}));
+
+		await renderCampaigns(
+			{
+				client: { campaign: { list: campaignList } } as unknown as Pick<
+					ListmonkClient,
+					"campaign"
+				>,
+				output: output(),
+			},
+			{ order: "ASC", order_by: "created_at" },
+		);
+		await renderSubscribers(
+			{
+				client: { subscriber: { list: subscriberList } } as unknown as Pick<
+					ListmonkClient,
+					"subscriber"
+				>,
+				output: output(),
+			},
+			{ order: "asc" },
+		);
+
+		expect(campaignList).toHaveBeenCalledWith({
+			query: { page: 1, per_page: 20, order: "asc", order_by: "created_at" },
+		});
+		expect(subscriberList).toHaveBeenCalledWith({
+			query: { page: 1, per_page: 20, order: "asc" },
 		});
 	});
 
@@ -292,10 +330,13 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			output: output(),
 		} satisfies MediaCliContext;
 
-		await renderMedia(cliContext, { page: 1, per_page: 20 });
+		await renderMedia(cliContext, { page: 3, per_page: 20, query: "news" });
 		await renderDeleteMedia(cliContext, { id: 14 });
 
 		expect(list).toHaveBeenCalledTimes(1);
+		expect(list).toHaveBeenCalledWith({
+			query: { page: 3, per_page: 20, query: "news" },
+		});
 		expect(cliContext.output.table).toHaveBeenCalledWith([
 			{ id: 14, filename: "newsletter.png" },
 		]);

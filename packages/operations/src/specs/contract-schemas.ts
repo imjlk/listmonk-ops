@@ -33,6 +33,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	maintenanceGcUnconfirmedOutputContract: NormalizedContractSchema;
 	maintenanceGcAnalyticsInputContract: NormalizedContractSchema;
 	maintenanceGcAnalyticsOutputContract: NormalizedContractSchema;
+	mediaListInputContract: NormalizedContractSchema;
 	mediaCollectionOutputContract: NormalizedContractSchema;
 	bounceRecordContract: NormalizedContractSchema;
 	bounceCollectionOutputContract: NormalizedContractSchema;
@@ -276,6 +277,7 @@ export const maintenanceGcAnalyticsInputContract =
 	contracts.maintenanceGcAnalyticsInputContract;
 export const maintenanceGcAnalyticsOutputContract =
 	contracts.maintenanceGcAnalyticsOutputContract;
+export const mediaListInputContract = contracts.mediaListInputContract;
 export const mediaCollectionOutputContract =
 	contracts.mediaCollectionOutputContract;
 export const bounceRecordContract = contracts.bounceRecordContract;

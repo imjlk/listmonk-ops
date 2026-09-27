@@ -91,4 +91,68 @@ describe("Campaign tag query serialization", () => {
 		expect(requests[1]?.searchParams.getAll("tag")).toEqual(["canonical"]);
 		expect(requests[1]?.searchParams.has("tags")).toBe(false);
 	});
+
+	test("serializes the analytics end-of-day bound and repeated ids", async () => {
+		const requests: URL[] = [];
+		const client = createRecordingCampaignClient(requests);
+		const campaigns = createCampaignOperations({ client });
+		await campaigns.getAnalytics({
+			path: { type: "views" },
+			query: {
+				from: "2026-09-26",
+				to: "2026-09-26 23:59:59.999999",
+				id: ["1", "2"],
+			},
+		});
+		expect(requests[0]?.pathname).toBe("/api/campaigns/analytics/views");
+		expect(requests[0]?.searchParams.get("from")).toBe("2026-09-26");
+		expect(requests[0]?.searchParams.get("to")).toBe(
+			"2026-09-26 23:59:59.999999",
+		);
+		expect(requests[0]?.searchParams.getAll("id")).toEqual(["1", "2"]);
+	});
+});
+
+describe("Media list pagination", () => {
+	test("forwards page, per_page, and query and keeps the server envelope", async () => {
+		const requests: URL[] = [];
+		const client = createClient({
+			baseUrl: "http://localhost/api",
+			fetch: Object.assign(
+				async (request: RequestInfo | URL) => {
+					requests.push(
+						new URL(request instanceof Request ? request.url : String(request)),
+					);
+					// Observed Listmonk 6.2 media page envelope.
+					return Response.json({
+						data: {
+							results: [{ id: 21, filename: "banner.png" }],
+							search: "",
+							query: "",
+							total: 41,
+							per_page: 20,
+							page: 2,
+						},
+					});
+				},
+				{ preconnect() {} },
+			),
+		});
+		const media = createMediaOperations({ client });
+
+		const response = await media.list({
+			query: { page: 2, per_page: 20, query: "banner" },
+		});
+
+		expect(requests[0]?.pathname).toBe("/api/media");
+		expect(requests[0]?.searchParams.get("page")).toBe("2");
+		expect(requests[0]?.searchParams.get("per_page")).toBe("20");
+		expect(requests[0]?.searchParams.get("query")).toBe("banner");
+		expect(response.data).toEqual({
+			results: [{ id: 21, filename: "banner.png" }],
+			total: 41,
+			per_page: 20,
+			page: 2,
+		});
+	});
 });

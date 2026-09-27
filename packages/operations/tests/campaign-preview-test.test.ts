@@ -6,6 +6,7 @@ import {
 	invokePreviewCampaignOperation,
 	invokeTestCampaignOperation,
 } from "../src/campaigns";
+import { campaignAnalyticsRangeEnd } from "../src/campaign-analytics-date";
 import { OperationExecutionError } from "../src/operation";
 
 type CampaignClient = Pick<ListmonkClient, "campaign">;
@@ -183,7 +184,45 @@ describe("campaign analytics operation", () => {
 
 		expect(getAnalytics).toHaveBeenCalledWith({
 			path: { type: "views" },
-			query: { from: "2026-08-01", to: "2026-09-01", id: ["1", "2"] },
+			query: {
+				from: "2026-08-01",
+				to: "2026-09-01 23:59:59.999999",
+				id: ["1", "2"],
+			},
+		});
+	});
+
+	test("includes the whole end day so a single-day range is not empty", async () => {
+		// Listmonk filters `created_at <= to`; a bare end date would mean
+		// midnight at the start of the day and drop every row recorded on it.
+		expect(campaignAnalyticsRangeEnd("2026-09-26")).toBe(
+			"2026-09-26 23:59:59.999999",
+		);
+		const getAnalytics = mock(async () => ({
+			data: [{ url: "https://listmonk.app", count: 1 }],
+		}));
+
+		await expect(
+			invokeGetCampaignAnalyticsOperation(
+				campaignContext({
+					getAnalytics:
+						getAnalytics as unknown as CampaignClient["campaign"]["getAnalytics"],
+				}),
+				{
+					type: "links",
+					from: "2026-09-26",
+					to: "2026-09-26",
+					campaign_ids: [3],
+				},
+			),
+		).resolves.toMatchObject({ from: "2026-09-26", to: "2026-09-26" });
+		expect(getAnalytics).toHaveBeenCalledWith({
+			path: { type: "links" },
+			query: {
+				from: "2026-09-26",
+				to: "2026-09-26 23:59:59.999999",
+				id: ["3"],
+			},
 		});
 	});
 

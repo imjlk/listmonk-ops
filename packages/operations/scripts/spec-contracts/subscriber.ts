@@ -1,5 +1,9 @@
 import type { tags } from "typia";
-import type { MAX_SUBSCRIBER_IMPORT_LISTS } from "../../src/subscriber-import-bound";
+import type { ListmonkSortOrder } from "../../src/listmonk-sort-order";
+import type {
+	MAX_SUBSCRIBER_IMPORT_LISTS,
+	SubscriberImportSubscriptionStatus,
+} from "../../src/subscriber-import-bound";
 import type {
 	ResourceId,
 	NonNegativeInteger,
@@ -64,7 +68,8 @@ export interface SubscriberListInput {
 	list_id?: ResourceId[] | undefined;
 	query?: string | undefined;
 	order_by?: "name" | "status" | "created_at" | "updated_at" | undefined;
-	order?: "ASC" | "DESC" | undefined;
+	/** Sort direction; uppercase is accepted and sent lowercase. */
+	order?: ListmonkSortOrder | undefined;
 	subscription_status?: NonEmptyString | undefined;
 }
 
@@ -336,10 +341,11 @@ export type SubscriberImportStartInput = {
 		| undefined;
 	/** Whether the import overwrites existing subscriber attributes. */
 	overwrite: boolean;
-	/** Optional subscription status applied to imported rows. */
-	subscription_status?:
-		| ("pending" | "confirmed" | "unsubscribed")
-		| undefined;
+	/**
+	 * Optional subscription status applied to imported rows; `pending` is a
+	 * deprecated alias sent as `unconfirmed`.
+	 */
+	subscription_status?: SubscriberImportSubscriptionStatus | undefined;
 	/** Raw CSV text; the first row must be a header naming the columns. */
 	csv: SubscriberImportCsv;
 };

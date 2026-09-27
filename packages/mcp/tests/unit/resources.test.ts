@@ -250,28 +250,41 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 	});
 
 	test("routes media reads through the shared operation result adapter", async () => {
+		const queries: unknown[] = [];
 		const client = {
 			media: {
-				list: async () => ({
-					data: {
-						results: [
-							{ id: 7, filename: "newsletter.png" },
-							{ id: 8, filename: "archive.png" },
-						],
-						total: 2,
-						per_page: 2,
-						page: 1,
-					},
-				}),
+				// Listmonk 6.2 paginates media server-side.
+				list: async (options: { query?: unknown }) => {
+					queries.push(options.query);
+					return {
+						data: {
+							results: [{ id: 8, filename: "archive.png" }],
+							total: 2,
+							per_page: 1,
+							page: 2,
+						},
+					};
+				},
 			},
 		} as unknown as ListmonkClient;
 
+		expect(
+			Object.keys(
+				mediaTools.find((tool) => tool.name === "listmonk_get_media")
+					?.inputSchema.properties ?? {},
+			),
+		).toEqual(["page", "per_page", "query"]);
 		const result = await handleMediaTools(
-			request("listmonk_get_media", { page: "2", per_page: "1" }),
+			request("listmonk_get_media", {
+				page: "2",
+				per_page: "1",
+				query: "archive",
+			}),
 			client,
 		);
 
 		expect(result.isError).toBeFalsy();
+		expect(queries).toEqual([{ page: 2, per_page: 1, query: "archive" }]);
 		expect(result.structuredContent).toEqual({
 			results: [{ id: 8, filename: "archive.png" }],
 			total: 2,
@@ -281,6 +294,48 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 		expect(JSON.parse(result.content[0]?.text ?? "null")).toEqual(
 			result.structuredContent,
 		);
+	});
+
+	test("publishes lowercase sort orders and sends legacy uppercase lowercase", async () => {
+		for (const tool of [
+			campaignsTools.find((candidate) => candidate.name === "listmonk_get_campaigns"),
+			subscribersTools.find(
+				(candidate) => candidate.name === "listmonk_get_subscribers",
+			),
+		]) {
+			expect(tool?.inputSchema.properties?.order).toMatchObject({
+				enum: ["asc", "desc", "ASC", "DESC"],
+			});
+		}
+		const queries: unknown[] = [];
+		const client = {
+			campaign: {
+				list: async (options: { query?: unknown }) => {
+					queries.push(options.query);
+					return { data: { results: [], total: 0 } };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		const result = await handleCampaignsTools(
+			request("listmonk_get_campaigns", { order: "ASC", order_by: "name" }),
+			client,
+		);
+
+		expect(result.isError).toBeFalsy();
+		expect(queries).toEqual([
+			{ page: 1, per_page: 20, order: "asc", order_by: "name" },
+		]);
+	});
+
+	test("publishes the import subscription statuses Listmonk accepts", () => {
+		expect(
+			subscribersTools.find(
+				(tool) => tool.name === "listmonk_start_subscriber_import",
+			)?.inputSchema.properties?.subscription_status,
+		).toMatchObject({
+			enum: ["unconfirmed", "confirmed", "unsubscribed", "pending"],
+		});
 	});
 });
 

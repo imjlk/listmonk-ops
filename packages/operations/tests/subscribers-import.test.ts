@@ -15,8 +15,13 @@ import {
 	invokeGetSubscriberImportStatusOperation,
 	invokeStartSubscriberImportOperation,
 	invokeStopSubscriberImportOperation,
+	startSubscriberImportOperation,
 	subscriberOperations,
 } from "../src/subscribers";
+import {
+	SUBSCRIBER_IMPORT_SUBSCRIPTION_STATUSES,
+	toListmonkImportSubscriptionStatus,
+} from "../src/subscriber-import-bound";
 import { OperationExecutionError } from "../src/operation";
 
 type ImportClient = Pick<ListmonkClient, "import">;
@@ -78,6 +83,62 @@ describe("subscriber import operations", () => {
 		expect(params.lists).toEqual([1, 2]);
 		expect(params.subscription_status).toBe("confirmed");
 		expect(params.file).toBeInstanceOf(File);
+	});
+
+	test("sends the subscription statuses Listmonk 6.2 validates", async () => {
+		// Listmonk accepts only unconfirmed|confirmed|unsubscribed; the
+		// deprecated `pending` alias is sent as `unconfirmed` instead of 400.
+		expect(toListmonkImportSubscriptionStatus("pending")).toBe("unconfirmed");
+		expect(
+			startSubscriberImportOperation.inputJsonSchema.properties
+				?.subscription_status,
+		).toMatchObject({ enum: [...SUBSCRIBER_IMPORT_SUBSCRIPTION_STATUSES] });
+
+		const start = mock(async () => ({
+			data: { name: "import.csv", total: 0, imported: 0, status: "importing" },
+		}));
+		const context = importContext({
+			start: start as unknown as ImportClient["import"]["start"],
+		});
+		const sent: unknown[] = [];
+		for (const subscription_status of [
+			"pending",
+			"unconfirmed",
+			"confirmed",
+			"unsubscribed",
+		]) {
+			await invokeStartSubscriberImportOperation(context, {
+				mode: "subscribe",
+				delim: ",",
+				lists: [1],
+				overwrite: false,
+				subscription_status,
+				csv: "email,name\na@example.com,A\n",
+			});
+			const params = (start.mock.calls.at(-1)?.[0] ?? {}) as Record<
+				string,
+				unknown
+			>;
+			sent.push(params.subscription_status);
+		}
+		expect(sent).toEqual([
+			"unconfirmed",
+			"unconfirmed",
+			"confirmed",
+			"unsubscribed",
+		]);
+
+		await expect(
+			invokeStartSubscriberImportOperation(context, {
+				mode: "subscribe",
+				delim: ",",
+				lists: [1],
+				overwrite: false,
+				subscription_status: "active",
+				csv: "email\na@example.com\n",
+			}),
+		).rejects.toThrow();
+		expect(start).toHaveBeenCalledTimes(4);
 	});
 
 	test("reads and stops the import session", async () => {

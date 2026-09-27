@@ -2,6 +2,7 @@ import type { tags } from "typia";
 import type {
 	ResourceId,
 	NonEmptyString,
+	PaginationInput,
 	TrimmedNonEmptyString,
 } from "./primitives";
 
@@ -19,6 +20,11 @@ export interface MediaRecord {
 	uri?: string | undefined;
 	/** Preserve fields added by newer Listmonk releases. */
 	[key: string]: unknown;
+}
+
+export interface MediaListInput extends PaginationInput {
+	/** Case-insensitive filename substring filter applied by Listmonk. */
+	query?: string | undefined;
 }
 
 export interface MediaCollectionOutput {

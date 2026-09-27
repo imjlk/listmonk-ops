@@ -6360,12 +6360,19 @@
               "type": "boolean"
             },
             "order": {
+              "description": "Sort direction; uppercase is accepted and sent lowercase.",
               "oneOf": [
                 {
                   "const": "ASC"
                 },
                 {
                   "const": "DESC"
+                },
+                {
+                  "const": "asc"
+                },
+                {
+                  "const": "desc"
                 }
               ]
             },
@@ -6453,12 +6460,19 @@
           "type": "boolean"
         },
         "order": {
+          "description": "Sort direction; uppercase is accepted and sent lowercase.",
           "oneOf": [
             {
               "const": "ASC"
             },
             {
               "const": "DESC"
+            },
+            {
+              "const": "asc"
+            },
+            {
+              "const": "desc"
             }
           ]
         },
@@ -14599,6 +14613,58 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "mediaListInputContract": {
+    "components": {
+      "schemas": {
+        "MediaListInput": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Number of records per page. Omitted values use the shared operation default."
+            },
+            "query": {
+              "description": "Case-insensitive filename substring filter applied by Listmonk.",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "One-based result page. Omitted values use the shared operation default."
+        },
+        "per_page": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Number of records per page. Omitted values use the shared operation default."
+        },
+        "query": {
+          "description": "Case-insensitive filename substring filter applied by Listmonk.",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "mediaRecordContract": {
     "components": {
       "schemas": {
@@ -22502,13 +22568,16 @@
               "type": "boolean"
             },
             "subscription_status": {
-              "description": "Optional subscription status applied to imported rows.",
+              "description": "Optional subscription status applied to imported rows; `pending` is a\ndeprecated alias sent as `unconfirmed`.",
               "oneOf": [
                 {
                   "const": "confirmed"
                 },
                 {
                   "const": "pending"
+                },
+                {
+                  "const": "unconfirmed"
                 },
                 {
                   "const": "unsubscribed"
@@ -22556,13 +22625,16 @@
           "type": "boolean"
         },
         "subscription_status": {
-          "description": "Optional subscription status applied to imported rows.",
+          "description": "Optional subscription status applied to imported rows; `pending` is a\ndeprecated alias sent as `unconfirmed`.",
           "oneOf": [
             {
               "const": "confirmed"
             },
             {
               "const": "pending"
+            },
+            {
+              "const": "unconfirmed"
             },
             {
               "const": "unsubscribed"
@@ -22882,12 +22954,19 @@
               "type": "array"
             },
             "order": {
+              "description": "Sort direction; uppercase is accepted and sent lowercase.",
               "oneOf": [
                 {
                   "const": "ASC"
                 },
                 {
                   "const": "DESC"
+                },
+                {
+                  "const": "asc"
+                },
+                {
+                  "const": "desc"
                 }
               ]
             },
@@ -22946,12 +23025,19 @@
           "type": "array"
         },
         "order": {
+          "description": "Sort direction; uppercase is accepted and sent lowercase.",
           "oneOf": [
             {
               "const": "ASC"
             },
             {
               "const": "DESC"
+            },
+            {
+              "const": "asc"
+            },
+            {
+              "const": "desc"
             }
           ]
         },

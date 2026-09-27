@@ -361,10 +361,16 @@ export async function cleanupTestData() {
 			}
 		}
 
-		// Clean up tagged media fixtures. The media endpoint does not expose
-		// pagination controls, so its normalized client result is already the
-		// complete local collection.
-		const media = await client.media.list();
+		// Clean up tagged media fixtures. Media is paginated (20 per page by
+		// default), so narrow to the managed filename prefix and read one
+		// bounded page like the other collections.
+		const media = await client.media.list({
+			query: {
+				page: 1,
+				per_page: CLEANUP_PAGE_SIZE,
+				query: TEST_RESOURCE_PREFIX,
+			},
+		});
 		if (hasResponseError(media)) {
 			throw new Error(formatError(media.error));
 		}

@@ -160,6 +160,8 @@ describe("media upload operations", () => {
 			status: "created",
 			resourceId: "5",
 		});
+		// Media is paginated newest first; correlation reads one wide page.
+		expect(list).toHaveBeenCalledWith({ query: { page: 1, per_page: 100 } });
 	});
 
 	test("burns the key when an accepted upload cannot be correlated", async () => {
