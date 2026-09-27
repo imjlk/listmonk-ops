@@ -74,7 +74,8 @@ export const subscribersUpdateOperationSpec = defineOperationSpec({
 	resource: "subscriber",
 	verb: "update",
 	title: "Update subscriber",
-	description: "Update a subscriber in Listmonk",
+	description:
+		"Partially update a subscriber in Listmonk. Only provided fields change; lists (or list_uuids) replace memberships when provided, and attribs keys are merged into the stored attributes.",
 	contract: {
 		input: subscriberUpdateInputContract,
 		output: subscriberRecordContract,
@@ -275,7 +276,7 @@ export const subscribersUnblocklistOperationSpec = defineOperationSpec({
 	verb: "unblocklist",
 	title: "Unblocklist subscribers",
 	description:
-		"Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+		"Return blocklisted subscribers to enabled, one subscriber at a time (Listmonk 6.2 has no bulk unblocklist endpoint). Subscribers that are not blocklisted are left unchanged, and list subscriptions that blocklisting set to unsubscribed stay unsubscribed. Supports dry-run, max-items cap, and continue-on-error.",
 	contract: {
 		input: subscriberBulkBlocklistInputContract,
 		output: subscriberBulkOutputContract,
@@ -296,7 +297,10 @@ export const subscribersUnblocklistOperationSpec = defineOperationSpec({
 	},
 	agent: {
 		useWhen: ["Subscribers must be removed from the blocklist in bulk."],
-		avoidWhen: ["The subscriber IDs are not known."],
+		avoidWhen: [
+			"The subscriber IDs are not known.",
+			"The goal is to resume list mail: unblocklisting leaves list subscriptions unsubscribed.",
+		],
 		prerequisites: ["subscribers.get"],
 		verifyWith: ["subscribers.get"],
 		related: ["subscribers.blocklist"],

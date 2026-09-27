@@ -619,6 +619,18 @@ bulk operations chunk IDs (default 500 per chunk) and support
 `--dry-run`, `--max-items`, and `--continue-on-error`. Media uploads
 enforce a MIME allowlist and a 10 MiB size cap.
 
+`subscribers update` is a partial update (Listmonk `PATCH`): fields you omit
+keep their stored values, `--lists`/`--list-uuids` replace list memberships
+only when given, and `--attribs` keys are merged into the stored attributes.
+List UUIDs are resolved to list IDs before a create or update, because
+Listmonk 6.2 accepts `list_uuids` on its subscriber API but never applies
+them. Listmonk 6.2 has no bulk unblocklist endpoint (its blocklist endpoint
+ignores `action` and always blocklists), so `subscribers unblocklist` returns
+each blocklisted subscriber to `enabled` one at a time and leaves other
+statuses unchanged. Blocklisting already set every list subscription to
+`unsubscribed`, and unblocklisting does not restore them: re-add lists only
+with fresh consent.
+
 Bounce reads mirror the Listmonk `/api/bounces` filters (`--campaign-id`,
 `--source`, `--order-by`, `--order`). Listmonk has no subscriber filter on
 that endpoint, so the legacy `subscriber_id` argument — which never reached

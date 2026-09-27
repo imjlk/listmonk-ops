@@ -1100,7 +1100,7 @@ Contract maturity: `stable`; effects: `write:subscriber`; confirmation: `never`;
 
 Use when: Subscribers must be removed from the blocklist in bulk.
 
-Avoid when: The subscriber IDs are not known.
+Avoid when: The subscriber IDs are not known. The goal is to resume list mail: unblocklisting leaves list subscriptions unsubscribed.
 
 Prerequisites: `subscribers.get`
 
