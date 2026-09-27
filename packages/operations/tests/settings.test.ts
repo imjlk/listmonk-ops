@@ -369,7 +369,7 @@ describe("settings URL credential redaction", () => {
 
 		// Scheme, host, port, path, and the other parameters stay visible.
 		expect(redacted["app.root_url"]).toBe(
-			`https://${SETTINGS_REDACTED_VALUE}@lists.example.com/`,
+			`https://${SETTINGS_REDACTED_VALUE}@lists.example.com`,
 		);
 		expect(redacted["app.logo_url"]).toBe(
 			`https://media.blob.core.windows.net/brand/logo.png?sv=2024-11-04&sp=r&sig=${SETTINGS_REDACTED_VALUE}`,
@@ -529,6 +529,55 @@ describe("settings URL credential redaction", () => {
 		]) {
 			expect(redactUrlCredentials(text)).toBe(text);
 		}
+	});
+
+	test("redacts passphrases with delimiters or a leading port and every fragment parameter", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			// "/", "?", and "#" inside a spaced passphrase.
+			[
+				"https://gw-user:correct horse/battery@sms.example.com/",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/`,
+			],
+			[
+				"https://gw-user:correct horse?battery#staple@sms.example.com/send?token=t",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			// A passphrase whose first word reads as a port.
+			[
+				"https://gw-user:8080 horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			// Fragment parameters before a "?".
+			[
+				"https://id.example.com/cb#access_token=eyJ.abc&state=/home?next=1",
+				`https://id.example.com/cb#access_token=${SETTINGS_REDACTED_VALUE}&state=/home?next=1`,
+			],
+			[
+				"https://id.example.com/cb#access_token=ab?cd",
+				`https://id.example.com/cb#access_token=${SETTINGS_REDACTED_VALUE}`,
+			],
+		];
+		for (const [input, expected] of cases) {
+			expect(redactUrlCredentials(input)).toBe(expected);
+			expect(redactUrlCredentials(expected)).toBe(expected);
+		}
+		// The join is bounded, so text long after a broken URL stays intact.
+		const note = "https://listmonk:900x a b c d e f g h i ops@example.com";
+		expect(redactUrlCredentials(note)).toBe(note);
+	});
+
+	test("keeps everything but the redacted parts as written", () => {
+		expect(
+			redactUrlCredentials("HTTPS://User:Pass@Lists.Example.com:443/Path"),
+		).toBe(`HTTPS://${SETTINGS_REDACTED_VALUE}@Lists.Example.com:443/Path`);
+		expect(redactUrlCredentials("https://Example.com:443/#access_token=x")).toBe(
+			`https://Example.com:443/#access_token=${SETTINGS_REDACTED_VALUE}`,
+		);
+		expect(
+			redactUrlCredentials("https:\\\\user:pass@host.example.com\\x?key=k"),
+		).toBe(
+			`https:\\\\${SETTINGS_REDACTED_VALUE}@host.example.com\\x?key=${SETTINGS_REDACTED_VALUE}`,
+		);
 	});
 
 	test("rewrites only URLs with credentials and is idempotent", () => {

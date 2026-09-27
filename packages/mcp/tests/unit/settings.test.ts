@@ -129,7 +129,7 @@ describe("legacy server config tool", () => {
 		}
 		expect(JSON.parse(text)).toEqual({
 			...listmonk62ServerConfig(),
-			root_url: "https://[redacted]@lists.example.com/",
+			root_url: "https://[redacted]@lists.example.com",
 			public_subscription: {
 				...listmonk62ServerConfig().public_subscription,
 				redirect_urls: [

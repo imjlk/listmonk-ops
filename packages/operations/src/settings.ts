@@ -120,6 +120,23 @@ const URL_CREDENTIAL_PARAMETER_TOKENS = new Set([
  */
 const ABSOLUTE_URL_PREFIX = /^[a-z][a-z0-9+.-]*:[\\/]{2}/i;
 
+/** WHATWG special schemes, whose authority a "\" also ends. */
+const SPECIAL_URL_SCHEMES = new Set([
+	"file:",
+	"ftp:",
+	"http:",
+	"https:",
+	"ws:",
+	"wss:",
+]);
+
+/**
+ * How many following tokens a userinfo with unencoded spaces may span,
+ * which covers a passphrase of up to nine words and bounds how much text
+ * after a broken URL can be folded into its redaction.
+ */
+const MAX_SPACED_USERINFO_TOKENS = 8;
+
 function decodeQueryParameterName(encodedName: string): string {
 	try {
 		return decodeURIComponent(encodedName.replace(/\+/g, " "));
@@ -160,29 +177,53 @@ function redactCredentialQuery(query: string): string {
 }
 
 /**
- * Redact credential-named parameters in a fragment too: a parameter-shaped
- * fragment (`#access_token=…`) and the query of a client-side route
- * (`#/welcome?token=…`). Any other fragment is kept.
+ * Redact credential-named parameters in a fragment the same way. A
+ * parameter-shaped fragment (`#access_token=…`) and a client-side route's
+ * query (`#/welcome?token=…`, whose route becomes part of the first
+ * parameter's name) are both covered, and any other fragment is kept.
  */
 function redactCredentialFragment(fragment: string): string {
 	if (fragment.length <= 1) return fragment;
-	const body = fragment.slice(1);
-	const queryStart = body.indexOf("?");
-	if (queryStart !== -1) {
-		return `#${body.slice(0, queryStart)}${redactCredentialQuery(body.slice(queryStart))}`;
+	return `#${redactCredentialQuery(`?${fragment.slice(1)}`).slice(1)}`;
+}
+
+function parseUrl(text: string): URL | undefined {
+	try {
+		return new URL(text);
+	} catch {
+		return undefined;
 	}
-	return `#${redactCredentialQuery(`?${body}`).slice(1)}`;
 }
 
 /**
- * Fallback for a URL the WHATWG parser rejects, such as one with a mistyped
- * port or an unencoded "/" in its password. Listmonk stores such values
- * as-is, so everything between "//" and the last "@" is treated as
- * userinfo: a broken URL may lose some of its visible host, but not its
+ * The index in `rest`, the text after `scheme://`, of the "@" that ends
+ * the userinfo, or -1. For a URL the WHATWG parser accepts, that is the
+ * last "@" of the authority whenever the parser reports a username or
+ * password. A URL it rejects, such as one with a mistyped port or an
+ * unencoded "/" in its password, is treated as having userinfo up to its
+ * last "@": a broken URL may lose some of its visible host, but not its
  * userinfo.
  */
-function redactUnparsedUrlCredentials(prefix: string, rest: string): string {
-	const at = rest.lastIndexOf("@");
+function userinfoEnd(prefix: string, rest: string): number {
+	const url = parseUrl(`${prefix}${rest}`);
+	if (url === undefined) return rest.lastIndexOf("@");
+	if (url.username === "" && url.password === "") return -1;
+	const authorityEnd = rest.search(
+		SPECIAL_URL_SCHEMES.has(url.protocol) ? /[/?#\\]/ : /[/?#]/,
+	);
+	const authority = authorityEnd === -1 ? rest : rest.slice(0, authorityEnd);
+	const at = authority.lastIndexOf("@");
+	return at > 0 ? at : rest.lastIndexOf("@");
+}
+
+/**
+ * Redact one absolute URL in place: its userinfo becomes `[redacted]@` and
+ * the values of its credential-named query and fragment parameters become
+ * `[redacted]`. Everything else, down to letter case, ports, and
+ * percent-encoding, is kept as written.
+ */
+function redactAbsoluteUrl(prefix: string, rest: string): string {
+	const at = userinfoEnd(prefix, rest);
 	const userinfo = at > 0 ? `${SETTINGS_REDACTED_VALUE}@` : "";
 	const location = at > 0 ? rest.slice(at + 1) : rest;
 	const hashStart = location.indexOf("#");
@@ -196,38 +237,23 @@ function redactUnparsedUrlCredentials(prefix: string, rest: string): string {
 	return `${prefix}${userinfo}${path}${redactCredentialQuery(query)}${redactCredentialFragment(fragment)}`;
 }
 
-function redactAbsoluteUrl(prefix: string, rest: string): string {
-	let url: URL;
-	try {
-		url = new URL(`${prefix}${rest}`);
-	} catch {
-		return redactUnparsedUrlCredentials(prefix, rest);
-	}
-	const hasUserinfo = url.username !== "" || url.password !== "";
-	const search = redactCredentialQuery(url.search);
-	const hash = redactCredentialFragment(url.hash);
-	if (!hasUserinfo && search === url.search && hash === url.hash) {
-		return `${prefix}${rest}`;
-	}
-	const userinfo = hasUserinfo ? `${SETTINGS_REDACTED_VALUE}@` : "";
-	return `${url.protocol}//${userinfo}${url.host}${url.pathname}${search}${hash}`;
-}
-
-function isParseableUrl(text: string): boolean {
-	try {
-		return new URL(text) instanceof URL;
-	} catch {
-		return false;
-	}
+function closesAuthority(token: string): boolean {
+	const at = token.indexOf("@");
+	const authorityEnd = token.search(/[/?#\\]/);
+	return at !== -1 && (authorityEnd === -1 || at < authorityEnd);
 }
 
 /**
- * The index of the token that ends a URL whose userinfo contains
+ * The index of the token that ends a URL whose userinfo contains unencoded
  * whitespace, such as the passphrase in `https://user:correct horse@host/`.
- * Only a URL token that the parser rejects on its own and that ends inside
- * an authority without "@" continues, through the first following token
- * that closes the authority with "@". A token that parses on its own is a
- * complete URL, so ordinary text after `http://listmonk:9000` is kept.
+ * Only a URL token that is a bare `name:value` authority, without "@",
+ * "/", "?", "#", or "\", can continue. If the parser rejects it, it
+ * continues through the first of the next few tokens that contains "@",
+ * since a "/", "?", or "#" before that "@" belongs to the passphrase. If it
+ * parses as `host:port`, it continues only when the very next token closes
+ * the authority with "@", so ordinary text after `http://listmonk:9000` is
+ * kept; a `host:port` URL directly followed by an address is redacted
+ * rather than risk a passphrase.
  */
 function spacedUserinfoEnd(
 	tokens: readonly string[],
@@ -235,16 +261,22 @@ function spacedUserinfoEnd(
 	prefix: string,
 ): number {
 	const token = tokens[index] ?? "";
-	if (/[@/?#\\]/.test(token.slice(prefix.length)) || isParseableUrl(token)) {
-		return index;
+	const authority = token.slice(prefix.length);
+	if (!authority.includes(":") || /[@/?#\\]/.test(authority)) return index;
+	if (parseUrl(token) !== undefined) {
+		const next = tokens[index + 2] ?? "";
+		return !ABSOLUTE_URL_PREFIX.test(next) && closesAuthority(next)
+			? index + 2
+			: index;
 	}
-	for (let next = index + 2; next < tokens.length; next += 2) {
+	const last = Math.min(
+		tokens.length - 1,
+		index + 2 * MAX_SPACED_USERINFO_TOKENS,
+	);
+	for (let next = index + 2; next <= last; next += 2) {
 		const candidate = tokens[next] ?? "";
 		if (ABSOLUTE_URL_PREFIX.test(candidate)) return index;
-		const at = candidate.indexOf("@");
-		const authorityEnd = candidate.search(/[/?#\\]/);
-		if (at !== -1 && (authorityEnd === -1 || at < authorityEnd)) return next;
-		if (authorityEnd !== -1) return index;
+		if (candidate.includes("@")) return next;
 	}
 	return index;
 }
