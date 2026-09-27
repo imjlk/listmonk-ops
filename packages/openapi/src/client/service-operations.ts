@@ -187,6 +187,7 @@ function assertNoRedactedSettingsPlaceholder(
 	);
 }
 
+/** Walk nested settings data for exact or URL/query-shaped redaction markers. */
 function containsRedactedSettingsPlaceholder(
 	value: unknown,
 	seen = new WeakSet<object>(),
@@ -203,6 +204,7 @@ function containsRedactedSettingsPlaceholder(
 	);
 }
 
+/** Ignore prose mentions while detecting markers emitted as credential values. */
 function containsRedactedSettingsPlaceholderInString(value: string): boolean {
 	let index = value.indexOf(SETTINGS_REDACTED_VALUE);
 	while (index !== -1) {
@@ -217,7 +219,7 @@ function containsRedactedSettingsPlaceholderInString(value: string): boolean {
 		}
 		if (
 			prefix.endsWith("=") &&
-			(suffix === "" || /^[)\]}>'\",;?&#\s]/.test(suffix))
+			(suffix === "" || /^[)\]}>'\",.;?&#\s]/.test(suffix))
 		) {
 			return true;
 		}

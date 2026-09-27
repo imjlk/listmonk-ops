@@ -188,7 +188,7 @@ function redactCredentialParameters(text: string, separators: RegExp): string {
 		if (isAlreadyRedactedCredentialValue(value)) {
 			continue;
 		}
-		const suffix = /[)\]}>'",]+$/.exec(value)?.[0] ?? "";
+		const suffix = /[)\]}>'",.]+$/.exec(value)?.[0] ?? "";
 		parts[index] = `${parameter.slice(0, separator + 1)}${SETTINGS_REDACTED_VALUE}${suffix}`;
 		redacted = true;
 	}
@@ -198,7 +198,7 @@ function redactCredentialParameters(text: string, separators: RegExp): string {
 function isAlreadyRedactedCredentialValue(value: string): boolean {
 	return (
 		value.startsWith(SETTINGS_REDACTED_VALUE) &&
-		/^[)\]}>'",]*$/.test(value.slice(SETTINGS_REDACTED_VALUE.length))
+		/^[)\]}>'",.]*$/.test(value.slice(SETTINGS_REDACTED_VALUE.length))
 	);
 }
 
@@ -276,6 +276,11 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		const nextSeparator = endPattern.exec(value);
 		const explicitValueEnd = nextSeparator?.index ?? value.length;
 		const wrapperEnd = findCredentialValueWrapperBoundary(value, valueStart);
+		const sentenceEnd = findSentenceEndingBoundary(
+			value,
+			valueStart,
+			explicitValueEnd,
+		);
 		const nextUrl = findAbsoluteUrlPrefix(value, valueStart);
 		const nextUrlBoundary =
 			nextUrl !== undefined &&
@@ -287,6 +292,7 @@ function redactSpacedCredentialParameterValues(value: string): string {
 			explicitValueEnd,
 			nextUrlBoundary ?? explicitValueEnd,
 			wrapperEnd ?? explicitValueEnd,
+			sentenceEnd ?? explicitValueEnd,
 		);
 		const parameterValue = value.slice(valueStart, valueEnd);
 		if (!isAlreadyRedactedCredentialValue(parameterValue)) {
@@ -314,6 +320,10 @@ function redactSpacedCredentialParameterValues(value: string): string {
 	return redacted;
 }
 
+/**
+ * Find a closing URL wrapper only when its opener is outside the query value
+ * and non-wrapper credential text appears before it.
+ */
 function findCredentialValueWrapperBoundary(
 	value: string,
 	valueStart: number,
@@ -341,6 +351,36 @@ function findCredentialValueWrapperBoundary(
 	return undefined;
 }
 
+/**
+ * Preserve prose after a sentence-ending credential URL while leaving
+ * periods inside ordinary spaced secrets untouched.
+ */
+function findSentenceEndingBoundary(
+	value: string,
+	valueStart: number,
+	valueEnd: number,
+): number | undefined {
+	const url = findAbsoluteUrlPrefix(value.slice(0, valueStart));
+	if (url === undefined || /\s/.test(value.slice(url.index, valueStart))) {
+		return undefined;
+	}
+	const sentencePattern = /\.(?=\s+[A-Z])/g;
+	sentencePattern.lastIndex = valueStart;
+	let boundary = sentencePattern.exec(value);
+	while (boundary !== null && boundary.index !== undefined) {
+		if (boundary.index >= valueEnd) return undefined;
+		const followingText = value.slice(boundary.index + 1, valueEnd);
+		if (/^\s+[A-Z][A-Za-z'-]*(?:\s+[A-Za-z][A-Za-z'-]*)+\.\s*$/.test(
+			followingText,
+		)) {
+			return boundary.index;
+		}
+		boundary = sentencePattern.exec(value);
+	}
+	return undefined;
+}
+
+/** Check whether a closing delimiter matches an opener before the value. */
 function hasMatchingOpeningWrapper(
 	value: string,
 	valueStart: number,
@@ -431,8 +471,9 @@ function spacedUserinfoEnd(
 ): number {
 	const token = tokens[index] ?? "";
 	const authority = token.slice(prefix.length);
-	if (!authority.includes(":") || /[@/?#\\]/.test(authority)) return index;
+	if (!authority.includes(":") || authority.includes("@")) return index;
 	if (parseUrl(token) !== undefined) {
+		if (/[/?#\\]/.test(authority)) return index;
 		const last = Math.min(
 			tokens.length - 1,
 			index + 2 * MAX_SPACED_USERINFO_TOKENS,

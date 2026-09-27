@@ -606,6 +606,10 @@ describe("settings URL credential redaction", () => {
 				"https://example.test/?token=, secret words&x=1",
 				`https://example.test/?token=${SETTINGS_REDACTED_VALUE}&x=1`,
 			],
+			[
+				"See https://host.example.com/?token=secret. Then continue.",
+				`See https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}. Then continue.`,
+			],
 		];
 		for (const [input, expected] of cases) {
 			expect(redactUrlCredentials(input)).toBe(expected);
@@ -640,6 +644,10 @@ describe("settings URL credential redaction", () => {
 			[
 				"https://gw-user:8080 correct horse@sms.example.com",
 				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com`,
+			],
+			[
+				"https://gw-user:correct/horse battery@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
 			],
 			// Fragment parameters before a "?".
 			[
