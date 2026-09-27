@@ -43,8 +43,9 @@ Mutations count as applied only on Listmonk's explicit `data: true`
 acknowledgement. Error responses (which the client returns rather than throws)
 and missing acknowledgements increment `failedSubscribers` and add bounded
 `errors` summaries such as `list_add http_403`; remote error text is never
-copied. A subscriber whose requested effects are already present, such as an
-existing target-list membership, is counted in `skippedAlreadyApplied`, so
+copied. A subscriber whose active target-list membership already exists, or
+whose unsubscribed target membership is left unchanged to preserve consent,
+is counted in `skippedAlreadyApplied` when no other mutation is requested, so
 every selected subscriber lands in exactly one counter.
 
 Sunset blocklisting is irreversible for list subscriptions. Listmonk marks

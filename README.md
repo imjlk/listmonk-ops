@@ -1462,14 +1462,17 @@ everywhere is never added to a winback list. Opt-in modes come from the list
 endpoint, and unconfirmed memberships on lists the token cannot read fail
 closed; the run warns how many subscribers that skipped. Winback adds
 candidates to `--target-list-id` (required with `--no-dry-run`) as unconfirmed
-members, which a single opt-in list delivers to. **Sunset blocklisting is irreversible for list
+members, which a single opt-in list delivers to. An existing unsubscribed
+membership on the target list stays unsubscribed to preserve the opt-out; the
+run skips that add on retries. **Sunset blocklisting is irreversible for list
 subscriptions:** Listmonk marks every membership unsubscribed, and removing the
 blocklist does not restore them. Destructive results report
 `processedSubscribers` (every mutation acknowledged by Listmonk),
 `failedSubscribers` (error responses or missing acknowledgements, including a
 subscriber whose list add landed before its blocklist failed), and
-`skippedAlreadyApplied` (the requested effects were already present, such as
-an existing target-list membership, so nothing was sent).
+`skippedAlreadyApplied` (no mutation was needed because an active target
+membership already existed, or an unsubscribed target membership was left
+unchanged to preserve consent when no other mutation was requested).
 
 Preflight link checking now blocks private/internal hosts (loopback,
 private CIDRs, link-local, cloud metadata IPs) and follows redirects

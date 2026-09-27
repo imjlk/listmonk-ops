@@ -524,6 +524,10 @@ describe("automation workflows", () => {
 								{ id: 10, subscription_status: "confirmed" },
 								{ id: 99, subscription_status: "blocklisted" },
 							]),
+							staleSubscriber(305, [
+								{ id: 10, subscription_status: "confirmed" },
+								{ id: 99, subscription_status: "unsubscribed" },
+							]),
 						],
 					},
 				}),
@@ -538,7 +542,7 @@ describe("automation workflows", () => {
 			mode: "winback",
 			dryRun: true,
 		});
-		expect(preview.subscriberIds).toEqual([301, 302, 303, 304]);
+		expect(preview.subscriberIds).toEqual([301, 302, 303, 304, 305]);
 		expect(preview.skippedAlreadyApplied).toBe(0);
 
 		const applied = await runSubscriberHygiene(client, {
@@ -547,18 +551,57 @@ describe("automation workflows", () => {
 			subscriberIds: preview.subscriberIds,
 			dryRun: false,
 		});
-		// Only the missing membership is added, and every selected
-		// subscriber lands in exactly one counter.
+		// Only missing memberships are added. The existing opted-out target
+		// membership stays unsubscribed, and every selected subscriber lands
+		// in exactly one counter.
 		expect(listAdds).toEqual([302, 303, 304]);
 		expect(applied.processedSubscribers).toBe(3);
 		expect(applied.failedSubscribers).toBe(0);
-		expect(applied.skippedAlreadyApplied).toBe(1);
+		expect(applied.skippedAlreadyApplied).toBe(2);
 		expect(
 			applied.processedSubscribers +
 				applied.failedSubscribers +
 				applied.skippedAlreadyApplied +
 				applied.skippedGuarded,
 		).toBe(applied.subscriberIds.length);
+	});
+
+	test("does not retry an add for an unsubscribed target membership", async () => {
+		let listAdds = 0;
+		const client = createWorkflowClient({
+			subscriber: {
+				list: async () => ({
+					data: {
+						results: [
+							staleSubscriber(306, [
+								{ id: 10, subscription_status: "confirmed" },
+								{ id: 99, subscription_status: "unsubscribed" },
+							]),
+						],
+					},
+				}),
+				manageListById: async () => {
+					listAdds += 1;
+					return acknowledged;
+				},
+			},
+		});
+		const options = {
+			mode: "winback" as const,
+			targetListId: 99,
+			subscriberIds: [306],
+			dryRun: false,
+		};
+
+		const firstRun = await runSubscriberHygiene(client, options);
+		const retry = await runSubscriberHygiene(client, options);
+
+		expect(listAdds).toBe(0);
+		for (const result of [firstRun, retry]) {
+			expect(result.processedSubscribers).toBe(0);
+			expect(result.failedSubscribers).toBe(0);
+			expect(result.skippedAlreadyApplied).toBe(1);
+		}
 	});
 
 	test("scopes hygiene eligibility to deliverable source-list memberships", async () => {

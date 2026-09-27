@@ -1384,12 +1384,15 @@ unconfirmed이며, `--source-list-ids`를 지정하면 해당 리스트 중 하�
 토큰이 읽을 수 없는 리스트의 unconfirmed 멤버십은 fail-closed로 제외되고
 실행 결과가 그로 인해 제외된 구독자 수를 경고합니다. Winback은 후보를
 `--target-list-id`(`--no-dry-run`에 필수)에 unconfirmed 멤버로 추가하며,
-single opt-in 리스트는 이 멤버에게도 발송합니다. **Sunset blocklist는 리스트 구독 측면에서
+single opt-in 리스트는 이 멤버에게도 발송합니다. 대상 리스트의 기존 구독 취소
+멤버십은 동의를 보존하기 위해 그대로 두며, 재시도에서도 추가 요청을 보내지
+않습니다. **Sunset blocklist는 리스트 구독 측면에서
 되돌릴 수 없습니다:** Listmonk는 모든 멤버십을 구독 취소로 바꾸며 blocklist를
 해제해도 복원되지 않습니다. 파괴적 실행 결과는 `processedSubscribers`(모든
 변경이 Listmonk에서 확인됨), `failedSubscribers`(오류 응답 또는 확인 누락,
-리스트 추가 후 blocklist가 실패한 구독자 포함), `skippedAlreadyApplied`(대상
-리스트 멤버십처럼 요청한 효과가 이미 있어 아무것도 보내지 않음)를 보고합니다.
+리스트 추가 후 blocklist가 실패한 구독자 포함), `skippedAlreadyApplied`(활성
+대상 멤버십이 이미 있거나 구독 취소 상태를 유지하기 위해 변경을 생략했고,
+다른 변경도 요청되지 않은 경우)를 보고합니다.
 
 프리플라이트 링크 검사는 private/internal 호스트(loopback, private
 CIDR, link-local, 클라우드 metadata IP)를 차단하며 redirect를 수동으로

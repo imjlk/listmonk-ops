@@ -30145,7 +30145,7 @@
                       },
                       "target_list_id": {
                         "$ref": "#/components/schemas/ResourceId",
-                        "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
+                        "description": "List to add selected subscribers to; required for a winback run\nwith dry_run false and a sunset run with dry_run false when\nblocklist is false. New memberships start unconfirmed; an existing\nunsubscribed target membership stays unsubscribed."
                       }
                     },
                     "required": [],
@@ -30207,7 +30207,7 @@
                       },
                       "target_list_id": {
                         "$ref": "#/components/schemas/ResourceId",
-                        "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
+                        "description": "List to add selected subscribers to; required for a winback run\nwith dry_run false and a sunset run with dry_run false when\nblocklist is false. New memberships start unconfirmed; an existing\nunsubscribed target membership stays unsubscribed."
                       }
                     },
                     "required": [
@@ -30271,7 +30271,7 @@
                   },
                   "target_list_id": {
                     "$ref": "#/components/schemas/ResourceId",
-                    "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
+                    "description": "List to add selected subscribers to; required for a winback run\nwith dry_run false and a sunset run with dry_run false when\nblocklist is false. New memberships start unconfirmed; an existing\nunsubscribed target membership stays unsubscribed."
                   }
                 },
                 "required": [],
@@ -30333,7 +30333,7 @@
                   },
                   "target_list_id": {
                     "$ref": "#/components/schemas/ResourceId",
-                    "description": "List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed."
+                    "description": "List to add selected subscribers to; required for a winback run\nwith dry_run false and a sunset run with dry_run false when\nblocklist is false. New memberships start unconfirmed; an existing\nunsubscribed target membership stays unsubscribed."
                   }
                 },
                 "required": [
@@ -30427,7 +30427,7 @@
                   },
                   "skippedAlreadyApplied": {
                     "$ref": "#/components/schemas/NonNegativeInteger",
-                    "description": "Selected subscribers whose requested effects were already present\n(an existing target-list membership), so the run sent nothing for them."
+                    "description": "Selected subscribers skipped without mutation because an active target\nmembership already existed, or an unsubscribed target membership was\nleft unchanged to preserve consent. A destructive run's processed,\nfailed, skippedAlreadyApplied, and skippedGuarded counts partition the\nselected set."
                   },
                   "skippedDueToLimit": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
@@ -30532,7 +30532,7 @@
               },
               "skippedAlreadyApplied": {
                 "$ref": "#/components/schemas/NonNegativeInteger",
-                "description": "Selected subscribers whose requested effects were already present\n(an existing target-list membership), so the run sent nothing for them."
+                "description": "Selected subscribers skipped without mutation because an active target\nmembership already existed, or an unsubscribed target membership was\nleft unchanged to preserve consent. A destructive run's processed,\nfailed, skippedAlreadyApplied, and skippedGuarded counts partition the\nselected set."
               },
               "skippedDueToLimit": {
                 "$ref": "#/components/schemas/NonNegativeInteger"

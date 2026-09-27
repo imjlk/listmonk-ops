@@ -192,7 +192,12 @@ export type SubscriberHygieneInput =
 			 * list counts.
 			 */
 			source_list_ids?: ResourceId[];
-			/** List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed. */
+			/**
+			 * List to add selected subscribers to; required for a winback run
+			 * with dry_run false and a sunset run with dry_run false when
+			 * blocklist is false. New memberships start unconfirmed; an existing
+			 * unsubscribed target membership stays unsubscribed.
+			 */
 			target_list_id?: ResourceId;
 			/**
 			 * Blocklist sunset candidates. Irreversible for list subscriptions:
@@ -225,7 +230,12 @@ export type SubscriberHygieneInput =
 			 * list counts.
 			 */
 			source_list_ids?: ResourceId[];
-			/** List to add selected subscribers to; required for a winback run with dry_run false. New memberships start unconfirmed. */
+			/**
+			 * List to add selected subscribers to; required for a winback run
+			 * with dry_run false and a sunset run with dry_run false when
+			 * blocklist is false. New memberships start unconfirmed; an existing
+			 * unsubscribed target membership stays unsubscribed.
+			 */
 			target_list_id?: ResourceId;
 			/**
 			 * Blocklist sunset candidates. Irreversible for list subscriptions:
@@ -269,8 +279,11 @@ export interface SubscriberHygieneOutput {
 	/** Selected subscribers skipped because their updated_at moved past the echoed guard. */
 	skippedGuarded: NonNegativeInteger;
 	/**
-	 * Selected subscribers whose requested effects were already present
-	 * (an existing target-list membership), so the run sent nothing for them.
+	 * Selected subscribers skipped without mutation because an active target
+	 * membership already existed, or an unsubscribed target membership was
+	 * left unchanged to preserve consent. A destructive run's processed,
+	 * failed, skippedAlreadyApplied, and skippedGuarded counts partition the
+	 * selected set.
 	 */
 	skippedAlreadyApplied: NonNegativeInteger;
 	/** The selected subscriber ids — echo them for the destructive run. */

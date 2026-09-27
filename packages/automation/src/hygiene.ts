@@ -81,10 +81,12 @@ export interface SubscriberHygieneResult {
 	/** Selected subscribers skipped because their updated_at moved past the echoed guard. */
 	skippedGuarded: number;
 	/**
-	 * Guard-eligible subscribers whose requested effects were already present
-	 * (an existing target-list membership and no blocklist requested), so the
-	 * run sent nothing for them. In a destructive run, processed + failed +
-	 * skippedAlreadyApplied + skippedGuarded equals the selected set.
+	 * Guard-eligible subscribers who needed no mutation because an active
+	 * target-list membership already existed or an unsubscribed target
+	 * membership was deliberately left unchanged to preserve consent. Counted
+	 * only when no other mutation was requested. In a destructive run,
+	 * processed + failed + skippedAlreadyApplied + skippedGuarded equals the
+	 * selected set.
 	 */
 	skippedAlreadyApplied: number;
 	/** The selected subscriber ids — echo them for the destructive run. */
@@ -477,22 +479,30 @@ export async function runSubscriberHygiene(
 			// record already shows an active target-list membership — a
 			// partial sunset run whose list-add landed before its blocklist
 			// failed re-reads exactly this — the add is skipped so the retry
-			// only applies the missing effects. An unsubscribed membership
-			// is not the subscription the request asked for, so it does not
-			// count as complete.
+			// only applies the missing effects. An unsubscribed target
+			// membership is also left untouched: Listmonk preserves that
+			// opt-out when asked to add the subscriber, so retrying the same
+			// effect cannot make progress and must not imply renewed consent.
+			const targetMembership =
+				targetListId === undefined
+					? undefined
+					: (candidate.lists || []).find(
+							(entry) => toPositiveInt(entry.id) === targetListId,
+						);
 			const alreadyMember =
-				targetListId !== undefined &&
-				(candidate.lists || []).some(
-					(entry) =>
-						toPositiveInt(entry.id) === targetListId &&
-						(entry.subscription_status === "confirmed" ||
-							entry.subscription_status === "unconfirmed"),
-				);
+				targetMembership?.subscription_status === "confirmed" ||
+				targetMembership?.subscription_status === "unconfirmed";
+			const preserveExistingUnsubscribe =
+				targetMembership?.subscription_status === "unsubscribed";
 			// Effects apply in order and the first failure stops this
 			// subscriber, so a retry applies whatever is still missing.
 			let failure: SubscriberHygieneMutationFailure | undefined;
 			let mutated = false;
-			if (targetListId && !alreadyMember) {
+			if (
+				targetListId &&
+				!alreadyMember &&
+				!preserveExistingUnsubscribe
+			) {
 				const code = await applyHygieneMutation(() =>
 					client.subscriber.manageListById({
 						path: { id },
