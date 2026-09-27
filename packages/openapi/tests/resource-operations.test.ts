@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createClient } from "../generated/client";
 import { getCampaigns as getGeneratedCampaigns } from "../generated/sdk.gen";
+import { createListmonkClient } from "../index";
 import { getCampaigns, type GetCampaignsData } from "../sdk";
 import {
 	createCampaignOperations,
@@ -154,5 +155,156 @@ describe("Media list pagination", () => {
 			per_page: 20,
 			page: 2,
 		});
+	});
+});
+
+interface RecordedRequest {
+	method: string;
+	pathname: string;
+	contentType: string | null;
+	authorization: string | null;
+	body: string;
+}
+
+function createRecordingFetch(
+	requests: RecordedRequest[],
+	respond: () => Response,
+) {
+	return Object.assign(
+		async (input: RequestInfo | URL, init?: RequestInit) => {
+			const request = new Request(input, init);
+			requests.push({
+				method: request.method,
+				pathname: new URL(request.url).pathname,
+				contentType: request.headers.get("content-type"),
+				authorization: request.headers.get("authorization"),
+				body: await request.text(),
+			});
+			return respond();
+		},
+		{ preconnect() {} },
+	);
+}
+
+function htmlPreview(): Response {
+	return new Response("<p>Hi Demo Subscriber</p>", {
+		headers: { "Content-Type": "text/html; charset=UTF-8" },
+	});
+}
+
+// Listmonk 6.2's PreviewCampaign handler (POST /campaigns/{id}/preview and
+// its /text alias) reads these with c.FormValue, so a JSON body is ignored.
+const previewFields = {
+	body: "<p>Hi {{ .Subscriber.Name }}: a+b & c=d 100% 안녕</p>",
+	content_type: "richtext",
+	template_id: 12,
+} as const;
+const encodedPreviewFields =
+	"body=%3Cp%3EHi+%7B%7B+.Subscriber.Name+%7D%7D%3A+a%2Bb+%26+c%3Dd+100%25+%EC%95%88%EB%85%95%3C%2Fp%3E&content_type=richtext&template_id=12";
+
+describe("Campaign preview form encoding", () => {
+	for (const [method, pathname] of [
+		["updatePreview", "/api/campaigns/42/preview"],
+		["previewText", "/api/campaigns/42/text"],
+	] as const) {
+		test(`${method} form-encodes the fields the 6.2 handler reads`, async () => {
+			const requests: RecordedRequest[] = [];
+			const client = createClient({
+				baseUrl: "http://localhost/api",
+				fetch: createRecordingFetch(requests, htmlPreview),
+			});
+			const campaigns = createCampaignOperations({ client });
+
+			const result = await campaigns[method]({
+				path: { id: 42 },
+				body: previewFields,
+			});
+
+			expect(requests).toEqual([
+				{
+					method: "POST",
+					pathname,
+					contentType: "application/x-www-form-urlencoded",
+					authorization: null,
+					body: encodedPreviewFields,
+				},
+			]);
+			expect(
+				Object.fromEntries(new URLSearchParams(requests[0]?.body)),
+			).toEqual({ ...previewFields, template_id: "12" });
+			expect(result.data).toBe("<p>Hi Demo Subscriber</p>");
+		});
+	}
+
+	test("overrides the JSON content type of token-authenticated clients", async () => {
+		const requests: RecordedRequest[] = [];
+		const originalFetch = globalThis.fetch;
+		try {
+			// createListmonkClient binds the global fetch when it is created.
+			globalThis.fetch = createRecordingFetch(
+				requests,
+				htmlPreview,
+			) as typeof fetch;
+			const client = createListmonkClient({
+				baseUrl: "http://localhost/api",
+				auth: { username: "api-user", token: "test-token" },
+			});
+
+			await client.campaign.updatePreview({
+				path: { id: 42 },
+				body: previewFields,
+			});
+			await client.campaign.previewText({
+				path: { id: 42 },
+				body: previewFields,
+			});
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+
+		expect(requests).toEqual(
+			["/api/campaigns/42/preview", "/api/campaigns/42/text"].map(
+				(pathname) => ({
+					method: "POST",
+					pathname,
+					contentType: "application/x-www-form-urlencoded",
+					authorization: "token api-user:test-token",
+					body: encodedPreviewFields,
+				}),
+			),
+		);
+	});
+
+	test("sends only the provided fields and returns plain-text previews as strings", async () => {
+		const requests: RecordedRequest[] = [];
+		const client = createClient({
+			baseUrl: "http://localhost/api",
+			fetch: createRecordingFetch(
+				requests,
+				() =>
+					new Response("Hi Demo Subscriber", {
+						headers: { "Content-Type": "text/plain; charset=UTF-8" },
+					}),
+			),
+		});
+		const campaigns = createCampaignOperations({ client });
+
+		const plain = await campaigns.previewText({
+			path: { id: 7 },
+			body: { body: "Hi {{ .Subscriber.Name }}", content_type: "plain" },
+		});
+		await campaigns.updatePreview({
+			path: { id: 7 },
+			body: { template_id: 5 },
+		});
+
+		expect(requests.map(({ pathname, body }) => [pathname, body])).toEqual([
+			[
+				"/api/campaigns/7/text",
+				"body=Hi+%7B%7B+.Subscriber.Name+%7D%7D&content_type=plain",
+			],
+			["/api/campaigns/7/preview", "template_id=5"],
+		]);
+		expect(plain.data).toBe("Hi Demo Subscriber");
 	});
 });

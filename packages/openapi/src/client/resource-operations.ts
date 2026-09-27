@@ -52,6 +52,7 @@ import type {
 	Campaign,
 	CampaignArchiveBody,
 	CampaignArchiveEcho,
+	CampaignPreviewParams,
 	CampaignStatusTransition,
 	CampaignTestParams,
 	EnhancedListmonkClient,
@@ -238,20 +239,16 @@ export function createCampaignOperations(
 			});
 			return (await transformResponse(result)) as FlattenedResponse<string>;
 		},
-		async updatePreview(options: {
-			path: { id: number };
-			body: { template_id?: number; body?: string };
-		}) {
+		// Both generated calls already form-encode the body and override the
+		// client's JSON content type, which is what the 6.2 handler reads.
+		async updatePreview(options: CampaignPreviewParams) {
 			const result = await updatePreviewCampaignById({
 				...sdkOptions,
 				...options,
 			});
-			return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			return (await transformResponse(result)) as FlattenedResponse<string>;
 		},
-		async previewText(options: {
-			path: { id: number };
-			body: { template_id?: number; body?: string };
-		}) {
+		async previewText(options: CampaignPreviewParams) {
 			const result = await previewCampaignTextById({
 				...sdkOptions,
 				...options,
