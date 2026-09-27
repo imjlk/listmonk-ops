@@ -1,5 +1,8 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { SETTINGS_REDACTED_VALUE } from "@listmonk-ops/openapi";
+import {
+	isSettingsCredentialQueryParameter,
+	SETTINGS_REDACTED_VALUE,
+} from "@listmonk-ops/openapi";
 import {
 	bindSettingsGetOperationSpec,
 	bindSettingsTestSmtpOperationSpec,
@@ -85,38 +88,6 @@ function isCredentialFieldName(name: string): boolean {
 }
 
 /**
- * Query parameter name tokens that carry credentials in a URL beyond the
- * settings field names above: request signatures and signing scopes (AWS
- * SigV4 `X-Amz-Signature` and `X-Amz-Credential`, Azure SAS `sig`), session
- * ids, and the `user`/`pass` pairs SMS and webhook gateways accept in a
- * messenger's postback URL. Any token ending in "key" also counts, so
- * `api-key`, `apiKey`, and `X-Api-Key` match alike.
- */
-const URL_CREDENTIAL_PARAMETER_TOKENS = new Set([
-	"auth",
-	"authorization",
-	"credential",
-	"credentials",
-	"hmac",
-	"jwt",
-	"login",
-	"pass",
-	"passphrase",
-	"passwd",
-	"pwd",
-	"sessid",
-	"session",
-	"sessionid",
-	"sig",
-	"signature",
-	"token",
-	"user",
-	"username",
-]);
-
-const URL_CREDENTIAL_PARAMETER_NAMES = new Set(["key_pair_id", "session_id"]);
-
-/**
  * The start of an absolute URL with an authority: an RFC 3986 scheme and
  * `//` (or the `\\` WHATWG parsers accept for special schemes). Requiring
  * the authority keeps `mailto:` addresses, hostnames, email addresses, and
@@ -156,34 +127,8 @@ const SPECIAL_URL_SCHEMES = new Set([
  */
 const MAX_SPACED_USERINFO_TOKENS = 8;
 
-function decodeQueryParameterName(encodedName: string): string {
-	try {
-		return decodeURIComponent(encodedName.replace(/\+/g, " "));
-	} catch {
-		return encodedName;
-	}
-}
-
 function isCredentialQueryParameter(encodedName: string): boolean {
-	const name = decodeQueryParameterName(encodedName)
-		.replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
-		.replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-		.toLowerCase();
-	const normalizedName = name
-		.split(/[^a-z0-9]+/)
-		.filter(Boolean)
-	.join("_");
-	if (
-		CREDENTIAL_FIELD_NAMES.has(normalizedName) ||
-		URL_CREDENTIAL_PARAMETER_NAMES.has(normalizedName)
-	) {
-		return true;
-	}
-	const lastToken = normalizedName.split("_").at(-1);
-	return (
-		lastToken !== undefined &&
-		(lastToken.endsWith("key") || URL_CREDENTIAL_PARAMETER_TOKENS.has(lastToken))
-	);
+	return isSettingsCredentialQueryParameter(encodedName);
 }
 
 /**
@@ -369,7 +314,20 @@ function findSentenceEndingBoundary(
 	valueStart: number,
 	valueEnd: number,
 ): number | undefined {
-	if (!ABSOLUTE_URL_PREFIX_AT_END.test(value.slice(0, valueStart))) {
+	const prefix = value.slice(0, valueStart);
+	if (!ABSOLUTE_URL_PREFIX_AT_END.test(prefix)) {
+		return undefined;
+	}
+	const urlPattern = /[a-z][a-z0-9+.-]*:[\\/]{2}/gi;
+	let lastUrlStart: number | undefined;
+	for (const match of prefix.matchAll(urlPattern)) {
+		lastUrlStart = match.index;
+	}
+	if (
+		lastUrlStart === undefined ||
+		lastUrlStart === 0 ||
+		!/[\s]/.test(prefix.slice(0, lastUrlStart))
+	) {
 		return undefined;
 	}
 	const sentencePattern = /\.(?=\s+[A-Z])/g;
@@ -472,6 +430,7 @@ interface TextRange {
 	end: number;
 }
 
+/** Ranges must be sorted in ascending order and must not overlap. */
 function replaceTextRanges(
 	value: string,
 	ranges: readonly TextRange[],
@@ -659,7 +618,11 @@ function findRedactionRanges(
 		const originalEnd =
 			unchangedSuffix === ""
 				? original.length
-				: original.indexOf(unchangedSuffix, originalIndex);
+				: nextMarker === -1
+					? original.endsWith(unchangedSuffix)
+						? original.length - unchangedSuffix.length
+						: -1
+					: original.indexOf(unchangedSuffix, originalIndex);
 		if (originalEnd < originalIndex || originalEnd === -1) return undefined;
 		ranges.push({ start: originalIndex, end: originalEnd });
 		originalIndex = originalEnd;

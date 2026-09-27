@@ -31,7 +31,10 @@ import type {
 import type { SdkOptions } from "./crud";
 import type { CrudResult, FlattenedResponse } from "./response";
 import { normalizeListResult, transformResponse } from "./response";
-import { SETTINGS_REDACTED_VALUE } from "./settings-redaction";
+import {
+	isSettingsCredentialQueryParameter,
+	SETTINGS_REDACTED_VALUE,
+} from "./settings-redaction";
 
 export function createImportOperations(
 	sdkOptions: SdkOptions,
@@ -205,11 +208,15 @@ function containsRedactedSettingsPlaceholder(
 }
 
 /** Ignore prose mentions while detecting markers emitted as credential values. */
-function containsRedactedSettingsPlaceholderInString(value: string): boolean {
+function containsRedactedSettingsPlaceholderInString(
+	value: string,
+	decodeDepth = 0,
+): boolean {
 	let index = value.indexOf(SETTINGS_REDACTED_VALUE);
 	while (index !== -1) {
 		const prefix = value.slice(0, index);
-		const suffix = value.slice(index + SETTINGS_REDACTED_VALUE.length);
+		const markerEnd = index + SETTINGS_REDACTED_VALUE.length;
+		const suffix = value.slice(markerEnd);
 		if (value === SETTINGS_REDACTED_VALUE) return true;
 		if (
 			suffix.startsWith("@") &&
@@ -217,18 +224,70 @@ function containsRedactedSettingsPlaceholderInString(value: string): boolean {
 		) {
 			return true;
 		}
+		if (isCredentialQueryValueMarker(value, index)) return true;
+		index = value.indexOf(SETTINGS_REDACTED_VALUE, markerEnd);
+	}
+
+	const lowerCaseValue = value.toLowerCase();
+	const encodedMarker = "%5bredacted%5d";
+	let encodedIndex = lowerCaseValue.indexOf(encodedMarker);
+	while (encodedIndex !== -1) {
+		const prefix = value.slice(0, encodedIndex);
+		const suffix = lowerCaseValue.slice(encodedIndex + encodedMarker.length);
 		if (
-			prefix.endsWith("=") &&
-			(suffix === "" || /^[)\]}>'\",.;?&#\s]/.test(suffix))
+			(suffix.startsWith("%40") &&
+				/(?:%3a|:)(?:%2f|\x2f){2}$/i.test(prefix)) ||
+			isCredentialQueryValueMarker(value, encodedIndex)
 		) {
 			return true;
 		}
-		index = value.indexOf(
-			SETTINGS_REDACTED_VALUE,
-			index + SETTINGS_REDACTED_VALUE.length,
+		encodedIndex = lowerCaseValue.indexOf(
+			encodedMarker,
+			encodedIndex + encodedMarker.length,
 		);
 	}
+
+	if (decodeDepth < 3 && value.includes("%")) {
+		try {
+			const decoded = decodeURIComponent(value.replace(/\+/g, " "));
+			if (
+				decoded !== value &&
+				containsRedactedSettingsPlaceholderInString(decoded, decodeDepth + 1)
+			) {
+				return true;
+			}
+		} catch {
+			// Direct marker checks still work when unrelated escapes are malformed.
+		}
+	}
 	return false;
+}
+
+function isCredentialQueryValueMarker(value: string, markerIndex: number): boolean {
+	const prefix = value.slice(0, markerIndex);
+	const assignmentPattern = /(?:=|%3d)/gi;
+	let assignment: RegExpExecArray | null;
+	let lastAssignment: RegExpExecArray | undefined;
+	while ((assignment = assignmentPattern.exec(prefix)) !== null) {
+		lastAssignment = assignment;
+	}
+	if (lastAssignment === undefined || lastAssignment.index === undefined) {
+		return false;
+	}
+
+	const separatorPattern = /(?:[?&#;]|%3f|%26|%23|%3b)/gi;
+	let separator: RegExpExecArray | null;
+	let lastSeparator: RegExpExecArray | undefined;
+	while ((separator = separatorPattern.exec(prefix)) !== null) {
+		if (separator.index >= lastAssignment.index) break;
+		lastSeparator = separator;
+	}
+	const nameStart = lastSeparator?.index === undefined
+		? 0
+		: lastSeparator.index + lastSeparator[0].length;
+	return isSettingsCredentialQueryParameter(
+		prefix.slice(nameStart, lastAssignment.index),
+	);
 }
 
 export function createDashboardOperations(

@@ -64,6 +64,24 @@ describe("Service operation factories", () => {
 			}),
 		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
 		expect(settingsUpdateRequests).toBe(0);
+		await expect(
+			settings.update({
+				body: {
+					redirect:
+						"https://app.example/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host",
+				},
+			}),
+		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		expect(settingsUpdateRequests).toBe(0);
+		await expect(
+			settings.update({
+				body: {
+					redirect:
+						"https://app.example/login?redirect=https%3A%2F%2Fhost%2Fcb%3Ftoken%3D%5Bredacted%5D",
+				},
+			}),
+		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		expect(settingsUpdateRequests).toBe(0);
 
 		const updated = await settings.update({
 			body: {
@@ -73,6 +91,18 @@ describe("Service operation factories", () => {
 		});
 		expect(updated.data).toBe(true);
 		expect(settingsUpdateRequests).toBe(1);
+		const cssUpdated = await settings.update({
+			body: {
+				appearance: {
+					admin: {
+						custom_css:
+							"background:url(https://cdn.example/x?label=[redacted])",
+					},
+				},
+			},
+		});
+		expect(cssUpdated.data).toBe(true);
+		expect(settingsUpdateRequests).toBe(2);
 	});
 
 	test("createSettingsOperations rejects redacted SMTP test credentials before sending", async () => {
