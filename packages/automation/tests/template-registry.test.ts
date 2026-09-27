@@ -60,6 +60,21 @@ describe("resolveTemplateLiveVersion", () => {
 		).toMatchObject({ status: "latest", version: { versionId: "v4" } });
 	});
 
+	test("uses the persisted observation pointer instead of an older history tail", () => {
+		expect(
+			resolveTemplateLiveVersion(
+				{ ...templateRecord("v2"), latestObservedVersionId: "v3" },
+				"hash-a",
+			),
+		).toMatchObject({ status: "latest", version: { versionId: "v3" } });
+		expect(
+			resolveTemplateLiveVersion(
+				{ ...templateRecord("v1"), latestObservedVersionId: "v1" },
+				"hash-c",
+			),
+		).toEqual({ status: "drifted", matchingVersionIds: ["v4"] });
+	});
+
 	test("reports drift instead of placing content only older versions hold", () => {
 		expect(resolveTemplateLiveVersion(templateRecord("v4"), "hash-a")).toEqual(
 			{ status: "drifted", matchingVersionIds: ["v1", "v3"] },

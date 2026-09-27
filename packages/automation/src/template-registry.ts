@@ -32,6 +32,8 @@ export interface TemplateRegistryVersion {
 	capturedAt: string;
 	/** Global order reserved immediately before the remote template read. */
 	captureOrder?: number;
+	/** Latest template observation order already merged when this read began. */
+	previousCaptureOrder?: number;
 	/** Prior observed version in this write epoch, or its active starting version. */
 	previousVersionId?: string;
 	/** Registry head revision observed immediately before this capture's read. */
@@ -52,12 +54,17 @@ export interface TemplateRegistryTemplateRecord {
 	 */
 	activeVersionId?: string;
 	/**
+	 * Version whose content matched the latest current observation or managed
+	 * write.
+	 */
+	latestObservedVersionId?: string;
+	/**
 	 * Monotonic counter of registry-managed template writes. It advances
 	 * even when a write restores the same active version, so a pinned retry
 	 * can tell an untouched registry from one that went A → X → A.
 	 */
 	headRevision?: number;
-	/** Newest read observation, including captures that matched stored content. */
+	/** Newest sequenced read, including unchanged syncs and verified no-ops. */
 	latestCaptureOrder?: number;
 	versions: TemplateRegistryVersion[];
 }
@@ -148,7 +155,7 @@ export class TemplateRegistryDriftError extends Error {
 		const matches = details.matchingVersionIds;
 		const observed =
 			matches.length > 0
-				? `matches stored version${matches.length > 1 ? "s" : ""} ${matches.join(", ")} but neither the active version ${details.activeVersionId ?? "(none)"} nor the latest capture`
+				? `matches stored version${matches.length > 1 ? "s" : ""} ${matches.join(", ")} but neither the active version ${details.activeVersionId ?? "(none)"} nor the latest observed version`
 				: "matches no stored registry version";
 		super(
 			`Template ${details.templateId} live content (hash ${details.liveHash.slice(0, 10)}) ${observed}; it changed outside the registry since the last sync. Run registry-sync to record the live content before rolling back, or pin to_version_id to the version preceding the active one to overwrite it explicitly.`,
@@ -267,6 +274,10 @@ function isTemplateRegistryVersion(
 			(typeof value.captureOrder === "number" &&
 				Number.isSafeInteger(value.captureOrder) &&
 				value.captureOrder > 0)) &&
+		(value.previousCaptureOrder === undefined ||
+			(typeof value.previousCaptureOrder === "number" &&
+				Number.isSafeInteger(value.previousCaptureOrder) &&
+				value.previousCaptureOrder >= 0)) &&
 		(value.previousVersionId === undefined ||
 			typeof value.previousVersionId === "string") &&
 		(value.captureHeadRevision === undefined ||
@@ -290,6 +301,8 @@ function isTemplateRegistryRecord(
 		typeof value.templateName === "string" &&
 		(value.activeVersionId === undefined ||
 			typeof value.activeVersionId === "string") &&
+		(value.latestObservedVersionId === undefined ||
+			typeof value.latestObservedVersionId === "string") &&
 		(value.headRevision === undefined ||
 			(typeof value.headRevision === "number" &&
 				Number.isInteger(value.headRevision) &&
@@ -438,16 +451,18 @@ function liveTemplateMatchesRemoteHashPin(
  * Resolve which stored version is live in Listmonk from the live content
  * hash. The active version wins when it holds the live content: it
  * disambiguates duplicate content, such as an older version a promotion or
- * rollback made active. Otherwise the latest capture matches when nothing
- * changed since the last capture. Any other live content changed outside the
- * registry since the last sync — even when it equals an older stored
- * version, its position in history is unknown — so it resolves as drift
- * rather than a guess. A sync applies the same rule, so a rollback resolves
- * exactly the version a sync would mark active without recording anything
- * new.
+ * rollback made active. Otherwise the latest observed version matches when
+ * nothing changed since the last observation. Other content is treated as
+ * registry-external drift, even when it equals an older stored version whose
+ * position in the live history is unknown. A sync applies the same rule, so
+ * rollback resolves exactly the version a sync would mark active without
+ * recording anything new.
  */
 export function resolveTemplateLiveVersion(
-	record: Pick<TemplateRegistryTemplateRecord, "activeVersionId" | "versions">,
+	record: Pick<
+		TemplateRegistryTemplateRecord,
+		"activeVersionId" | "latestObservedVersionId" | "versions"
+	>,
 	liveHash: string,
 ): TemplateLiveVersionResolution {
 	const history = [...record.versions].sort(compareTemplateVersions);
@@ -457,9 +472,22 @@ export function resolveTemplateLiveVersion(
 	if (activeVersion && versionHoldsLiveContent(activeVersion, liveHash)) {
 		return { status: "active", version: activeVersion };
 	}
-	const latestVersion = history.at(-1);
-	if (latestVersion && versionHoldsLiveContent(latestVersion, liveHash)) {
-		return { status: "latest", version: latestVersion };
+	// Older schema-v1 stores lack the observation pointer. Keep their existing
+	// history-tail behavior until a current observation or managed write adds
+	// it. Once present, the pointer is authoritative: an older matching history
+	// entry does not prove that it is still the live version.
+	const latestObservedVersion =
+		record.latestObservedVersionId === undefined
+			? history.at(-1)
+			: history.find(
+					(version) =>
+						version.versionId === record.latestObservedVersionId,
+					);
+	if (
+		latestObservedVersion &&
+		versionHoldsLiveContent(latestObservedVersion, liveHash)
+	) {
+		return { status: "latest", version: latestObservedVersion };
 	}
 	return {
 		status: "drifted",
@@ -482,7 +510,7 @@ export function resolveTemplateLiveVersion(
 export function selectTemplateRollbackTarget(
 	record: Pick<
 		TemplateRegistryTemplateRecord,
-		"templateId" | "activeVersionId" | "versions"
+		"templateId" | "activeVersionId" | "latestObservedVersionId" | "versions"
 	>,
 	liveHash: string,
 	toVersionId?: string,
@@ -555,6 +583,7 @@ interface CapturedTemplateVersion {
 	 */
 	capturedAt: string;
 	captureOrder: number;
+	previousCaptureOrder?: number;
 	headRevisionBeforeRead: number;
 	previousVersionId?: string;
 	snapshot: TemplateVersionSnapshot;
@@ -611,6 +640,36 @@ async function reserveTemplateCaptureRead(
 			{ captureOrder },
 		);
 	});
+}
+
+async function reserveTemplateObservationOrder(
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
+	store: TemplateRegistryStore,
+): Promise<number> {
+	const highWater = getTemplateRegistryCaptureSequenceHighWater(store);
+	const sequenceStore = createTemplateCaptureSequenceStore(
+		storeDefinition,
+		highWater,
+	);
+	return (
+		await reserveTemplateCaptureRead(sequenceStore, highWater)
+	).captureOrder;
+}
+
+function recordTemplateObservation(
+	store: TemplateRegistryStore,
+	record: TemplateRegistryTemplateRecord,
+	versionId: string,
+	captureOrder: number,
+): void {
+	record.latestCaptureOrder = Math.max(
+		record.latestCaptureOrder ?? 0,
+		record.versions.at(-1)?.captureOrder ?? 0,
+		captureOrder,
+	);
+	record.latestObservedVersionId = versionId;
+	store.captureSequence = Math.max(store.captureSequence ?? 0, captureOrder);
+	store.templates[String(record.templateId)] = record;
 }
 
 /**
@@ -673,6 +732,12 @@ async function captureTemplateRegistry(
 					}
 					const headRevisionBeforeRead =
 						latestRegistry.templates[String(templateId)]?.headRevision ?? 0;
+					const previousCaptureOrder = Math.max(
+						latestRegistry.templates[String(templateId)]?.latestCaptureOrder ??
+							0,
+						latestRegistry.templates[String(templateId)]?.versions.at(-1)
+							?.captureOrder ?? 0,
+					);
 					const previousVersionId =
 						latestRegistry.templates[String(templateId)]?.activeVersionId;
 					const capturedAt = new Date().toISOString();
@@ -681,6 +746,7 @@ async function captureTemplateRegistry(
 					return commitJsonFileStoreUpdate(lockState, {
 						templateId,
 						...stamp,
+						...(previousCaptureOrder > 0 ? { previousCaptureOrder } : {}),
 						capturedAt,
 						headRevisionBeforeRead,
 						previousVersionId,
@@ -740,8 +806,9 @@ function isCurrentTemplateCapture(
 /**
  * Captures can merge after a later same-template observation. Once both are
  * present, rebuild their predecessor links in observation order within each
- * registry-write epoch. The first capture in an epoch keeps the active version
- * sampled before its read; later captures point to the preceding observation.
+ * registry-write epoch. A capture's previousCaptureOrder watermark protects a
+ * sampled predecessor from captures that merged late but were already
+ * superseded by an unchanged observation before this read.
  */
 function reconcileTemplateCapturePredecessors(
 	record: TemplateRegistryTemplateRecord,
@@ -752,7 +819,11 @@ function reconcileTemplateCapturePredecessors(
 			continue;
 		}
 		const previous = previousByHeadRevision.get(version.captureHeadRevision);
-		if (previous) {
+		if (
+			previous &&
+			(version.previousCaptureOrder === undefined ||
+				(previous.captureOrder ?? 0) > version.previousCaptureOrder)
+		) {
 			version.previousVersionId = previous.versionId;
 		}
 		previousByHeadRevision.set(version.captureHeadRevision, version);
@@ -778,6 +849,7 @@ function mergeTemplateRegistryCapture(
 		templateId,
 		capturedAt,
 		captureOrder,
+		previousCaptureOrder,
 		headRevisionBeforeRead,
 		previousVersionId,
 		snapshot,
@@ -810,7 +882,18 @@ function mergeTemplateRegistryCapture(
 		// capture activates it, and anything else is recorded below as a new
 		// version. Only a current capture moves the active version.
 		const live = resolveTemplateLiveVersion(record, hash);
-		if (live.status !== "drifted") {
+		// A stale capture cannot move the active/latest-observed pointers. If its
+		// content already appears in history, recognize it here to avoid a
+		// duplicate version even though it no longer matches the current pointer.
+		const staleMatchingVersion =
+			live.status === "drifted" && !isCurrentCapture
+				? [...record.versions]
+						.reverse()
+						.find((version) => versionHoldsLiveContent(version, hash))
+				: undefined;
+		const observedVersion =
+			live.status === "drifted" ? staleMatchingVersion : live.version;
+		if (observedVersion) {
 			if (isCurrentCapture) {
 				// The live name: an active older version a promotion restored
 				// can carry a different name than the latest capture.
@@ -822,13 +905,16 @@ function mergeTemplateRegistryCapture(
 			) {
 				record.activeVersionId = live.version.versionId;
 			}
+			if (isCurrentCapture) {
+				record.latestObservedVersionId = observedVersion.versionId;
+			}
 			unchangedTemplates += 1;
 			templates.push({
 				templateId,
 				templateName: snapshot.name,
 				changed: false,
 				hash,
-				versionId: live.version.versionId,
+				versionId: observedVersion.versionId,
 			});
 			store.templates[key] = record;
 			continue;
@@ -839,6 +925,11 @@ function mergeTemplateRegistryCapture(
 			(version) => version.versionId === versionId,
 		);
 		if (existingVersion) {
+			if (isCurrentCapture) {
+				record.activeVersionId = existingVersion.versionId;
+				record.latestObservedVersionId = existingVersion.versionId;
+				record.templateName = snapshot.name;
+			}
 			unchangedTemplates += 1;
 			templates.push({
 				templateId,
@@ -855,6 +946,7 @@ function mergeTemplateRegistryCapture(
 			versionId,
 			capturedAt,
 			captureOrder,
+			...(previousCaptureOrder === undefined ? {} : { previousCaptureOrder }),
 			...(previousVersionId === undefined ? {} : { previousVersionId }),
 			captureHeadRevision: headRevisionBeforeRead,
 			hash,
@@ -867,6 +959,7 @@ function mergeTemplateRegistryCapture(
 		// stale one may predate a promotion that restored another name.
 		if (isCurrentCapture) {
 			record.activeVersionId = versionId;
+			record.latestObservedVersionId = versionId;
 			record.templateName = snapshot.name;
 		} else if (!record.activeVersionId) {
 			record.activeVersionId = record.versions.at(-1)?.versionId || versionId;
@@ -1029,6 +1122,7 @@ async function promoteTemplateVersionInStore(
 	// promoteTemplateVersion short-circuits the already-current case.
 	record.headRevision = (record.headRevision ?? 0) + 1;
 	record.activeVersionId = versionId;
+	record.latestObservedVersionId = versionId;
 	// The write restored this version's name in Listmonk.
 	record.templateName = targetVersion.snapshot.name;
 	store.templates[String(templateId)] = record;
@@ -1136,11 +1230,23 @@ export async function promoteTemplateVersion(
 					(version) => version.versionId === versionId,
 				);
 				if (activeVersion) {
+					// Order this verification with sync reads so an older in-flight
+					// capture cannot replace its confirmed observation on merge.
+					const observationOrder = await reserveTemplateObservationOrder(
+						storeDefinition,
+						store,
+					);
 					const remoteTemplate = await readLiveTemplate();
 					const remoteHash = createTemplateHash(
 						createTemplateSnapshot(remoteTemplate, templateId),
 					);
 					if (versionHoldsLiveContent(activeVersion, remoteHash)) {
+						recordTemplateObservation(
+							store,
+							record,
+							versionId,
+							observationOrder,
+						);
 						return {
 							result: {
 								templateId,
@@ -1154,6 +1260,10 @@ export async function promoteTemplateVersion(
 							remoteMutated: false,
 						};
 					}
+					store.captureSequence = Math.max(
+						store.captureSequence ?? 0,
+						observationOrder,
+					);
 				}
 			}
 
@@ -1285,11 +1395,21 @@ export async function rollbackTemplateVersion(
 					(version) => version.versionId === options.toVersionId,
 				);
 				if (targetVersion) {
+					// Use the same sequence as sync reads for a durable no-op
+					// observation and stale-capture check.
+					const observationOrder = await reserveTemplateObservationOrder(
+						storeDefinition,
+						store,
+					);
 					const remoteTemplate = await readLiveTemplate();
 					const remoteHash = createTemplateHash(
 						createTemplateSnapshot(remoteTemplate, templateId),
 					);
 					if (!versionHoldsLiveContent(targetVersion, remoteHash)) {
+						store.captureSequence = Math.max(
+							store.captureSequence ?? 0,
+							observationOrder,
+						);
 						const promoted = await promoteTemplateVersionInStore(
 							client,
 							templateId,
@@ -1302,6 +1422,12 @@ export async function rollbackTemplateVersion(
 							remoteMutated: true,
 						};
 					}
+					recordTemplateObservation(
+						store,
+						record,
+						targetVersion.versionId,
+						observationOrder,
+					);
 				}
 				return {
 					result: {
