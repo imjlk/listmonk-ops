@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -2240,6 +2240,43 @@ describe("template registry active version", () => {
 		expect(history.activeVersionId).toBe(
 			versionIdFor(history, "<p>v2</p>"),
 		);
+	});
+
+	test("orders syncs within one millisecond by their reserved capture order", async () => {
+		await useTemporaryStores();
+		const { remote, client } = createTemplateRemote(56, "<p>v1</p>");
+		// Every read below happens within the same wall-clock millisecond, so
+		// only the reserved capture order tells the observations apart.
+		setSystemTime(new Date("2026-09-27T03:00:00.000Z"));
+		try {
+			await syncTemplateRegistry(client, { templateIds: [56] });
+			remote.body = "<p>v2</p>";
+			await syncTemplateRegistry(client, { templateIds: [56] });
+			remote.body = "<p>v3</p>";
+			await syncTemplateRegistry(client, { templateIds: [56] });
+		} finally {
+			setSystemTime();
+		}
+
+		const history = await getTemplateRegistryHistory(56);
+		expect(
+			new Set(history.versions.map((version) => version.capturedAt)).size,
+		).toBe(1);
+		expect(
+			history.versions.map((version) => [
+				version.captureOrder,
+				version.snapshot.body,
+			]),
+		).toEqual([
+			[1, "<p>v1</p>"],
+			[2, "<p>v2</p>"],
+			[3, "<p>v3</p>"],
+		]);
+		// A tied timestamp does not make a later read look stale.
+		expect(history.activeVersionId).toBe(versionIdFor(history, "<p>v3</p>"));
+		const rolled = await rollbackTemplateVersion(client, 56);
+		expect(rolled.versionId).toBe(versionIdFor(history, "<p>v2</p>"));
+		expect(remote.body).toBe("<p>v2</p>");
 	});
 
 	test("seeds a missing capture counter from the registry high-water mark", async () => {
