@@ -10,6 +10,7 @@ import {
 	publicEntryPoints,
 	publicRuntimeFiles,
 	publishedDeclarationProblems,
+	publishesDeclarations,
 	RESOLUTION_MODES,
 	renderConsumerSource,
 	renderConsumerTsconfig,
@@ -204,9 +205,15 @@ describe("public entry points", () => {
 	});
 
 	test("unsupported packages name published packages with declarations", () => {
-		const withDeclarations = published.filter(
-			(entry) => publicEntryPoints(entry).length > 0,
-		);
+		const withDeclarations = published.filter(publishesDeclarations);
+		expect(withDeclarations.map((entry) => entry.name).sort()).toEqual([
+			"@listmonk-ops/abtest",
+			"@listmonk-ops/automation",
+			"@listmonk-ops/common",
+			"@listmonk-ops/mcp",
+			"@listmonk-ops/openapi",
+			"@listmonk-ops/operations",
+		]);
 		expect(
 			unknownUnsupportedPackages(TYPESCRIPT_TOOLCHAINS, withDeclarations),
 		).toEqual([]);

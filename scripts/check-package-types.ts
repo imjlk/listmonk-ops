@@ -111,6 +111,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// Export conditions whose targets are the runtime files that the "types"
+// condition describes and that the build must produce.
+const RUNTIME_CONDITIONS = ["import", "default"] as const;
+
 /** The declaration file TypeScript pairs with a JavaScript file. */
 export function declarationPathFor(javascriptPath: string): string | undefined {
 	const match = /\.([cm]?)js$/.exec(javascriptPath);
@@ -176,7 +180,7 @@ export function exportsMapProblems(manifest: WorkspaceManifest): string[] {
 			problems.push(`${label}: "types" must name a declaration file`);
 			continue;
 		}
-		for (const condition of ["import", "default"]) {
+		for (const condition of RUNTIME_CONDITIONS) {
 			const runtime = target[condition];
 			if (typeof runtime === "string" && declarationPathFor(runtime) !== types) {
 				problems.push(
@@ -213,6 +217,11 @@ export function publicEntryPoints(manifest: WorkspaceManifest): string[] {
 		.map(([subpath]) => subpathSpecifier(manifest.name, subpath));
 }
 
+/** Whether a manifest publishes at least one entry point with declarations. */
+export function publishesDeclarations(manifest: WorkspaceManifest): boolean {
+	return !manifest.private && publicEntryPoints(manifest).length > 0;
+}
+
 /** The entry points a compiler checks: those of every package it supports. */
 export function toolchainEntryPoints(
 	toolchain: TypeScriptToolchain,
@@ -244,9 +253,7 @@ export function publishedDeclarationProblems(
 	toolchains: readonly TypeScriptToolchain[] = TYPESCRIPT_TOOLCHAINS,
 ): string[] {
 	const published = manifests.filter((manifest) => !manifest.private);
-	const withDeclarations = published.filter(
-		(manifest) => publicEntryPoints(manifest).length > 0,
-	);
+	const withDeclarations = manifests.filter(publishesDeclarations);
 	return [
 		...published.flatMap((manifest) => exportsMapProblems(manifest)),
 		...unknownUnsupportedPackages(toolchains, withDeclarations).map(
@@ -270,7 +277,7 @@ export function publicRuntimeFiles(manifest: WorkspaceManifest): string[] {
 	const files = new Set(manifest.main === undefined ? [] : [manifest.main]);
 	if (isRecord(manifest.exports)) {
 		for (const target of Object.values(manifest.exports)) {
-			for (const condition of ["import", "default"]) {
+			for (const condition of RUNTIME_CONDITIONS) {
 				const runtime = isRecord(target) ? target[condition] : undefined;
 				if (typeof runtime === "string" && !runtime.endsWith(".json")) {
 					files.add(runtime);
@@ -508,9 +515,7 @@ export async function checkPackageTypes(
 	const startedAt = performance.now();
 	const workspaces = readWorkspaces();
 	const manifests = [...workspaces.values()].map(({ manifest }) => manifest);
-	const published = manifests.filter(
-		(manifest) => !manifest.private && publicEntryPoints(manifest).length > 0,
-	);
+	const declarationPackages = manifests.filter(publishesDeclarations);
 	const problems = publishedDeclarationProblems(manifests);
 	if (problems.length > 0) {
 		throw new Error(
@@ -519,7 +524,7 @@ export async function checkPackageTypes(
 	}
 	const packed = [
 		...new Set(
-			published.flatMap((manifest) =>
+			declarationPackages.flatMap((manifest) =>
 				collectWorkspaceClosure(manifest.name, workspaces),
 			),
 		),
@@ -539,7 +544,7 @@ export async function checkPackageTypes(
 		}
 		log(`packed ${Object.keys(packedDependencies).join(", ")}`);
 		log(
-			`entry points: ${published.flatMap((manifest) => publicEntryPoints(manifest)).join(", ")}`,
+			`entry points: ${declarationPackages.flatMap((manifest) => publicEntryPoints(manifest)).join(", ")}`,
 		);
 
 		const cells: MatrixCell[] = [];
@@ -551,7 +556,7 @@ export async function checkPackageTypes(
 				projectDirectory,
 				packedDependencies,
 				toolchain,
-				toolchainEntryPoints(toolchain, published),
+				toolchainEntryPoints(toolchain, declarationPackages),
 			);
 			await npmInstall(npm, projectDirectory);
 			const typescript = installedVersion(projectDirectory, "typescript");
