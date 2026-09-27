@@ -846,7 +846,8 @@ export default defineGroup({
 					description: "Comma-separated tags",
 				}),
 				order: option(z.enum(LISTMONK_SORT_ORDERS).optional(), {
-					description: "Sort order",
+					description:
+						"Sort direction (asc|desc; uppercase is accepted and sent lowercase)",
 				}),
 				"order-by": option(
 					z.enum(["name", "status", "created_at", "updated_at"]).optional(),

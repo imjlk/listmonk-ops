@@ -738,7 +738,8 @@ export default defineGroup({
 					{ description: "Sort field" },
 				),
 				order: option(z.enum(LISTMONK_SORT_ORDERS).optional(), {
-					description: "Sort order",
+					description:
+						"Sort direction (asc|desc; uppercase is accepted and sent lowercase)",
 				}),
 				"subscription-status": option(z.string().trim().optional(), {
 					description: "Subscription status",
