@@ -439,6 +439,10 @@ describe("settings URL credential redaction", () => {
 				"https://games.example/?monkey=banana&hockey=nhl",
 			],
 			[
+				"https://hooks.example/?accesskey=a&secretkey=b&clientkey=c&privatekey=d&sendgridkey=e&forwardemailkey=f&monkey=banana&hockey=nhl",
+				"https://hooks.example/?accesskey=[redacted]&secretkey=[redacted]&clientkey=[redacted]&privatekey=[redacted]&sendgridkey=[redacted]&forwardemailkey=[redacted]&monkey=banana&hockey=nhl",
+			],
+			[
 				"https://id.example.com/logout?id_token_hint=jwt&client_assertion=assertion&assertion_token=saml&password_hint=visible",
 				"https://id.example.com/logout?id_token_hint=[redacted]&client_assertion=[redacted]&assertion_token=[redacted]&password_hint=visible",
 			],
