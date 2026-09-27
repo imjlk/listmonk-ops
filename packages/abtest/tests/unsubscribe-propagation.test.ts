@@ -51,9 +51,10 @@ function createFakeListmonk(options: FakeListmonkOptions = {}) {
 		[];
 	const deletedLists: number[] = [];
 
-	const notFound = (what: string) => ({
-		error: { message: `${what} not found` },
-		response: { status: 404 },
+	// Listmonk 6.2 answers a missing campaign with 400, not 404.
+	const campaignNotFound = () => ({
+		error: { message: "Campaign not found" },
+		response: { status: 400 },
 	});
 
 	const client = {
@@ -138,7 +139,8 @@ function createFakeListmonk(options: FakeListmonkOptions = {}) {
 		list: {
 			delete: async ({ path }: { path: { list_id: number } }) => {
 				if (!lists.delete(path.list_id)) {
-					return notFound("list");
+					// Listmonk 6.2 acknowledges deleting a missing list.
+					return { data: true };
 				}
 				// subscriber_lists cascades; campaign_lists.list_id is set null.
 				for (const subscriberLists of memberships.values()) {
@@ -155,7 +157,7 @@ function createFakeListmonk(options: FakeListmonkOptions = {}) {
 			getById: async ({ path }: { path: { id: number } }) => {
 				const campaign = campaigns.get(path.id);
 				return campaign === undefined
-					? notFound("campaign")
+					? campaignNotFound()
 					: { data: { id: path.id, status: campaign.status } };
 			},
 			updateStatus: async ({
@@ -167,13 +169,13 @@ function createFakeListmonk(options: FakeListmonkOptions = {}) {
 			}) => {
 				const campaign = campaigns.get(path.id);
 				if (campaign === undefined) {
-					return notFound("campaign");
+					return campaignNotFound();
 				}
 				campaign.status = body.status;
 				return { data: true };
 			},
 			delete: async ({ path }: { path: { id: number } }) =>
-				campaigns.delete(path.id) ? { data: true } : notFound("campaign"),
+				campaigns.delete(path.id) ? { data: true } : campaignNotFound(),
 			update: async () => ({ data: true }),
 		},
 	} as unknown as ListmonkClient;

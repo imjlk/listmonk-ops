@@ -291,8 +291,9 @@ export function errorEnvelopeMessage(response: unknown): string | undefined {
 
 /**
  * Whether a fetch error should be treated as "resource already gone"
- * (idempotent success). Listmonk returns 404 with a JSON body for missing
- * campaigns and lists.
+ * (idempotent success). Listmonk 6.2 answers a missing campaign or list
+ * with HTTP 400 and a "Campaign not found" / "List not found" body (see
+ * {@link isListmonkNotFoundAnswer}); a 404 is also accepted.
  *
  * Prefers the structured HTTP status carried by OpenAPI client errors
  * (their `response.status`); falls back to the error message text only when
@@ -305,7 +306,7 @@ export function isNotFoundError(error: unknown): boolean {
 		if (response && typeof response === "object" && "status" in response) {
 			const status = (response as { status?: unknown }).status;
 			if (typeof status === "number") {
-				return status === 404;
+				return status === 404 || isListmonkNotFoundAnswer(error);
 			}
 		}
 	}
@@ -324,6 +325,38 @@ export function isNotFoundError(error: unknown): boolean {
 						? String((error as { error?: unknown }).error)
 						: "";
 	return /not found|404/i.test(message);
+}
+
+/**
+ * Whether a client error envelope is Listmonk 6.2's answer for a campaign
+ * or list that no longer exists: HTTP 400 with the body
+ * `{"message": "Campaign not found"}` or `"List not found"` (probed on
+ * 6.2.0; Listmonk uses 404 only for media). Any other 400, such as
+ * "Only active campaigns can be cancelled", is a real failure. A cleanup
+ * retry needs this to step past campaigns an earlier attempt deleted.
+ */
+export function isListmonkNotFoundAnswer(response: unknown): boolean {
+	if (response === null || typeof response !== "object") {
+		return false;
+	}
+	const httpResponse = (response as { response?: unknown }).response;
+	const status =
+		httpResponse !== null && typeof httpResponse === "object"
+			? (httpResponse as { status?: unknown }).status
+			: undefined;
+	if (status !== 400) {
+		return false;
+	}
+	const body = (response as { error?: unknown }).error;
+	const message =
+		typeof body === "string"
+			? body
+			: body !== null &&
+					typeof body === "object" &&
+					typeof (body as { message?: unknown }).message === "string"
+				? (body as { message: string }).message
+				: "";
+	return /^(?:campaign|list) not found\.?$/i.test(message.trim());
 }
 
 /**

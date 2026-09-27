@@ -36,6 +36,7 @@ import {
 	propagateTemporaryListsOptOuts,
 	type TemporaryListOptOutPropagation,
 } from "./unsubscribe-propagation";
+import { isListmonkNotFoundAnswer } from "./lifecycle";
 
 export interface ProvisionedAbTestResources {
 	testId: string;
@@ -795,6 +796,10 @@ export class ListmonkAbTestIntegration {
 				const response = await this.listmonkClient.campaign.getById({
 					path: { id: campaignId },
 				});
+				if (isListmonkNotFoundAnswer(response)) {
+					// Deleted by an earlier attempt; a retry must reach the lists.
+					continue;
+				}
 				if ("error" in response && response.error !== undefined) {
 					if (!isNotFoundError(response)) {
 						throw new Error(

@@ -4,6 +4,8 @@ import {
 	cancelAbTest,
 	errorEnvelopeMessage,
 	executeCancelPlan,
+	fetchCampaignStatuses,
+	isListmonkNotFoundAnswer,
 	isNotFoundError,
 	planCancelAbTest,
 } from "../src/lifecycle";
@@ -457,5 +459,89 @@ describe("cancelAbTest orchestration", () => {
 		// blocks list cleanup.
 		expect(result.plan.campaignsBlockingListDeletion).toContain(100);
 		expect(result.plan.campaignsBlockingListDeletion).not.toContain(101);
+	});
+});
+
+describe("Listmonk 6.2 not-found answers", () => {
+	// Listmonk 6.2 answers a deleted campaign or list with HTTP 400 and an
+	// i18n message instead of 404 (probed on 6.2.0).
+	const missingCampaign = {
+		error: { message: "Campaign not found" },
+		response: { status: 400 },
+	};
+
+	it("recognizes the 400 campaign and list not-found answers", () => {
+		expect(isListmonkNotFoundAnswer(missingCampaign)).toBe(true);
+		expect(
+			isListmonkNotFoundAnswer({
+				error: { message: "List not found" },
+				response: { status: 400 },
+			}),
+		).toBe(true);
+		expect(
+			isListmonkNotFoundAnswer({
+				error: "Campaign not found",
+				response: { status: 400 },
+			}),
+		).toBe(true);
+		expect(isNotFoundError(missingCampaign)).toBe(true);
+	});
+
+	it("keeps other 400 answers and other statuses as failures", () => {
+		for (const envelope of [
+			{
+				error: { message: "Only active campaigns can be cancelled" },
+				response: { status: 400 },
+			},
+			{ error: { message: "Template not found" }, response: { status: 400 } },
+			{ error: { message: "Campaign not found" }, response: { status: 500 } },
+			{ error: { message: "Campaign not found" } },
+		]) {
+			expect(isListmonkNotFoundAnswer(envelope)).toBe(false);
+		}
+		expect(
+			isNotFoundError({
+				error: { message: "Only active campaigns can be cancelled" },
+				response: { status: 400 },
+			}),
+		).toBe(false);
+	});
+
+	it("treats a campaign deleted by an earlier stop attempt as already deleted", async () => {
+		const client = {
+			campaign: { getById: async () => missingCampaign },
+		} as unknown as ListmonkClient;
+
+		const { statuses, unobservable } = await fetchCampaignStatuses(client, [
+			100,
+		]);
+
+		expect(statuses.get(100)).toBe("already_deleted");
+		expect(unobservable).toEqual([]);
+	});
+
+	it("lets a stop retry clean the lists after the first attempt deleted the campaigns", async () => {
+		const deletedLists: number[] = [];
+		const client = {
+			campaign: {
+				getById: async () => missingCampaign,
+				delete: async () => missingCampaign,
+				updateStatus: async () => missingCampaign,
+			},
+			list: {
+				delete: async ({ path }: { path: { list_id: number } }) => {
+					deletedLists.push(path.list_id);
+					return { data: true };
+				},
+			},
+			subscriber: { list: async () => ({ data: { results: [], total: 0 } }) },
+		} as unknown as ListmonkClient;
+
+		const result = await cancelAbTest(client, makeTest());
+
+		expect(result.hadFetchFailures).toBe(false);
+		expect(result.hadFailures).toBe(false);
+		expect(result.fullyCleaned).toBe(true);
+		expect(deletedLists.sort()).toEqual([200, 201, 202]);
 	});
 });
