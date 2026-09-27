@@ -220,7 +220,7 @@ function containsRedactedSettingsPlaceholderInString(
 		if (value === SETTINGS_REDACTED_VALUE) return true;
 		if (
 			suffix.startsWith("@") &&
-			/[a-z][a-z0-9+.-]*:\/\/[^/?#\\]*$/i.test(prefix)
+			/[a-z][a-z0-9+.-]*:[\\/]{2}[^/?#\\]*$/i.test(prefix)
 		) {
 			return true;
 		}

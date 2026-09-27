@@ -66,6 +66,12 @@ describe("Service operation factories", () => {
 		expect(settingsUpdateRequests).toBe(0);
 		await expect(
 			settings.update({
+				body: { server: { url: "https:\\\\[redacted]@smtp.example.com" } },
+			}),
+		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		expect(settingsUpdateRequests).toBe(0);
+		await expect(
+			settings.update({
 				body: {
 					redirect:
 						"https://app.example/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host",
@@ -96,7 +102,7 @@ describe("Service operation factories", () => {
 				appearance: {
 					admin: {
 						custom_css:
-							"background:url(https://cdn.example/x?label=[redacted])",
+							"background:url(https://cdn.example/x?label=[redacted]);background:url(https://cdn.example/x?monkey=[redacted]&hockey=[redacted])",
 					},
 				},
 			},

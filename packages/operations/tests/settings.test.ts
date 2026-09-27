@@ -435,6 +435,10 @@ describe("settings URL credential redaction", () => {
 				"https://id.example.com/cb?passwordless=true&tokenizer=bert",
 			],
 			[
+				"https://games.example/?monkey=banana&hockey=nhl",
+				"https://games.example/?monkey=banana&hockey=nhl",
+			],
+			[
 				"https://id.example.com/logout?id_token_hint=jwt&client_assertion=assertion&assertion_token=saml&password_hint=visible",
 				"https://id.example.com/logout?id_token_hint=[redacted]&client_assertion=[redacted]&assertion_token=[redacted]&password_hint=visible",
 			],
@@ -627,11 +631,11 @@ describe("settings URL credential redaction", () => {
 			],
 			[
 				"See https://host.example.com/?token=secret. Then continue.",
-				`See https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}. Then continue.`,
+				`See https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}`,
 			],
 			[
 				"See https://a.example/x and https://host.example.com/?token=secret. Then ok.",
-				`See https://a.example/x and https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}. Then ok.`,
+				`See https://a.example/x and https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}`,
 			],
 			[
 				"https://host.example.com/?token=correct. Horse Battery.",

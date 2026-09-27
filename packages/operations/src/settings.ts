@@ -95,10 +95,6 @@ function isCredentialFieldName(name: string): boolean {
  */
 const ABSOLUTE_URL_PREFIX = /^[a-z][a-z0-9+.-]*:[\\/]{2}/i;
 const ABSOLUTE_URL_PREFIX_ANYWHERE = /[a-z][a-z0-9+.-]*:[\\/]{2}/i;
-const ABSOLUTE_URL_PREFIX_AT_END = new RegExp(
-	`${ABSOLUTE_URL_PREFIX_ANYWHERE.source}\\S*$`,
-	"i",
-);
 const MAX_ENCODED_URL_NESTING_DEPTH = 3;
 
 function findAbsoluteUrlPrefix(
@@ -237,11 +233,6 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		const nextSeparator = endPattern.exec(value);
 		const explicitValueEnd = nextSeparator?.index ?? value.length;
 		const wrapperEnd = findCredentialValueWrapperBoundary(value, valueStart);
-		const sentenceEnd = findSentenceEndingBoundary(
-			value,
-			valueStart,
-			explicitValueEnd,
-		);
 		const nextUrl = findAbsoluteUrlPrefix(value, valueStart);
 		const nextUrlBoundary =
 			nextUrl !== undefined &&
@@ -253,7 +244,6 @@ function redactSpacedCredentialParameterValues(value: string): string {
 			explicitValueEnd,
 			nextUrlBoundary ?? explicitValueEnd,
 			wrapperEnd ?? explicitValueEnd,
-			sentenceEnd ?? explicitValueEnd,
 		);
 		const parameterValue = value.slice(valueStart, valueEnd);
 		if (parameterValue !== SETTINGS_REDACTED_VALUE) {
@@ -301,47 +291,6 @@ function findCredentialValueWrapperBoundary(
 			return index;
 		}
 		wrapper = wrapperPattern.exec(value);
-	}
-	return undefined;
-}
-
-/**
- * Preserve prose after a sentence-ending credential URL while leaving
- * periods inside ordinary spaced secrets untouched.
- */
-function findSentenceEndingBoundary(
-	value: string,
-	valueStart: number,
-	valueEnd: number,
-): number | undefined {
-	const prefix = value.slice(0, valueStart);
-	if (!ABSOLUTE_URL_PREFIX_AT_END.test(prefix)) {
-		return undefined;
-	}
-	const urlPattern = /[a-z][a-z0-9+.-]*:[\\/]{2}/gi;
-	let lastUrlStart: number | undefined;
-	for (const match of prefix.matchAll(urlPattern)) {
-		lastUrlStart = match.index;
-	}
-	if (
-		lastUrlStart === undefined ||
-		lastUrlStart === 0 ||
-		!/[\s]/.test(prefix.slice(0, lastUrlStart))
-	) {
-		return undefined;
-	}
-	const sentencePattern = /\.(?=\s+[A-Z])/g;
-	sentencePattern.lastIndex = valueStart;
-	let boundary = sentencePattern.exec(value);
-	while (boundary !== null && boundary.index !== undefined) {
-		if (boundary.index >= valueEnd) return undefined;
-		const followingText = value.slice(boundary.index + 1, valueEnd);
-		if (/^\s+[A-Z][A-Za-z'-]*(?:\s+[A-Za-z][A-Za-z'-]*)+\.\s*$/.test(
-			followingText,
-		)) {
-			return boundary.index;
-		}
-		boundary = sentencePattern.exec(value);
 	}
 	return undefined;
 }
