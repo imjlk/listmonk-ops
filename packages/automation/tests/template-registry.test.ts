@@ -182,6 +182,20 @@ describe("selectTemplateRollbackTarget", () => {
 		).toThrow("Rollback target v2 is no longer the previous version of template 7");
 	});
 
+	test("tells a missing base version from a missing predecessor", () => {
+		// A drift pin bases the rollback on the stored active version.
+		expect(() =>
+			selectTemplateRollbackTarget(templateRecord("gone"), "hash-z", "v4"),
+		).toThrow(
+			"Template 7 base version gone for the rollback is not in its registry history",
+		);
+		expect(() =>
+			selectTemplateRollbackTarget(templateRecord(undefined), "hash-z", "v4"),
+		).toThrow(
+			"Template 7 base version (none) for the rollback is not in its registry history",
+		);
+	});
+
 	test("conflicts a pinned target that is not the live version's predecessor", () => {
 		expect(
 			selectTemplateRollbackTarget(templateRecord("v4"), "hash-c", "v3")

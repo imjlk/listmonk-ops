@@ -532,8 +532,15 @@ export function selectTemplateRollbackTarget(
 		(version) => version.versionId === baseVersionId,
 	);
 	const baseVersion = history[baseIndex];
+	if (!baseVersion) {
+		// Only a drift pin bases the rollback on the stored active version,
+		// which a hand-edited or older store may not hold in its history.
+		throw new Error(
+			`Template ${record.templateId} base version ${baseVersionId ?? "(none)"} for the rollback is not in its registry history`,
+		);
+	}
 	let targetVersion: TemplateRegistryVersion | undefined;
-	if (baseVersion?.previousVersionId !== undefined) {
+	if (baseVersion.previousVersionId !== undefined) {
 		targetVersion = history.find(
 			(version) => version.versionId === baseVersion.previousVersionId,
 		);
