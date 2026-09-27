@@ -1471,7 +1471,24 @@ send results. Summary of the current behavior:
   `draft`/`scheduled` campaigns are deleted instead. Campaign names are
   preserved. Temporary lists are retained as long as any campaign still
   references them (unobservable, preserved-terminal, or failed-delete
-  campaigns); 404 responses are treated as idempotent success.
+  campaigns). A campaign or list that is already gone (HTTP 404, or
+  Listmonk 6.2's HTTP 400 "Campaign not found" / "List not found" answer)
+  counts as cleaned up, so a retry can finish a partial cleanup.
+- **Opt-outs survive cleanup**: variant and winner campaigns go only to
+  temporary lists, and Listmonk's unsubscribe link marks only the
+  campaign's lists, so deleting a temporary list used to erase the opt-out
+  while the recipient stayed subscribed to the source lists. Stop, delete,
+  a provisioning rollback, and the legacy cleanup helpers now carry the
+  unsubscribed members of each temporary variant or holdout list to the
+  test's source lists (the `manageLists` `unsubscribe` action, which never
+  adds a membership) and confirm the result before deleting the list. A
+  list whose opt-outs cannot be carried, including one from a test that
+  records no source lists, is kept: stop and delete fail with the list and
+  the reason so they can be retried, and a rollback keeps the list mapped.
+  Lists that are not deleted (completed tests, or lists a stop keeps for
+  cancelled campaigns) keep their opt-outs without copying them, so carry
+  those over before removing such a list by hand. An unsubscribe link whose
+  campaign or list was removed no longer records anything.
 - **Confidence threshold honored**: the stored `confidenceThreshold` drives
   alpha so the significance decision and reported confidence level match.
 - **Statistical hardening**: Holm-Bonferroni correction for A/B/C (3+
