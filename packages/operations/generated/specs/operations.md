@@ -944,6 +944,18 @@ Remove a batch of subscribers from one or more lists. Processes subscribers in c
 - Retry: `safe`
 - Stability: `stable` since `0.9.0`
 
+## `subscribers.unsubscribe-from-lists`
+
+Mark the list memberships of a batch of subscribers as unsubscribed, keeping each membership as an opt-out record instead of deleting it, so a later add or import does not quietly resubscribe them. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-subscribing requires fresh consent.
+
+- Resource / verb: `subscriber.unsubscribe-from-lists`
+- MCP tool: `listmonk_unsubscribe_subscribers_from_lists`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `suppression:audience`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `stable` since `0.20.0`
+
 ## `subscribers.unblocklist`
 
 Return blocklisted subscribers to enabled, one subscriber at a time (Listmonk 6.2 has no bulk unblocklist endpoint). Subscribers that are not blocklisted are left unchanged, and list subscriptions that blocklisting set to unsubscribed stay unsubscribed. Supports dry-run, max-items cap, and continue-on-error.

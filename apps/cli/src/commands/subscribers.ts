@@ -9,6 +9,7 @@ import {
 	invokeGetSubscriberOperation,
 	invokeGetSubscribersOperation,
 	invokeRemoveSubscribersFromListsOperation,
+	invokeUnsubscribeSubscribersFromListsOperation,
 	invokeUnblocklistSubscribersOperation,
 	invokeStartSubscriberImportOperation,
 	invokeGetSubscriberImportStatusOperation,
@@ -219,6 +220,23 @@ export async function renderRemoveSubscribersFromLists(
 		input,
 	);
 	reportBulkResult(context, input, result, "removed", "subscribers from lists");
+}
+
+export async function renderUnsubscribeSubscribersFromLists(
+	context: SubscribersCliContext,
+	input: SubscriberBulkListsInput,
+): Promise<void> {
+	const result = await invokeUnsubscribeSubscribersFromListsOperation(
+		context,
+		input,
+	);
+	reportBulkResult(
+		context,
+		input,
+		result,
+		"unsubscribed",
+		"subscribers from lists",
+	);
 }
 
 export async function renderBlocklistSubscribers(
@@ -599,12 +617,45 @@ type SubscriberBulkListsFlags = {
 	"continue-on-error"?: boolean;
 };
 
+const subscriberBulkListsOptions = {
+	"subscriber-ids": option(z.string().trim().min(1), {
+		description: "Comma-separated subscriber IDs",
+	}),
+	"list-ids": option(z.string().trim().min(1), {
+		description: "Comma-separated list IDs",
+	}),
+	"dry-run": option(z.coerce.boolean().default(false), {
+		description: "Skip the API calls and report what would have run",
+	}),
+	"max-items": option(z.coerce.number().int().positive().default(10000), {
+		description: "Maximum number of subscriber IDs to process",
+	}),
+	"continue-on-error": option(z.coerce.boolean().default(false), {
+		description: "Keep processing chunks after a failure",
+	}),
+};
+
 type SubscriberBulkBlocklistFlags = {
 	"subscriber-ids": string;
 	"dry-run"?: boolean;
 	"max-items"?: number;
 	"continue-on-error"?: boolean;
 };
+
+function toSubscriberBulkListsInput(
+	flags: SubscriberBulkListsFlags,
+): SubscriberBulkListsInput {
+	return {
+		subscriber_ids: parseCsvNumbersStrict(
+			flags["subscriber-ids"],
+			"subscriber IDs",
+		),
+		list_ids: parseCsvNumbersStrict(flags["list-ids"], "list IDs"),
+		dry_run: flags["dry-run"],
+		max_items: flags["max-items"],
+		continue_on_error: flags["continue-on-error"],
+	};
+}
 
 async function handleAddSubscribersToListsCommand({
 	flags,
@@ -614,16 +665,7 @@ async function handleAddSubscribersToListsCommand({
 		const client = await getListmonkClient(args);
 		await renderAddSubscribersToLists(
 			{ client, output: getOutput() },
-			{
-				subscriber_ids: parseCsvNumbersStrict(
-					flags["subscriber-ids"],
-					"subscriber IDs",
-				),
-				list_ids: parseCsvNumbersStrict(flags["list-ids"], "list IDs"),
-				dry_run: flags["dry-run"],
-				max_items: flags["max-items"],
-				continue_on_error: flags["continue-on-error"],
-			},
+			toSubscriberBulkListsInput(flags),
 		);
 	} catch (error) {
 		throw createSubscriberCommandError(
@@ -641,20 +683,29 @@ async function handleRemoveSubscribersFromListsCommand({
 		const client = await getListmonkClient(args);
 		await renderRemoveSubscribersFromLists(
 			{ client, output: getOutput() },
-			{
-				subscriber_ids: parseCsvNumbersStrict(
-					flags["subscriber-ids"],
-					"subscriber IDs",
-				),
-				list_ids: parseCsvNumbersStrict(flags["list-ids"], "list IDs"),
-				dry_run: flags["dry-run"],
-				max_items: flags["max-items"],
-				continue_on_error: flags["continue-on-error"],
-			},
+			toSubscriberBulkListsInput(flags),
 		);
 	} catch (error) {
 		throw createSubscriberCommandError(
 			"Failed to remove subscribers from lists",
+			error,
+		);
+	}
+}
+
+async function handleUnsubscribeSubscribersFromListsCommand({
+	flags,
+	...args
+}: HandlerArgs<SubscriberBulkListsFlags>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderUnsubscribeSubscribersFromLists(
+			{ client, output: getOutput() },
+			toSubscriberBulkListsInput(flags),
+		);
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to unsubscribe subscribers from lists",
 			error,
 		);
 	}
@@ -836,47 +887,23 @@ export default defineGroup({
 			name: "add-to-lists",
 			operationId: "subscribers.add-to-lists",
 			description: "Add a batch of subscribers to one or more lists",
-			options: {
-				"subscriber-ids": option(z.string().trim().min(1), {
-					description: "Comma-separated subscriber IDs",
-				}),
-				"list-ids": option(z.string().trim().min(1), {
-					description: "Comma-separated list IDs",
-				}),
-				"dry-run": option(z.coerce.boolean().default(false), {
-					description: "Skip the API calls and report what would have run",
-				}),
-				"max-items": option(z.coerce.number().int().positive().default(10000), {
-					description: "Maximum number of subscriber IDs to process",
-				}),
-				"continue-on-error": option(z.coerce.boolean().default(false), {
-					description: "Keep processing chunks after a failure",
-				}),
-			},
+			options: subscriberBulkListsOptions,
 			handler: handleAddSubscribersToListsCommand,
 		}),
 		defineCommand({
 			name: "remove-from-lists",
 			operationId: "subscribers.remove-from-lists",
 			description: "Remove a batch of subscribers from one or more lists",
-			options: {
-				"subscriber-ids": option(z.string().trim().min(1), {
-					description: "Comma-separated subscriber IDs",
-				}),
-				"list-ids": option(z.string().trim().min(1), {
-					description: "Comma-separated list IDs",
-				}),
-				"dry-run": option(z.coerce.boolean().default(false), {
-					description: "Skip the API calls and report what would have run",
-				}),
-				"max-items": option(z.coerce.number().int().positive().default(10000), {
-					description: "Maximum number of subscriber IDs to process",
-				}),
-				"continue-on-error": option(z.coerce.boolean().default(false), {
-					description: "Keep processing chunks after a failure",
-				}),
-			},
+			options: subscriberBulkListsOptions,
 			handler: handleRemoveSubscribersFromListsCommand,
+		}),
+		defineCommand({
+			name: "unsubscribe-from-lists",
+			operationId: "subscribers.unsubscribe-from-lists",
+			description:
+				"Mark subscribers as unsubscribed from lists, keeping the opt-out record",
+			options: subscriberBulkListsOptions,
+			handler: handleUnsubscribeSubscribersFromListsCommand,
 		}),
 		defineCommand({
 			name: "blocklist",

@@ -21301,6 +21301,179 @@
       "stability": "stable"
     },
     {
+      "id": "subscribers.unsubscribe-from-lists",
+      "input": {
+        "components": {
+          "schemas": {
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "SubscriberBulkListsInput": {
+              "additionalProperties": false,
+              "properties": {
+                "continue_on_error": {
+                  "description": "Continue processing after a chunk failure. Defaults to false.",
+                  "type": "boolean"
+                },
+                "dry_run": {
+                  "description": "Plan only when true. Defaults to false.",
+                  "type": "boolean"
+                },
+                "list_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "max_items": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+                },
+                "subscriber_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "subscriber_ids",
+                "list_ids"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "continue_on_error": {
+              "description": "Continue processing after a chunk failure. Defaults to false.",
+              "type": "boolean"
+            },
+            "dry_run": {
+              "description": "Plan only when true. Defaults to false.",
+              "type": "boolean"
+            },
+            "list_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "max_items": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+            },
+            "subscriber_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "subscriber_ids",
+            "list_ids"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "SubscriberBulkOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "errors": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "failed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "processed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "succeeded": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "processed",
+                "succeeded",
+                "failed",
+                "errors"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "failed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "processed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "succeeded": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "processed",
+            "succeeded",
+            "failed",
+            "errors"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "Unsubscribing an already unsubscribed membership converges on the same state, including after partial chunk completion."
+      },
+      "since": "0.20.0",
+      "stability": "stable"
+    },
+    {
       "id": "subscribers.unblocklist",
       "input": {
         "components": {

@@ -716,6 +716,8 @@ listmonk-cli subscribers update --id 7 --status enabled
 listmonk-cli subscribers delete --id 7 --confirm
 listmonk-cli subscribers add-to-lists --subscriber-ids 1,2,3 --list-ids 10,20
 listmonk-cli subscribers remove-from-lists --subscriber-ids 1,2 --list-ids 10 --confirm
+# Keep an opt-out record instead of deleting the memberships.
+listmonk-cli subscribers unsubscribe-from-lists --subscriber-ids 1,2 --list-ids 10 --confirm
 listmonk-cli subscribers blocklist --subscriber-ids 1,2,3 --confirm
 listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 
@@ -796,6 +798,16 @@ Bounce reads mirror the Listmonk `/api/bounces` filters (`--campaign-id`,
 that endpoint, so the legacy `subscriber_id` argument — which never reached
 the API — was dropped from the shared contract.
 
+`subscribers unsubscribe-from-lists` (MCP:
+`listmonk_unsubscribe_subscribers_from_lists`) ends list memberships the way a
+subscriber's own unsubscribe does: Listmonk keeps each membership with the
+status `unsubscribed` instead of deleting it. The opt-out record survives, so
+list campaigns skip those subscribers and a later add without an explicit
+status or a non-overwriting import does not resubscribe them. Use it instead
+of `remove-from-lists` when someone asked to stop receiving a list; use
+`blocklist` only to stop mail across every list. It requires `--confirm` and
+supports `--dry-run`, `--max-items`, and `--continue-on-error`.
+
 The corresponding MCP resource tools include
 `listmonk_get_campaigns`, `listmonk_get_campaign`,
 `listmonk_create_campaign`, `listmonk_update_campaign`,
@@ -874,7 +886,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 136 public shared operations now include a `spec` descriptor. Specs define
+All 137 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -883,8 +895,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 136 contracts are standalone TypeScript/Typia product contracts. The
-existing 135 remain `stable`; `abtest.conversion.record` is experimental. The
+All 137 contracts are standalone TypeScript/Typia product contracts. The
+existing 136 remain `stable`; `abtest.conversion.record` is experimental. The
 stable set includes the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and

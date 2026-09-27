@@ -153,7 +153,7 @@ describe("MCP HTTP transport boundary", () => {
 			Authorization: "Bearer http-test-secret",
 		});
 		expect(authorized.status).toBe(200);
-		expect((await authorized.json()).tools).toHaveLength(140);
+		expect((await authorized.json()).tools).toHaveLength(141);
 	});
 
 	test("keeps only health, root, and CORS preflights public when a token is set", async () => {

@@ -7,6 +7,7 @@ import {
 	bindSubscribersGetOperationSpec,
 	bindSubscribersListOperationSpec,
 	bindSubscribersRemoveFromListsOperationSpec,
+	bindSubscribersUnsubscribeFromListsOperationSpec,
 	bindSubscribersUnblocklistOperationSpec,
 	bindSubscribersImportStartOperationSpec,
 	bindSubscribersImportStatusOperationSpec,
@@ -562,6 +563,36 @@ async function runSubscriberBulk(
 }
 
 /**
+ * Apply one fixed `manageLists` action to chunked subscriber IDs. The named
+ * add, remove, and unsubscribe operations share this helper so their bulk
+ * options and acknowledgement handling stay consistent. Listmonk can return
+ * `{ data: false }` without an error envelope, so require `data === true` to
+ * keep the bulk result accurate.
+ */
+async function applyManageListsAction(
+	ctx: SubscriberOperationContext,
+	input: z.output<typeof subscriberBulkListsInputSchema>,
+	action: "add" | "remove" | "unsubscribe",
+	failureMessage: string,
+): Promise<BulkOperationOutput> {
+	return runSubscriberBulk(input.subscriber_ids, {
+		dry_run: input.dry_run,
+		max_items: input.max_items,
+		continue_on_error: input.continue_on_error,
+		action: async (chunk) => {
+			const response = await ctx.client.subscriber.manageLists({
+				body: {
+					action,
+					ids: chunk,
+					target_list_ids: input.list_ids,
+				},
+			});
+			requireAcknowledgement(response, failureMessage);
+		},
+	});
+}
+
+/**
  * Add a batch of subscribers to one or more lists. Subscriber IDs are
  * chunked and each chunk is sent as a `manageLists` action: add. Respects
  * the shared bulk options (dry_run, max_items, continue_on_error).
@@ -570,25 +601,12 @@ export async function addSubscribersToLists(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkListsInputSchema>,
 ): Promise<BulkOperationOutput> {
-	const targetListIds = input.list_ids;
-	return runSubscriberBulk(input.subscriber_ids, {
-		dry_run: input.dry_run,
-		max_items: input.max_items,
-		continue_on_error: input.continue_on_error,
-		action: async (chunk) => {
-			const response = await ctx.client.subscriber.manageLists({
-				body: {
-					action: "add",
-					ids: chunk,
-					target_list_ids: targetListIds,
-				},
-			});
-			requireAcknowledgement(
-				response,
-				"Failed to add subscribers to lists",
-			);
-		},
-	});
+	return applyManageListsAction(
+		ctx,
+		input,
+		"add",
+		"Failed to add subscribers to lists",
+	);
 }
 
 /**
@@ -599,25 +617,32 @@ export async function removeSubscribersFromLists(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkListsInputSchema>,
 ): Promise<BulkOperationOutput> {
-	const targetListIds = input.list_ids;
-	return runSubscriberBulk(input.subscriber_ids, {
-		dry_run: input.dry_run,
-		max_items: input.max_items,
-		continue_on_error: input.continue_on_error,
-		action: async (chunk) => {
-			const response = await ctx.client.subscriber.manageLists({
-				body: {
-					action: "remove",
-					ids: chunk,
-					target_list_ids: targetListIds,
-				},
-			});
-			requireAcknowledgement(
-				response,
-				"Failed to remove subscribers from lists",
-			);
-		},
-	});
+	return applyManageListsAction(
+		ctx,
+		input,
+		"remove",
+		"Failed to remove subscribers from lists",
+	);
+}
+
+/**
+ * Mark a batch of subscribers as unsubscribed from one or more lists with
+ * `manageLists` action: unsubscribe. Unlike removal, Listmonk keeps each
+ * membership with `subscription_status: "unsubscribed"`, so the opt-out
+ * record survives: a later add without an explicit status (or an import
+ * that does not overwrite) does not resubscribe them, and list campaigns
+ * skip them. Respects the shared bulk options.
+ */
+export async function unsubscribeSubscribersFromLists(
+	ctx: SubscriberOperationContext,
+	input: z.output<typeof subscriberBulkListsInputSchema>,
+): Promise<BulkOperationOutput> {
+	return applyManageListsAction(
+		ctx,
+		input,
+		"unsubscribe",
+		"Failed to unsubscribe subscribers from lists",
+	);
 }
 
 /**
@@ -804,6 +829,22 @@ export const removeSubscribersFromListsOperation = defineOperation({
 	execute: removeSubscribersFromLists,
 });
 
+export const unsubscribeSubscribersFromListsOperation = defineOperation({
+	id: "subscribers.unsubscribe-from-lists",
+	title: "Unsubscribe subscribers from lists",
+	description:
+		"Mark the list memberships of a batch of subscribers as unsubscribed, keeping each membership as an opt-out record instead of deleting it, so a later add or import does not quietly resubscribe them. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-subscribing requires fresh consent.",
+	inputSchema: subscriberBulkListsInputSchema,
+	outputSchema: bulkOperationOutputSchema,
+	safety: deliverySuppressionSafety,
+	mcp: {
+		name: "listmonk_unsubscribe_subscribers_from_lists",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindSubscribersUnsubscribeFromListsOperationSpec(),
+	execute: unsubscribeSubscribersFromLists,
+});
+
 export const blocklistSubscribersOperation = defineOperation({
 	id: "subscribers.blocklist",
 	title: "Blocklist subscribers",
@@ -984,6 +1025,30 @@ export async function invokeRemoveSubscribersFromListsOperation(
 	}
 	return parseOperationOutput(
 		removeSubscribersFromListsOperation.id,
+		bulkOperationOutputSchema,
+		output,
+	);
+}
+
+export async function invokeUnsubscribeSubscribersFromListsOperation(
+	context: SubscriberOperationContext,
+	input: unknown,
+): Promise<BulkOperationOutput> {
+	const parsedInput = parseOperationInput(
+		unsubscribeSubscribersFromListsOperation.inputSchema,
+		input,
+	);
+	let output: BulkOperationOutput;
+	try {
+		output = await unsubscribeSubscribersFromLists(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			unsubscribeSubscribersFromListsOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		unsubscribeSubscribersFromListsOperation.id,
 		bulkOperationOutputSchema,
 		output,
 	);
@@ -1462,6 +1527,7 @@ export const subscriberOperations = [
 	deleteSubscriberOperation,
 	addSubscribersToListsOperation,
 	removeSubscribersFromListsOperation,
+	unsubscribeSubscribersFromListsOperation,
 	blocklistSubscribersOperation,
 	unblocklistSubscribersOperation,
 	startSubscriberImportOperation,
@@ -1536,6 +1602,14 @@ export async function invokeSubscriberOperationByMcpName(
 			return {
 				operation: removeSubscribersFromListsOperation,
 				output: await invokeRemoveSubscribersFromListsOperation(context, input),
+			};
+		case unsubscribeSubscribersFromListsOperation.mcp.name:
+			return {
+				operation: unsubscribeSubscribersFromListsOperation,
+				output: await invokeUnsubscribeSubscribersFromListsOperation(
+					context,
+					input,
+				),
 			};
 		case blocklistSubscribersOperation.mcp.name:
 			return {

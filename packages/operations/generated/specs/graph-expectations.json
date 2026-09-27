@@ -2109,6 +2109,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/subscribers.ts#unsubscribeSubscribersFromListsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnsubscribeFromListsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnsubscribeFromListsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUnsubscribeFromListsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeUnsubscribeSubscribersFromListsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#unsubscribeSubscribersFromLists:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnsubscribeFromListsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUnsubscribeFromListsOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#unsubscribeSubscribersFromLists:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeUnsubscribeSubscribersFromListsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unsubscribeSubscribersFromListsOperation:variable"
+      },
+      "operationId": "subscribers.unsubscribe-from-lists"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnblocklistOperationSpec:function"

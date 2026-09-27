@@ -24812,6 +24812,229 @@
     {
       "agent": {
         "avoidWhen": [
+          "The subscribers or lists are not known.",
+          "Mail must stop for every list; use subscribers.blocklist.",
+          "The membership should be deleted without an opt-out record; use subscribers.remove-from-lists."
+        ],
+        "prerequisites": [
+          "subscribers.get",
+          "lists.get"
+        ],
+        "related": [
+          "subscribers.remove-from-lists",
+          "subscribers.blocklist",
+          "subscribers.add-to-lists"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "useWhen": [
+          "Subscribers asked to stop receiving specific lists.",
+          "List memberships must end while keeping the opt-out record."
+        ],
+        "verifyWith": [
+          "subscribers.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBulkListsInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "continue_on_error": {
+                    "description": "Continue processing after a chunk failure. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "description": "Plan only when true. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "max_items": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+                  },
+                  "subscriber_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "subscriber_ids",
+                  "list_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "continue_on_error": {
+                "description": "Continue processing after a chunk failure. Defaults to false.",
+                "type": "boolean"
+              },
+              "dry_run": {
+                "description": "Plan only when true. Defaults to false.",
+                "type": "boolean"
+              },
+              "list_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "max_items": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+              },
+              "subscriber_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "subscriber_ids",
+              "list_ids"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "SubscriberBulkOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "processed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "processed",
+                  "succeeded",
+                  "failed",
+                  "errors"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "failed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "processed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "succeeded": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "processed",
+              "succeeded",
+              "failed",
+              "errors"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Mark the list memberships of a batch of subscribers as unsubscribed, keeping each membership as an opt-out record instead of deleting it, so a later add or import does not quietly resubscribe them. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-subscribing requires fresh consent.",
+      "effects": [
+        {
+          "kind": "suppression",
+          "preview": true,
+          "resource": "subscriber",
+          "reversible": false,
+          "scope": "audience"
+        }
+      ],
+      "id": "subscribers.unsubscribe-from-lists",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnsubscribeFromListsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUnsubscribeFromListsOperationSpec:variable",
+          "executorNode": "packages/operations/src/subscribers.ts#unsubscribeSubscribersFromLists:function",
+          "invokerNode": "packages/operations/src/subscribers.ts#invokeUnsubscribeSubscribersFromListsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unsubscribeSubscribersFromListsOperation:variable"
+        },
+        "mcpName": "listmonk_unsubscribe_subscribers_from_lists",
+        "openWorld": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "Unsubscribing an already unsubscribed membership converges on the same state, including after partial chunk completion."
+      },
+      "since": "0.20.0",
+      "stability": "stable",
+      "title": "Unsubscribe subscribers from lists",
+      "verb": "unsubscribe-from-lists"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The subscriber IDs are not known.",
           "The goal is to resume list mail: unblocklisting leaves list subscriptions unsubscribed."
         ],
