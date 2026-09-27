@@ -26,6 +26,7 @@ concurrency:
 jobs:
   release-and-publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
