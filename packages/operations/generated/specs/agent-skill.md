@@ -1462,7 +1462,7 @@ Retry guidance: Echo the observed remote template hash as expected_remote_hash �
 
 Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `conditional`.
 
-Use when: A template must be reverted to its previous stored version.
+Use when: A template must be reverted to the stored version that was active before its latest captured edit.
 
 Avoid when: No previous version exists in the registry. The rollback target lacks body_source while the live template has one; Listmonk retains the live source and the executor rejects this restore.
 
@@ -1470,7 +1470,7 @@ Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Pin the full set — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op for a freshly observed pin set; a successful rollback advances the head revision, so a retry echoing the original pins conflicts even after its own success — on that conflict reconcile with ops.templates.registry-history and templates.get, where an already-applied rollback shows the target active; with any pin missing, do the same inspection before retrying. Rollback fails closed before writing if the target lacks body_source but the live template has one; no override is available because Listmonk retains the live source.
+Retry guidance: Pin the full set — from_version_id (observed active), to_version_id (the resolved live version's recorded predecessor, or its prior capture for older versions without a link), expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op for a freshly observed pin set; when live content has drifted outside the registry, the explicit target authorizes overwriting it relative to the active version. A successful rollback advances the head revision, so a retry echoing the original pins conflicts even after its own success — on that conflict reconcile with ops.templates.registry-history and templates.get, where an already-applied rollback shows the target active; with any pin missing, do the same inspection before retrying. Rollback fails closed before writing if the target lacks body_source but the live template has one; no override is available because Listmonk retains the live source.
 
 ## List A/B tests (`abtest.list`)
 

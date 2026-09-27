@@ -32,6 +32,8 @@ export interface TemplateRegistryVersion {
 	capturedAt: string;
 	/** Global order reserved immediately before the remote template read. */
 	captureOrder?: number;
+	/** Registry version active immediately before this capture became live. */
+	previousVersionId?: string;
 	hash: string;
 	note?: string;
 	snapshot: TemplateVersionSnapshot;
@@ -263,6 +265,8 @@ function isTemplateRegistryVersion(
 			(typeof value.captureOrder === "number" &&
 				Number.isSafeInteger(value.captureOrder) &&
 				value.captureOrder > 0)) &&
+		(value.previousVersionId === undefined ||
+			typeof value.previousVersionId === "string") &&
 		typeof value.hash === "string" &&
 		(value.note === undefined || typeof value.note === "string") &&
 		isTemplateVersionSnapshot(value.snapshot)
@@ -492,7 +496,15 @@ export function selectTemplateRollbackTarget(
 	const baseIndex = history.findIndex(
 		(version) => version.versionId === baseVersionId,
 	);
-	const targetVersion = baseIndex > 0 ? history[baseIndex - 1] : undefined;
+	const baseVersion = history[baseIndex];
+	const targetVersion =
+		baseVersion?.previousVersionId === undefined
+			? baseIndex > 0
+				? history[baseIndex - 1]
+				: undefined
+			: history.find(
+					(version) => version.versionId === baseVersion.previousVersionId,
+				);
 	if (!targetVersion) {
 		throw new Error(
 			`Template ${record.templateId} has no previous version to roll back to`,
@@ -809,6 +821,9 @@ function mergeTemplateRegistryCapture(
 			versionId,
 			capturedAt,
 			captureOrder,
+			...(isCurrentCapture && record.activeVersionId
+				? { previousVersionId: record.activeVersionId }
+				: {}),
 			hash,
 			note: options.note,
 			snapshot,

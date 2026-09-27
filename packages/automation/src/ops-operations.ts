@@ -792,7 +792,8 @@ export const templateRegistryPromoteOperation = defineOperation({
 export const templateRegistryRollbackOperation = defineOperation({
 	id: "ops.templates.registry-rollback",
 	title: "Rollback template version",
-	description: "Rollback a Listmonk template to its previous stored version",
+	description:
+		"Rollback a Listmonk template to the version that preceded its live version",
 	inputSchema: templateRollbackInputSchema,
 	outputSchema: templateRollbackOutputSchema,
 	safety: {

@@ -1260,7 +1260,7 @@ Promote a stored template version back to Listmonk
 
 ## `ops.templates.registry-rollback`
 
-Rollback a Listmonk template to its previous stored version
+Rollback a Listmonk template to the version that preceded its live version
 
 - Resource / verb: `template.registry-rollback`
 - MCP tool: `listmonk_ops_template_registry_rollback`

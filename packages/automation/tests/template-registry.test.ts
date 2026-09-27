@@ -125,6 +125,21 @@ describe("selectTemplateRollbackTarget", () => {
 		).toThrow("Template 7 has no previous version to roll back to");
 	});
 
+	test("prefers the version that was active before the live capture", () => {
+		const linkedHistory = history.map((version) =>
+			version.versionId === "v4"
+				? { ...version, previousVersionId: "v1" }
+				: version,
+		);
+
+		expect(
+			selectTemplateRollbackTarget(
+				{ templateId: 7, activeVersionId: "v4", versions: linkedHistory },
+				"hash-c",
+			).versionId,
+		).toBe("v1");
+	});
+
 	test("fails closed on drift unless a target is pinned", () => {
 		let driftError: unknown;
 		try {

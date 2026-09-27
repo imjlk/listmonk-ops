@@ -1294,6 +1294,50 @@ describe("template registry active version", () => {
 		expect(remote.body).toBe("<p>v1</p>");
 	});
 
+	test("rolls a new capture back to the older version that was promoted", async () => {
+		await useTemporaryStores();
+		const { remote, client } = createTemplateRemote(32, "<p>v1</p>");
+		await syncTemplateRegistry(client, { templateIds: [32] });
+		await editAndSync(remote, client, 32, "<p>v2</p>");
+		await editAndSync(remote, client, 32, "<p>v3</p>");
+		const beforePromotion = await getTemplateRegistryHistory(32);
+		const v1 = versionIdFor(beforePromotion, "<p>v1</p>");
+
+		await promoteTemplateVersion(client, 32, v1);
+		const unchanged = await syncTemplateRegistry(client, { templateIds: [32] });
+		expect(unchanged).toMatchObject({ createdVersions: 0, unchangedTemplates: 1 });
+
+		await editAndSync(remote, client, 32, "<p>v4</p>");
+		const afterCapture = await getTemplateRegistryHistory(32);
+		const v4 = afterCapture.versions.find(
+			(version) => version.snapshot.body === "<p>v4</p>",
+		);
+		expect(v4?.previousVersionId).toBe(v1);
+
+		const rolled = await rollbackTemplateVersion(client, 32);
+		expect(rolled.versionId).toBe(v1);
+		expect(remote.body).toBe("<p>v1</p>");
+	});
+
+	test("rejects a malformed stored capture predecessor", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		const { remote, client } = createTemplateRemote(34, "<p>v1</p>");
+		await syncTemplateRegistry(client, { templateIds: [34] });
+		await editAndSync(remote, client, 34, "<p>v2</p>");
+		const store = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<
+				string,
+				{ versions: Array<Record<string, unknown>> }
+			>;
+		};
+		store.templates["34"]!.versions[1]!.previousVersionId = 34;
+		await writeFile(templateStorePath, `${JSON.stringify(store)}\n`, "utf8");
+
+		await expect(getTemplateRegistryHistory(34)).rejects.toThrow(
+			"template 34 failed schema validation",
+		);
+	});
+
 	test("does not let a capture that raced a promotion move the active version", async () => {
 		await useTemporaryStores();
 		let name = "Race";

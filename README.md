@@ -1652,13 +1652,17 @@ update, and the registry still treats that as the written version. Because
 Listmonk keeps a template's `body_source` when an update omits or clears it,
 promote and rollback refuse to write a version without one over a live template
 that has one instead of leaving a mix of both versions.
-An unpinned rollback re-reads the live template inside the registry lock and
-writes the version captured immediately before the live one. When the live
-content matches neither the active version nor the latest capture — it changed
-outside the registry since the last sync — the rollback fails closed instead of
-guessing a target: run `templates-sync` to record the live content first, or pin
-`--to-version-id` to the version preceding the active one to overwrite it
-explicitly.
+When a current sync capture records a new live version, it also stores the
+version that was active immediately before the capture. An unpinned rollback
+re-reads the live template inside the registry lock and restores that recorded
+predecessor; older stored versions without a predecessor link use capture
+order. This preserves an older version promoted before a new edit as the
+rollback target. A `--to-version-id` pin must match the resolved predecessor,
+and authorizes overwriting drifted live content. When the live content matches
+neither the active version nor the latest capture — it changed outside the
+registry since the last sync — the rollback fails closed instead of guessing a
+target: run `templates-sync` to record the live content first, or pin
+`--to-version-id` to explicitly choose the rollback target.
 
 Preflight link checking now blocks private/internal hosts (loopback,
 `localhost`/`*.localhost` names, private CIDRs, link-local, cloud metadata IPs)
