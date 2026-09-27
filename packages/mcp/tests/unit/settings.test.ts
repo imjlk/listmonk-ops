@@ -39,6 +39,13 @@ describe("settings shared adapter", () => {
 					data: {
 						"app.site_name": "Mailing list",
 						"bounce.sendgrid_key": "SG.super-secret",
+						messengers: [
+							{
+								name: "sms-gateway",
+								root_url:
+									"https://gw-user:gw-pass@sms.example.com/listmonk?api_key=sms-api-key&channel=sms",
+							},
+						],
 					},
 				}),
 			},
@@ -51,9 +58,19 @@ describe("settings shared adapter", () => {
 		expect(result.isError).toBeFalsy();
 		const text = result.content[0]?.text ?? "";
 		expect(text).toContain("Mailing list");
-		expect(text).not.toContain("SG.super-secret");
-		expect(JSON.stringify(result.structuredContent)).not.toContain(
-			"SG.super-secret",
-		);
+		for (const secret of ["SG.super-secret", "gw-pass", "sms-api-key"]) {
+			expect(text).not.toContain(secret);
+			expect(JSON.stringify(result.structuredContent)).not.toContain(secret);
+		}
+		expect(result.structuredContent).toMatchObject({
+			settings: {
+				messengers: [
+					{
+						root_url:
+							"https://[redacted]@sms.example.com/listmonk?api_key=[redacted]&channel=sms",
+					},
+				],
+			},
+		});
 	});
 });

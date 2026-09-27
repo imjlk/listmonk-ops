@@ -21,6 +21,13 @@ describe("settings CLI actions", () => {
 			data: {
 				"app.site_name": "Mailing list",
 				"bounce.sendgrid_key": "SG.secret",
+				messengers: [
+					{
+						name: "sms-gateway",
+						root_url:
+							"https://gw-user:gw-pass@sms.example.com/listmonk?api_key=sms-api-key&channel=sms",
+					},
+				],
 			},
 		}));
 		const cliContext = {
@@ -36,6 +43,13 @@ describe("settings CLI actions", () => {
 		expect(cliContext.output.json).toHaveBeenCalledWith({
 			"app.site_name": "Mailing list",
 			"bounce.sendgrid_key": "[redacted]",
+			messengers: [
+				{
+					name: "sms-gateway",
+					root_url:
+						"https://[redacted]@sms.example.com/listmonk?api_key=[redacted]&channel=sms",
+				},
+			],
 		});
 	});
 });

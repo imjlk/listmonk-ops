@@ -3,6 +3,7 @@ import { describe, expect, mock, test } from "bun:test";
 import {
 	invokeTestSmtpOperation,
 	redactSettingsCredentials,
+	redactUrlCredentials,
 	SETTINGS_REDACTED_VALUE,
 	invokeGetSettingsOperation,
 	invokeSettingsOperationByMcpName,
@@ -159,6 +160,56 @@ function listmonk62SettingsDocument() {
 	};
 }
 
+/**
+ * The same 6.2 document with credentials embedded in URL values, which GET
+ * /api/settings returns verbatim: a staging root URL behind basic auth, an
+ * Azure SAS logo link, a trusted redirect carrying a token, a presigned S3
+ * public URL, an SMS postback URL with basic auth and an API key, and SMTP
+ * and POP URLs pasted into `host` fields in the form other mailers accept.
+ */
+function listmonk62SettingsDocumentWithUrlCredentials() {
+	const document = listmonk62SettingsDocument();
+	const [postmark, ses] = document.smtp;
+	const [mailbox] = document["bounce.mailboxes"];
+	const [messenger] = document.messengers;
+	return {
+		...document,
+		"app.root_url": "https://stage-user:stage-basic-pass@lists.example.com",
+		"app.logo_url":
+			"https://media.blob.core.windows.net/brand/logo.png?sv=2024-11-04&sp=r&sig=azure-sas-signature",
+		"security.trusted_urls": [
+			"https://example.com/thanks?token=trusted-redirect-token",
+			"https://example.com/welcome",
+		],
+		"upload.s3.public_url":
+			"https://cdn.example.com/listmonk-media?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20260927%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Signature=s3-presign-signature",
+		smtp: [
+			postmark!,
+			ses!,
+			{
+				...postmark!,
+				name: "email-relay",
+				uuid: "7d1e4c2b-9a8f-4e6d-b5c4-3a2f1e0d9c8b",
+				enabled: false,
+				host: "smtps://relay-user:relay-pass@smtp.relay.example.com:465",
+			},
+		],
+		messengers: [
+			{
+				...messenger!,
+				root_url:
+					"https://gw-user:gw-pass@sms.example.com/listmonk?api_key=sms-api-key&channel=sms",
+			},
+		],
+		"bounce.mailboxes": [
+			{
+				...mailbox!,
+				host: "pop3s://bounce-user:bounce-pass@pop.example.com:995",
+			},
+		],
+	};
+}
+
 describe("settings credential redaction", () => {
 	test("redacts every credential in the Listmonk 6.2 settings document", () => {
 		const document = listmonk62SettingsDocument();
@@ -278,6 +329,187 @@ describe("settings credential redaction", () => {
 		expect(redactSettingsCredentials(7)).toBe(7);
 		expect(redactSettingsCredentials([])).toEqual([]);
 		expect(redactSettingsCredentials(null)).toBe(null);
+	});
+});
+
+describe("settings URL credential redaction", () => {
+	test("redacts credentials embedded in the 6.2 document's URL values", async () => {
+		const document = listmonk62SettingsDocumentWithUrlCredentials();
+		const get = mock(async () => ({ data: document }));
+
+		const { settings } = await invokeGetSettingsOperation(
+			settingsContext({
+				get: get as unknown as SettingsClient["settings"]["get"],
+			}),
+			{},
+		);
+		const redacted = settings as ReturnType<
+			typeof listmonk62SettingsDocumentWithUrlCredentials
+		>;
+
+		const embeddedCredentials = [
+			"stage-user",
+			"stage-basic-pass",
+			"azure-sas-signature",
+			"trusted-redirect-token",
+			"AKIAIOSFODNN7EXAMPLE",
+			"s3-presign-signature",
+			"relay-user",
+			"relay-pass",
+			"gw-user",
+			"gw-pass",
+			"sms-api-key",
+			"bounce-user",
+			"bounce-pass",
+		];
+		const serialized = JSON.stringify(redacted);
+		for (const credential of embeddedCredentials) {
+			expect(serialized).not.toContain(credential);
+		}
+
+		// Scheme, host, port, path, and the other parameters stay visible.
+		expect(redacted["app.root_url"]).toBe(
+			`https://${SETTINGS_REDACTED_VALUE}@lists.example.com/`,
+		);
+		expect(redacted["app.logo_url"]).toBe(
+			`https://media.blob.core.windows.net/brand/logo.png?sv=2024-11-04&sp=r&sig=${SETTINGS_REDACTED_VALUE}`,
+		);
+		expect(redacted["security.trusted_urls"]).toEqual([
+			`https://example.com/thanks?token=${SETTINGS_REDACTED_VALUE}`,
+			"https://example.com/welcome",
+		]);
+		expect(redacted["upload.s3.public_url"]).toBe(
+			`https://cdn.example.com/listmonk-media?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${SETTINGS_REDACTED_VALUE}&X-Amz-Signature=${SETTINGS_REDACTED_VALUE}`,
+		);
+		expect(redacted.smtp[2]?.host).toBe(
+			`smtps://${SETTINGS_REDACTED_VALUE}@smtp.relay.example.com:465`,
+		);
+		expect(redacted.messengers[0]?.root_url).toBe(
+			`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/listmonk?api_key=${SETTINGS_REDACTED_VALUE}&channel=sms`,
+		);
+		expect(redacted["bounce.mailboxes"][0]?.host).toBe(
+			`pop3s://${SETTINGS_REDACTED_VALUE}@pop.example.com:995`,
+		);
+
+		// URLs without credentials and non-URL strings are untouched.
+		expect(redacted["upload.s3.url"]).toBe(
+			"https://s3.ap-northeast-2.amazonaws.com",
+		);
+		expect(redacted["security.oidc"].provider_url).toBe(
+			"https://id.example.com",
+		);
+		expect(redacted["app.from_email"]).toBe("listmonk <noreply@example.com>");
+		expect(redacted.smtp[0]?.host).toBe("smtp.postmarkapp.com");
+		expect(redacted["bounce.mailboxes"][0]?.return_path).toBe(
+			"bounces@example.com",
+		);
+		expect(redacted["maintenance.db"].vacuum_cron_interval).toBe("0 2 * * *");
+		// The source document keeps its original values.
+		expect(document.messengers[0]?.root_url).toContain("gw-pass");
+	});
+
+	test("redacts credential-named query parameters and keeps every other string", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			[
+				"https://sms.example.com/send?apiKey=a&X-Api-Key=b&access-token=c&page=2",
+				"https://sms.example.com/send?apiKey=[redacted]&X-Api-Key=[redacted]&access-token=[redacted]&page=2",
+			],
+			[
+				"https://sms.example.com/send?user=alice&pass=b&pwd=c&username=d&password=e&to=%2B15550100",
+				"https://sms.example.com/send?user=[redacted]&pass=[redacted]&pwd=[redacted]&username=[redacted]&password=[redacted]&to=%2B15550100",
+			],
+			[
+				"https://hooks.example.com/in?key=a&secret=b&client_secret=c&auth=d&jwt=e&session_id=f&utm_source=listmonk",
+				"https://hooks.example.com/in?key=[redacted]&secret=[redacted]&client_secret=[redacted]&auth=[redacted]&jwt=[redacted]&session_id=[redacted]&utm_source=listmonk",
+			],
+			[
+				"https://bucket.s3.amazonaws.com/a.png?X-Amz-Date=20260927T000000Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Security-Token=a&X-Amz-Signature=b",
+				"https://bucket.s3.amazonaws.com/a.png?X-Amz-Date=20260927T000000Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Security-Token=[redacted]&X-Amz-Signature=[redacted]",
+			],
+			[
+				"https://cdn.example.com/a.png?Expires=1798761600&Signature=a&Key-Pair-Id=b",
+				"https://cdn.example.com/a.png?Expires=1798761600&Signature=[redacted]&Key-Pair-Id=[redacted]",
+			],
+			// Percent-encoded names and the legacy ";" separator still match.
+			[
+				"https://hooks.example.com/in?q=a;%74oken=b",
+				"https://hooks.example.com/in?q=a;%74oken=[redacted]",
+			],
+			// Only the leading URL is rewritten; any text after it is kept.
+			[
+				"  https://user:pass@hooks.example.com/in  trailing note",
+				"  https://[redacted]@hooks.example.com/in  trailing note",
+			],
+		];
+		const unchanged = [
+			"HTTPS://Lists.Example.com/Path?page=2&keyword=news#Top",
+			"https://cdn.jsdelivr.net/npm/@listmonk/logo.png",
+			"https://hooks.example.com/in?token=",
+			"mailto:ops@example.com?subject=token",
+			"listmonk <noreply@example.com>",
+			"bounces@example.com",
+			"smtp.example.com",
+			"mailpit:1025",
+			"a:hover { color: red }",
+			"https://example.com is the site; write to ops@example.com",
+			"0 2 * * *",
+			"",
+		];
+
+		const redacted = redactSettingsCredentials({
+			"security.trusted_urls": [
+				...cases.map(([input]) => input),
+				...unchanged,
+			],
+		}) as { "security.trusted_urls": string[] };
+
+		expect(redacted["security.trusted_urls"]).toEqual([
+			...cases.map(([, expected]) => expected),
+			...unchanged,
+		]);
+	});
+
+	test("redacts the userinfo of URLs the parser rejects", () => {
+		expect(
+			redactSettingsCredentials({
+				messengers: [
+					// A mistyped port.
+					{ root_url: "https://gw-user:gw-pass@sms.example.com:80a/send?token=t" },
+					// An unencoded "/" in the password ends the authority early.
+					{ root_url: "https://gw-user:gw/pass@sms.example.com/send" },
+					{ root_url: "https://sms.example.com:99999/send?api_key=k&to=1" },
+				],
+			}),
+		).toEqual({
+			messengers: [
+				{
+					root_url: `https://${SETTINGS_REDACTED_VALUE}@sms.example.com:80a/send?token=${SETTINGS_REDACTED_VALUE}`,
+				},
+				{
+					root_url: `https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+				},
+				{
+					root_url: `https://sms.example.com:99999/send?api_key=${SETTINGS_REDACTED_VALUE}&to=1`,
+				},
+			],
+		});
+	});
+
+	test("rewrites only URLs with credentials and is idempotent", () => {
+		const verbatim = "HTTPS://Lists.Example.com:8443/a//b?page=2#Top";
+		expect(redactUrlCredentials(verbatim)).toBe(verbatim);
+
+		const once = redactUrlCredentials(
+			"redis://:cache-pass@cache.example.com:6379/0?password=cache-pass",
+		);
+		expect(once).toBe(
+			`redis://${SETTINGS_REDACTED_VALUE}@cache.example.com:6379/0?password=${SETTINGS_REDACTED_VALUE}`,
+		);
+		expect(redactUrlCredentials(once)).toBe(once);
+
+		const document = listmonk62SettingsDocumentWithUrlCredentials();
+		const redactedOnce = redactSettingsCredentials(document);
+		expect(redactSettingsCredentials(redactedOnce)).toEqual(redactedOnce);
 	});
 });
 

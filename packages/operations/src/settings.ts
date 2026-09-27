@@ -85,9 +85,142 @@ function isCredentialFieldName(name: string): boolean {
 }
 
 /**
+ * Query parameter name tokens that carry credentials in a URL beyond the
+ * settings field names above: request signatures and signing scopes (AWS
+ * SigV4 `X-Amz-Signature` and `X-Amz-Credential`, Azure SAS `sig`), session
+ * ids, and the `user`/`pass` pairs SMS and webhook gateways accept in a
+ * messenger's postback URL. Any token ending in "key" also counts, so
+ * `api-key`, `apiKey`, and `X-Api-Key` match alike.
+ */
+const URL_CREDENTIAL_PARAMETER_TOKENS = new Set([
+	"auth",
+	"authorization",
+	"credential",
+	"credentials",
+	"hmac",
+	"jwt",
+	"login",
+	"pass",
+	"passphrase",
+	"passwd",
+	"pwd",
+	"sessid",
+	"session",
+	"sessionid",
+	"sig",
+	"signature",
+	"user",
+]);
+
+/**
+ * A value that begins with an absolute URL: optional leading whitespace,
+ * then an RFC 3986 scheme and `//` (or the `\\` WHATWG parsers accept for
+ * special schemes), up to the first whitespace. Requiring the authority
+ * keeps `mailto:` addresses, hostnames, email addresses, and CSS rules out,
+ * and stopping at whitespace keeps any text after the URL verbatim.
+ */
+const LEADING_ABSOLUTE_URL = /^(\s*)([a-z][a-z0-9+.-]*:[\\/]{2})(\S*)/i;
+
+function decodeQueryParameterName(encodedName: string): string {
+	try {
+		return decodeURIComponent(encodedName.replace(/\+/g, " "));
+	} catch {
+		return encodedName;
+	}
+}
+
+function isCredentialQueryParameter(encodedName: string): boolean {
+	const name = decodeQueryParameterName(encodedName).toLowerCase();
+	if (isCredentialFieldName(name)) return true;
+	return name
+		.split(/[^a-z0-9]+/)
+		.some(
+			(token) =>
+				token.endsWith("key") || URL_CREDENTIAL_PARAMETER_TOKENS.has(token),
+		);
+}
+
+/**
+ * Replace the value of every credential-named parameter in a `?`-prefixed
+ * query. Both `&` and the legacy `;` separator split parameters, and the
+ * original text of every other parameter is kept.
+ */
+function redactCredentialQuery(query: string): string {
+	if (query.length <= 1) return query;
+	const parts = query.slice(1).split(/([&;])/);
+	let redacted = false;
+	for (let index = 0; index < parts.length; index += 2) {
+		const parameter = parts[index] ?? "";
+		const separator = parameter.indexOf("=");
+		if (separator <= 0 || separator === parameter.length - 1) continue;
+		if (!isCredentialQueryParameter(parameter.slice(0, separator))) continue;
+		parts[index] = `${parameter.slice(0, separator + 1)}${SETTINGS_REDACTED_VALUE}`;
+		redacted = true;
+	}
+	return redacted ? `?${parts.join("")}` : query;
+}
+
+/**
+ * Fallback for a URL the WHATWG parser rejects, such as one with a mistyped
+ * port or an unencoded "/" in its password. Listmonk stores such values
+ * as-is, so everything between "//" and the last "@" is treated as
+ * userinfo: a broken URL may lose some of its visible host, but never leaks
+ * its credentials.
+ */
+function redactUnparsedUrlCredentials(prefix: string, rest: string): string {
+	const at = rest.lastIndexOf("@");
+	const userinfo = at > 0 ? `${SETTINGS_REDACTED_VALUE}@` : "";
+	const location = at > 0 ? rest.slice(at + 1) : rest;
+	const hashStart = location.indexOf("#");
+	const fragment = hashStart === -1 ? "" : location.slice(hashStart);
+	const beforeFragment =
+		hashStart === -1 ? location : location.slice(0, hashStart);
+	const queryStart = beforeFragment.indexOf("?");
+	const path =
+		queryStart === -1 ? beforeFragment : beforeFragment.slice(0, queryStart);
+	const query = queryStart === -1 ? "" : beforeFragment.slice(queryStart);
+	return `${prefix}${userinfo}${path}${redactCredentialQuery(query)}${fragment}`;
+}
+
+function redactAbsoluteUrl(prefix: string, rest: string): string {
+	let url: URL;
+	try {
+		url = new URL(`${prefix}${rest}`);
+	} catch {
+		return redactUnparsedUrlCredentials(prefix, rest);
+	}
+	const hasUserinfo = url.username !== "" || url.password !== "";
+	const search = redactCredentialQuery(url.search);
+	if (!hasUserinfo && search === url.search) return `${prefix}${rest}`;
+	const userinfo = hasUserinfo ? `${SETTINGS_REDACTED_VALUE}@` : "";
+	return `${url.protocol}//${userinfo}${url.host}${url.pathname}${search}${url.hash}`;
+}
+
+/**
+ * Redact the credentials a URL-valued setting can embed: the userinfo
+ * (`https://user:pass@host`) and the values of credential-named query
+ * parameters (`?token=…`, `?api_key=…`, `?X-Amz-Signature=…`). Scheme,
+ * host, port, path, the other parameters, and the fragment stay visible so
+ * operators can still diagnose the configuration. A value that does not
+ * begin with an absolute URL, or whose URL has nothing to redact, is
+ * returned unchanged.
+ */
+export function redactUrlCredentials(value: string): string {
+	const match = LEADING_ABSOLUTE_URL.exec(value);
+	if (match === null) return value;
+	const [leadingUrl, leading = "", prefix = "", rest = ""] = match;
+	const redacted = redactAbsoluteUrl(prefix, rest);
+	if (redacted === `${prefix}${rest}`) return value;
+	return `${leading}${redacted}${value.slice(leadingUrl.length)}`;
+}
+
+/**
  * Recursively replace credential-bearing fields. Arrays are walked so the
  * per-entry credentials of the SMTP pool, messengers, and bounce mailboxes
- * are covered; non-object scalars pass through untouched.
+ * are covered. Every other string passes through `redactUrlCredentials`,
+ * so URL-valued settings (`app.root_url`, messenger `root_url`s, the S3 and
+ * OIDC endpoints, trusted redirect URLs) and an SMTP URL pasted into a
+ * `host` keep their shape without their embedded credentials.
  */
 export function redactSettingsCredentials(value: unknown): unknown {
 	if (Array.isArray(value)) {
@@ -109,6 +242,9 @@ export function redactSettingsCredentials(value: unknown): unknown {
 			});
 		}
 		return result;
+	}
+	if (typeof value === "string") {
+		return redactUrlCredentials(value);
 	}
 	return value;
 }
@@ -138,7 +274,7 @@ export const getSettingsOperation = defineOperation({
 	id: "settings.get",
 	title: "Read installation settings (redacted)",
 	description:
-		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) recursively replaced by [redacted].",
+		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) and every credential embedded in a URL value (userinfo and secret query parameters) recursively replaced by [redacted].",
 	inputSchema: z.object({}),
 	outputSchema: settingsGetOutputSchema,
 	safety: readResourceSafety,

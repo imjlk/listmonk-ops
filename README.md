@@ -712,7 +712,10 @@ listmonk-cli dashboard counts
 listmonk-cli dashboard charts
 listmonk-cli system about
 listmonk-cli system logs --lines 50
-# Credentials, including auth usernames, are recursively replaced by [redacted].
+# Credentials, including auth usernames, are recursively replaced by
+# [redacted]. URL values keep their scheme, host, and path, but their
+# userinfo and secret query values (token, api_key, signature, ...) are
+# replaced too.
 listmonk-cli settings get
 # Every run sends a real message to the recipient.
 listmonk-cli settings test-smtp --email reader@example.com \
