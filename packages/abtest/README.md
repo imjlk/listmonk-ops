@@ -356,6 +356,8 @@ interface StatisticalAnalysis {
 - Define campaign variants with different subject lines, content, or send times
 - Specify target subscriber lists and test group percentage (default: 10%)
 - System validates percentage allocation and variant count
+- Statistical warnings, recommendations, and a sample-size summary are written
+  to stderr, never stdout; set `LISTMONK_OPS_ABTEST_SILENT=1` to suppress them
 
 #### 2. Subscriber Segmentation
 - Admits only subscribers whose source-list membership permits delivery

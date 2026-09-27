@@ -218,7 +218,9 @@ on stderr. JSON mode includes buffered auxiliary `diagnostics` in that document
 (up to 20 messages of 1,024 characters). NDJSON streams each diagnostic immediately
 as `{"diagnostic":{"level":"info","message":"..."}}` on stderr; parse each line
 separately. Levels distinguish success/info/warning/error; stacks and arbitrary
-object details are omitted. Quiet mode omits auxiliary diagnostics.
+object details are omitted. Quiet mode omits auxiliary diagnostics. Console
+output that domain code or dependencies write while a command runs is captured
+as info diagnostics instead of reaching stdout.
 
 Long-running sequence/webhook workers accept NDJSON, human, or quiet mode;
 buffered JSON mode is rejected. Human command errors omit runtime stacks.

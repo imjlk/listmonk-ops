@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import postgres, { type Sql } from "postgres";
+import { createRuntimePostgresClientOptions } from "./postgres-client-options";
 import {
 	OutboundWebhookConflictError,
 	OutboundWebhookNotFoundError,
@@ -369,15 +370,14 @@ async function initializeSchema(sql: Sql): Promise<void> {
 }
 
 /**
- * Create a normalized Postgres endpoint/outbox repository. Schema creation is
- * lazy and idempotent so CLI and MCP processes can start concurrently.
+ * Build the postgres.js client options for the webhook runtime: validated
+ * pool limits plus the shared runtime settings that keep schema notices off
+ * stdout and avoid named prepared statements.
  */
-
-export function createPostgresOutboundWebhookRepository(
-	options: PostgresOutboundWebhookRepositoryOptions,
-): OutboundWebhookRepository {
-	const connectionString = assertConnectionString(options.connectionString);
-	const sql = postgres(connectionString, {
+export function createPostgresOutboundWebhookClientOptions(
+	options: Omit<PostgresOutboundWebhookRepositoryOptions, "connectionString">,
+) {
+	return createRuntimePostgresClientOptions({
 		max: resolvePositiveInteger(
 			options.maxConnections,
 			5,
@@ -396,9 +396,22 @@ export function createPostgresOutboundWebhookRepository(
 			"Webhook Postgres connect timeout",
 			60,
 		),
-		prepare: false,
-		onnotice: () => undefined,
 	});
+}
+
+/**
+ * Create a normalized Postgres endpoint/outbox repository. Schema creation is
+ * lazy and idempotent so CLI and MCP processes can start concurrently.
+ */
+
+export function createPostgresOutboundWebhookRepository(
+	options: PostgresOutboundWebhookRepositoryOptions,
+): OutboundWebhookRepository {
+	const connectionString = assertConnectionString(options.connectionString);
+	const sql = postgres(
+		connectionString,
+		createPostgresOutboundWebhookClientOptions(options),
+	);
 	let initialization: Promise<void> | undefined;
 	const ensureInitialized = async (): Promise<void> => {
 		initialization ??= initializeSchema(sql).catch((error) => {

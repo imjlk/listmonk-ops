@@ -10,6 +10,7 @@ import {
 	type TransactionalSendRecord,
 } from "@listmonk-ops/operations";
 import postgres, { type Sql, type TransactionSql } from "postgres";
+import { createRuntimePostgresClientOptions } from "./postgres-client-options";
 import {
 	DEFAULT_SEQUENCE_WORKER_RETENTION_MS,
 	parsePersistedSequenceDefinition,
@@ -733,11 +734,15 @@ function createPostgresTransactionalIdempotencyStore(
 	};
 }
 
-export function createPostgresSequenceRepository(
-	options: PostgresSequenceRepositoryOptions,
-): SequenceRepository {
-	const connectionString = assertConnectionString(options.connectionString);
-	const sql = postgres(connectionString, {
+/**
+ * Build the postgres.js client options for the sequence runtime: validated
+ * pool limits plus the shared runtime settings that keep schema notices off
+ * stdout and avoid named prepared statements.
+ */
+export function createPostgresSequenceClientOptions(
+	options: Omit<PostgresSequenceRepositoryOptions, "connectionString">,
+) {
+	return createRuntimePostgresClientOptions({
 		max: resolvePositiveInteger(
 			options.maxConnections,
 			5,
@@ -757,6 +762,16 @@ export function createPostgresSequenceRepository(
 			120,
 		),
 	});
+}
+
+export function createPostgresSequenceRepository(
+	options: PostgresSequenceRepositoryOptions,
+): SequenceRepository {
+	const connectionString = assertConnectionString(options.connectionString);
+	const sql = postgres(
+		connectionString,
+		createPostgresSequenceClientOptions(options),
+	);
 	let initialization: Promise<void> | undefined;
 	const ready = (): Promise<void> => {
 		initialization ??= initializeSchema(sql).catch((error) => {
