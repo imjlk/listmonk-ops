@@ -513,6 +513,14 @@ type UpdateCommandFlags = Omit<CreateCommandFlags, "name" | "subject" | "from-em
 	"content-type"?: "richtext" | "html" | "markdown" | "plain" | "visual";
 };
 
+function parseCampaignMediaIdsFlag(
+	value: string | undefined,
+): number[] | undefined {
+	if (value === undefined) return undefined;
+	if (value === "") return [];
+	return parseCsvNumbersStrict(value, "media IDs");
+}
+
 export async function handleUpdateCampaignCommand({
 	flags,
 	...args
@@ -553,9 +561,7 @@ export async function handleUpdateCampaignCommand({
 							"archive-meta",
 						)
 					: undefined,
-				media: flags.media
-					? parseCsvNumbersStrict(flags.media, "media IDs")
-					: undefined,
+				media: parseCampaignMediaIdsFlag(flags.media),
 				subscribers: parseCsvStrings(flags.subscribers),
 			},
 		);
@@ -1068,7 +1074,7 @@ export default defineGroup({
 			operationId: "campaigns.unschedule",
 			description: "Return a scheduled campaign to draft",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				"expected-updated-at": expectedUpdatedAtOption(),

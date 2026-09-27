@@ -14,6 +14,7 @@ type CapturedRequest = {
 	method: string;
 	path: string;
 	query: URLSearchParams;
+	body?: unknown;
 };
 
 const requests: CapturedRequest[] = [];
@@ -22,12 +23,14 @@ let transactionalAcknowledgement = true;
 const server = Bun.serve({
 	hostname: "127.0.0.1",
 	port: 0,
-	fetch(request) {
+	async fetch(request) {
 		const url = new URL(request.url);
+		const body = request.method === "PUT" ? await request.json() : undefined;
 		requests.push({
 			method: request.method,
 			path: url.pathname,
 			query: url.searchParams,
+			...(body === undefined ? {} : { body }),
 		});
 		if (url.pathname === "/api/tx") {
 			return Response.json({ data: transactionalAcknowledgement });
@@ -150,6 +153,45 @@ describe("CLI argv parsing", () => {
 		expect(requests.map((request) => request.path)).toEqual([
 			"/api/campaigns/16",
 		]);
+	}, 30_000);
+
+	test("campaigns update --media empty clears attachments without a read", async () => {
+		const result = await runCli([
+			"campaigns",
+			"update",
+			"--id",
+			"1",
+			"--lists",
+			"1",
+			"--media",
+			"",
+			"--attribs",
+			"{}",
+			"--format=json",
+		]);
+
+		expect(result.exitCode).toBe(0);
+		expect(requests).toHaveLength(1);
+		expect(requests[0]?.method).toBe("PUT");
+		expect(requests[0]?.path).toBe("/api/campaigns/1");
+		expect(requests[0]?.body).toEqual({ lists: [1], media: [], attribs: {} });
+	}, 30_000);
+
+	test("campaign unschedule rejects coerced scalar IDs", async () => {
+		const result = await runCli([
+			"campaigns",
+			"unschedule",
+			"--id",
+			"1e2",
+			"--format=json",
+		]);
+
+		expect(result.exitCode).not.toBe(0);
+		expect(result.stdout).toBe("");
+		expect(JSON.parse(result.stderr).error.message).toContain(
+			'--id: expected a positive decimal integer, received "1e2"',
+		);
+		expect(requests).toEqual([]);
 	}, 30_000);
 
 	test("tx send exits nonzero with parseable output when Listmonk rejects it", async () => {
