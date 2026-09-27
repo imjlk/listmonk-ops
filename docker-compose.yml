@@ -54,7 +54,7 @@ services:
     command: ["sh", "-c", "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && ./listmonk --config ''"]
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.31.2
     container_name: ${LISTMONK_MAILPIT_CONTAINER_NAME:-listmonk_mailpit}
     ports:
       - "${LISTMONK_BIND_ADDRESS:-127.0.0.1}:${LISTMONK_MAILPIT_UI_PORT:-8025}:8025"  # Web UI

@@ -43,3 +43,19 @@ test("diagnostic and intermediate artifacts have bounded retention", () => {
 		"release-assets/checksums.txt",
 	);
 });
+
+test("the local stack pins every service image to an explicit tag", () => {
+	// Renovate does not manage docker-compose.yml, so a floating tag would
+	// silently change the CI integration stack.
+	const compose = Bun.YAML.parse(read("docker-compose.yml")) as {
+		services: Record<string, { image?: unknown }>;
+	};
+	const services = Object.entries(compose.services);
+	expect(services.length).toBeGreaterThan(0);
+	for (const [name, service] of services) {
+		expect(service.image, name).toMatch(
+			/^[^\s:@]+:\w[\w.-]*(@sha256:[a-f0-9]{64})?$/,
+		);
+		expect(service.image, name).not.toMatch(/:latest$/);
+	}
+});
