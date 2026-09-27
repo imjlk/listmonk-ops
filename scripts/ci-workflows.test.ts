@@ -34,6 +34,19 @@ test("CI keeps the local-stack smoke and E2E behind their loopback guards", () =
 	expect(workflow).not.toContain("LISTMONK_E2E_ALLOW_REMOTE");
 });
 
+test("Sampo release checks packed declarations before publishing", () => {
+	const workflow = read(".github/workflows/sampo-release-publish.yml");
+	const build = workflow.indexOf("run: bun run build");
+	const verification = workflow.indexOf(
+		"run: bun run check && bun run test && bun run check:package-types",
+	);
+	const publish = workflow.indexOf("command: auto");
+
+	expect(build).toBeGreaterThanOrEqual(0);
+	expect(verification).toBeGreaterThan(build);
+	expect(publish).toBeGreaterThan(verification);
+});
+
 test("built tests preserve per-package isolation and do not invoke build hooks", () => {
 	const script = read("scripts/test-built-workspaces.sh");
 	expect(script).toContain("common openapi operations automation abtest");

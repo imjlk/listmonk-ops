@@ -92,7 +92,7 @@ jobs:
 
       - name: Run checks and tests before publishing
         if: steps.changesets.outputs.pending == 'false'
-        run: bun run check && bun run test
+        run: bun run check && bun run test && bun run check:package-types
 
       - name: Detect pending CLI binary release
         id: cli_release
