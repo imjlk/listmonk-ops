@@ -682,7 +682,9 @@ async function loadCampaignForWrite(
  * but list IDs, media IDs, and attribs are not part of that pre-fill:
  * omitted `lists` fail with "Invalid list IDs", omitted `media` detach
  * every attachment, and omitted `attribs` overwrite the stored ones. Carry
- * the stored values forward unless the caller sets them. Pass `stored` when
+ * the stored values forward unless the caller sets them. When all three
+ * overwrite-sensitive fields are explicit, no pre-read is needed and a
+ * complete payload requires no campaign-read permission. Pass `stored` when
  * the caller already read the campaign, so the body is built from the same
  * snapshot its checks validated; a snapshot whose `id` is missing or differs
  * from `id` is rejected rather than written onto another campaign.

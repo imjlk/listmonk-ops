@@ -1026,7 +1026,8 @@ read-only이며, 모든 MCP 도구는 `readOnlyHint`, `destructiveHint`,
 
 - `listmonk_update_campaign_status`: 공용 lifecycle Operation인
   `listmonk_schedule_campaign` (`send_at` 포함), `listmonk_start_campaign`,
-  `listmonk_pause_campaign`, `listmonk_cancel_campaign`을 사용하세요.
+  `listmonk_unschedule_campaign`, `listmonk_pause_campaign`,
+  `listmonk_cancel_campaign`을 사용하세요.
 - 임의의 SQL 표현식을 확인 없이 한 번에 적용하던
   `listmonk_delete_subscribers_by_query`,
   `listmonk_blocklist_subscribers_by_query`: `listmonk_get_subscribers`

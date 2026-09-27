@@ -101,6 +101,7 @@ Legacy tools that bypassed confirmation and audit were removed:
 - `listmonk_update_campaign` - Update an existing campaign
 - `listmonk_delete_campaign` - Delete campaign (requires `confirm: true`)
 - `listmonk_schedule_campaign` - Schedule a campaign to send at a specific time (requires `confirm: true`, `send_at`)
+- `listmonk_unschedule_campaign` - Return a scheduled campaign to draft so it can be sent early
 - `listmonk_start_campaign` - Start a campaign immediately (requires `confirm: true`)
 - `listmonk_pause_campaign` - Pause a running campaign
 - `listmonk_cancel_campaign` - Cancel a campaign (requires `confirm: true`)

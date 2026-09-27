@@ -1088,7 +1088,8 @@ store and confirmation gate were removed:
 
 - `listmonk_update_campaign_status`: use the shared lifecycle operations
   `listmonk_schedule_campaign` (with `send_at`), `listmonk_start_campaign`,
-  `listmonk_pause_campaign`, and `listmonk_cancel_campaign`.
+  `listmonk_unschedule_campaign`, `listmonk_pause_campaign`, and
+  `listmonk_cancel_campaign`.
 - `listmonk_delete_subscribers_by_query` and
   `listmonk_blocklist_subscribers_by_query`, which applied an arbitrary SQL
   expression in one unconfirmed call: resolve subscriber IDs with
