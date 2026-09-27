@@ -126,7 +126,9 @@ const DEFAULT_TERMINAL_STATUSES = ["finished", "sent", "cancelled"];
 export function isListmonkCampaignCancellationStatus(
 	status: string | undefined,
 ): status is "running" | "paused" {
-	return DEFAULT_ACTIVE_STATUSES.some((activeStatus) => activeStatus === status);
+	return DEFAULT_ACTIVE_STATUSES.some(
+		(activeStatus) => activeStatus === status,
+	);
 }
 /**
  * Pseudo-status used when a campaign's status fetch returned a 404 — the
