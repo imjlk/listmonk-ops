@@ -1,5 +1,12 @@
 import { getListmonkDataDirectory } from "@listmonk-ops/common";
-import { mkdirSync } from "node:fs";
+import {
+	chmodSync,
+	closeSync,
+	lstatSync,
+	mkdirSync,
+	openSync,
+	statSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { AbTest } from "./types";
@@ -87,12 +94,107 @@ export function getConversionEventStorePath(): string {
 	return resolveConversionStorePath();
 }
 
+const CONVERSION_STORE_DIRECTORY_MODE = 0o700;
+const CONVERSION_STORE_FILE_MODE = 0o600;
+const SQLITE_COMPANION_SUFFIXES = ["-journal", "-wal", "-shm"] as const;
+
+function errorCode(error: unknown): unknown {
+	return error !== null && typeof error === "object" && "code" in error
+		? (error as { code?: unknown }).code
+		: undefined;
+}
+
+/** Remove group and other access from an existing file; never widens it. */
+function restrictFileToOwner(path: string): void {
+	let mode: number;
+	try {
+		mode = statSync(path).mode;
+	} catch (error) {
+		if (errorCode(error) === "ENOENT") {
+			return;
+		}
+		throw error;
+	}
+	if ((mode & 0o077) === 0) {
+		return;
+	}
+	try {
+		chmodSync(path, mode & 0o700);
+	} catch (error) {
+		// A file owned by another account or on a read-only mount cannot be
+		// tightened here; leave it as it was rather than failing the store,
+		// and ignore a journal removed between the stat and the chmod.
+		const code = errorCode(error);
+		if (code === "ENOENT") return;
+		if (code !== "EPERM" && code !== "EROFS") {
+			throw error;
+		}
+		console.warn(
+			`Could not restrict conversion store file to owner-only (${String(code)}): ${path}`,
+		);
+	}
+}
+
+function rejectSymbolicLink(path: string, allowMissing = false): void {
+	try {
+		if (lstatSync(path).isSymbolicLink()) {
+			throw new Error(
+				`Conversion store file must not be a symbolic link: ${path}`,
+			);
+		}
+	} catch (error) {
+		if (allowMissing && errorCode(error) === "ENOENT") return;
+		throw error;
+	}
+}
+
+/**
+ * Keep the conversion journal owner-only, like abtests.json: it holds
+ * subscriber UUIDs (usable as tokens on Listmonk's public subscription
+ * pages) and revenue. Missing parent directories are created 0700 and a
+ * missing database file is created 0600 before SQLite opens it, so SQLite
+ * gives its journal, WAL, and SHM files the same mode. A database or
+ * leftover companion file that an earlier version created with broader
+ * permissions loses its group and other access. Symbolic links at the
+ * database or companion paths are rejected. If the OS cannot tighten an
+ * existing file, a warning names the path and error code. Pre-existing
+ * directories are left untouched because the store path can be overridden
+ * into a shared directory.
+ */
+export function prepareConversionStoreFiles(path: string): void {
+	mkdirSync(dirname(path), {
+		recursive: true,
+		mode: CONVERSION_STORE_DIRECTORY_MODE,
+	});
+	try {
+		closeSync(openSync(path, "wx", CONVERSION_STORE_FILE_MODE));
+	} catch (error) {
+		if (errorCode(error) !== "EEXIST") {
+			throw error;
+		}
+	}
+	rejectSymbolicLink(path);
+	for (const suffix of SQLITE_COMPANION_SUFFIXES) {
+		rejectSymbolicLink(`${path}${suffix}`, true);
+	}
+	if (process.platform === "win32") {
+		// POSIX permission bits do not describe Windows ACLs.
+		return;
+	}
+	for (const candidate of [
+		path,
+		...SQLITE_COMPANION_SUFFIXES.map((suffix) => `${path}${suffix}`),
+	]) {
+		restrictFileToOwner(candidate);
+	}
+}
+
 /** Indexed, transactional event journal shared by CLI and MCP processes. */
 export class SqliteConversionEventStore implements ConversionEventStore {
 	constructor(private readonly path = getConversionEventStorePath()) {}
 
 	private open(): DatabaseSync {
-		mkdirSync(dirname(this.path), { recursive: true });
+		prepareConversionStoreFiles(this.path);
 		const database = new DatabaseSync(this.path);
 		try {
 			database.exec("PRAGMA busy_timeout = 120000; PRAGMA synchronous = FULL");

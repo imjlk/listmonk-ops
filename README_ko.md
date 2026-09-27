@@ -1307,11 +1307,27 @@ timer용). `--dry-run true`로 상태 변경 없이 미리보기할 수 있습�
 `abtest-conversions.sqlite`을 공유합니다. 경로는
 `LISTMONK_OPS_ABTEST_CONVERSION_STORE`로 바꿀 수 있습니다. 저장 내용은 UUID,
 이벤트명, 시각, 선택적 금액·통화이며 이메일·이름은 저장하지 않습니다.
+구독자 UUID는 Listmonk 공개 구독 페이지에서 토큰으로 쓰일 수 있으므로
+데이터베이스와 SQLite 보조 파일 경로에 심볼릭 링크가 있으면 저장소를 열지
+않습니다. POSIX에서는 없는 디렉터리를 `0700`, 데이터베이스와 저널 파일을
+`0600`으로 만들고, 이전 버전이 만든 파일도 다음 사용 시 권한을 좁힙니다.
+운영체제가 기존 파일 권한 변경을 거부하면 경로와 오류 코드를 경고로 남기고
+기존 권한을 유지합니다. 이미 있는 상위 디렉터리의 권한은 바꾸지 않습니다.
 분석은 변형별 고유 전환 구독자 수와 이벤트 금액 합계를 사용합니다. 새 이벤트의
 배정을 검증할 수 있도록 귀속 기간 동안 변형 목록을 유지해야 합니다. 기록은
 추가만 가능하므로 CLI는 `--confirm`, MCP는 매 이벤트에 `confirm: true`가
 필요합니다. 자동 `abtest run`·`abtest tick`은 귀속 기간이 끝난 뒤 분석과
 승자 배포를 진행합니다.
+
+`abtest deploy-winner`(MCP `listmonk_abtest_deploy_winner`)는 `analyzing`
+테스트, 또는 유의한 승자를 아직 배포하지 않은 `completed` 테스트에서만
+배포합니다. `cancelled`, `inconclusive`, `failed` 테스트나 아직 분석 단계에
+이르지 않은 테스트는 분석이나 Listmonk 호출 전에 `AbTestInvalidStatusError`로
+거부되므로, CLI나 MCP 호출 한 번으로 운영자의 중지나 확정된 무결론 결과를
+뒤집을 수 없습니다. 오류 메시지에는 상태와 사유가 표시되며, MCP 오류
+결과에는 `test_id`, `status`, `allowed_statuses` 세부 정보도 포함됩니다.
+승자 campaign이 이미 기록된 테스트에서 다시 실행하면 아무 작업도 하지 않으며
+holdout에 두 번 발송하지 않습니다.
 
 MCP에서도 A/B 테스트 라이프사이클 도구를 제공합니다.
 
@@ -1367,9 +1383,23 @@ A/B 테스트 도메인은 발송 결과를 왜곡할 수 있는 여러 정확�
 - **통계 고도화**: A/B/C(3개 이상 변형) 테스트를 위한 Holm-Bonferroni
   보정, fixed-horizon 자격 게이트(endsAt, 최소 지속 시간, 변형당 최소
   샘플), chi-square goodness-of-fit 기반 SRM(샘플 비율 불일치) 감지.
-  게이트 실패 또는 SRM 감지 시 `isSignificant`가 억제되고 winner가 선언되지
-  않습니다. `analyze` 출력에 `correctedPValue`, `holmCorrected`,
-  `srmPassed`, `srmPValue`, `fixedHorizonReasonCodes` 필드가 포함됩니다.
+  보고되는 `srmPValue`는 정확한 chi-square 꼬리 확률이며, 이 값이 0.001
+  미만일 때에만 SRM으로 판정합니다. 기대값과 관측값은 변형 ID로 짝짓고,
+  결과는 선언된 변형 순서로 보고되며, 재개된 생성이 campaign을 다른 순서로
+  조정한 경우에도 첫 번째로 선언된 변형이 항상 대조군입니다. Holm 보정은
+  유한하지 않거나 범위를 벗어난 p-value를 유의한 것으로 세지 않고
+  거부합니다. 게이트 실패 또는 SRM 감지 시 `isSignificant`가 억제되고
+  winner가 선언되지 않습니다. `analyze` 출력에 `correctedPValue`,
+  `holmCorrected`, `srmPassed`, `srmPValue`, `fixedHorizonReasonCodes`
+  필드가 포함됩니다.
+- **클릭 수 가드**: 전환이 없는 테스트는 클릭률로 판정합니다. 어떤 변형의
+  campaign 클릭 합계가 발송 수를 넘으면 그 합계는 클릭한 수신자 수일 수
+  없으므로, 분석은 검정을 수행하지 않고 winner 없이
+  `fixedHorizonReasonCodes`에 `clicks_exceed_sends:<변형>:<클릭>/<발송>`을
+  보고합니다(run/tick은 이 테스트를 `inconclusive`로 종료합니다). 이런
+  테스트는 전환을 기록해 판정하세요.
+- **읽을 수 있는 Listmonk 오류**: 실패 메시지에 `[object Object]` 대신 HTTP
+  상태와 Listmonk 메시지(예: `HTTP 404: Campaign not found.`)가 표시됩니다.
 
 자세한 Listmonk API 동작과 spike 근거는
 [`packages/abtest/README.md`](packages/abtest/README.md)를 참고하세요.
@@ -1410,10 +1440,17 @@ winner를 선택합니다. 보고서에는 가설 목표, 기대 효과, 사전 
 (`verified`/`not_available`/`checksum_mismatch`)가 포함됩니다. checksum이
 일치하지 않는 가설은 분석 전에 거부됩니다.
 
+`revenue_per_recipient`는 주요 지표로 받지 않습니다. 유의성 검정은 비율
+지표만 분석하므로 revenue로 사전 등록한 테스트는 결론에 도달할 수 없습니다.
+`abtest create`는 저장소나 Listmonk에 접근하기 전에 명확한 오류로 이를
+거부하며, 이전 버전에서 만든 테스트와의 호환을 위해 공개 입력 스키마에는 이
+값이 남아 있습니다. 대신 `conversion_rate`로 사전 등록하고 revenue는 전환
+이벤트로 기록하세요.
+
 revenue 데이터가 있으면 보고서에 `Revenue`와 `Rev/Recipient` 컬럼이
-포함되며, 통화 접미사(예: `Revenue (USD)`)가 표시될 수 있습니다.
-`revenue_per_recipient` 주요 지표는 metrics 수집 전에도 항상 이 컬럼들을
-표시합니다.
+포함되며, 통화 접미사(예: `Revenue (USD)`)가 표시될 수 있습니다. 이전
+버전에서 `revenue_per_recipient` 주요 지표로 만든 테스트는 metrics 수집
+전에도 항상 이 컬럼들을 표시합니다.
 
 ### 프리뷰 및 seed 발송 게이트
 

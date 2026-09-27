@@ -120,6 +120,15 @@ number of unique converting subscribers as `conversions` and sums values as
 `revenue`. Recording is append-only and requires CLI `--confirm` or MCP
 `confirm: true`. Automated run/tick waits until the attribution tail closes
 before analysis or winner deployment. Retain variant lists until that time.
+The journal holds subscriber UUIDs, which work as tokens on Listmonk's public
+subscription pages, so the store rejects symbolic links at the database and
+SQLite companion paths. On POSIX, missing directories are created `0700`, the
+database is created `0600` before SQLite opens it (SQLite gives its `-journal`,
+`-wal`, and `-shm` files the same mode), and files an earlier version created
+with broader permissions lose group and other access. If the OS refuses to
+tighten an existing file, the store warns with its path and error code and
+leaves its permissions unchanged. Existing parent directories keep their
+mode because the path may be overridden into a shared directory.
 
 If a remote mutation fails, local state is not committed but Listmonk may
 contain partial resources. If the local commit fails after the remote action,
@@ -238,6 +247,18 @@ if (analysis.winner && test.testing_mode === "holdout") {
   await abTestExecutors.deployWinner(testId);
 }
 ```
+
+`deployWinner` only acts on an `analyzing` test, or a `completed` test whose
+winner has not been deployed yet (`resolveWinnerDeployment`). Any other status
+— an operator stop (`cancelled`), a finalized no-decision (`inconclusive`),
+`failed`, or a test that has not reached analysis — throws
+`AbTestInvalidStatusError` before any analysis or Listmonk call. Its message
+names the status and the reason, and its `toStructuredDetails()` carries
+`test_id`, `status`, and `allowed_statuses`, which MCP error results append
+as details. A completed test that already records
+`winnerCampaignId` returns without delivering to the holdout again, while a
+winner campaign already tagged `winner:deployed` after a lost local commit is
+still adopted instead of duplicated.
 
 #### Convenience Methods
 
@@ -374,13 +395,21 @@ interface StatisticalAnalysis {
 #### 4. Results Collection & Analysis
 - Monitors test campaign performance in real-time
 - Collects metrics: opens, clicks, conversions
+- Returns results in the declared variant order and compares every variant
+  against the first declared variant (the control), found by variant id
 - Performs Z-test for statistical significance
+- Refuses a click-rate decision (no winner, a
+  `clicks_exceed_sends:<variant>:<clicks>/<sent>` reason code) when any
+  variant's click total exceeds its sends, because such a total cannot count
+  clicking recipients
 - Determines winning variant based on performance
 
 #### 5. Winner Deployment
 - Automatically deploys winning variant to holdout group (90% of subscribers)
 - Creates winner campaign targeting holdout list
 - Provides full campaign reach with optimized content
+- Only from an `analyzing` test or a `completed` test without a deployed
+  winner campaign; other statuses raise `AbTestInvalidStatusError`
 
 ### Full-Split Methodology (Optional)
 
@@ -640,7 +669,9 @@ planning documents and are the reason some planned behavior had to change.
   remains flagged as unresolved. The analytics endpoints under
   `/campaigns/{id}/analytics/...` described in the overlay returned 404 on
   this server, so click uniqueness must be verified another way before being
-  relied on for statistics.
+  relied on for statistics. Analysis refuses a click-rate decision whenever a
+  variant's click total exceeds its sends, the one case where non-uniqueness
+  is provable from the counts alone.
 
 ### Tag-based discovery
 
@@ -970,13 +1001,18 @@ const test = await abTestExecutors.createAbTest({
 - `createdAt` and `lockedAt` must be strict ISO 8601 timestamps (the year-zero
   string `"0"`, localized formats like `"01/02/03"`, and overflowed dates like
   `"2026-02-30"` are rejected).
-- `primaryMetric.type` ∈ `click_rate | conversion_rate | revenue_per_recipient`.
+- `primaryMetric.type` ∈ `ANALYZABLE_PRIMARY_METRICS` (`click_rate |
+  conversion_rate`). `revenue_per_recipient` is rejected
+  (`assertAnalyzablePrimaryMetric`) because the significance test only
+  analyzes rates, so such a test could never reach a decision. The value
+  stays in the `HypothesisMetadata` type and the stable create contract so
+  tests created by earlier versions still load; pre-register
+  `conversion_rate` and record revenue with conversion events instead.
 - `primaryMetric.direction` ∈ `maximize | minimize`.
 - `expectedLift.kind` ∈ `relative | absolute`. Absolute lifts require a `unit`
   ∈ `percentage_point | currency_per_recipient`.
-- Metric/unit coupling: `revenue_per_recipient` requires
-  `currency_per_recipient` absolute lift; `click_rate`/`conversion_rate`
-  require `percentage_point`. Relative lift is unit-agnostic.
+- Metric/unit coupling: absolute lift for `click_rate`/`conversion_rate`
+  requires `percentage_point`. Relative lift is unit-agnostic.
 - `experimentScope.experimentFamilyKey` must be lowercase alphanumeric segments
   joined by single `.` / `_` / `-` separators (e.g.
   `onboarding.activation.day1`, `cart-recovery_24h`); `.`, `foo.`, and
@@ -995,6 +1031,10 @@ A/B 테스트에 **사전 등록된 가설**을 설정하면 수신자 할당 �
   `experimentScope`, `createdAt`)를 재귀적으로 정규화하므로 잠금 후 어떤
   변경도 무효화됩니다.
 - `createdAt`/`lockedAt`은 엄격한 ISO 8601이어야 합니다.
+- `primaryMetric.type`은 `click_rate` 또는 `conversion_rate`여야 합니다.
+  유의성 검정은 비율 지표만 분석하므로 `revenue_per_recipient`는 결론에
+  도달할 수 없어 거부됩니다. 이전 버전에서 만든 테스트를 읽을 수 있도록
+  타입과 공개 계약에는 남아 있습니다.
 - `experimentFamilyKey`는 `.` / `_` / `-` 로 구분된 소문자 영숫자 세그먼트여야 합니다.
 
 ## Recipient-domain stratification (advanced experimentation)

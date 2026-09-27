@@ -10,6 +10,11 @@ import {
 	type AudienceMember,
 	type AudienceSnapshot,
 } from "./audience";
+import { isNotFoundError } from "./lifecycle";
+import {
+	formatListmonkError,
+	formatListmonkErrorResponse,
+} from "./listmonk-errors";
 import { AbTestMetricsUnavailableError } from "./metrics";
 import {
 	buildAssignmentManifest,
@@ -40,10 +45,6 @@ export interface ProvisionedAbTestResources {
 export class ListmonkAbTestIntegration {
 	constructor(private listmonkClient: ListmonkClient) {}
 
-	private formatError(error: unknown): string {
-		return error instanceof Error ? error.message : String(error);
-	}
-
 	private unwrapData<T>(
 		response: {
 			data?: T;
@@ -52,7 +53,7 @@ export class ListmonkAbTestIntegration {
 		context: string,
 	): T {
 		if ("error" in response && response.error !== undefined) {
-			throw new Error(`${context}: ${this.formatError(response.error)}`);
+			throw new Error(`${context}: ${formatListmonkErrorResponse(response)}`);
 		}
 
 		if (response.data === undefined) {
@@ -392,7 +393,7 @@ export class ListmonkAbTestIntegration {
 				// it, then fall back to the manifest assignment so
 				// provisioning proceeds deterministically.
 				console.warn(
-					`Stratified assignment failed, falling back to the manifest assignment: ${this.formatError(stratificationError)}`,
+					`Stratified assignment failed, falling back to the manifest assignment: ${formatListmonkError(stratificationError)}`,
 				);
 				stratifiedAssignment = undefined;
 			}
@@ -766,20 +767,10 @@ export class ListmonkAbTestIntegration {
 		campaignIds: number[];
 		listIds: number[];
 	}): Promise<void> {
+		// isNotFoundError treats a structured HTTP status as authoritative and
+		// falls back to message text only when the envelope has no response,
+		// so a readable error body cannot turn another failure into a skip.
 		const errors: string[] = [];
-
-		const isNotFound = (resp: unknown): boolean => {
-			if (resp && typeof resp === "object" && "response" in resp) {
-				const r = (resp as { response?: { status?: unknown } }).response;
-				if (r && typeof r === "object" && "status" in r) {
-					if ((r as { status?: unknown }).status === 404) {
-						return true;
-					}
-				}
-			}
-			const errMsg = this.formatError((resp as { error?: unknown })?.error);
-			return /not found|404/i.test(errMsg);
-		};
 
 		for (const campaignId of resources.campaignIds) {
 			try {
@@ -787,9 +778,9 @@ export class ListmonkAbTestIntegration {
 					path: { id: campaignId },
 				});
 				if ("error" in response && response.error !== undefined) {
-					if (!isNotFound(response)) {
+					if (!isNotFoundError(response)) {
 						throw new Error(
-							`Failed to fetch campaign ${campaignId}: ${this.formatError(response.error)}`,
+							`Failed to fetch campaign ${campaignId}: ${formatListmonkErrorResponse(response)}`,
 						);
 					}
 					continue;
@@ -806,10 +797,10 @@ export class ListmonkAbTestIntegration {
 					if (
 						"error" in cancelResult &&
 						cancelResult.error !== undefined &&
-						!isNotFound(cancelResult)
+						!isNotFoundError(cancelResult)
 					) {
 						throw new Error(
-							`Failed to cancel ${status} campaign ${campaignId}: ${this.formatError(cancelResult.error)}`,
+							`Failed to cancel ${status} campaign ${campaignId}: ${formatListmonkErrorResponse(cancelResult)}`,
 						);
 					}
 				}
@@ -819,10 +810,10 @@ export class ListmonkAbTestIntegration {
 				if (
 					"error" in deleteResult &&
 					deleteResult.error !== undefined &&
-					!isNotFound(deleteResult)
+					!isNotFoundError(deleteResult)
 				) {
 					throw new Error(
-						`Failed to delete campaign ${campaignId}: ${this.formatError(deleteResult.error)}`,
+						`Failed to delete campaign ${campaignId}: ${formatListmonkErrorResponse(deleteResult)}`,
 					);
 				}
 			} catch (error) {
@@ -839,13 +830,13 @@ export class ListmonkAbTestIntegration {
 						path: { list_id: listId },
 					});
 					if (
-					"error" in deleteResult &&
-					deleteResult.error !== undefined &&
-					!isNotFound(deleteResult)
-				) {
+						"error" in deleteResult &&
+						deleteResult.error !== undefined &&
+						!isNotFoundError(deleteResult)
+					) {
 						throw new Error(
-						`Failed to delete list ${listId}: ${this.formatError(deleteResult.error)}`,
-					);
+							`Failed to delete list ${listId}: ${formatListmonkErrorResponse(deleteResult)}`,
+						);
 					}
 				} catch (error) {
 					errors.push(error instanceof Error ? error.message : String(error));
@@ -1125,7 +1116,7 @@ export class ListmonkAbTestIntegration {
 			});
 			if ("error" in updateResult) {
 				throw new Error(
-					`Failed to update campaign ${campaign.campaignId}: ${this.formatError(updateResult.error)}`,
+					`Failed to update campaign ${campaign.campaignId}: ${formatListmonkErrorResponse(updateResult)}`,
 				);
 			}
 
@@ -1141,7 +1132,7 @@ export class ListmonkAbTestIntegration {
 			});
 			if ("error" in statusResult) {
 				throw new Error(
-					`Failed to update status for campaign ${campaign.campaignId}: ${this.formatError(statusResult.error)}`,
+					`Failed to update status for campaign ${campaign.campaignId}: ${formatListmonkErrorResponse(statusResult)}`,
 				);
 			}
 		}
@@ -1221,7 +1212,7 @@ export class ListmonkAbTestIntegration {
 		});
 		if ("error" in updateResult) {
 			throw new Error(
-				`Failed to add subscriber ${subscriberId} to list ${listId}: ${updateResult.error}`,
+				`Failed to add subscriber ${subscriberId} to list ${listId}: ${formatListmonkErrorResponse(updateResult)}`,
 			);
 		}
 	}
@@ -1324,9 +1315,7 @@ export class ListmonkAbTestIntegration {
 			});
 			if ("error" in result && result.error !== undefined) {
 				throw new Error(
-					`Failed to bulk-add subscribers to list ${listId} (chunk at offset ${offset}): ${this.formatError(
-						result.error,
-					)}`,
+					`Failed to bulk-add subscribers to list ${listId} (chunk at offset ${offset}): ${formatListmonkErrorResponse(result)}`,
 				);
 			}
 			// Verify the response carries a truthy data payload; a malformed

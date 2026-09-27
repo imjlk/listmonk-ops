@@ -157,6 +157,140 @@ describe("A/B test provisioning", () => {
 		// discards the draft instead of leaving an unreachable record.
 		await expect(service.getAllTests()).resolves.toHaveLength(0);
 	});
+
+	test("createTest rejects a revenue_per_recipient hypothesis before any Listmonk call", async () => {
+		const remoteCalls: string[] = [];
+		const integration = new Proxy(
+			{},
+			{
+				get: (_target, property) =>
+					// Not a thenable: only integration methods are recorded.
+					property === "then"
+						? undefined
+						: async () => {
+								remoteCalls.push(String(property));
+								throw new Error(
+									`unexpected Listmonk call ${String(property)}`,
+								);
+							},
+			},
+		) as unknown as ListmonkAbTestIntegration;
+		const service = new AbTestService(integration);
+
+		await expect(
+			service.createTest({
+				...createTestConfig(),
+				idempotencyKey: "revenue-create",
+				hypothesis: {
+					objective: "Grow revenue",
+					hypothesis: "Variant B raises revenue per recipient",
+					primaryMetric: {
+						type: "revenue_per_recipient",
+						direction: "maximize",
+					},
+					expectedLift: {
+						kind: "absolute",
+						value: 1,
+						unit: "currency_per_recipient",
+					},
+					owner: { id: "operator" },
+					experimentScope: {
+						channel: "email",
+						experimentFamilyKey: "revenue.test",
+						attributionWindowHours: 24,
+						exclusionWindowHours: 0,
+					},
+					createdAt: "2026-07-01T00:00:00Z",
+				},
+			}),
+		).rejects.toThrow(
+			"primaryMetric.type revenue_per_recipient is not supported as a primary metric yet",
+		);
+
+		expect(remoteCalls).toEqual([]);
+		// Even a keyed create records no replayable draft for the refusal.
+		await expect(service.getAllTests()).resolves.toHaveLength(0);
+	});
+
+	test("createTest still reports a missing primary metric structurally", async () => {
+		const service = new AbTestService();
+		const hypothesis = {
+			objective: "Grow clicks",
+			hypothesis: "Variant B raises clicks",
+			expectedLift: { kind: "relative", value: 0.1 },
+			owner: { id: "operator" },
+			experimentScope: {
+				channel: "email",
+				experimentFamilyKey: "clicks.test",
+				attributionWindowHours: 24,
+				exclusionWindowHours: 0,
+			},
+			createdAt: "2026-07-01T00:00:00Z",
+		} as unknown as NonNullable<AbTestConfig["hypothesis"]>;
+
+		await expect(
+			service.createTest({ ...createTestConfig(), hypothesis }),
+		).rejects.toThrow("primaryMetric is required for launch");
+		// An array is not a metric object either; the full validation names
+		// the shape problem instead of a missing metric type.
+		await expect(
+			service.createTest({
+				...createTestConfig(),
+				hypothesis: {
+					...hypothesis,
+					primaryMetric: [] as unknown as typeof hypothesis.primaryMetric,
+				},
+			}),
+		).rejects.toThrow("primaryMetric must be an object, received []");
+	});
+});
+
+describe("provisionCampaignsPhase variant order", () => {
+	test("records reconciled and created campaigns in declared variant order", async () => {
+		const fixture: AbTest = {
+			...createAbTestFixture(),
+			variants: [
+				{ id: "variant-a", name: "A", percentage: 34, contentOverrides: {} },
+				{ id: "variant-b", name: "B", percentage: 33, contentOverrides: {} },
+				{ id: "variant-c", name: "C", percentage: 33, contentOverrides: {} },
+			],
+			pendingCreate: { config: createTestConfig() },
+		};
+		const createdFor: string[][] = [];
+		const integration = {
+			// A crashed attempt already created B and C; only A is missing.
+			findCampaignsByTestTag: async () => [
+				{
+					id: 302,
+					tags: ["abtest:test_fixture", "variant:variant-b"],
+					status: "draft",
+				},
+				{
+					id: 303,
+					tags: ["abtest:test_fixture", "variant:variant-c"],
+					status: "draft",
+				},
+			],
+			createTestCampaignsForVariants: async (
+				_test: AbTest,
+				_baseConfig: unknown,
+				variantIds: readonly string[],
+			) => {
+				createdFor.push([...variantIds]);
+				return [{ variantId: "variant-a", campaignId: 301 }];
+			},
+		} as unknown as ListmonkAbTestIntegration;
+		const service = new AbTestService(integration);
+
+		const phased = await service.provisionCampaignsPhase(fixture);
+
+		expect(createdFor).toEqual([["variant-a"]]);
+		expect(phased.campaignMappings).toEqual([
+			{ variantId: "variant-a", campaignId: 301 },
+			{ variantId: "variant-b", campaignId: 302 },
+			{ variantId: "variant-c", campaignId: 303 },
+		]);
+	});
 });
 
 describe("deleteTestResources retry safety", () => {

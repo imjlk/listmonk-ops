@@ -7,6 +7,7 @@ import {
 	validateConversionEvent,
 	type ConversionEventInput,
 } from "./conversion-events";
+import { formatListmonkErrorResponse } from "./listmonk-errors";
 import { withStoredAbTestExecutors } from "./persistence";
 import type { AbTest } from "./types";
 
@@ -49,7 +50,7 @@ async function verifyVariantAssignment(
 	}
 	if ("error" in response && response.error !== undefined) {
 		throw new ConversionEventValidationError(
-			`Cannot verify variant assignment: ${String(response.error)}`,
+			`Cannot verify variant assignment: ${formatListmonkErrorResponse(response)}`,
 		);
 	}
 	const subscribers = response.data?.results;

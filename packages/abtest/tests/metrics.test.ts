@@ -2,6 +2,8 @@ import { describe, expect, it, mock } from "bun:test";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	AbTestMetricsUnavailableError,
+	clickCountReasonCode,
+	findClicksExceedingSends,
 	ListmonkMetricsCollector,
 	SimulatedMetricsCollector,
 } from "../src/metrics";
@@ -142,6 +144,28 @@ describe("ListmonkMetricsCollector", () => {
 		expect(callCount.value).toBe(2);
 	});
 
+	it("passes click totals above sends through unclamped for the analysis to refuse", async () => {
+		// A click total is not necessarily unique per recipient, so a variant
+		// can report more clicks than sends. The collector must neither throw
+		// (conversion metrics stay decidable) nor clamp the total (hiding the
+		// violation).
+		const getById = mock(async ({ path }: { path: { id: number } }) => ({
+			data: makeCampaign(path.id, 100, 30, path.id === 100 ? 250 : 10),
+		}));
+		const client = { campaign: { getById } } as unknown as ListmonkClient;
+		const collector = new ListmonkMetricsCollector(client);
+		const results = await collector.collect(makeTest());
+		expect(results[0]).toMatchObject({
+			variantId: "A",
+			sampleSize: 100,
+			clicks: 250,
+			clickRate: 250,
+		});
+		expect(findClicksExceedingSends(results)).toEqual([
+			{ variantId: "A", clicks: 250, sent: 100 },
+		]);
+	});
+
 	it("treats missing sent/views/clicks as zero without throwing", async () => {
 		const getById = mock(async ({ path }: { path: { id: number } }) => ({
 			data: { id: path.id }, // no sent/views/clicks fields
@@ -156,6 +180,28 @@ describe("ListmonkMetricsCollector", () => {
 			openRate: 0,
 			clickRate: 0,
 		});
+	});
+});
+
+describe("findClicksExceedingSends", () => {
+	it("reports only variants whose click totals exceed their sends", () => {
+		expect(
+			findClicksExceedingSends([
+				{ variantId: "A", clicks: 100, sampleSize: 100 },
+				{ variantId: "B", clicks: 101, sampleSize: 100 },
+				{ variantId: "C", clicks: 3, sampleSize: 0 },
+				{ variantId: "D", clicks: 0, sampleSize: 0 },
+			]),
+		).toEqual([
+			{ variantId: "B", clicks: 101, sent: 100 },
+			{ variantId: "C", clicks: 3, sent: 0 },
+		]);
+	});
+
+	it("formats one analysis reason code per violation", () => {
+		expect(
+			clickCountReasonCode({ variantId: "B", clicks: 101, sent: 100 }),
+		).toBe("clicks_exceed_sends:B:101/100");
 	});
 });
 

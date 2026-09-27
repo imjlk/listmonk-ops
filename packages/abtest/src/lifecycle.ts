@@ -1,4 +1,5 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { formatListmonkErrorResponse } from "./listmonk-errors";
 import type { AbTest } from "./types";
 
 /**
@@ -247,8 +248,9 @@ export function planCancelAbTest(
 }
 
 /**
- * If a Listmonk client response is an error envelope (`{ error, response }`,
- * return a string describing the error; otherwise return `undefined`. The
+ * If a Listmonk client response is an error envelope (`{ error, response }`),
+ * return a string describing the error — its body message, prefixed with
+ * the HTTP status when present; otherwise return `undefined`. The
  * generated client returns non-2xx mutations as envelopes rather than
  * throwing, so callers must inspect the response before treating a mutation
  * as successful.
@@ -260,8 +262,7 @@ export function errorEnvelopeMessage(response: unknown): string | undefined {
 		"error" in response &&
 		(response as { error?: unknown }).error !== undefined
 	) {
-		const error = (response as { error?: unknown }).error;
-		return error instanceof Error ? error.message : String(error);
+		return formatListmonkErrorResponse(response);
 	}
 	return undefined;
 }

@@ -4,16 +4,23 @@ import type {
 	ListmonkAbTestIntegration,
 	ProvisionedAbTestResources,
 } from "./listmonk-integration";
-import type { MetricsCollector } from "./metrics";
-import { AbTestMetricsUnavailableError } from "./metrics";
+import type { ClickCountViolation, MetricsCollector } from "./metrics";
+import {
+	AbTestMetricsUnavailableError,
+	clickCountReasonCode,
+	findClicksExceedingSends,
+} from "./metrics";
 import { StatisticalUtils } from "./statistical-utils";
 import {
 	applyHolmCorrection,
 	checkSRM,
 	DEFAULT_STATISTICAL_POLICY,
 	fixedHorizonGate,
+	pairSrmCountsByVariant,
 } from "./statistics";
 import {
+	assertAnalyzablePrimaryMetric,
+	isPlainObject,
 	isStrictIsoTimestamp,
 	lockHypothesis,
 	validateHypothesisMetadata,
@@ -29,9 +36,85 @@ import type {
 	TestValidationResult,
 	Variant,
 } from "./types";
-import { AbTestConflictError } from "./errors";
+import { AbTestConflictError, AbTestInvalidStatusError } from "./errors";
 import { getAbTestAttributionDeadline } from "./conversion-events";
 import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
+
+/**
+ * Return variant-keyed entries (campaign mappings, collected results) in
+ * the test's declared variant order. A resumed create reconciles tagged
+ * campaigns before creating the missing ones, so its mappings — and the
+ * metrics collected through them — can come back as [B, A, C]; positional
+ * consumers would then treat B as the control. Entries for unknown
+ * variants keep their relative order after the known ones.
+ */
+export function orderByVariantOrder<Entry extends { variantId: string }>(
+	entries: readonly Entry[],
+	variants: readonly Pick<Variant, "id">[],
+): Entry[] {
+	const rankByVariantId = new Map(
+		variants.map((variant, index) => [variant.id, index] as const),
+	);
+	const rankOf = (entry: Entry): number =>
+		rankByVariantId.get(entry.variantId) ?? variants.length;
+	// Array.prototype.sort is stable, so equal ranks keep their order.
+	return [...entries].sort((left, right) => rankOf(left) - rankOf(right));
+}
+
+/**
+ * Lifecycle statuses from which deploy-winner may create or adopt a winner
+ * campaign: an analyzing test (run/tick auto-deployment or an operator
+ * deploying after the attribution tail closed) and a completed test whose
+ * significant winner has not been deployed yet.
+ */
+export const WINNER_DEPLOYMENT_STATUSES = [
+	"analyzing",
+	"completed",
+] as const satisfies readonly AbTest["status"][];
+
+function describeWinnerDeploymentRefusal(status: AbTest["status"]): string {
+	switch (status) {
+		case "cancelled":
+			return "the test was stopped, so its holdout must not receive a winner";
+		case "inconclusive":
+			return "the analysis finalized without a statistically significant winner";
+		case "failed":
+			return "the test failed";
+		case "deploying":
+			return "a winner deployment is already in progress";
+		case "cancelling":
+			return "the test is being stopped";
+		default:
+			return "the test has not reached analysis";
+	}
+}
+
+/**
+ * Decide whether deploy-winner may act on a test. Only an analyzing test,
+ * or a completed test without a recorded winner campaign, may create (or
+ * adopt, after a lost local commit) a winner campaign. A completed test
+ * that already records its winner campaign is an idempotent replay that
+ * must never produce a second holdout delivery. Every other status — an
+ * operator stop, a finalized no-decision, a failure, or a test that has not
+ * finished running — is rejected before any analysis or remote call.
+ */
+export function resolveWinnerDeployment(
+	test: Pick<AbTest, "id" | "status" | "winnerCampaignId">,
+): "deploy" | "already-deployed" {
+	if (test.status === "analyzing") {
+		return "deploy";
+	}
+	if (test.status === "completed") {
+		return test.winnerCampaignId === undefined ? "deploy" : "already-deployed";
+	}
+	throw new AbTestInvalidStatusError({
+		testId: test.id,
+		action: "deploy the winner",
+		status: test.status,
+		allowedStatuses: WINNER_DEPLOYMENT_STATUSES,
+		reason: `${describeWinnerDeploymentRefusal(test.status)}. Only "analyzing" tests, or "completed" tests without a deployed winner campaign, can deploy a winner`,
+	});
+}
 
 /**
  * A/B/C Testing Service - supports up to 3 variants (A, B, C)
@@ -278,6 +361,15 @@ export class AbTestService {
 		) {
 			throw new Error("durationHours must be a positive finite number");
 		}
+		// Reject a primary metric the analysis cannot decide on before any
+		// Listmonk read, so the refusal never depends on remote availability
+		// and no draft is recorded for a test that could never complete. A
+		// missing or malformed primaryMetric is left to the full hypothesis
+		// validation below, which names the structural problem precisely.
+		const primaryMetric: unknown = config.hypothesis?.primaryMetric;
+		if (isPlainObject(primaryMetric)) {
+			assertAnalyzablePrimaryMetric(primaryMetric.type);
+		}
 		// Validate test configuration and provide statistical recommendations
 		if (this.listmonkIntegration) {
 			const totalSubscribers =
@@ -507,7 +599,9 @@ export class AbTestService {
 				);
 			mappings.push(...created);
 		}
-		test.campaignMappings = mappings;
+		// Reconciled campaigns come first, so restore the declared variant
+		// order before the checkpoint commits the mapping table.
+		test.campaignMappings = orderByVariantOrder(mappings, test.variants);
 		return test;
 	}
 
@@ -931,19 +1025,27 @@ export class AbTestService {
 
 		// Prefer an injected MetricsCollector (test-only simulated collector
 		// or a future production collector). Otherwise fall back to the
-		// ListmonkAbTestIntegration, which is now fail-closed. Use `return
-		// await` so this frame stays on the stack if the promise rejects,
-		// making AbTestMetricsUnavailableError easier to trace.
+		// ListmonkAbTestIntegration, which is now fail-closed. Await inside
+		// this frame so it stays on the stack if the promise rejects,
+		// making AbTestMetricsUnavailableError easier to trace. Collectors
+		// follow the campaign-mapping order, so return results in the
+		// declared variant order for analysis and reporting.
 		if (this.metricsCollector) {
-			return await this.metricsCollector.collect(test);
+			return orderByVariantOrder(
+				await this.metricsCollector.collect(test),
+				test.variants,
+			);
 		}
 
 		if (this.listmonkIntegration) {
 			// collectTestResults throws AbTestMetricsUnavailableError on any
 			// fetch failure; do not swallow it into mock data.
-			return await this.listmonkIntegration.collectTestResults(
-				testId,
-				test.campaignMappings,
+			return orderByVariantOrder(
+				await this.listmonkIntegration.collectTestResults(
+					testId,
+					test.campaignMappings,
+				),
+				test.variants,
 			);
 		}
 
@@ -960,6 +1062,7 @@ export class AbTestService {
 		results: TestResults[],
 		confidenceThreshold: number = 0.95,
 		hypothesis?: HypothesisMetadata,
+		controlVariantId?: string,
 	): Promise<StatisticalAnalysis> {
 		if (results.length < 2) {
 			throw new Error("At least 2 variants required for statistical analysis");
@@ -981,10 +1084,20 @@ export class AbTestService {
 
 		const alpha = 1 - confidenceThreshold;
 
-		// For A/B/C testing, we compare the best performing variant against the control (first variant)
-		const controlGroup = results[0];
+		// Compare the best performing variant against the control: the test's
+		// first declared variant, found by id so the comparison never
+		// depends on the order a collector returned results in. Callers
+		// without a test (no control id) fall back to the first result.
+		const controlGroup =
+			controlVariantId === undefined
+				? results[0]
+				: results.find((result) => result.variantId === controlVariantId);
 		if (!controlGroup) {
-			throw new Error("Invalid test results data: missing control group");
+			throw new Error(
+				controlVariantId === undefined
+					? "Invalid test results data: missing control group"
+					: `Invalid test results data: no results for control variant ${controlVariantId}`,
+			);
 		}
 
 		// Pick the comparison metric via the shared selector so the
@@ -1041,6 +1154,24 @@ export class AbTestService {
 		const n1 = controlGroup.sampleSize;
 		const n2 = testGroup.sampleSize;
 		const totalSampleSize = n1 + n2;
+
+		// Once any variant's click total exceeds its sends, the clicks are
+		// not a count of clicking recipients and the click rate is not a
+		// proportion (its pooled rate can exceed 1), so report the result as
+		// indeterminate with the offending variants instead of a decision.
+		if (metricLabel === "click rate") {
+			const clickViolations = findClicksExceedingSends(results);
+			if (clickViolations.length > 0) {
+				return {
+					zScore: 0,
+					pValue: 1,
+					isSignificant: false,
+					confidenceLevel: confidenceThreshold,
+					sampleSize: totalSampleSize,
+					fixedHorizonReasonCodes: clickViolations.map(clickCountReasonCode),
+				};
+			}
+		}
 
 		// Guard against zero-sample comparisons, which otherwise produce NaN.
 		if (n1 === 0 || n2 === 0) {
@@ -1311,6 +1442,7 @@ export class AbTestService {
 			results,
 			test.confidenceThreshold,
 			test.hypothesis,
+			test.variants[0]?.id,
 		);
 
 		// Run the fixed-horizon eligibility gate. If the test is not ready,
@@ -1337,27 +1469,37 @@ export class AbTestService {
 			policy: testPolicy,
 			sampleSizes: results.map((r) => r.sampleSize),
 		});
-		analysis.fixedHorizonReasonCodes = gateResult.reasonCodes;
+		// Keep any reason the significance test already reported (such as
+		// click totals above sends) alongside the gate's reasons.
+		analysis.fixedHorizonReasonCodes = [
+			...(analysis.fixedHorizonReasonCodes ?? []),
+			...gateResult.reasonCodes,
+		];
 
 		// Run SRM check. Prefer assignment manifest group counts; for
 		// full-split tests without a manifest, derive expected counts from
-		// variant percentages and the total test group size.
-		let srmExpected: number[] | null = null;
+		// variant percentages and the total test group size. Expected and
+		// observed counts are paired by variant id, never by position.
+		let srmExpected: Array<{ variantId: string; expectedCount: number }> | null =
+			null;
 		if (test.assignmentManifest) {
-			srmExpected = test.assignmentManifest.groups
-				.filter((g) => g.kind === "variant")
-				.map((g) => g.expectedCount);
+			srmExpected = test.assignmentManifest.groups.flatMap((group) =>
+				group.kind === "variant"
+					? [{ variantId: group.variantId, expectedCount: group.expectedCount }]
+					: [],
+			);
 		} else if (test.testingMode === "full-split") {
 			// Derive expected from variant percentages and total sample.
 			const totalSample = results.reduce((sum, r) => sum + r.sampleSize, 0);
-			srmExpected = test.variants.map((v) =>
-				Math.round((v.percentage / 100) * totalSample),
-			);
+			srmExpected = test.variants.map((variant) => ({
+				variantId: variant.id,
+				expectedCount: Math.round((variant.percentage / 100) * totalSample),
+			}));
 		}
 		if (srmExpected) {
-			const observed = results.map((r) => r.sampleSize);
-			if (srmExpected.length === observed.length && srmExpected.length >= 2) {
-				const srmResult = checkSRM(srmExpected, observed, 0.001);
+			const paired = pairSrmCountsByVariant(srmExpected, results);
+			if (paired !== undefined && paired.expected.length >= 2) {
+				const srmResult = checkSRM(paired.expected, paired.observed, 0.001);
 				analysis.srmPassed = srmResult.passed;
 				analysis.srmPValue = srmResult.pValue;
 			} else {
@@ -1407,6 +1549,8 @@ export class AbTestService {
 			winner,
 			metricLabel,
 			metricRate,
+			metricLabel === "click rate" ? findClicksExceedingSends(results) : [],
+			test.variants,
 		);
 
 		return {
@@ -1442,6 +1586,13 @@ export class AbTestService {
 		const test = await this.getTest(testId);
 		if (!test) {
 			throw new Error(`Test with ID ${testId} not found`);
+		}
+		// Gate on the lifecycle status before any analysis or remote call:
+		// an operator stop or a finalized inconclusive result must not be
+		// overridden by one deploy call, and a completed deployment replays
+		// as a no-op instead of delivering to the holdout a second time.
+		if (resolveWinnerDeployment(test) === "already-deployed") {
+			return;
 		}
 		const attributionDeadline = getAbTestAttributionDeadline(test);
 		if (attributionDeadline !== undefined && Date.now() < attributionDeadline) {
@@ -1564,10 +1715,23 @@ export class AbTestService {
 		winner: Variant | null,
 		metricLabel: "conversion rate" | "click rate" | "revenue per recipient",
 		metricRate: (r: TestResults) => number,
+		clickViolations: readonly ClickCountViolation[],
+		variants: readonly Variant[],
 	): string[] {
 		const recommendations: string[] = [];
 
-		if (!analysis.isSignificant) {
+		if (clickViolations.length > 0) {
+			// Running longer cannot lower a click total, so say what would help.
+			const offenders = clickViolations
+				.map(
+					(violation) =>
+						`${variants.find((variant) => variant.id === violation.variantId)?.name ?? violation.variantId} (${violation.clicks} clicks / ${violation.sent} sends)`,
+				)
+				.join(", ");
+			recommendations.push(
+				`No click-rate decision is possible: click totals exceed sends for ${offenders}, so they count repeat or forwarded clicks rather than clicking recipients. Record conversions and pre-register conversion_rate to decide this test.`,
+			);
+		} else if (!analysis.isSignificant) {
 			recommendations.push(
 				"Results are not statistically significant. Consider running the test longer or increasing sample size.",
 			);

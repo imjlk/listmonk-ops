@@ -1,15 +1,23 @@
-import { describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { describe, expect, it, spyOn } from "bun:test";
+import * as fs from "node:fs";
+import { statSync } from "node:fs";
+import { chmod, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { DatabaseSync } from "node:sqlite";
 import {
 	InMemoryConversionEventStore,
+	prepareConversionStoreFiles,
 	SqliteConversionEventStore,
 	resolveConversionStorePath,
 	ConversionEventValidationError,
 	validateConversionEvent,
 	type ConversionEventInput,
 } from "../src/conversion-events";
+
+function permissionsOf(path: string): number {
+	return statSync(path).mode & 0o777;
+}
 
 function makeEvent(
 	overrides: Partial<ConversionEventInput> = {},
@@ -219,6 +227,134 @@ describe("SqliteConversionEventStore", () => {
 			await rm(directory, { recursive: true, force: true });
 		}
 	});
+
+	it.skipIf(process.platform === "win32")(
+		"creates owner-only directories and database files",
+		async () => {
+			const root = await mkdtemp(join(tmpdir(), "abtest-conversion-modes-"));
+			try {
+				const directory = join(root, "nested", "store");
+				const path = join(directory, "abtest-conversions.sqlite");
+				await new SqliteConversionEventStore(path).record(makeEvent());
+
+				expect(permissionsOf(join(root, "nested"))).toBe(0o700);
+				expect(permissionsOf(directory)).toBe(0o700);
+				expect(permissionsOf(path)).toBe(0o600);
+			} finally {
+				await rm(root, { recursive: true, force: true });
+			}
+		},
+	);
+
+	it.skipIf(process.platform === "win32")(
+		"tightens a database an earlier version created with broader permissions",
+		async () => {
+			const root = await mkdtemp(join(tmpdir(), "abtest-conversion-modes-"));
+			try {
+				const path = join(root, "abtest-conversions.sqlite");
+				new DatabaseSync(path).close();
+				await chmod(path, 0o644);
+				// The pre-existing parent directory is left as the operator set
+				// it: the store path may be overridden into a shared directory.
+				await chmod(root, 0o755);
+
+				const store = new SqliteConversionEventStore(path);
+				await store.record(makeEvent());
+
+				expect(permissionsOf(path)).toBe(0o600);
+				expect(permissionsOf(root)).toBe(0o755);
+				expect(await store.aggregate("test-1")).toHaveLength(1);
+			} finally {
+				await rm(root, { recursive: true, force: true });
+			}
+		},
+	);
+
+	it.skipIf(process.platform === "win32")(
+		"tightens leftover journal, WAL, and shared-memory files",
+		async () => {
+			const root = await mkdtemp(join(tmpdir(), "abtest-conversion-modes-"));
+			try {
+				const path = join(root, "abtest-conversions.sqlite");
+				const companions = ["-journal", "-wal", "-shm"].map(
+					(suffix) => `${path}${suffix}`,
+				);
+				for (const file of [path, ...companions]) {
+					await writeFile(file, "", { mode: 0o644 });
+					await chmod(file, 0o644);
+				}
+
+				prepareConversionStoreFiles(path);
+
+				for (const file of [path, ...companions]) {
+					expect(permissionsOf(file)).toBe(0o600);
+				}
+			} finally {
+				await rm(root, { recursive: true, force: true });
+			}
+		},
+	);
+
+	it.skipIf(process.platform === "win32")(
+		"rejects dangling symlinks at the database and companion paths",
+		async () => {
+			const root = await mkdtemp(join(tmpdir(), "abtest-conversion-links-"));
+			try {
+				const path = join(root, "events.sqlite");
+				const target = join(root, "outside.sqlite");
+				await symlink(target, path);
+
+				await expect(
+					new SqliteConversionEventStore(path).record(makeEvent()),
+				).rejects.toThrow("must not be a symbolic link");
+				expect(() => statSync(target)).toThrow();
+
+				await rm(path);
+				await writeFile(path, "", { mode: 0o600 });
+				await symlink(target, `${path}-wal`);
+
+				expect(() => prepareConversionStoreFiles(path)).toThrow(
+					"must not be a symbolic link",
+				);
+				expect(() => statSync(target)).toThrow();
+			} finally {
+				await rm(root, { recursive: true, force: true });
+			}
+		},
+	);
+
+	it.skipIf(process.platform === "win32")(
+		"warns when the OS refuses to tighten an existing store file",
+		async () => {
+			const root = await mkdtemp(join(tmpdir(), "abtest-conversion-modes-"));
+			const path = join(root, "events.sqlite");
+			await writeFile(path, "", { mode: 0o644 });
+			await chmod(path, 0o644);
+			const originalChmodSync = fs.chmodSync;
+			const permissionError = Object.assign(new Error("permission denied"), {
+				code: "EPERM",
+			});
+			const chmodSpy = spyOn(fs, "chmodSync").mockImplementation(
+				(candidatePath, mode) => {
+					if (candidatePath === path) throw permissionError;
+					return originalChmodSync(candidatePath, mode);
+				},
+			);
+			const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+			try {
+				prepareConversionStoreFiles(path);
+
+				expect(warning).toHaveBeenCalledWith(
+					`Could not restrict conversion store file to owner-only (EPERM): ${path}`,
+				);
+				expect(permissionsOf(path)).toBe(0o644);
+			} finally {
+				warning.mockRestore();
+				chmodSpy.mockRestore();
+				await rm(root, { recursive: true, force: true });
+			}
+		},
+	);
 
 	it("rejects revenue that would make the aggregate non-finite", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "abtest-conversions-"));

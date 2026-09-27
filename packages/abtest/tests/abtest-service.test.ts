@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { AbTestService } from "../src/abtest-service";
-import { SimulatedMetricsCollector } from "../src/metrics";
-import { AbTestMetricsUnavailableError } from "../src/metrics";
+import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { AbTestService, orderByVariantOrder } from "../src/abtest-service";
+import {
+	AbTestMetricsUnavailableError,
+	ListmonkMetricsCollector,
+	SimulatedMetricsCollector,
+} from "../src/metrics";
 import type { AbTest, TestResults } from "../src/types";
 
 function makeResults(overrides: Partial<TestResults>[] = []): TestResults[] {
@@ -226,5 +230,265 @@ describe("AbTestService.analyzeTest", () => {
 		// n=1000, A 5%, B 8% -> z ~= 2.13, p ~= 0.033 -> significant at 0.95.
 		expect(analysis.analysis.isSignificant).toBe(true);
 		expect(analysis.winner?.id).toBe("B");
+	});
+
+	it("keeps variant order and pairs SRM by variant id after a resumed create", async () => {
+		// A resumed create reconciled B and C before creating A, so the
+		// mappings — and the collector's results — arrive as [B, A, C]. The
+		// on-plan 50/25/25 delivery must pass SRM, and A must stay control.
+		const sent = new Map([
+			[100, { sent: 1500, clicks: 75 }],
+			[101, { sent: 750, clicks: 75 }],
+			[102, { sent: 750, clicks: 45 }],
+		]);
+		const client = {
+			campaign: {
+				getById: async ({ path }: { path: { id: number } }) => ({
+					data: {
+						id: path.id,
+						sent: sent.get(path.id)?.sent,
+						views: 0,
+						clicks: sent.get(path.id)?.clicks,
+					},
+				}),
+			},
+		} as unknown as ListmonkClient;
+		const service = new AbTestService(
+			undefined,
+			new ListmonkMetricsCollector(client),
+		);
+		service.hydrateTests([
+			makeTest({
+				status: "analyzing",
+				variants: [
+					{ id: "A", name: "A", percentage: 50, contentOverrides: {} },
+					{ id: "B", name: "B", percentage: 25, contentOverrides: {} },
+					{ id: "C", name: "C", percentage: 25, contentOverrides: {} },
+				],
+				campaignMappings: [
+					{ variantId: "B", campaignId: 101 },
+					{ variantId: "A", campaignId: 100 },
+					{ variantId: "C", campaignId: 102 },
+				],
+				assignmentManifest: {
+					algorithm: "sha256-order-largest-remainder-v1",
+					seed: "seed",
+					audienceChecksum: "audience",
+					assignedCount: 30000,
+					groups: [
+						{
+							kind: "variant",
+							variantId: "A",
+							expectedCount: 1500,
+							subscriberChecksum: "a",
+						},
+						{
+							kind: "variant",
+							variantId: "B",
+							expectedCount: 750,
+							subscriberChecksum: "b",
+						},
+						{
+							kind: "variant",
+							variantId: "C",
+							expectedCount: 750,
+							subscriberChecksum: "c",
+						},
+						{ kind: "holdout", expectedCount: 27000, subscriberChecksum: "h" },
+					],
+				},
+			}),
+		]);
+
+		const analysis = await service.analyzeTest("test-1");
+
+		expect(analysis.results.map((result) => result.variantId)).toEqual([
+			"A",
+			"B",
+			"C",
+		]);
+		expect(analysis.analysis.srmPassed).toBe(true);
+		expect(analysis.analysis.srmPValue).toBe(1);
+		// Control A (1500 sent) is compared with the best treatment B (750):
+		// positional pairing would have made B the control (750 + 750).
+		expect(analysis.analysis.sampleSize).toBe(2250);
+		expect(analysis.analysis.isSignificant).toBe(true);
+		expect(analysis.winner?.id).toBe("B");
+	});
+
+	it("finds the control by variant id regardless of result order", async () => {
+		const service = new AbTestService();
+		const results: TestResults[] = [
+			{
+				variantId: "B",
+				sampleSize: 500,
+				opens: 0,
+				clicks: 50,
+				conversions: 0,
+				openRate: 0,
+				clickRate: 10,
+				conversionRate: 0,
+			},
+			{
+				variantId: "A",
+				sampleSize: 1000,
+				opens: 0,
+				clicks: 50,
+				conversions: 0,
+				openRate: 0,
+				clickRate: 5,
+				conversionRate: 0,
+			},
+			{
+				variantId: "C",
+				sampleSize: 800,
+				opens: 0,
+				clicks: 48,
+				conversions: 0,
+				openRate: 0,
+				clickRate: 6,
+				conversionRate: 0,
+			},
+		];
+
+		const byId = await service.analyzeStatisticalSignificance(
+			results,
+			0.95,
+			undefined,
+			"A",
+		);
+		// Control A (1000) vs best treatment B (500). Treating the first
+		// result B as control would compare B with C instead (500 + 800).
+		expect(byId.sampleSize).toBe(1500);
+
+		await expect(
+			service.analyzeStatisticalSignificance(results, 0.95, undefined, "Z"),
+		).rejects.toThrow("no results for control variant Z");
+	});
+});
+
+describe("AbTestService click totals above sends", () => {
+	function clickResult(
+		variantId: string,
+		sampleSize: number,
+		clicks: number,
+		conversions = 0,
+	): TestResults {
+		return {
+			variantId,
+			sampleSize,
+			opens: 0,
+			clicks,
+			conversions,
+			openRate: 0,
+			clickRate: (clicks / sampleSize) * 100,
+			conversionRate: (conversions / sampleSize) * 100,
+		};
+	}
+
+	it("reports the click metric as indeterminate instead of testing it", async () => {
+		// Repeat clickers push B's raw total past its sends. Unguarded, the
+		// pooled rate exceeds 1 and the z-test silently returns p = 1.
+		const service = new AbTestService();
+		const analysis = await service.analyzeStatisticalSignificance(
+			[clickResult("A", 1000, 50), clickResult("B", 1000, 1200)],
+			0.95,
+		);
+		expect(analysis).toEqual({
+			zScore: 0,
+			pValue: 1,
+			isSignificant: false,
+			confidenceLevel: 0.95,
+			sampleSize: 2000,
+			fixedHorizonReasonCodes: ["clicks_exceed_sends:B:1200/1000"],
+		});
+	});
+
+	it("checks every variant of an A/B/C test", async () => {
+		const service = new AbTestService();
+		const analysis = await service.analyzeStatisticalSignificance(
+			[
+				clickResult("A", 1000, 50),
+				clickResult("B", 1000, 90),
+				clickResult("C", 500, 700),
+			],
+			0.95,
+		);
+		expect(analysis.isSignificant).toBe(false);
+		expect(analysis.holmCorrected).toBeUndefined();
+		expect(analysis.fixedHorizonReasonCodes).toEqual([
+			"clicks_exceed_sends:C:700/500",
+		]);
+	});
+
+	it("still decides a conversion metric when clicks exceed sends", async () => {
+		// Conversions count unique subscribers, so repeat clicks do not
+		// invalidate them: A 5% vs B 10% at n=1000 is significant.
+		const service = new AbTestService();
+		const analysis = await service.analyzeStatisticalSignificance(
+			[clickResult("A", 1000, 1500, 50), clickResult("B", 1000, 20, 100)],
+			0.95,
+		);
+		expect(analysis.isSignificant).toBe(true);
+		expect(analysis.fixedHorizonReasonCodes).toBeUndefined();
+	});
+
+	it("declares no winner and explains why through analyzeTest", async () => {
+		const service = new AbTestService(
+			undefined,
+			new SimulatedMetricsCollector(
+				new Map([
+					["test-1", [clickResult("A", 1000, 50), clickResult("B", 1000, 1200)]],
+				]),
+			),
+		);
+		service.hydrateTests([makeTest()]);
+
+		const analysis = await service.analyzeTest("test-1");
+
+		expect(analysis.winner).toBeNull();
+		expect(analysis.analysis.isSignificant).toBe(false);
+		// The gate itself passes; the click guard is the only reason.
+		expect(analysis.analysis.fixedHorizonReasonCodes).toEqual([
+			"clicks_exceed_sends:B:1200/1000",
+		]);
+		expect(analysis.recommendations).toContain(
+			"No click-rate decision is possible: click totals exceed sends for B (1200 clicks / 1000 sends), so they count repeat or forwarded clicks rather than clicking recipients. Record conversions and pre-register conversion_rate to decide this test.",
+		);
+		expect(
+			analysis.recommendations.some((recommendation) =>
+				recommendation.includes("running the test longer"),
+			),
+		).toBe(false);
+	});
+});
+
+describe("orderByVariantOrder", () => {
+	it("restores the declared variant order and keeps unknown entries last", () => {
+		const variants = [{ id: "A" }, { id: "B" }, { id: "C" }];
+		expect(
+			orderByVariantOrder(
+				[
+					{ variantId: "B", campaignId: 2 },
+					{ variantId: "X", campaignId: 9 },
+					{ variantId: "A", campaignId: 1 },
+					{ variantId: "Y", campaignId: 8 },
+					{ variantId: "C", campaignId: 3 },
+				],
+				variants,
+			),
+		).toEqual([
+			{ variantId: "A", campaignId: 1 },
+			{ variantId: "B", campaignId: 2 },
+			{ variantId: "C", campaignId: 3 },
+			{ variantId: "X", campaignId: 9 },
+			{ variantId: "Y", campaignId: 8 },
+		]);
+	});
+
+	it("does not mutate its input", () => {
+		const entries = [{ variantId: "B" }, { variantId: "A" }];
+		orderByVariantOrder(entries, [{ id: "A" }, { id: "B" }]);
+		expect(entries).toEqual([{ variantId: "B" }, { variantId: "A" }]);
 	});
 });

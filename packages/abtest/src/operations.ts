@@ -35,6 +35,10 @@ import {
 	recordAbTestConversion,
 	SUBSCRIBER_UUID_PATTERN,
 } from "./conversion-recording";
+import {
+	isAnalyzablePrimaryMetric,
+	REVENUE_PER_RECIPIENT_UNSUPPORTED_MESSAGE,
+} from "./hypothesis";
 import type {
 	AbTest,
 	AbTestConfig,
@@ -387,11 +391,15 @@ const createAbTestInputSchema = z.object({
 			objective: z.string().min(1),
 			hypothesis: z.string().min(1),
 			primary_metric: z.object({
-				type: z.enum([
-					"click_rate",
-					"conversion_rate",
-					"revenue_per_recipient",
-				]),
+				// revenue_per_recipient stays in the stable published enum
+				// for compatibility, but the analysis cannot decide on it, so
+				// it is refused before any store access or Listmonk call.
+				type: z
+					.enum(["click_rate", "conversion_rate", "revenue_per_recipient"])
+					.refine(
+						(type) => isAnalyzablePrimaryMetric(type),
+						REVENUE_PER_RECIPIENT_UNSUPPORTED_MESSAGE,
+					),
 				direction: z.enum(["maximize", "minimize"]),
 			}),
 			expected_lift: z.union([

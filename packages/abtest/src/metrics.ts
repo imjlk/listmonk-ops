@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { AbTest, TestResults } from "./types";
 import type { ConversionEventStore } from "./conversion-events";
+import { formatListmonkErrorResponse } from "./listmonk-errors";
 
 /**
  * Metrics collection for A/B test analysis.
@@ -25,6 +26,40 @@ export interface CampaignMapping {
 
 export interface MetricsCollector {
 	collect(test: AbTest): Promise<TestResults[]>;
+}
+
+export interface ClickCountViolation {
+	variantId: string;
+	clicks: number;
+	sent: number;
+}
+
+/**
+ * The click-rate significance test treats a campaign's `clicks` as the
+ * number of clicking recipients. A total above the variant's sends proves
+ * it is not — it must count repeat (or forwarded) clicks — so no click-rate
+ * decision may be made from it. Returns every offending variant (empty
+ * when all click totals are within their sends). Whether Listmonk's
+ * counter is unique below that bound is not verified (see the spike notes
+ * in the package README), so this only catches provable violations.
+ */
+export function findClicksExceedingSends(
+	results: ReadonlyArray<
+		Pick<TestResults, "variantId" | "clicks" | "sampleSize">
+	>,
+): ClickCountViolation[] {
+	return results
+		.filter((result) => result.clicks > result.sampleSize)
+		.map((result) => ({
+			variantId: result.variantId,
+			clicks: result.clicks,
+			sent: result.sampleSize,
+		}));
+}
+
+/** Analysis reason code reported for a click total above its sends. */
+export function clickCountReasonCode(violation: ClickCountViolation): string {
+	return `clicks_exceed_sends:${violation.variantId}:${violation.clicks}/${violation.sent}`;
 }
 
 export class AbTestMetricsUnavailableError extends Error {
@@ -104,15 +139,22 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 						path: { id: mapping.campaignId },
 					});
 					if ("error" in response || response.data === undefined) {
+						// Only a present error body or HTTP status is worth
+						// appending; an envelope without either adds nothing.
+						const detail =
+							"error" in response ? formatListmonkErrorResponse(response) : "";
 						throw new Error(
 							`campaign ${mapping.campaignId} returned no data${
-								"error" in response ? `: ${String(response.error)}` : ""
+								detail === "" ? "" : `: ${detail}`
 							}`,
 						);
 					}
 					const campaign = response.data;
 					const sampleSize = campaign.sent ?? 0;
 					const opens = campaign.views ?? 0;
+					// A click total, not necessarily unique per recipient, so
+					// it may exceed `sent`; it is passed through unclamped and
+					// the analysis refuses a click-rate decision when it does.
 					const clicks = campaign.clicks ?? 0;
 					// Conversion events are separate from Listmonk click counts.
 					const aggregate = conversionByVariant.get(mapping.variantId);
