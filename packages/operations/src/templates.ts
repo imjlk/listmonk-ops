@@ -177,10 +177,9 @@ const templateDesiredStateSchema = createTemplateInputSchema.superRefine(
 // can continue accepting longer Listmonk names.
 const templateManifestNameSchema = z
 	.string()
+	.max(120)
 	.regex(/^\s*\S[\s\S]*$/)
-	.trim()
-	.min(1)
-	.max(120);
+	.trim();
 const manifestTemplateEntrySchema = createTemplateInputSchema
 	.omit({ idempotency_key: true })
 	.extend({ name: templateManifestNameSchema });
@@ -188,8 +187,10 @@ const manifestTemplateEntrySchema = createTemplateInputSchema
 const templateManifestEntryBaseSchema = createTemplateInputSchema
 	.omit({ idempotency_key: true, type: true, subject: true })
 	.extend({ name: templateManifestNameSchema });
-const templateManifestTypeDescription =
+const templateManifestDefaultTypeDescription =
 	"Template type; omitted values default to campaign.";
+const templateManifestRequiredTypeDescription =
+	"Template type; this manifest entry must declare its type explicitly.";
 const templateManifestSubjectDescription =
 	"Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign.";
 const blankTemplateSubjectSchema = z
@@ -200,7 +201,6 @@ const blankTemplateSubjectSchema = z
 	.describe(templateManifestSubjectDescription);
 const nonBlankTemplateSubjectSchema = z
 	.string()
-	.min(1)
 	.regex(/^\s*\S[\s\S]*$/)
 	.describe(templateManifestSubjectDescription);
 const templateManifestOperationEntrySchema = z.union([
@@ -209,17 +209,17 @@ const templateManifestOperationEntrySchema = z.union([
 			.literal("campaign")
 			.optional()
 			.default("campaign")
-			.describe(templateManifestTypeDescription),
+			.describe(templateManifestDefaultTypeDescription),
 		subject: blankTemplateSubjectSchema,
 	}),
 	templateManifestEntryBaseSchema.extend({
 		type: z
 			.literal("campaign_visual")
-			.describe(templateManifestTypeDescription),
+			.describe(templateManifestRequiredTypeDescription),
 		subject: blankTemplateSubjectSchema,
 	}),
 	templateManifestEntryBaseSchema.extend({
-		type: z.literal("tx").describe(templateManifestTypeDescription),
+		type: z.literal("tx").describe(templateManifestRequiredTypeDescription),
 		subject: nonBlankTemplateSubjectSchema,
 	}),
 ]);
@@ -393,9 +393,15 @@ function parseTemplateManifestOperationInput(
 			`Template manifest exceeds the ${MAX_TEMPLATE_MANIFEST_BYTES}-byte limit`,
 		);
 	}
-	// Preserve the detailed domain errors while exposing the stricter
-	// type-dependent subject rules in the published operation JSON Schema.
-	parseOperationInput(templateManifestSchema, input);
+	const operationResult = templateManifestOperationInputSchema.safeParse(input);
+	if (operationResult.success) return operationResult.data;
+
+	// Preserve the detailed domain errors when both schemas reject the input;
+	// the operation-only limits (such as maxItems: 500) surface when the
+	// manifest schema accepts it.
+	if (!templateManifestSchema.safeParse(input).success) {
+		parseOperationInput(templateManifestSchema, input);
+	}
 	return parseOperationInput(templateManifestOperationInputSchema, input);
 }
 

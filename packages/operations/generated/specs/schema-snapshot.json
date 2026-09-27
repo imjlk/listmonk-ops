@@ -18361,14 +18361,14 @@
                 },
                 "type": {
                   "const": "tx",
-                  "description": "Template type; omitted values default to campaign."
+                  "description": "Template type; tx manifest entries must declare it explicitly."
                 }
               },
               "required": [
                 "name",
+                "body",
                 "type",
-                "subject",
-                "body"
+                "subject"
               ],
               "type": "object"
             },
@@ -38356,7 +38356,7 @@
                   "items": {
                     "$ref": "#/components/schemas/ListmonkUserRolePermission"
                   },
-                  "maxItems": 28,
+                  "maxItems": 30,
                   "type": "array"
                 }
               },

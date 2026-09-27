@@ -6,11 +6,6 @@ export type {
 	ListmonkUserRolePermission,
 } from "../../src/user-role-permissions";
 
-export type ListmonkUserRolePermission = Exclude<
-	ListmonkUserPermission,
-	"list:get" | "list:manage"
->;
-
 export type ListVisibility = "public" | "private";
 
 export type ListOptin = "single" | "double";

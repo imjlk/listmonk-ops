@@ -450,6 +450,22 @@ describe("settings URL credential redaction", () => {
 				"?token=correct horse&to=1 https://fallback.example/x",
 				"?token=[redacted]&to=1 https://fallback.example/x",
 			],
+			[
+				"Visit https://x.test/g?token=abc then https://y.test/page",
+				"Visit https://x.test/g?token=[redacted] https://y.test/page",
+			],
+			[
+				"?token=[redacted]extra",
+				"?token=[redacted]",
+			],
+			[
+				"Visit https://x.test/g?token=abc then https://y.test/page",
+				"Visit https://x.test/g?token=[redacted] https://y.test/page",
+			],
+			[
+				"?token=[redacted]extra",
+				"?token=[redacted]",
+			],
 			// Percent-encoded names and the legacy ";" separator still match.
 			[
 				"https://hooks.example.com/in?q=a;%74oken=b",

@@ -91,24 +91,24 @@ export interface TemplateCollectionOutput {
 	page: number;
 }
 
-export interface TemplateManifestEntryCampaign {
+interface TemplateManifestEntryBase {
 	name: TrimmedNonEmptyString & tags.MaxLength<120>;
-	/** Template type; omitted values default to campaign. */
-	type?: "campaign" | "campaign_visual" | undefined;
-	/** Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign. */
-	subject?: (string & tags.Pattern<"^$">) | undefined;
 	body_source?: string;
 	body: NonEmptyString & tags.MaxLength<1048576>;
 }
 
-export interface TemplateManifestEntryTx {
-	name: TrimmedNonEmptyString & tags.MaxLength<120>;
+export interface TemplateManifestEntryCampaign extends TemplateManifestEntryBase {
 	/** Template type; omitted values default to campaign. */
+	type?: "campaign" | "campaign_visual" | undefined;
+	/** Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign. */
+	subject?: (string & tags.Pattern<"^$">) | undefined;
+}
+
+export interface TemplateManifestEntryTx extends TemplateManifestEntryBase {
+	/** Template type; tx manifest entries must declare it explicitly. */
 	type: "tx";
 	/** Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign. */
 	subject: TrimmedNonEmptyString;
-	body_source?: string;
-	body: NonEmptyString & tags.MaxLength<1048576>;
 }
 
 export type TemplateManifestEntry =

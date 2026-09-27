@@ -185,10 +185,7 @@ function redactCredentialParameters(text: string, separators: RegExp): string {
 		const value = parameter.slice(separator + 1);
 		// The nested-query pass can see a value already replaced by this
 		// function. Keep the marker (and any URL wrapper after it) idempotent.
-		if (
-			value.startsWith(SETTINGS_REDACTED_VALUE) &&
-			/^[)\]}>'",]*$/.test(value.slice(SETTINGS_REDACTED_VALUE.length))
-		) {
+		if (isAlreadyRedactedCredentialValue(value)) {
 			continue;
 		}
 		const suffix = /[)\]}>'",]+$/.exec(value)?.[0] ?? "";
@@ -196,6 +193,13 @@ function redactCredentialParameters(text: string, separators: RegExp): string {
 		redacted = true;
 	}
 	return redacted ? parts.join("") : text;
+}
+
+function isAlreadyRedactedCredentialValue(value: string): boolean {
+	return (
+		value.startsWith(SETTINGS_REDACTED_VALUE) &&
+		/^[)\]}>'",]*$/.test(value.slice(SETTINGS_REDACTED_VALUE.length))
+	);
 }
 
 /**
@@ -232,7 +236,9 @@ function redactCredentialFragment(fragment: string): string {
  * whitespace. Some Listmonk settings contain unencoded values such as
  * `?token=correct horse battery&to=1`; the value ends at an explicit query
  * separator, not at the first space. An absolute URL used as the value of a
- * credential parameter is also consumed as part of that same secret.
+ * credential parameter is also consumed as part of that same secret. A later
+ * absolute URL bounds an unseparated value; text before that URL is redacted
+ * as part of the credential value.
  */
 function redactSpacedCredentialParameterValues(value: string): string {
 	const replacements: Array<{ start: number; end: number }> = [];
@@ -265,26 +271,37 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		}
 
 		const valueStart = equals + 1;
-		const endPattern = /[&;#]/g;
+		const endPattern = /[&;#?]/g;
 		endPattern.lastIndex = valueStart;
 		const nextSeparator = endPattern.exec(value);
-		const valueEnd = nextSeparator?.index ?? value.length;
-		let secretEnd = valueEnd;
-		while (
-			secretEnd > valueStart &&
-			/[)\]}>'",\s]/.test(value[secretEnd - 1] ?? "")
-		) {
-			secretEnd -= 1;
+		const explicitValueEnd = nextSeparator?.index ?? value.length;
+		const nextUrl = findAbsoluteUrlPrefix(value, valueStart);
+		const nextUrlBoundary =
+			nextUrl !== undefined &&
+			nextUrl.index > valueStart &&
+			/\S/.test(value.slice(valueStart, nextUrl.index))
+				? nextUrl.index
+				: undefined;
+		const valueEnd = Math.min(
+			explicitValueEnd,
+			nextUrlBoundary ?? explicitValueEnd,
+		);
+		const parameterValue = value.slice(valueStart, valueEnd);
+		if (!isAlreadyRedactedCredentialValue(parameterValue)) {
+			let secretEnd = valueEnd;
+			while (
+				secretEnd > valueStart &&
+				/[)\]}>'",\s]/.test(value[secretEnd - 1] ?? "")
+			) {
+				secretEnd -= 1;
+			}
+			if (secretEnd > valueStart) {
+				replacements.push({ start: valueStart, end: secretEnd });
+			}
 		}
-
-		if (
-			secretEnd > valueStart &&
-			!value.startsWith(SETTINGS_REDACTED_VALUE, valueStart)
-		) {
-			replacements.push({ start: valueStart, end: secretEnd });
-		}
-		// Resume at the separator so it can anchor the next parameter name.
-		scanFrom = nextSeparator === null ? value.length : valueEnd;
+		// Resume at the separator or next URL boundary so following credentials
+		// can still be scanned after the preceding value is replaced.
+		scanFrom = valueEnd;
 	}
 
 	if (replacements.length === 0) return value;
@@ -402,10 +419,9 @@ function spacedUserinfoEnd(
  * (`https://user:pass@host`) and the values of credential-named query and
  * fragment parameters (`?token=…`, `?api_key=…`, `?X-Amz-Signature=…`,
  * `#access_token=…`). Scheme, host, port, path, and the other parameters
- * stay visible so operators can still diagnose the configuration. Every
- * whitespace-separated URL in the value is redacted and the text around
- * them is kept, so a value without an absolute URL, or whose URLs have
- * nothing to redact, is returned unchanged.
+ * stay visible so operators can still diagnose the configuration. Strings
+ * are also scanned for credential-shaped parameters without an absolute
+ * URL, while values without any credential-bearing component stay unchanged.
  */
 export function redactUrlCredentials(value: string): string {
 	const withSpacedValues = redactSpacedCredentialParameterValues(value);
