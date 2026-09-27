@@ -113,13 +113,12 @@ const URL_CREDENTIAL_PARAMETER_TOKENS = new Set([
 ]);
 
 /**
- * A value that begins with an absolute URL: optional leading whitespace,
- * then an RFC 3986 scheme and `//` (or the `\\` WHATWG parsers accept for
- * special schemes), up to the first whitespace. Requiring the authority
- * keeps `mailto:` addresses, hostnames, email addresses, and CSS rules out,
- * and stopping at whitespace keeps any text after the URL verbatim.
+ * The start of an absolute URL with an authority: an RFC 3986 scheme and
+ * `//` (or the `\\` WHATWG parsers accept for special schemes). Requiring
+ * the authority keeps `mailto:` addresses, hostnames, email addresses, and
+ * CSS rules such as `a:hover` out.
  */
-const LEADING_ABSOLUTE_URL = /^(\s*)([a-z][a-z0-9+.-]*:[\\/]{2})(\S*)/i;
+const ABSOLUTE_URL_PREFIX = /^[a-z][a-z0-9+.-]*:[\\/]{2}/i;
 
 function decodeQueryParameterName(encodedName: string): string {
 	try {
@@ -161,11 +160,26 @@ function redactCredentialQuery(query: string): string {
 }
 
 /**
+ * Redact credential-named parameters in a fragment too: a parameter-shaped
+ * fragment (`#access_token=…`) and the query of a client-side route
+ * (`#/welcome?token=…`). Any other fragment is kept.
+ */
+function redactCredentialFragment(fragment: string): string {
+	if (fragment.length <= 1) return fragment;
+	const body = fragment.slice(1);
+	const queryStart = body.indexOf("?");
+	if (queryStart !== -1) {
+		return `#${body.slice(0, queryStart)}${redactCredentialQuery(body.slice(queryStart))}`;
+	}
+	return `#${redactCredentialQuery(`?${body}`).slice(1)}`;
+}
+
+/**
  * Fallback for a URL the WHATWG parser rejects, such as one with a mistyped
  * port or an unencoded "/" in its password. Listmonk stores such values
  * as-is, so everything between "//" and the last "@" is treated as
- * userinfo: a broken URL may lose some of its visible host, but never leaks
- * its credentials.
+ * userinfo: a broken URL may lose some of its visible host, but not its
+ * userinfo.
  */
 function redactUnparsedUrlCredentials(prefix: string, rest: string): string {
 	const at = rest.lastIndexOf("@");
@@ -179,7 +193,7 @@ function redactUnparsedUrlCredentials(prefix: string, rest: string): string {
 	const path =
 		queryStart === -1 ? beforeFragment : beforeFragment.slice(0, queryStart);
 	const query = queryStart === -1 ? "" : beforeFragment.slice(queryStart);
-	return `${prefix}${userinfo}${path}${redactCredentialQuery(query)}${fragment}`;
+	return `${prefix}${userinfo}${path}${redactCredentialQuery(query)}${redactCredentialFragment(fragment)}`;
 }
 
 function redactAbsoluteUrl(prefix: string, rest: string): string {
@@ -191,27 +205,77 @@ function redactAbsoluteUrl(prefix: string, rest: string): string {
 	}
 	const hasUserinfo = url.username !== "" || url.password !== "";
 	const search = redactCredentialQuery(url.search);
-	if (!hasUserinfo && search === url.search) return `${prefix}${rest}`;
+	const hash = redactCredentialFragment(url.hash);
+	if (!hasUserinfo && search === url.search && hash === url.hash) {
+		return `${prefix}${rest}`;
+	}
 	const userinfo = hasUserinfo ? `${SETTINGS_REDACTED_VALUE}@` : "";
-	return `${url.protocol}//${userinfo}${url.host}${url.pathname}${search}${url.hash}`;
+	return `${url.protocol}//${userinfo}${url.host}${url.pathname}${search}${hash}`;
+}
+
+function isParseableUrl(text: string): boolean {
+	try {
+		return new URL(text) instanceof URL;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * The index of the token that ends a URL whose userinfo contains
+ * whitespace, such as the passphrase in `https://user:correct horse@host/`.
+ * Only a URL token that the parser rejects on its own and that ends inside
+ * an authority without "@" continues, through the first following token
+ * that closes the authority with "@". A token that parses on its own is a
+ * complete URL, so ordinary text after `http://listmonk:9000` is kept.
+ */
+function spacedUserinfoEnd(
+	tokens: readonly string[],
+	index: number,
+	prefix: string,
+): number {
+	const token = tokens[index] ?? "";
+	if (/[@/?#\\]/.test(token.slice(prefix.length)) || isParseableUrl(token)) {
+		return index;
+	}
+	for (let next = index + 2; next < tokens.length; next += 2) {
+		const candidate = tokens[next] ?? "";
+		if (ABSOLUTE_URL_PREFIX.test(candidate)) return index;
+		const at = candidate.indexOf("@");
+		const authorityEnd = candidate.search(/[/?#\\]/);
+		if (at !== -1 && (authorityEnd === -1 || at < authorityEnd)) return next;
+		if (authorityEnd !== -1) return index;
+	}
+	return index;
 }
 
 /**
  * Redact the credentials a URL-valued setting can embed: the userinfo
- * (`https://user:pass@host`) and the values of credential-named query
- * parameters (`?token=…`, `?api_key=…`, `?X-Amz-Signature=…`). Scheme,
- * host, port, path, the other parameters, and the fragment stay visible so
- * operators can still diagnose the configuration. A value that does not
- * begin with an absolute URL, or whose URL has nothing to redact, is
- * returned unchanged.
+ * (`https://user:pass@host`) and the values of credential-named query and
+ * fragment parameters (`?token=…`, `?api_key=…`, `?X-Amz-Signature=…`,
+ * `#access_token=…`). Scheme, host, port, path, and the other parameters
+ * stay visible so operators can still diagnose the configuration. Every
+ * whitespace-separated URL in the value is redacted and the text around
+ * them is kept, so a value without an absolute URL, or whose URLs have
+ * nothing to redact, is returned unchanged.
  */
 export function redactUrlCredentials(value: string): string {
-	const match = LEADING_ABSOLUTE_URL.exec(value);
-	if (match === null) return value;
-	const [leadingUrl, leading = "", prefix = "", rest = ""] = match;
-	const redacted = redactAbsoluteUrl(prefix, rest);
-	if (redacted === `${prefix}${rest}`) return value;
-	return `${leading}${redacted}${value.slice(leadingUrl.length)}`;
+	const tokens = value.split(/(\s+)/);
+	let redactedAny = false;
+	for (let index = 0; index < tokens.length; index += 2) {
+		const token = tokens[index] ?? "";
+		const prefix = ABSOLUTE_URL_PREFIX.exec(token)?.[0];
+		if (prefix === undefined) continue;
+		const end = spacedUserinfoEnd(tokens, index, prefix);
+		const url = tokens.slice(index, end + 1).join("");
+		const redacted = redactAbsoluteUrl(prefix, url.slice(prefix.length));
+		if (redacted === url) continue;
+		// Tokens sit at even indices and whitespace at odd ones; replacing
+		// an odd-length run with one element keeps that alternation.
+		tokens.splice(index, end - index + 1, redacted);
+		redactedAny = true;
+	}
+	return redactedAny ? tokens.join("") : value;
 }
 
 /**
@@ -274,7 +338,7 @@ export const getSettingsOperation = defineOperation({
 	id: "settings.get",
 	title: "Read installation settings (redacted)",
 	description:
-		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) and every credential embedded in a URL value (userinfo and secret query parameters) recursively replaced by [redacted].",
+		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) and every credential embedded in a URL value (userinfo and secret query or fragment parameters) recursively replaced by [redacted].",
 	inputSchema: z.object({}),
 	outputSchema: settingsGetOutputSchema,
 	safety: readResourceSafety,

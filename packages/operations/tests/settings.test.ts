@@ -435,7 +435,7 @@ describe("settings URL credential redaction", () => {
 				"https://hooks.example.com/in?q=a;%74oken=b",
 				"https://hooks.example.com/in?q=a;%74oken=[redacted]",
 			],
-			// Only the leading URL is rewritten; any text after it is kept.
+			// Only the URL is rewritten; the text around it is kept.
 			[
 				"  https://user:pass@hooks.example.com/in  trailing note",
 				"  https://[redacted]@hooks.example.com/in  trailing note",
@@ -493,6 +493,42 @@ describe("settings URL credential redaction", () => {
 				},
 			],
 		});
+	});
+
+	test("redacts spaced userinfo, every URL in a value, and fragment credentials", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			// A passphrase typed into the userinfo without encoding its spaces.
+			[
+				"https://gw-user:correct horse battery@sms.example.com/send?token=t",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			// A second URL after a credential-free first one.
+			[
+				"https://a.example.com https://user:secret@b.example.com/cb?token=t",
+				`https://a.example.com https://${SETTINGS_REDACTED_VALUE}@b.example.com/cb?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			// A parameter-shaped fragment and a client-side route's query.
+			[
+				"https://id.example.com/cb#access_token=eyJ.abc&state=xyz",
+				`https://id.example.com/cb#access_token=${SETTINGS_REDACTED_VALUE}&state=xyz`,
+			],
+			[
+				"https://app.example.com/#/welcome?token=abc&tab=1",
+				`https://app.example.com/#/welcome?token=${SETTINGS_REDACTED_VALUE}&tab=1`,
+			],
+		];
+		for (const [input, expected] of cases) {
+			expect(redactUrlCredentials(input)).toBe(expected);
+			expect(redactUrlCredentials(expected)).toBe(expected);
+		}
+		// A URL that parses on its own is complete, so the words after it
+		// stay prose even when one of them contains "@".
+		for (const text of [
+			"http://listmonk:9000 contact ops@example.com",
+			"https://docs.example.com/guide#section-2",
+		]) {
+			expect(redactUrlCredentials(text)).toBe(text);
+		}
 	});
 
 	test("rewrites only URLs with credentials and is idempotent", () => {

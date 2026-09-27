@@ -20,7 +20,7 @@ export const settingsGetOperationSpec = defineOperationSpec({
 	verb: "get",
 	title: "Read installation settings (redacted)",
 	description:
-		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) and every credential embedded in a URL value (userinfo and secret query parameters) recursively replaced by [redacted].",
+		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) and every credential embedded in a URL value (userinfo and secret query or fragment parameters) recursively replaced by [redacted].",
 	contract: {
 		input: emptyInputContract,
 		output: settingsGetOutputContract,
