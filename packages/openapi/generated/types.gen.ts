@@ -2528,7 +2528,17 @@ export type UpdateCampaignArchiveByIdResponses = {
      * response
      */
     200: {
-        data?: boolean;
+        /**
+         * The applied archive settings, echoed back with the slug normalized.
+         */
+        data?: {
+            archive?: boolean;
+            archive_template_id?: number;
+            archive_meta?: {
+                [key: string]: unknown;
+            };
+            archive_slug?: string;
+        };
     };
 };
 

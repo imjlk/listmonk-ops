@@ -114,6 +114,25 @@
                  archive_meta:
                    type: object
        responses:
+@@ -1585,7 +1631,17 @@
+                 type: object
+                 properties:
+                   data:
+-                    type: boolean
++                    type: object
++                    description: The applied archive settings, echoed back with the slug normalized.
++                    properties:
++                      archive:
++                        type: boolean
++                      archive_template_id:
++                        type: integer
++                      archive_meta:
++                        type: object
++                      archive_slug:
++                        type: string
+ 
+   "/campaigns/{id}/content":
+     post:
 @@ -1754,7 +1798,7 @@
          - in: query
            name: no_body
