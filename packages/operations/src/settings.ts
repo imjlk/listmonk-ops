@@ -157,13 +157,12 @@ function isCredentialQueryParameter(encodedName: string): boolean {
 }
 
 /**
- * Replace the value of every credential-named parameter in a `?`-prefixed
- * query. Both `&` and the legacy `;` separator split parameters, and the
+ * Replace the value of every credential-named parameter in `text`, split
+ * on `separators` (a capturing pattern, so the separators are kept). The
  * original text of every other parameter is kept.
  */
-function redactCredentialQuery(query: string): string {
-	if (query.length <= 1) return query;
-	const parts = query.slice(1).split(/([&;])/);
+function redactCredentialParameters(text: string, separators: RegExp): string {
+	const parts = text.split(separators);
 	let redacted = false;
 	for (let index = 0; index < parts.length; index += 2) {
 		const parameter = parts[index] ?? "";
@@ -173,18 +172,36 @@ function redactCredentialQuery(query: string): string {
 		parts[index] = `${parameter.slice(0, separator + 1)}${SETTINGS_REDACTED_VALUE}`;
 		redacted = true;
 	}
-	return redacted ? `?${parts.join("")}` : query;
+	return redacted ? parts.join("") : text;
 }
 
 /**
- * Redact credential-named parameters in a fragment the same way. A
- * parameter-shaped fragment (`#access_token=…`) and a client-side route's
- * query (`#/welcome?token=…`, whose route becomes part of the first
- * parameter's name) are both covered, and any other fragment is kept.
+ * Redact the credential parameters of a query or fragment body. The first
+ * pass splits on "&" and the legacy ";", so a value that contains "?" is
+ * redacted whole; the second also splits on "?", which catches a
+ * credential parameter nested in another value (`next=/home?token=…`) or
+ * following a client-side route (`/welcome?token=…`).
+ */
+function redactCredentialParameterList(body: string): string {
+	return redactCredentialParameters(
+		redactCredentialParameters(body, /([&;])/),
+		/([&;?])/,
+	);
+}
+
+function redactCredentialQuery(query: string): string {
+	if (query.length <= 1) return query;
+	return `?${redactCredentialParameterList(query.slice(1))}`;
+}
+
+/**
+ * Redact credential-named parameters in a fragment the same way, which
+ * covers parameter-shaped fragments (`#access_token=…`) and client-side
+ * route queries (`#/welcome?token=…`); any other fragment is kept.
  */
 function redactCredentialFragment(fragment: string): string {
 	if (fragment.length <= 1) return fragment;
-	return `#${redactCredentialQuery(`?${fragment.slice(1)}`).slice(1)}`;
+	return `#${redactCredentialParameterList(fragment.slice(1))}`;
 }
 
 function parseUrl(text: string): URL | undefined {
@@ -237,23 +254,17 @@ function redactAbsoluteUrl(prefix: string, rest: string): string {
 	return `${prefix}${userinfo}${path}${redactCredentialQuery(query)}${redactCredentialFragment(fragment)}`;
 }
 
-function closesAuthority(token: string): boolean {
-	const at = token.indexOf("@");
-	const authorityEnd = token.search(/[/?#\\]/);
-	return at !== -1 && (authorityEnd === -1 || at < authorityEnd);
-}
-
 /**
  * The index of the token that ends a URL whose userinfo contains unencoded
  * whitespace, such as the passphrase in `https://user:correct horse@host/`.
  * Only a URL token that is a bare `name:value` authority, without "@",
- * "/", "?", "#", or "\", can continue. If the parser rejects it, it
- * continues through the first of the next few tokens that contains "@",
- * since a "/", "?", or "#" before that "@" belongs to the passphrase. If it
- * parses as `host:port`, it continues only when the very next token closes
- * the authority with "@", so ordinary text after `http://listmonk:9000` is
- * kept; a `host:port` URL directly followed by an address is redacted
- * rather than risk a passphrase.
+ * "/", "?", "#", or "\", can continue, and a "/", "?", or "#" before the
+ * "@" that closes it belongs to the passphrase. If the parser rejects the
+ * token, it continues through the first of the next few tokens that
+ * contains "@". If it parses as `host:port`, it continues only when the
+ * very next token contains "@", so ordinary text after
+ * `http://listmonk:9000` is kept; a `host:port` URL directly followed by
+ * an address is redacted rather than risk a passphrase.
  */
 function spacedUserinfoEnd(
 	tokens: readonly string[],
@@ -265,7 +276,7 @@ function spacedUserinfoEnd(
 	if (!authority.includes(":") || /[@/?#\\]/.test(authority)) return index;
 	if (parseUrl(token) !== undefined) {
 		const next = tokens[index + 2] ?? "";
-		return !ABSOLUTE_URL_PREFIX.test(next) && closesAuthority(next)
+		return !ABSOLUTE_URL_PREFIX.test(next) && next.includes("@")
 			? index + 2
 			: index;
 	}

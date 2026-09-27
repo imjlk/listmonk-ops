@@ -566,6 +566,31 @@ describe("settings URL credential redaction", () => {
 		expect(redactUrlCredentials(note)).toBe(note);
 	});
 
+	test("redacts credential parameters nested in other values", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			// A "/" after a port-like first word of a spaced passphrase.
+			[
+				"https://gw-user:8080 horse/battery@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			// A credential parameter after a "?" inside another value.
+			[
+				"https://id.example.com/cb#state=/home?token=abc",
+				`https://id.example.com/cb#state=/home?token=${SETTINGS_REDACTED_VALUE}`,
+			],
+			[
+				"https://app.example.com/login?next=/dashboard?token=abc&page=2",
+				`https://app.example.com/login?next=/dashboard?token=${SETTINGS_REDACTED_VALUE}&page=2`,
+			],
+		];
+		for (const [input, expected] of cases) {
+			expect(redactUrlCredentials(input)).toBe(expected);
+			expect(redactUrlCredentials(expected)).toBe(expected);
+		}
+		const nested = "https://app.example.com/login?next=/dashboard?tab=2&page=2";
+		expect(redactUrlCredentials(nested)).toBe(nested);
+	});
+
 	test("keeps everything but the redacted parts as written", () => {
 		expect(
 			redactUrlCredentials("HTTPS://User:Pass@Lists.Example.com:443/Path"),
