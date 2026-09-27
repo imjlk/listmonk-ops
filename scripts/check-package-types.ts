@@ -99,7 +99,8 @@ export const TYPESCRIPT_TOOLCHAINS: readonly TypeScriptToolchain[] = [
 ];
 
 // Each spawned command is already bounded by the npm install check's command
-// timeout; this caps the whole matrix so a slow registry cannot hold a runner.
+// timeout. This budget is checked between commands, so a slow registry can hold
+// a runner for at most the budget plus one command timeout.
 const CHECK_BUDGET_MS = 10 * 60_000;
 
 function log(message: string): void {
@@ -123,6 +124,18 @@ function subpathSpecifier(packageName: string, subpath: string): string {
 	return subpath === "." ? packageName : `${packageName}${subpath.slice(1)}`;
 }
 
+/** Whether an exports target only names JSON files, such as package.json. */
+function isJsonTarget(target: unknown): boolean {
+	if (typeof target === "string") {
+		return target.endsWith(".json");
+	}
+	const values = isRecord(target) ? Object.values(target) : [];
+	return (
+		values.length > 0 &&
+		values.every((value) => typeof value === "string" && value.endsWith(".json"))
+	);
+}
+
 /**
  * Problems that keep TypeScript from resolving a published entry point's
  * declarations in every module resolution mode.
@@ -138,10 +151,7 @@ export function exportsMapProblems(manifest: WorkspaceManifest): string[] {
 	const problems: string[] = [];
 	for (const [subpath, target] of Object.entries(exports)) {
 		const label = `${manifest.name} exports["${subpath}"]`;
-		if (
-			target === null ||
-			(typeof target === "string" && target.endsWith(".json"))
-		) {
+		if (target === null || isJsonTarget(target)) {
 			// A hidden subpath or a JSON file such as package.json has no types.
 			continue;
 		}
@@ -158,7 +168,7 @@ export function exportsMapProblems(manifest: WorkspaceManifest): string[] {
 			// Conditions match in object order, so a later "types" is never read
 			// once "import" or "default" matches.
 			problems.push(
-				`${label}: list "types" first (found ${conditions.join(", ")})`,
+				`${label}: list "types" first (found ${conditions.join(", ") || "none"})`,
 			);
 		}
 		const types = target.types;
@@ -225,6 +235,26 @@ export function unknownUnsupportedPackages(
 		.filter((name) => !names.has(name));
 }
 
+/**
+ * Problems in the exports maps of every published manifest, including those
+ * whose exports name no declarations at all, and in `toolchains`.
+ */
+export function publishedDeclarationProblems(
+	manifests: readonly WorkspaceManifest[],
+	toolchains: readonly TypeScriptToolchain[] = TYPESCRIPT_TOOLCHAINS,
+): string[] {
+	const published = manifests.filter((manifest) => !manifest.private);
+	const withDeclarations = published.filter(
+		(manifest) => publicEntryPoints(manifest).length > 0,
+	);
+	return [
+		...published.flatMap((manifest) => exportsMapProblems(manifest)),
+		...unknownUnsupportedPackages(toolchains, withDeclarations).map(
+			(name) => `TYPESCRIPT_TOOLCHAINS: ${name} ships no declarations`,
+		),
+	];
+}
+
 /** Declaration files that the public entry points of a manifest name. */
 function publicDeclarationFiles(manifest: WorkspaceManifest): string[] {
 	if (!isRecord(manifest.exports)) {
@@ -233,6 +263,22 @@ function publicDeclarationFiles(manifest: WorkspaceManifest): string[] {
 	return Object.values(manifest.exports).flatMap((target) =>
 		isRecord(target) && typeof target.types === "string" ? [target.types] : [],
 	);
+}
+
+/** Runtime files that `main` and the export conditions of a manifest name. */
+export function publicRuntimeFiles(manifest: WorkspaceManifest): string[] {
+	const files = new Set(manifest.main === undefined ? [] : [manifest.main]);
+	if (isRecord(manifest.exports)) {
+		for (const target of Object.values(manifest.exports)) {
+			for (const condition of ["import", "default"]) {
+				const runtime = isRecord(target) ? target[condition] : undefined;
+				if (typeof runtime === "string" && !runtime.endsWith(".json")) {
+					files.add(runtime);
+				}
+			}
+		}
+	}
+	return [...files];
 }
 
 /** A consumer module that imports every public entry point. */
@@ -293,7 +339,7 @@ function cellPassed(cell: MatrixCell): boolean {
 function assertBuilt(packed: readonly Workspace[]): void {
 	for (const { directory, manifest } of packed) {
 		const outputs = [
-			...(manifest.main === undefined ? [] : [manifest.main]),
+			...publicRuntimeFiles(manifest),
 			...publicDeclarationFiles(manifest),
 		];
 		for (const output of outputs) {
@@ -461,17 +507,11 @@ export async function checkPackageTypes(
 	}
 	const startedAt = performance.now();
 	const workspaces = readWorkspaces();
-	const published = [...workspaces.values()]
-		.map(({ manifest }) => manifest)
-		.filter(
-			(manifest) => !manifest.private && publicEntryPoints(manifest).length > 0,
-		);
-	const problems = [
-		...published.flatMap((manifest) => exportsMapProblems(manifest)),
-		...unknownUnsupportedPackages(TYPESCRIPT_TOOLCHAINS, published).map(
-			(name) => `TYPESCRIPT_TOOLCHAINS: ${name} ships no declarations`,
-		),
-	];
+	const manifests = [...workspaces.values()].map(({ manifest }) => manifest);
+	const published = manifests.filter(
+		(manifest) => !manifest.private && publicEntryPoints(manifest).length > 0,
+	);
+	const problems = publishedDeclarationProblems(manifests);
 	if (problems.length > 0) {
 		throw new Error(
 			`Published declarations cannot be resolved:\n${problems.join("\n")}`,

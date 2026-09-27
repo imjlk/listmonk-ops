@@ -8,6 +8,8 @@ import {
 	exportsMapProblems,
 	formatMatrix,
 	publicEntryPoints,
+	publicRuntimeFiles,
+	publishedDeclarationProblems,
 	RESOLUTION_MODES,
 	renderConsumerSource,
 	renderConsumerTsconfig,
@@ -70,6 +72,8 @@ describe("published exports maps", () => {
 						"./legacy": "./dist/legacy.js",
 						"./internal": null,
 						"./package.json": "./package.json",
+						"./manifest": { default: "./package.json" },
+						"./empty": {},
 					},
 				}),
 			),
@@ -80,10 +84,71 @@ describe("published exports maps", () => {
 			'@listmonk-ops/example exports["./runtime"]: "types" ./dist/runtime.d.ts does not describe "import" ./dist/other.js',
 			'@listmonk-ops/example exports["./*"]: expected an explicit subpath such as "./sdk"',
 			'@listmonk-ops/example exports["./legacy"]: expected conditions with "types" first',
+			'@listmonk-ops/example exports["./empty"]: list "types" first (found none)',
+			'@listmonk-ops/example exports["./empty"]: "types" must name a declaration file',
 		]);
 		expect(exportsMapProblems(manifest({ exports: "./dist/index.js" }))).toEqual(
 			['@listmonk-ops/example: "exports" must map subpaths to conditions'],
 		);
+	});
+
+	test("validates published exports maps that name no declarations", () => {
+		expect(
+			publishedDeclarationProblems(
+				[
+					manifest({ exports: { ".": "./dist/index.js" } }),
+					manifest({
+						name: "@listmonk-ops/private",
+						private: true,
+						exports: { ".": "./dist/index.js" },
+					}),
+					manifest({ name: "@listmonk-ops/cli", main: "./dist/js/index.js" }),
+				],
+				[],
+			),
+		).toEqual([
+			'@listmonk-ops/example exports["."]: expected conditions with "types" first',
+		]);
+		expect(
+			publishedDeclarationProblems(
+				[manifest({ types: "./dist/index.d.ts" })],
+				[
+					{
+						typescript: "5.0.4",
+						typesNode: "22.13.14",
+						unsupported: { packages: ["@listmonk-ops/missing"], reason: "test" },
+					},
+				],
+			),
+		).toEqual(["TYPESCRIPT_TOOLCHAINS: @listmonk-ops/missing ships no declarations"]);
+		expect(
+			publishedDeclarationProblems(
+				[...readWorkspaces().values()].map(({ manifest }) => manifest),
+			),
+		).toEqual([]);
+	});
+
+	test("lists the runtime files every entry point needs", () => {
+		expect(
+			publicRuntimeFiles(
+				manifest({
+					main: "./dist/index.js",
+					exports: {
+						".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+						"./specs": {
+							types: "./dist/specs/index.d.ts",
+							import: "./dist/specs/index.js",
+							default: "./dist/specs/index.js",
+						},
+						"./package.json": "./package.json",
+						"./manifest": { default: "./package.json" },
+					},
+				}),
+			),
+		).toEqual(["./dist/index.js", "./dist/specs/index.js"]);
+		expect(publicRuntimeFiles(manifest({ main: "./dist/index.js" }))).toEqual([
+			"./dist/index.js",
+		]);
 	});
 
 	test("pairs runtime files with their declaration files", () => {
