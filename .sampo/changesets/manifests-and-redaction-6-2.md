@@ -1,8 +1,8 @@
 ---
-npm/@listmonk-ops/operations: patch (Security)
-npm/@listmonk-ops/openapi: patch (Fixed)
-npm/@listmonk-ops/mcp: patch (Fixed)
-npm/@listmonk-ops/cli: patch (Fixed)
+npm/@listmonk-ops/operations: patch
+npm/@listmonk-ops/openapi: patch
+npm/@listmonk-ops/mcp: patch
+npm/@listmonk-ops/cli: patch
 ---
 
 Align manifests, redaction, test sends, and reload safety with Listmonk 6.2. `settings.get` now redacts every auth username: the nested `bounce.postmark.username` (Postmark's server token) and the SMTP, messenger, and bounce-mailbox usernames that 6.2 returns unmasked previously reached CLI and MCP output in clear text, because the rule only matched a flat `postmark_username` key that 6.2 never returns. Template manifests now converge: the subject is managed for `tx` templates only, a `campaign` or `campaign_visual` entry that sets `subject` and a `tx` entry without one are rejected before any remote call, and a type change fails during planning, because 6.2 discards campaign-template subjects (rewriting them to the previous name on update), refuses transactional templates without a subject, and never updates a template's type, which made plans report `update` forever or fail partway through an apply. User-role manifests reject `list:get` and `list:manage` before any remote call instead of planning a change that 6.2 refuses partway through an apply; `LISTMONK_USER_ROLE_PERMISSIONS` and `LISTMONK_LIST_ROLE_PERMISSIONS` expose the two sets. `campaigns.test` sends its `template_id` override as the query parameter the 6.2 handler reads and forwards the stored campaign's attachments, so test messages render with the chosen template and keep their attachments; the SDK's campaign test call now accepts that query parameter. `system.reload` is now declared as what 6.2 does, a full process restart that interrupts running campaigns and drops queued transactional messages: it requires confirmation (`--confirm` in the CLI, `confirm: true` over MCP) and is no longer marked safe to repeat.
