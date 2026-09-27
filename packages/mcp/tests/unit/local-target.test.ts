@@ -64,6 +64,10 @@ async function operatorEnvironment() {
 			LISTMONK_OPS_PROFILE: "production",
 			LISTMONK_API_TOKEN_FILE: join(home, "production-token"),
 			LISTMONK_OPS_DATA_DIR: join(home, "operator-state"),
+			LISTMONK_OPS_WEBHOOK_STORE: join(home, "operator-webhooks.json"),
+			LISTMONK_OPS_WEBHOOK_DATABASE_URL: "postgres://operator/webhooks",
+			LISTMONK_OPS_SEQUENCE_STORE: join(home, "operator-sequences.json"),
+			LISTMONK_OPS_SEQUENCE_DATABASE_URL: "postgres://operator/sequences",
 		},
 	};
 }
@@ -99,6 +103,10 @@ describe("local E2E target isolation", () => {
 			LISTMONK_OPS_PROFILE: "",
 			LISTMONK_API_TOKEN_FILE: "",
 			LISTMONK_OPS_DATA_DIR: join(directory, "data"),
+			LISTMONK_OPS_WEBHOOK_STORE: "",
+			LISTMONK_OPS_WEBHOOK_DATABASE_URL: "",
+			LISTMONK_OPS_SEQUENCE_STORE: "",
+			LISTMONK_OPS_SEQUENCE_DATABASE_URL: "",
 		});
 		expect(JSON.parse(await readFile(configFile, "utf8"))).toEqual({
 			schemaVersion: 1,

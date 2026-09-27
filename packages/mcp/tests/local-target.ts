@@ -32,8 +32,9 @@ export function isLoopbackListmonkUrl(value: string): boolean {
  * `LISTMONK_API_TOKEN_FILE` replaces the token. This writes an empty profile
  * document into `directory` and returns variables that select it. Selectors
  * are blank rather than deleted so Bun's `.env` autoload in a child process
- * cannot restore them, and state defaults to `directory/data` instead of the
- * operator's `~/.listmonk-ops`.
+ * cannot restore them, explicit webhook and sequence stores are blanked, and
+ * state defaults to `directory/data` instead of the operator's
+ * `~/.listmonk-ops`.
  */
 export function createIsolatedListmonkEnvironment(
 	directory: string,
@@ -49,6 +50,10 @@ export function createIsolatedListmonkEnvironment(
 		LISTMONK_OPS_PROFILE: "",
 		LISTMONK_API_TOKEN_FILE: "",
 		LISTMONK_OPS_DATA_DIR: join(directory, "data"),
+		LISTMONK_OPS_WEBHOOK_STORE: "",
+		LISTMONK_OPS_WEBHOOK_DATABASE_URL: "",
+		LISTMONK_OPS_SEQUENCE_STORE: "",
+		LISTMONK_OPS_SEQUENCE_DATABASE_URL: "",
 	};
 }
 

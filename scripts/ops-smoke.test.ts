@@ -503,6 +503,7 @@ describe("ops smoke full-mode fixture cleanup", () => {
 						{ status: 503 },
 					);
 				}
+				return undefined;
 			});
 
 			const result = await runSmoke(directory, fullSmoke(local.url));
