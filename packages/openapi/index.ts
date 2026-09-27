@@ -59,6 +59,8 @@ export type {
  */
 export type { About, Campaign, List, Subscriber, Template };
 
+export { SETTINGS_REDACTED_VALUE } from "./src/client/settings-redaction";
+
 export type {
 	ListmonkReadiness,
 	ReadinessResource,

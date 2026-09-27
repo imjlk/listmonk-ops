@@ -1,4 +1,5 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { SETTINGS_REDACTED_VALUE } from "@listmonk-ops/openapi";
 import {
 	bindSettingsGetOperationSpec,
 	bindSettingsTestSmtpOperationSpec,
@@ -29,8 +30,7 @@ const settingsGetOutputSchema = z.object({
 
 export type SettingsDocument = z.output<typeof settingsGetOutputSchema>;
 
-/** Marker substituted for every credential-bearing field. */
-export const SETTINGS_REDACTED_VALUE = "[redacted]";
+export { SETTINGS_REDACTED_VALUE };
 
 /**
  * Field names whose values are credentials, matched case-insensitively
@@ -275,13 +275,7 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		endPattern.lastIndex = valueStart;
 		const nextSeparator = endPattern.exec(value);
 		const explicitValueEnd = nextSeparator?.index ?? value.length;
-		const wrapperPattern = /[)\]}>'\",](?=\s|$)/g;
-		wrapperPattern.lastIndex =
-			valueStart +
-			(value.startsWith(SETTINGS_REDACTED_VALUE, valueStart)
-				? SETTINGS_REDACTED_VALUE.length
-				: 0);
-		const wrapperEnd = wrapperPattern.exec(value);
+		const wrapperEnd = findCredentialValueWrapperBoundary(value, valueStart);
 		const nextUrl = findAbsoluteUrlPrefix(value, valueStart);
 		const nextUrlBoundary =
 			nextUrl !== undefined &&
@@ -292,7 +286,7 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		const valueEnd = Math.min(
 			explicitValueEnd,
 			nextUrlBoundary ?? explicitValueEnd,
-			wrapperEnd?.index ?? explicitValueEnd,
+			wrapperEnd ?? explicitValueEnd,
 		);
 		const parameterValue = value.slice(valueStart, valueEnd);
 		if (!isAlreadyRedactedCredentialValue(parameterValue)) {
@@ -318,6 +312,55 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		redacted = `${redacted.slice(0, replacement.start)}${SETTINGS_REDACTED_VALUE}${redacted.slice(replacement.end)}`;
 	}
 	return redacted;
+}
+
+function findCredentialValueWrapperBoundary(
+	value: string,
+	valueStart: number,
+): number | undefined {
+	const wrapperPattern = /[)\]}>'"]/g;
+	wrapperPattern.lastIndex =
+		valueStart +
+		(value.startsWith(SETTINGS_REDACTED_VALUE, valueStart)
+			? SETTINGS_REDACTED_VALUE.length
+			: 0);
+	let wrapper = wrapperPattern.exec(value);
+	while (wrapper !== null && wrapper.index !== undefined) {
+		const index = wrapper.index;
+		const secretPart = value.slice(valueStart, index);
+		const suffix = value.slice(index + wrapper[0].length);
+		if (
+			/[^\s)\]}>'\",]/.test(secretPart) &&
+			/^[)\]}>'\",]*(?:\s|$)/.test(suffix) &&
+			hasMatchingOpeningWrapper(value, valueStart, wrapper[0])
+		) {
+			return index;
+		}
+		wrapper = wrapperPattern.exec(value);
+	}
+	return undefined;
+}
+
+function hasMatchingOpeningWrapper(
+	value: string,
+	valueStart: number,
+	closing: string,
+): boolean {
+	const prefix = value.slice(0, valueStart);
+	const pair: Record<string, string> = {
+		")": "(",
+		"]": "[",
+		"}": "{",
+		">": "<",
+		"'": "'",
+		'"': '"',
+	};
+	const opening = pair[closing];
+	if (opening === undefined) return false;
+	if (opening === closing) {
+		return [...prefix].filter((character) => character === closing).length % 2 === 1;
+	}
+	return prefix.lastIndexOf(opening) > prefix.lastIndexOf(closing);
 }
 
 function parseUrl(text: string): URL | undefined {
@@ -378,9 +421,8 @@ function redactAbsoluteUrl(prefix: string, rest: string): string {
  * "@" that closes it belongs to the passphrase. If the parser rejects the
  * token, it continues through the first of the next few tokens that
  * contains "@". If it parses as `host:port`, a later token continues the
- * userinfo only when its suffix resembles a URL path, port, or bare service
- * host, so ordinary text and email addresses after `http://listmonk:9000`
- * are kept.
+ * userinfo only when its suffix resembles a URL path, port, or syntactically
+ * valid bare service host. A bare host and mailbox domain can be ambiguous.
  */
 function spacedUserinfoEnd(
 	tokens: readonly string[],
@@ -402,8 +444,8 @@ function spacedUserinfoEnd(
 			if (at === -1) continue;
 			const hostAndPath = candidate.slice(at + 1);
 			// After one or more passphrase words, require URL authority/path
-			// syntax or a bare service host so ordinary prose stays
-			// untouched while pathless URLs are still covered.
+			// syntax or a valid bare service host. Reject numeric/version-shaped
+			// DNS labels because they are common in ordinary text.
 			return (
 				next === index + 2 ||
 				/[/?#\\]/.test(hostAndPath) ||
@@ -427,18 +469,26 @@ function spacedUserinfoEnd(
 	return index;
 }
 
-/** Check for a bare service hostname that has no path component. */
+/** Check for a bare service host without confusing versions for DNS names. */
 function isBareUrlHost(value: string): boolean {
 	const host = value.replace(/[)\]}>'\",]+$/, "");
 	if (host === "" || /[/?#\\\s@]/.test(host)) return false;
+	if (/^\d+(?:\.\d+){3}$/.test(host)) {
+		return host.split(".").every((octet) => Number(octet) <= 255);
+	}
 	const url = parseUrl(`http://${host}`);
 	if (url === undefined || url.pathname !== "/" || url.search || url.hash) {
 		return false;
 	}
+	if (url.hostname === "localhost") return true;
+	const labels = url.hostname.toLowerCase().split(".");
+	if (labels.length < 3 || !/^[a-z]{2,63}$/.test(labels.at(-1) ?? "")) {
+		return false;
+	}
 	return (
-		url.hostname === "localhost" ||
-		url.hostname.split(".").length >= 3 ||
-		/^\d{1,3}(?:\.\d{1,3}){3}$/.test(url.hostname)
+		labels.every((label) =>
+			/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label),
+		) && !labels.slice(1, -1).some((label) => /^\d+$/.test(label))
 	);
 }
 

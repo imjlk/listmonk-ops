@@ -8,9 +8,11 @@ import {
 describe("Service operation factories", () => {
 	let server: ReturnType<typeof Bun.serve>;
 	let settingsUpdateRequests: number;
+	let settingsTestSmtpRequests: number;
 
 	beforeEach(() => {
 		settingsUpdateRequests = 0;
+		settingsTestSmtpRequests = 0;
 		server = Bun.serve({
 			port: 0,
 			fetch(request) {
@@ -29,6 +31,13 @@ describe("Service operation factories", () => {
 					settingsUpdateRequests += 1;
 					return Response.json({ data: true });
 				}
+				if (
+					request.method === "POST" &&
+					url.pathname === "/api/settings/smtp/test"
+				) {
+					settingsTestSmtpRequests += 1;
+					return Response.json({ data: true });
+				}
 
 				return new Response("Not Found", { status: 404 });
 			},
@@ -39,7 +48,7 @@ describe("Service operation factories", () => {
 		server.stop(true);
 	});
 
-	test("createSettingsOperations refuses redacted placeholders before update", async () => {
+	test("createSettingsOperations rejects redacted settings update placeholders", async () => {
 		const client = createClient({
 			baseUrl: `http://127.0.0.1:${server.port}/api`,
 		});
@@ -49,12 +58,41 @@ describe("Service operation factories", () => {
 			settings.update({ body: { smtp: { password: "[redacted]" } } }),
 		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
 		expect(settingsUpdateRequests).toBe(0);
+		await expect(
+			settings.update({
+				body: { server: { url: "https://[redacted]@smtp.example.com" } },
+			}),
+		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		expect(settingsUpdateRequests).toBe(0);
 
 		const updated = await settings.update({
-			body: { smtp: { password: "replacement-secret" } },
+			body: {
+				smtp: { password: "replacement-secret" },
+				note: "Include the literal [redacted] marker in this documentation example",
+			},
 		});
 		expect(updated.data).toBe(true);
 		expect(settingsUpdateRequests).toBe(1);
+	});
+
+	test("createSettingsOperations rejects redacted SMTP test credentials before sending", async () => {
+		const client = createClient({
+			baseUrl: `http://127.0.0.1:${server.port}/api`,
+		});
+		const settings = createSettingsOperations({ client });
+
+		await expect(
+			settings.testSmtp({
+				body: { email: "ops@example.com", server: { password: "[redacted]" } },
+			}),
+		).rejects.toThrow('Cannot test SMTP settings with "[redacted]" placeholders');
+		expect(settingsTestSmtpRequests).toBe(0);
+
+		const tested = await settings.testSmtp({
+			body: { email: "ops@example.com", server: { password: "replacement-secret" } },
+		});
+		expect(tested.data).toBe(true);
+		expect(settingsTestSmtpRequests).toBe(1);
 	});
 
 	test("createBounceOperations normalizes list metadata", async () => {

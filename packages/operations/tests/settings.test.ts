@@ -561,6 +561,7 @@ describe("settings URL credential redaction", () => {
 		// stay prose even when one of them contains "@".
 		for (const text of [
 			"http://listmonk:9000 contact ops@example.com",
+			"http://listmonk:9000 contact ops@v1.2.3",
 			"https://docs.example.com/guide#section-2",
 		]) {
 			expect(redactUrlCredentials(text)).toBe(text);
@@ -592,6 +593,18 @@ describe("settings URL credential redaction", () => {
 			[
 				"https://user:foo://bar@host.example/path",
 				`https://${SETTINGS_REDACTED_VALUE}@host.example/path`,
+			],
+			[
+				"https://example.test/?token=one two) three&x=1",
+				`https://example.test/?token=${SETTINGS_REDACTED_VALUE}&x=1`,
+			],
+			[
+				'https://example.test/?password=" hunter2&to=1',
+				`https://example.test/?password=${SETTINGS_REDACTED_VALUE}&to=1`,
+			],
+			[
+				"https://example.test/?token=, secret words&x=1",
+				`https://example.test/?token=${SETTINGS_REDACTED_VALUE}&x=1`,
 			],
 		];
 		for (const [input, expected] of cases) {

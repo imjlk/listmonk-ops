@@ -31,6 +31,7 @@ import type {
 import type { SdkOptions } from "./crud";
 import type { CrudResult, FlattenedResponse } from "./response";
 import { normalizeListResult, transformResponse } from "./response";
+import { SETTINGS_REDACTED_VALUE } from "./settings-redaction";
 
 export function createImportOperations(
 	sdkOptions: SdkOptions,
@@ -163,30 +164,36 @@ export function createSettingsOperations(
 			return (await transformResponse(result)) as FlattenedResponse<t.Settings>;
 		},
 		async update(options: { body: Record<string, unknown> }) {
-			if (containsRedactedSettingsPlaceholder(options.body)) {
-				throw new TypeError(
-					'Cannot update settings with "[redacted]" placeholders; replace them with the actual values first.',
-				);
-			}
+			assertNoRedactedSettingsPlaceholder(options.body, "update");
 			const result = await updateSettings({ ...sdkOptions, ...options });
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 		async testSmtp(options: { body: Record<string, unknown> }) {
+			assertNoRedactedSettingsPlaceholder(options.body, "test SMTP");
 			const result = await testSmtpSettings({ ...sdkOptions, ...options });
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 	};
 }
 
-/**
- * Detect read-time settings redaction markers before an update can persist
- * them as literal credentials or configuration values.
- */
+/** Reject redacted display values before an operation can send them to Listmonk. */
+function assertNoRedactedSettingsPlaceholder(
+	value: unknown,
+	action: "update" | "test SMTP",
+): void {
+	if (!containsRedactedSettingsPlaceholder(value)) return;
+	throw new TypeError(
+		`Cannot ${action} settings with "${SETTINGS_REDACTED_VALUE}" placeholders; replace them with the actual values first.`,
+	);
+}
+
 function containsRedactedSettingsPlaceholder(
 	value: unknown,
 	seen = new WeakSet<object>(),
 ): boolean {
-	if (typeof value === "string") return value.includes("[redacted]");
+	if (typeof value === "string") {
+		return containsRedactedSettingsPlaceholderInString(value);
+	}
 	if (value === null || typeof value !== "object") return false;
 	if (seen.has(value)) return false;
 	seen.add(value);
@@ -194,6 +201,32 @@ function containsRedactedSettingsPlaceholder(
 	return entries.some((entry) =>
 		containsRedactedSettingsPlaceholder(entry, seen),
 	);
+}
+
+function containsRedactedSettingsPlaceholderInString(value: string): boolean {
+	let index = value.indexOf(SETTINGS_REDACTED_VALUE);
+	while (index !== -1) {
+		const prefix = value.slice(0, index);
+		const suffix = value.slice(index + SETTINGS_REDACTED_VALUE.length);
+		if (value === SETTINGS_REDACTED_VALUE) return true;
+		if (
+			suffix.startsWith("@") &&
+			/[a-z][a-z0-9+.-]*:\/\/[^/?#\\]*$/i.test(prefix)
+		) {
+			return true;
+		}
+		if (
+			prefix.endsWith("=") &&
+			(suffix === "" || /^[)\]}>'\",;?&#\s]/.test(suffix))
+		) {
+			return true;
+		}
+		index = value.indexOf(
+			SETTINGS_REDACTED_VALUE,
+			index + SETTINGS_REDACTED_VALUE.length,
+		);
+	}
+	return false;
 }
 
 export function createDashboardOperations(
