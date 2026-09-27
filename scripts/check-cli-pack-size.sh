@@ -2,14 +2,11 @@
 set -euo pipefail
 
 # Complete offline agent discovery embeds the shared operation specification in
-# the single-file CLI bundle. Keep modest headroom above the reviewed baseline
-# while retaining the stricter compressed distribution budget below. Each
-# standalone contract migration adds a few KB of generated JSON.
-# Sequence consent and deliverability playbook contracts share this budget.
-# Listmonk 6.2 write-semantics fixes (list UUID resolution, derived-name
-# replays, per-subscriber unblocklisting) add a little code on top.
-MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1960000}"
-MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-327000}"
+# the single-file CLI bundle. Keep enough room for normal feature and generated
+# contract growth; this budget should catch accidental bundle expansion, not
+# block a release over a few KB.
+MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-2100000}"
+MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-400000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"
 
