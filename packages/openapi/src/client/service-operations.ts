@@ -265,7 +265,11 @@ function decodeValidPercentEscapes(value: string): string {
 		try {
 			return decodeURIComponent(run);
 		} catch {
-			return run;
+			// Decode ASCII escapes such as %25/%3F without interpreting invalid
+			// non-ASCII byte sequences as Unicode.
+			return run.replace(/%([0-7][\da-f])/gi, (_, hex: string) =>
+				String.fromCharCode(Number.parseInt(hex, 16)),
+			);
 		}
 	});
 }

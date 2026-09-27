@@ -100,6 +100,15 @@ describe("Service operation factories", () => {
 		await expect(
 			settings.update({
 				body: {
+					redirect:
+						"https://app.example/login?redirect=https%253A%252F%252Fhost%252F%ED%A0%80%253Ftoken%253D%5Bredacted%5D",
+				},
+			}),
+		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		expect(settingsUpdateRequests).toBe(0);
+		await expect(
+			settings.update({
+				body: {
 					redirect: "https://app.example/callback?clientsecret=[redacted]",
 				},
 			}),
