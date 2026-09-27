@@ -35,6 +35,7 @@ This repository is designed for teams operating [Listmonk](https://listmonk.app/
 Runtime policy:
 - Executable packages (`apps/cli`, `packages/mcp`) target the Bun runtime.
 - Library packages are ESM. `openapi` and `operations` remain runtime-neutral; the file-backed APIs in `common`, `automation`, and `abtest` require a Node-compatible file-system runtime such as Bun.
+- Library declarations resolve with TypeScript's `bundler`, `node16`, and `nodenext` module resolution. `openapi` and `common` support TypeScript 5.0 or newer; `operations`, `automation`, and `abtest` expose zod 4 types, whose declarations need TypeScript 5.4 or newer when `skipLibCheck` is off.
 
 ## Prerequisites
 

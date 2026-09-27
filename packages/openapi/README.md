@@ -17,8 +17,9 @@ yarn add @listmonk-ops/openapi
 The package ships ESM JavaScript with `.d.ts` declarations. It has no runtime
 or peer dependency on TypeScript, so installing it never adds a compiler to
 your project or conflicts with the version you pin. The declarations require
-TypeScript 5.0 or newer with `"moduleResolution": "bundler"`, which also
-resolves the `/sdk` and `/runtime` subpath exports.
+TypeScript 5.0 or newer and resolve, together with the `/sdk` and `/runtime`
+subpath exports, with `"moduleResolution"` set to `"bundler"`, `"node16"`, or
+`"nodenext"`.
 
 ## Quick Start
 

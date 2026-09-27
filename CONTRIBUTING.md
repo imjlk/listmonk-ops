@@ -170,6 +170,18 @@ runs the installed `listmonk-cli` offline. Third-party dependencies come from
 the configured npm registry or cache, and the check is skipped when npm is not
 installed. CI runs it after the workspace build.
 
+### Published declarations
+
+Library sources import sibling modules without file extensions because they
+compile with `bundler` resolution, and `ttsc` copies those specifiers into the
+declarations it emits. After emitting declarations, each library build runs
+`scripts/rewrite-declaration-specifiers.ts`, which rewrites every relative
+import in `dist/**/*.d.ts` to the runtime name of the file it resolves to, such
+as `./client.js` or `./client/index.js`. The published types therefore resolve
+with `bundler`, `node16`, and `nodenext` alike without extension edits in
+source. The script fails the build when a declaration imports a file that was
+not emitted, and it never modifies runtime JavaScript.
+
 ### TypeScript code graph
 
 `@ttsc/graph` is available to coding agents and for local architecture

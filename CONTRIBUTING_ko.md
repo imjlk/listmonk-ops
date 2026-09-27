@@ -170,6 +170,18 @@ bun run check:cli-npm-install
 레지스트리나 캐시에서 가져오며, npm이 설치되어 있지 않으면 검사를 건너뜁니다.
 CI는 워크스페이스 빌드 후 이 검사를 실행합니다.
 
+### 배포 선언 파일
+
+라이브러리 소스는 `bundler` 해석으로 컴파일되므로 같은 패키지의 모듈을 확장자
+없이 import하고, `ttsc`는 이 specifier를 생성하는 선언 파일에 그대로 복사합니다.
+각 라이브러리 빌드는 선언 파일을 생성한 뒤
+`scripts/rewrite-declaration-specifiers.ts`를 실행해 `dist/**/*.d.ts`의 모든
+상대 import를 실제로 해석되는 파일의 런타임 이름(`./client.js` 또는
+`./client/index.js`)으로 바꿉니다. 따라서 소스의 import에 확장자를 추가하지
+않아도 배포 타입이 `bundler`, `node16`, `nodenext`에서 모두 해석됩니다. 선언
+파일이 생성되지 않은 파일을 import하면 빌드가 실패하며, 런타임 JavaScript는
+수정하지 않습니다.
+
 ### TypeScript 코드 그래프
 
 `@ttsc/graph`는 코딩 에이전트와 로컬 아키텍처 탐색에서 바로 사용할 수

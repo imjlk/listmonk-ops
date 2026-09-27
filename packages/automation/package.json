@@ -24,7 +24,7 @@
 	],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@aws-sdk/client-sesv2 --external:@aws-sdk/credential-providers --external:@listmonk-ops/common --external:@listmonk-ops/openapi --external:@listmonk-ops/operations --external:postgres --external:zod",
+		"build": "bun run clean && ttsc --emitDeclarationOnly && bun ../../scripts/rewrite-declaration-specifiers.ts dist && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@aws-sdk/client-sesv2 --external:@aws-sdk/credential-providers --external:@listmonk-ops/common --external:@listmonk-ops/openapi --external:@listmonk-ops/operations --external:postgres --external:zod",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",
