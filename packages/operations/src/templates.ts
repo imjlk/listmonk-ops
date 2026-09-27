@@ -77,18 +77,24 @@ function isTemplateSubjectManaged(type: TemplateType): boolean {
 }
 
 /**
- * A desired subject that Listmonk 6.2 would discard. Such an entry could never
- * converge, so reconciliation rejects it instead of planning an update forever.
+ * Why Listmonk 6.2 cannot persist a desired subject as given, if it cannot.
+ * A campaign-type subject is discarded, and a blank tx subject is rejected by
+ * validateTemplate on both create and update, so either entry would plan a
+ * change that never converges or fails partway through an apply. Both are
+ * rejected before any remote read instead.
  */
-function hasUnmanagedTemplateSubject(template: {
+function templateSubjectIssue(template: {
 	type: TemplateType;
 	subject: string;
-}): boolean {
-	return !isTemplateSubjectManaged(template.type) && template.subject !== "";
-}
-
-function unmanagedTemplateSubjectMessage(type: TemplateType): string {
-	return `Template subject is only supported for tx templates: Listmonk 6.2 discards the subject of ${type} templates, whose subject is set per campaign. Remove "subject" from this entry`;
+}): string | undefined {
+	if (!isTemplateSubjectManaged(template.type)) {
+		return template.subject === ""
+			? undefined
+			: `Template subject is only supported for tx templates: Listmonk 6.2 discards the subject of ${template.type} templates, whose subject is set per campaign. Remove "subject" from this entry`;
+	}
+	return template.subject.trim() === ""
+		? "Template subject is required for tx templates: Listmonk 6.2 rejects a transactional template without one"
+		: undefined;
 }
 
 const templateSchema = z.looseObject({
@@ -142,13 +148,14 @@ const templateCreateOutputSchema = z.object({
 	created: z.boolean(),
 });
 
-/** One exact-name desired state, rejecting a subject Listmonk would discard. */
+/** One exact-name desired state whose subject Listmonk 6.2 can persist. */
 const templateDesiredStateSchema = createTemplateInputSchema.superRefine(
 	(template, context) => {
-		if (hasUnmanagedTemplateSubject(template)) {
+		const subjectIssue = templateSubjectIssue(template);
+		if (subjectIssue !== undefined) {
 			context.addIssue({
 				code: "custom",
-				message: unmanagedTemplateSubjectMessage(template.type),
+				message: subjectIssue,
 				path: ["subject"],
 			});
 		}
@@ -203,10 +210,11 @@ const templateManifestSchema = z
 				});
 			}
 			names.add(template.name);
-			if (hasUnmanagedTemplateSubject(template)) {
+			const subjectIssue = templateSubjectIssue(template);
+			if (subjectIssue !== undefined) {
 				context.addIssue({
 					code: "custom",
-					message: unmanagedTemplateSubjectMessage(template.type),
+					message: subjectIssue,
 					path: ["templates", index, "subject"],
 				});
 			}
@@ -759,9 +767,9 @@ export async function ensureTemplate(
  * so callers can reconcile the partial remote state.
  *
  * Plans follow Listmonk 6.2 persistence so an applied manifest re-plans as
- * unchanged: a subject is managed for tx templates only (campaign-type
- * entries must omit it), and a type change fails during planning because
- * Listmonk never updates an existing template's type.
+ * unchanged: a subject is managed for tx templates only (required there,
+ * while campaign-type entries must omit it), and a type change fails during
+ * planning because Listmonk never updates an existing template's type.
  */
 export async function reconcileTemplateManifest(
 	context: TemplateOperationContext,

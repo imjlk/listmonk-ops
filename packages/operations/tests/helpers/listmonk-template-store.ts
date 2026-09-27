@@ -24,6 +24,9 @@ interface TemplateRequestBody {
 const CAMPAIGN_CONTENT_PLACEHOLDER =
 	/{{(\s+)?template\s+?"content"(\s+)?\.(\s+)?}}/;
 
+// schema.sql template_type enum.
+const TEMPLATE_TYPES = new Set(["campaign", "campaign_visual", "tx"]);
+
 function isCampaignType(type: string | undefined): boolean {
 	return type === "campaign" || type === "campaign_visual";
 }
@@ -113,10 +116,18 @@ export function createListmonk62TemplateStore(
 		create: async ({ body }: { body: TemplateRequestBody }) => {
 			const invalid = validationError(body);
 			if (invalid !== undefined) return badRequest(invalid);
+			// The handler applies no type default; the INSERT into the
+			// template_type enum column fails instead.
+			if (body.type === undefined || !TEMPLATE_TYPES.has(body.type)) {
+				return {
+					error: { message: "Error creating template" },
+					response: { status: 500 },
+				};
+			}
 			mutations.create += 1;
 			const stored = insert({
 				name: body.name ?? "",
-				type: body.type ?? "campaign",
+				type: body.type,
 				subject: isCampaignType(body.type) ? "" : (body.subject ?? ""),
 				body: body.body ?? "",
 				body_source: body.body_source ?? null,

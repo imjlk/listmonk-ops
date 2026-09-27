@@ -287,6 +287,42 @@ describe("template manifest reconciliation against Listmonk 6.2 persistence", ()
 		expect(list).not.toHaveBeenCalled();
 	});
 
+	test("rejects a blank tx subject before any remote read", async () => {
+		const list = mock(async () => ({ data: { results: [], total: 0 } }));
+		const templateContext = context({
+			list: list as unknown as TemplateClient["template"]["list"],
+		});
+		const message =
+			"Template subject is required for tx templates: Listmonk 6.2 rejects a transactional template without one";
+
+		for (const subject of [undefined, "", "   "]) {
+			const entry = {
+				name: "Account sign-in code",
+				type: "tx" as const,
+				body: "<p>{{ .Tx.Data.code }}</p>",
+				...(subject === undefined ? {} : { subject }),
+			};
+			const manifest = { schema_version: 1 as const, templates: [entry] };
+			await expect(
+				reconcileTemplateManifest(templateContext, manifest),
+			).rejects.toThrow("required for tx templates");
+
+			const failure = await invokeReconcileTemplateManifestOperation(
+				templateContext,
+				manifest,
+			).catch((error: unknown) => error);
+			expect(failure).toBeInstanceOf(OperationInputError);
+			expect((failure as Error).message).toBe(
+				`Invalid parameter templates.0.subject: ${message}`,
+			);
+
+			await expect(reconcileTemplate(templateContext, entry)).rejects.toThrow(
+				"required for tx templates",
+			);
+		}
+		expect(list).not.toHaveBeenCalled();
+	});
+
 	test("fails planning on a type change before any mutation", async () => {
 		const listmonk = createListmonk62TemplateStore([
 			{

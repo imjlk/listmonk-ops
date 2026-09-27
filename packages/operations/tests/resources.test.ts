@@ -173,7 +173,7 @@ describe("shared CRUD resource operations", () => {
 					list: missing as TemplateClient["template"]["list"],
 					create: create as TemplateClient["template"]["create"],
 				}),
-				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+				{ name: "Account sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" },
 			),
 		).resolves.toEqual({
 			name: "Account sign-in code",
@@ -188,7 +188,7 @@ describe("shared CRUD resource operations", () => {
 					list: missing as TemplateClient["template"]["list"],
 					create: create as TemplateClient["template"]["create"],
 				}),
-				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+				{ name: "Account sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" },
 			),
 		).resolves.toMatchObject({
 			action: "create",
@@ -212,7 +212,7 @@ describe("shared CRUD resource operations", () => {
 				id: 12,
 				name: "Account sign-in code",
 				type: "tx",
-				subject: "",
+				subject: "Your sign-in code",
 				body: "<p>OTP</p>",
 				body_source: "preserved remote source",
 			},
@@ -223,7 +223,7 @@ describe("shared CRUD resource operations", () => {
 					list: matching as TemplateClient["template"]["list"],
 					getById: getById as TemplateClient["template"]["getById"],
 				}),
-				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+				{ name: "Account sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" },
 			),
 		).resolves.toMatchObject({
 			action: "unchanged",
@@ -239,6 +239,7 @@ describe("shared CRUD resource operations", () => {
 				{
 					name: "Account sign-in code",
 					type: "tx",
+					subject: "Your sign-in code",
 					body: "<p>OTP</p>",
 					body_source: "",
 				},
@@ -262,8 +263,8 @@ describe("shared CRUD resource operations", () => {
 		const manifest = {
 			schema_version: 1 as const,
 			templates: [
-				{ name: "Account sign-in code", type: "tx" as const, body: "<p>OTP</p>" },
-				{ name: "Password reset code", type: "tx" as const, body: "<p>Reset</p>" },
+				{ name: "Account sign-in code", type: "tx" as const, subject: "Your sign-in code", body: "<p>OTP</p>" },
+				{ name: "Password reset code", type: "tx" as const, subject: "Reset your password", body: "<p>Reset</p>" },
 			],
 		};
 
@@ -307,8 +308,8 @@ describe("shared CRUD resource operations", () => {
 				{
 					schema_version: 1,
 					templates: [
-						{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
-						{ name: "Password reset code", type: "tx", body: "<p>Reset</p>" },
+						{ name: "Account sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" },
+						{ name: "Password reset code", type: "tx", subject: "Reset your password", body: "<p>Reset</p>" },
 					],
 				},
 				{ apply: true },
@@ -339,7 +340,7 @@ describe("shared CRUD resource operations", () => {
 			{
 				schema_version: 1,
 				templates: [
-					{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+					{ name: "Account sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" },
 				],
 			},
 		);
@@ -435,8 +436,8 @@ describe("shared CRUD resource operations", () => {
 		const input = {
 			schema_version: 1,
 			templates: [
-				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
-				{ name: "Password reset code", type: "tx", body: "<p>Reset</p>" },
+				{ name: "Account sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" },
+				{ name: "Password reset code", type: "tx", subject: "Reset your password", body: "<p>Reset</p>" },
 			],
 			dry_run: false,
 		};
@@ -485,7 +486,7 @@ describe("shared CRUD resource operations", () => {
 				templateContext({
 					list: list as TemplateClient["template"]["list"],
 				}),
-				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+				{ name: "Account sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" },
 			),
 		).rejects.toThrow("ambiguous");
 	});

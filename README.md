@@ -181,12 +181,14 @@ An omitted `body_source` is unmanaged because Listmonk preserves that field on
 update; provide it when the manifest should enforce visual-template source.
 
 Plans follow what Listmonk 6.2 actually stores, so an applied manifest
-re-plans as unchanged. The subject is managed for `tx` templates only:
-Listmonk discards the subject of `campaign` and `campaign_visual` templates
-(each campaign sets its own), so an entry of those types that sets `subject`
-is rejected. Listmonk also never changes the type of an existing template, so
-a manifest that changes a type fails during planning, before any write; delete
-that template and reconcile again to recreate it with the new type.
+re-plans as unchanged. The subject is managed for `tx` templates only, where
+Listmonk requires a non-blank one; it discards the subject of `campaign` and
+`campaign_visual` templates (each campaign sets its own). Entries that break
+either rule are rejected before any remote call, instead of planning a change
+that never converges or fails partway through an apply. Listmonk also never
+changes the type of an existing template, so a manifest that changes a type
+fails during planning, before any write; delete that template and reconcile
+again to recreate it with the new type.
 
 After applying a manifest, `syncTemplateRegistry()` can capture the resulting
 remote versions for promotion and rollback workflows. Keep release-time

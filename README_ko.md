@@ -180,10 +180,12 @@ Listmonk는 여러 template을 묶는 transaction을 제공하지 않습니다. 
 대상에서 제외됩니다. Visual template source를 강제하려면 값을 명시하세요.
 
 계획은 Listmonk 6.2가 실제로 저장하는 값을 기준으로 하므로 적용한 manifest를
-다시 계획하면 unchanged로 표시됩니다. Subject는 `tx` template에서만 관리합니다.
-Listmonk는 `campaign`과 `campaign_visual` template의 subject를 버리므로(각
-campaign이 자체 subject를 지정) 이 유형의 항목에 `subject`를 지정하면
-거부됩니다. Listmonk는 기존 template의 type도 변경하지 않으므로 type을 바꾸는
+다시 계획하면 unchanged로 표시됩니다. Subject는 `tx` template에서만 관리하며,
+Listmonk는 이때 비어 있지 않은 subject를 요구합니다. 반면 `campaign`과
+`campaign_visual` template의 subject는 버립니다(각 campaign이 자체 subject를
+지정). 이 규칙을 어기는 항목은 수렴하지 않거나 apply 도중 실패하는 변경을
+계획하는 대신 원격 호출 전에 거부됩니다. Listmonk는 기존 template의 type도
+변경하지 않으므로 type을 바꾸는
 manifest는 쓰기 전에 계획 단계에서 실패합니다. 해당 template을 삭제한 뒤 다시
 reconcile하여 새 type으로 생성하세요.
 
