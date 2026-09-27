@@ -59,3 +59,21 @@ test("the local stack pins every service image to an explicit tag", () => {
 		expect(service.image, name).not.toMatch(/:latest$/);
 	}
 });
+
+test("every CI job has a bounded timeout", () => {
+	// Without timeout-minutes a hung step holds a runner for GitHub's six-hour
+	// default. Both jobs usually finish in about seven minutes.
+	const workflow = Bun.YAML.parse(read(".github/workflows/ci.yml")) as {
+		jobs: Record<string, { "timeout-minutes"?: unknown }>;
+	};
+	const jobs = Object.entries(workflow.jobs);
+	expect(jobs.map(([name]) => name)).toEqual(
+		expect.arrayContaining(["build-and-test", "local-stack-smoke"]),
+	);
+	for (const [name, job] of jobs) {
+		const timeout = job["timeout-minutes"];
+		expect(Number.isInteger(timeout), name).toBe(true);
+		expect(timeout as number, name).toBeGreaterThanOrEqual(10);
+		expect(timeout as number, name).toBeLessThanOrEqual(30);
+	}
+});
