@@ -40,6 +40,18 @@ bun run release:add
 bun run release:plan
 ```
 
+두 명령 모두 `bun install`이 설치하지 않는 Sampo CLI를 호출합니다. CI는
+`cargo install sampo --version 0.21.0 --locked`로 설치합니다. CLI가 없으면
+`.sampo/changesets/<name>.md`를 직접 작성해도 됩니다. 예:
+
+```md
+---
+npm/@listmonk-ops/cli: patch (Fixed)
+---
+
+사용자에게 보이는 변경을 설명합니다.
+```
+
 Renovate PR은 예외입니다.
 
 - Renovate가 디펜던시 PR을 자동으로 생성합니다.
@@ -55,17 +67,26 @@ PR 검증:
 
 `main` 머지 후:
 
-1. `.github/workflows/sampo-release-publish.yml`가 실행됩니다.
-2. `sampo release`로 버전과 changelog를 반영합니다.
-3. Bun으로 전체 빌드를 수행합니다.
-4. npm OIDC trusted publishing으로 패키지를 배포합니다.
-5. 배포가 성공하면 release commit과 tags를 push합니다.
+1. `main`에서 `CI`가 실행됩니다. `.github/workflows/sampo-release-publish.yml`는
+   이 저장소(fork가 아닌)의 CI 실행이 성공했을 때만 `workflow_run`으로 시작하며,
+   CI가 검증한 커밋을 그대로 체크아웃합니다.
+2. 대기 중인 changeset이 있으면 Sampo가 버전 변경과 changelog를 담은
+   `sampo/release` PR("chore(release): publish packages")을 만들거나 갱신합니다.
+   이 단계에서는 아무것도 배포하지 않습니다.
+3. 모인 변경을 배포할 준비가 되면 릴리즈 PR을 머지합니다.
+4. 그 머지의 CI가 성공하면 워크플로가 워크스페이스를 빌드하고
+   `bun run check`와 `bun run test`를 실행한 뒤, OIDC trusted publishing과
+   provenance로 npm 패키지를 배포하고 패키지 버전 태그를 push합니다.
+
+메인테이너는 `workflow_dispatch`로 워크플로를 수동 실행할 수도 있습니다. 이때는
+CI 성공 조건을 건너뛰지만, 배포 전 빌드·검사·테스트 단계는 그대로 실행됩니다.
 
 CLI 바이너리 릴리즈:
 
 - `.github/workflows/cli-github-release.yml`는 태그 push 또는 명시적 dispatch로
-  scoped `@listmonk-ops/cli-v*` 태그를 빌드합니다.
-- Sampo는 새 CLI 태그를 배포한 뒤 이 워크플로를 명시적으로 dispatch합니다.
+  scoped `@listmonk-ops/cli-v*` 태그를 빌드하고, 플랫폼별 아카이브와 SHA-256
+  `checksums.txt`를 첨부합니다.
+- 릴리즈 워크플로는 Sampo가 새 CLI 태그를 배포한 뒤 이 워크플로를 dispatch합니다.
   `GITHUB_TOKEN`으로 만든 태그만으로는 다른 워크플로가 시작되지 않습니다.
 
 ## 로컬 개발
@@ -180,9 +201,10 @@ bun run ops:smoke
 
 ## 머지 이후
 
-이 저장소는 publish 성공 후 bot이 `main`에 release commit을 추가로 push합니다.
+머지할 때마다 `main`에 커밋이 추가되며, `sampo/release` PR을 머지하면 bot이
+작성한 release commit도 추가됩니다. 그 뒤의 배포는 태그만 추가합니다.
 
-그래서 PR을 막 머지했더라도 로컬 `main`은 `origin/main`보다 한 커밋 이상 뒤처질 수 있습니다.
+그래서 PR이 머지되는 즉시 로컬 `main`은 `origin/main`보다 뒤처집니다.
 
 다음 작업을 시작하기 전에는 아래처럼 최신 상태를 먼저 맞추는 흐름을 권장합니다.
 
