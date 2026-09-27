@@ -275,6 +275,13 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		endPattern.lastIndex = valueStart;
 		const nextSeparator = endPattern.exec(value);
 		const explicitValueEnd = nextSeparator?.index ?? value.length;
+		const wrapperPattern = /[)\]}>'\",](?=\s|$)/g;
+		wrapperPattern.lastIndex =
+			valueStart +
+			(value.startsWith(SETTINGS_REDACTED_VALUE, valueStart)
+				? SETTINGS_REDACTED_VALUE.length
+				: 0);
+		const wrapperEnd = wrapperPattern.exec(value);
 		const nextUrl = findAbsoluteUrlPrefix(value, valueStart);
 		const nextUrlBoundary =
 			nextUrl !== undefined &&
@@ -285,6 +292,7 @@ function redactSpacedCredentialParameterValues(value: string): string {
 		const valueEnd = Math.min(
 			explicitValueEnd,
 			nextUrlBoundary ?? explicitValueEnd,
+			wrapperEnd?.index ?? explicitValueEnd,
 		);
 		const parameterValue = value.slice(valueStart, valueEnd);
 		if (!isAlreadyRedactedCredentialValue(parameterValue)) {
@@ -369,10 +377,10 @@ function redactAbsoluteUrl(prefix: string, rest: string): string {
  * "/", "?", "#", or "\", can continue, and a "/", "?", or "#" before the
  * "@" that closes it belongs to the passphrase. If the parser rejects the
  * token, it continues through the first of the next few tokens that
- * contains "@". If it parses as `host:port`, it continues only when the
- * very next token contains "@", so ordinary text after
- * `http://listmonk:9000` is kept; a `host:port` URL directly followed by
- * an address is redacted rather than risk a passphrase.
+ * contains "@". If it parses as `host:port`, a later token continues the
+ * userinfo only when its suffix resembles a URL path, port, or bare service
+ * host, so ordinary text and email addresses after `http://listmonk:9000`
+ * are kept.
  */
 function spacedUserinfoEnd(
 	tokens: readonly string[],
@@ -393,10 +401,15 @@ function spacedUserinfoEnd(
 			const at = candidate.indexOf("@");
 			if (at === -1) continue;
 			const hostAndPath = candidate.slice(at + 1);
-			// A directly following address keeps the existing conservative
-			// behavior. After one or more passphrase words, require URL
-			// authority/path syntax so ordinary prose stays untouched.
-			return next === index + 2 || /[/?#\\]/.test(hostAndPath) || /:\d/.test(hostAndPath)
+			// After one or more passphrase words, require URL authority/path
+			// syntax or a bare service host so ordinary prose stays
+			// untouched while pathless URLs are still covered.
+			return (
+				next === index + 2 ||
+				/[/?#\\]/.test(hostAndPath) ||
+				/:\d/.test(hostAndPath) ||
+				isBareUrlHost(hostAndPath)
+			)
 				? next
 				: index;
 		}
@@ -412,6 +425,21 @@ function spacedUserinfoEnd(
 		if (candidate.includes("@")) return next;
 	}
 	return index;
+}
+
+/** Check for a bare service hostname that has no path component. */
+function isBareUrlHost(value: string): boolean {
+	const host = value.replace(/[)\]}>'\",]+$/, "");
+	if (host === "" || /[/?#\\\s@]/.test(host)) return false;
+	const url = parseUrl(`http://${host}`);
+	if (url === undefined || url.pathname !== "/" || url.search || url.hash) {
+		return false;
+	}
+	return (
+		url.hostname === "localhost" ||
+		url.hostname.split(".").length >= 3 ||
+		/^\d{1,3}(?:\.\d{1,3}){3}$/.test(url.hostname)
+	);
 }
 
 /**
@@ -437,7 +465,19 @@ export function redactUrlCredentials(value: string): string {
 				token,
 				match.index + match.prefix.length,
 			);
-			const candidateEnd = nextMatch?.index ?? token.length;
+			const outerUserinfoEnd = userinfoEnd(
+				match.prefix,
+				token.slice(match.index + match.prefix.length),
+			);
+			const nextMatchIsInsideUserinfo =
+				nextMatch !== undefined &&
+				outerUserinfoEnd > 0 &&
+				nextMatch.index <
+					match.index + match.prefix.length + outerUserinfoEnd;
+			const candidateEnd =
+				nextMatchIsInsideUserinfo || nextMatch === undefined
+					? token.length
+					: nextMatch.index;
 			const candidateToken = token.slice(match.index, candidateEnd);
 			const candidateTokens = tokens.slice(index);
 			candidateTokens[0] = candidateToken;

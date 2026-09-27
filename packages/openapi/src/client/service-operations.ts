@@ -163,6 +163,11 @@ export function createSettingsOperations(
 			return (await transformResponse(result)) as FlattenedResponse<t.Settings>;
 		},
 		async update(options: { body: Record<string, unknown> }) {
+			if (containsRedactedSettingsPlaceholder(options.body)) {
+				throw new TypeError(
+					'Cannot update settings with "[redacted]" placeholders; replace them with the actual values first.',
+				);
+			}
 			const result = await updateSettings({ ...sdkOptions, ...options });
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
@@ -171,6 +176,24 @@ export function createSettingsOperations(
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 	};
+}
+
+/**
+ * Detect read-time settings redaction markers before an update can persist
+ * them as literal credentials or configuration values.
+ */
+function containsRedactedSettingsPlaceholder(
+	value: unknown,
+	seen = new WeakSet<object>(),
+): boolean {
+	if (typeof value === "string") return value.includes("[redacted]");
+	if (value === null || typeof value !== "object") return false;
+	if (seen.has(value)) return false;
+	seen.add(value);
+	const entries = Array.isArray(value) ? value : Object.values(value);
+	return entries.some((entry) =>
+		containsRedactedSettingsPlaceholder(entry, seen),
+	);
 }
 
 export function createDashboardOperations(

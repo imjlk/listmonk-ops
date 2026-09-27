@@ -585,6 +585,14 @@ describe("settings URL credential redaction", () => {
 				"background:url(https://cdn.example/x?token=secret);color:red",
 				`background:url(https://cdn.example/x?token=${SETTINGS_REDACTED_VALUE});color:red`,
 			],
+			[
+				"background:url(https://cdn.example/x?token=secret) no-repeat center",
+				`background:url(https://cdn.example/x?token=${SETTINGS_REDACTED_VALUE}) no-repeat center`,
+			],
+			[
+				"https://user:foo://bar@host.example/path",
+				`https://${SETTINGS_REDACTED_VALUE}@host.example/path`,
+			],
 		];
 		for (const [input, expected] of cases) {
 			expect(redactUrlCredentials(input)).toBe(expected);
@@ -615,6 +623,10 @@ describe("settings URL credential redaction", () => {
 			[
 				"https://gw-user:8080 correct horse battery@sms.example.com/send",
 				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080 correct horse@sms.example.com",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com`,
 			],
 			// Fragment parameters before a "?".
 			[
