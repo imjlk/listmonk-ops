@@ -1092,6 +1092,32 @@ describe("automation persistence", () => {
 		expect(await readFile(segmentStorePath, "utf8")).toBe(unsupportedStore);
 	});
 
+	test("fails a template sync on an unreadable registry before reading Listmonk", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		await writeFile(templateStorePath, '{"version":2,"templates":{}}\n');
+		let reads = 0;
+		const captureFailures: unknown[] = [];
+		const client = {
+			template: {
+				getById: async () => {
+					reads += 1;
+					return { data: { id: 1, name: "Unread", type: "campaign" } };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		await expect(
+			syncTemplateRegistry(client, {
+				templateIds: [1],
+				onCaptureError: (failure) => {
+					captureFailures.push(failure);
+				},
+			}),
+		).rejects.toThrow("expected schema version 1");
+		expect(reads).toBe(0);
+		expect(captureFailures).toEqual([]);
+	});
+
 	test("rejects a malformed persisted snapshot timestamp", async () => {
 		const { segmentStorePath } = await useTemporaryStores();
 		await writeFile(
