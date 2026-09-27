@@ -38210,7 +38210,7 @@
       "input": {
         "components": {
           "schemas": {
-            "ListmonkUserPermission": {
+            "ListmonkUserRolePermission": {
               "oneOf": [
                 {
                   "const": "bounces:get"
@@ -38235,12 +38235,6 @@
                 },
                 {
                   "const": "campaigns:send"
-                },
-                {
-                  "const": "list:get"
-                },
-                {
-                  "const": "list:manage"
                 },
                 {
                   "const": "lists:get_all"
@@ -38312,9 +38306,9 @@
                 },
                 "permissions": {
                   "items": {
-                    "$ref": "#/components/schemas/ListmonkUserPermission"
+                    "$ref": "#/components/schemas/ListmonkUserRolePermission"
                   },
-                  "maxItems": 30,
+                  "maxItems": 28,
                   "type": "array"
                 }
               },

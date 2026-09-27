@@ -1,5 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
+import type { UserRoleDesiredState } from "../src/user-roles";
+import { userRoleManifestReconcileInputContract } from "../src/specs/contract-schemas";
 import {
 	ensureUserRole,
 	invokeReconcileUserRoleManifestOperation,
@@ -20,6 +22,15 @@ function userRoleContext(
 ): { client: UserRoleClient } {
 	return { client: { userRole: methods } as UserRoleClient };
 }
+
+function acceptUserRolePermission(
+	permission: UserRoleDesiredState["permissions"][number],
+): UserRoleDesiredState["permissions"][number] {
+	return permission;
+}
+
+// @ts-expect-error Per-list permissions are only valid on Listmonk list roles.
+acceptUserRolePermission("list:get");
 
 describe("declarative user role reconciliation", () => {
 	test("plans and applies an exact-name least-privilege update", async () => {
@@ -249,6 +260,13 @@ describe("declarative user role reconciliation", () => {
 			transactionalSubscriberRuntime: ["subscribers:manage", "tx:send"],
 			templateProvisioner: ["templates:get", "templates:manage"],
 		});
+	});
+
+	test("publishes only valid user-role permissions in the input contract", () => {
+		const contract = JSON.stringify(userRoleManifestReconcileInputContract);
+		expect(contract).not.toContain('"const":"list:get"');
+		expect(contract).not.toContain('"const":"list:manage"');
+		expect(contract).toContain('"maxItems":28');
 	});
 
 	test("rejects list-role permissions before any remote call", async () => {

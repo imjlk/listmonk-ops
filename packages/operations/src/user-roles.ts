@@ -65,16 +65,21 @@ export const LISTMONK_LIST_ROLE_PERMISSIONS = [
 export type ListmonkListRolePermission =
 	(typeof LISTMONK_LIST_ROLE_PERMISSIONS)[number];
 
+const LISTMONK_LIST_ROLE_PERMISSION_SET = new Set<string>(
+	LISTMONK_LIST_ROLE_PERMISSIONS,
+);
+
 export type ListmonkUserRolePermission = Exclude<
 	ListmonkUserPermission,
 	ListmonkListRolePermission
 >;
 
 function isListRolePermission(
-	permission: ListmonkUserPermission,
+	permission: unknown,
 ): permission is ListmonkListRolePermission {
-	return (LISTMONK_LIST_ROLE_PERMISSIONS as readonly string[]).includes(
-		permission,
+	return (
+		typeof permission === "string" &&
+		LISTMONK_LIST_ROLE_PERMISSION_SET.has(permission)
 	);
 }
 
@@ -99,24 +104,23 @@ function isProtectedUserRoleId(id: number): boolean {
 	return id === PROTECTED_SUPER_ADMIN_ROLE_ID;
 }
 
-// The published enum keeps the complete vocabulary; list-role permissions
-// are rejected here, before any remote read, so a dry run can never plan a
-// create or update that Listmonk refuses partway through an apply.
+// Exclude list-role permissions in the runtime schema too, so generated JSON
+// Schema and TypeScript contracts describe only permissions Listmonk accepts
+// for user roles. Reject them before any remote read so a dry run cannot plan
+// a create or update that Listmonk will refuse during apply.
 const userPermissionSchema = z
 	.enum(LISTMONK_USER_PERMISSIONS)
-	.superRefine((permission, context) => {
-		if (isListRolePermission(permission)) {
-			context.addIssue({
-				code: "custom",
-				message: `Permission ${JSON.stringify(permission)} belongs to Listmonk list roles; Listmonk 6.2 rejects it on user roles, so grant per-list access through a list role instead`,
-			});
-		}
+	.exclude(LISTMONK_LIST_ROLE_PERMISSIONS, {
+		error: (issue) => {
+			if (!isListRolePermission(issue.input)) return undefined;
+			return `Permission ${JSON.stringify(issue.input)} belongs to Listmonk list roles; Listmonk 6.2 rejects it on user roles, so grant per-list access through a list role instead`;
+		},
 	});
 const userRoleDesiredStateSchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	permissions: z
 		.array(userPermissionSchema)
-		.max(LISTMONK_USER_PERMISSIONS.length)
+		.max(LISTMONK_USER_ROLE_PERMISSIONS.length)
 		.transform((permissions) => [...new Set(permissions)].sort()),
 });
 
@@ -214,7 +218,7 @@ export interface UserRoleDesiredState {
 	 * permissions (`list:get`, `list:manage`) are rejected before any remote
 	 * call because Listmonk 6.2 refuses them on user roles.
 	 */
-	permissions: readonly ListmonkUserPermission[];
+	permissions: readonly ListmonkUserRolePermission[];
 }
 
 export interface UserRoleManifest {
@@ -340,7 +344,7 @@ function normalizeUserRoleManifestOperationError(error: unknown) {
 
 function permissionsMatch(
 	current: readonly string[],
-	desired: readonly ListmonkUserPermission[],
+	desired: readonly ListmonkUserRolePermission[],
 ): boolean {
 	const canonicalCurrent = [...new Set(current)].sort();
 	return (

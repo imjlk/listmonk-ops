@@ -33,6 +33,11 @@ export type ListmonkUserPermission =
 	| "settings:manage"
 	| "settings:maintain";
 
+export type ListmonkUserRolePermission = Exclude<
+	ListmonkUserPermission,
+	"list:get" | "list:manage"
+>;
+
 export type ListVisibility = "public" | "private";
 
 export type ListOptin = "single" | "double";

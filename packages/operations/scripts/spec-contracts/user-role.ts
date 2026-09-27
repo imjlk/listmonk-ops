@@ -1,12 +1,12 @@
 import type { tags } from "typia";
 import type { NonEmptyString } from "./primitives";
-import type { ListmonkUserPermission } from "./list";
+import type { ListmonkUserRolePermission } from "./list";
 
 export type UserRoleName = NonEmptyString & tags.MaxLength<120>;
 
 export interface UserRoleDesiredState {
 	name: UserRoleName;
-	permissions: ListmonkUserPermission[] & tags.MaxItems<30>;
+	permissions: ListmonkUserRolePermission[] & tags.MaxItems<28>;
 }
 
 export interface UserRoleManifestReconcileInput {
