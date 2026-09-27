@@ -19,6 +19,11 @@ rejected without being overwritten, and new values are validated in their JSON
 form before replacement. Writers serialize read/modify/write transactions,
 recover locks and recovery sentinels owned by confirmed-dead processes on the
 same host, and never expire a live owner's lock based only on age.
+`JsonFileLockTimeoutError` reports the lock file, its recorded owner (pid, host,
+and age, never the lock token), and any blocking recovery marker, so an operator
+can remove a lock whose owner is confirmed gone. A store that exists but cannot
+be read, parsed as JSON, or validated raises `JsonFileStoreReadError`, which
+names the file and keeps the original error as its `cause`.
 
 The `updateJsonFileStore` callback runs while the exclusive lock is held. Keep
 the callback bounded. A caller that intentionally performs a remote mutation
@@ -34,6 +39,9 @@ A selected profile does not inherit legacy connection environment fields.
 `getListmonkDataDirectory()` resolves the process's default file-backed state
 root; executable adapters apply a selected profile's isolated directory before
 opening repositories. Explicit per-store paths retain precedence.
+`resolveConfiguredPath()` is the shared rule for configured paths: it trims the
+value, expands a leading `~` or `~/`, keeps absolute paths, and resolves relative
+paths from the home directory unless a caller supplies another base directory.
 
 These configuration APIs require a Node-compatible filesystem runtime. See the
 root [configuration guide](https://github.com/imjlk/listmonk-ops#shared-connection-profiles)

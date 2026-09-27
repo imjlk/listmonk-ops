@@ -2,9 +2,10 @@
 set -euo pipefail
 
 # Complete offline agent discovery embeds the shared operation specification in
-# the single-file CLI bundle. Keep enough room for normal feature and generated
-# contract growth; this budget should catch accidental bundle expansion, not
-# block a release over a few KB.
+# the single-file CLI bundle. Sequence consent, deliverability playbooks, and
+# Listmonk 6.2 write-semantics support add ordinary code and generated contract
+# growth. Keep enough room for that growth; this budget should catch accidental
+# bundle expansion, not block a release over a few KB.
 MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-2100000}"
 MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-400000}"
 

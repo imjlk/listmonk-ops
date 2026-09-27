@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
-import { hostname, tmpdir } from "node:os";
+import { homedir, hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	claimResourceCreate,
@@ -8,6 +8,7 @@ import {
 	createFileBackedResourceCreateIdempotencyStore,
 	createResourceCreateStore,
 	getResourceCreateStoreMaxRecords,
+	getResourceCreateStorePath,
 	markResourceCreateUnknown,
 	releaseResourceCreate,
 	RESOURCE_CREATE_CLAIM_STALE_MS,
@@ -328,6 +329,30 @@ describe("resource create idempotency file-backed store", () => {
 				resourceKind: "list",
 			}),
 		).resolves.toMatchObject({ kind: "unresolved" });
+	});
+
+	test("resolves the store override with the shared home-anchored path rule", () => {
+		const previous = process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE;
+		try {
+			delete process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE;
+			expect(getResourceCreateStorePath()).toEndWith(
+				join("ops", "resource-creates.json"),
+			);
+			process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE = "~/rc.json";
+			expect(getResourceCreateStorePath()).toBe(join(homedir(), "rc.json"));
+			process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE = " state/rc.json ";
+			expect(getResourceCreateStorePath()).toBe(
+				join(homedir(), "state", "rc.json"),
+			);
+			process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE = "/srv/rc.json";
+			expect(getResourceCreateStorePath()).toBe("/srv/rc.json");
+		} finally {
+			if (previous === undefined) {
+				delete process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE;
+			} else {
+				process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE = previous;
+			}
+		}
 	});
 
 	test("validates the record-cap override strictly", async () => {
