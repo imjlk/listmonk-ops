@@ -53,6 +53,8 @@ export interface TemplateRegistryTemplateRecord {
 	 * can tell an untouched registry from one that went A → X → A.
 	 */
 	headRevision?: number;
+	/** Newest read observation, including captures that matched stored content. */
+	latestCaptureOrder?: number;
 	versions: TemplateRegistryVersion[];
 }
 
@@ -282,6 +284,10 @@ function isTemplateRegistryRecord(
 			(typeof value.headRevision === "number" &&
 				Number.isInteger(value.headRevision) &&
 				value.headRevision >= 0)) &&
+		(value.latestCaptureOrder === undefined ||
+			(typeof value.latestCaptureOrder === "number" &&
+				Number.isSafeInteger(value.latestCaptureOrder) &&
+				value.latestCaptureOrder > 0)) &&
 		Array.isArray(value.versions) &&
 		value.versions.length > 0 &&
 		value.versions.every(isTemplateRegistryVersion)
@@ -693,12 +699,16 @@ function isCurrentTemplateCapture(
 	headRevisionBeforeRead: number,
 ): boolean {
 	const latestVersion = record.versions.at(-1);
+	const latestCaptureOrder = Math.max(
+		record.latestCaptureOrder ?? 0,
+		latestVersion?.captureOrder ?? 0,
+	);
 	const followsLatest =
-		latestVersion === undefined ||
-		(latestVersion.captureOrder === undefined
-			? latestVersion.capturedAt.localeCompare(capturedAt) < 0 ||
-				latestVersion.capturedAt === capturedAt
-			: latestVersion.captureOrder < captureOrder);
+		latestCaptureOrder > 0
+			? latestCaptureOrder < captureOrder
+			: latestVersion === undefined ||
+				latestVersion.capturedAt.localeCompare(capturedAt) < 0 ||
+				latestVersion.capturedAt === capturedAt;
 	return (
 		(record.headRevision ?? 0) === headRevisionBeforeRead && followsLatest
 	);
@@ -740,6 +750,11 @@ function mergeTemplateRegistryCapture(
 			capturedAt,
 			captureOrder,
 			headRevisionBeforeRead,
+		);
+		record.latestCaptureOrder = Math.max(
+			record.latestCaptureOrder ?? 0,
+			record.versions.at(-1)?.captureOrder ?? 0,
+			captureOrder,
 		);
 		// The active version follows the live content, resolved exactly as a
 		// rollback resolves it. Content the active version already holds —

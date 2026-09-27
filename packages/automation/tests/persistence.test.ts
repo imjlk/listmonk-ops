@@ -1521,6 +1521,79 @@ describe("template registry active version", () => {
 		expect(bodies.get(41)).toBe("<p>v2</p>");
 	});
 
+	test("keeps a newer unchanged observation ahead of a delayed capture", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		const bodies = new Map([
+			[40, "<p>other</p>"],
+			[41, "<p>v1</p>"],
+		]);
+		let holdOther = false;
+		let releaseOther = (): void => {};
+		let otherRequested = (): void => {};
+		const otherGate = new Promise<void>((resolve) => {
+			releaseOther = resolve;
+		});
+		const otherRequest = new Promise<void>((resolve) => {
+			otherRequested = resolve;
+		});
+		const client = {
+			template: {
+				getById: async ({ path: { id } }: { path: { id: number } }) => {
+					if (id === 40 && holdOther) {
+						holdOther = false;
+						otherRequested();
+						await otherGate;
+					}
+					return {
+						data: {
+							id,
+							name: `Overlap ${id}`,
+							type: "campaign",
+							body: bodies.get(id),
+						},
+					};
+				},
+			},
+		} as unknown as ListmonkClient;
+		await syncTemplateRegistry(client, { templateIds: [41] });
+
+		// A schema-v1 registry created before observation orders were stored has
+		// only the capture orders attached to its version history.
+		const store = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<string, { latestCaptureOrder?: number }>;
+		};
+		delete store.templates["41"]!.latestCaptureOrder;
+		await writeFile(templateStorePath, `${JSON.stringify(store)}\n`, "utf8");
+
+		// The lower-order sync captures v2, then waits on another template
+		// before it can merge any of its observations.
+		bodies.set(41, "<p>v2</p>");
+		holdOther = true;
+		const delayedSync = syncTemplateRegistry(client, { templateIds: [41, 40] });
+		await otherRequest;
+
+		// A later read sees the original active content, so no new history
+		// version is created; its order must still supersede the delayed read.
+		bodies.set(41, "<p>v1</p>");
+		const latestSync = await syncTemplateRegistry(client, { templateIds: [41] });
+		expect(latestSync.unchangedTemplates).toBe(1);
+		releaseOther();
+		await delayedSync;
+
+		const history = await getTemplateRegistryHistory(41);
+		expect(history.versions.map((version) => version.snapshot.body)).toEqual([
+			"<p>v1</p>",
+			"<p>v2</p>",
+		]);
+		expect(history.activeVersionId).toBe(
+			versionIdFor(history, "<p>v1</p>"),
+		);
+		const finalStore = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<string, { latestCaptureOrder?: number }>;
+		};
+		expect(finalStore.templates["41"]!.latestCaptureOrder).toBe(4);
+	});
+
 	test("serializes concurrent remote reads for the same template", async () => {
 		await useTemporaryStores();
 		let readCount = 0;
