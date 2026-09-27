@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	invokeTemplateRegistryHistoryOperation,
 	invokeTemplateRegistryRollbackOperation,
 	invokeTemplateRegistrySyncOperation,
 } from "../src/ops-operations";
@@ -1319,7 +1320,87 @@ describe("template registry active version", () => {
 		expect(remote.body).toBe("<p>v1</p>");
 	});
 
-	test("rejects a malformed stored capture predecessor", async () => {
+	test("rolls overlapping captures back to their observation predecessor", async () => {
+		await useTemporaryStores();
+		let body = "<p>v1</p>";
+		let holdOtherTemplateRead = false;
+		let otherTemplateReadStarted = (): void => {};
+		let releaseOtherTemplateRead = (): void => {};
+		const otherTemplateReadRequested = new Promise<void>((resolve) => {
+			otherTemplateReadStarted = resolve;
+		});
+		const otherTemplateReadGate = new Promise<void>((resolve) => {
+			releaseOtherTemplateRead = resolve;
+		});
+		const remoteWrites: string[] = [];
+		const client = {
+			template: {
+				getById: async ({ path: { id } }: { path: { id: number } }) => {
+					if (id === 99 && holdOtherTemplateRead) {
+						holdOtherTemplateRead = false;
+						otherTemplateReadStarted();
+						await otherTemplateReadGate;
+					}
+					return {
+						data: {
+							id,
+							name: `Template ${id}`,
+							type: "campaign",
+							subject: "Subject",
+							body: id === 32 ? body : "<p>other</p>",
+						},
+					};
+				},
+				update: async ({
+					body: update,
+				}: {
+					body: { body: string };
+				}) => {
+					body = update.body;
+					remoteWrites.push(body);
+					return { data: true };
+				},
+			},
+		} as unknown as ListmonkClient;
+		await syncTemplateRegistry(client, { templateIds: [32] });
+
+		// Sync B captures v2, then stalls on another template before merging.
+		body = "<p>v2</p>";
+		holdOtherTemplateRead = true;
+		const delayedSync = syncTemplateRegistry(client, { templateIds: [32, 99] });
+		await otherTemplateReadRequested;
+
+		// Sync C observes and commits v3 while B is still waiting to merge.
+		body = "<p>v3</p>";
+		await syncTemplateRegistry(client, { templateIds: [32] });
+		releaseOtherTemplateRead();
+		await delayedSync;
+
+		const history = await getTemplateRegistryHistory(32);
+		const v2 = versionIdFor(history, "<p>v2</p>");
+		const v3 = versionIdFor(history, "<p>v3</p>");
+		expect(
+			history.versions.find((version) => version.versionId === v3)
+				?.previousVersionId,
+		).toBe(v2);
+
+		// The CLI/MCP history contract must preserve the pin callers need.
+		const projectedHistory = await invokeTemplateRegistryHistoryOperation(
+			{ client },
+			{ template_id: 32 },
+		);
+		expect(
+			projectedHistory.versions.find((version) => version.versionId === v3)
+				?.previousVersionId,
+		).toBe(v2);
+
+		const rolled = await rollbackTemplateVersion(client, 32);
+		expect(rolled.versionId).toBe(v2);
+		expect(body).toBe("<p>v2</p>");
+		expect(remoteWrites).toEqual(["<p>v2</p>"]);
+	});
+
+	test("rejects malformed stored capture predecessor metadata", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		const { remote, client } = createTemplateRemote(34, "<p>v1</p>");
 		await syncTemplateRegistry(client, { templateIds: [34] });
@@ -1331,6 +1412,15 @@ describe("template registry active version", () => {
 			>;
 		};
 		store.templates["34"]!.versions[1]!.previousVersionId = 34;
+		await writeFile(templateStorePath, `${JSON.stringify(store)}\n`, "utf8");
+
+		await expect(getTemplateRegistryHistory(34)).rejects.toThrow(
+			"template 34 failed schema validation",
+		);
+
+		store.templates["34"]!.versions[1]!.previousVersionId =
+			store.templates["34"]!.versions[0]!.versionId;
+		store.templates["34"]!.versions[1]!.captureHeadRevision = -1;
 		await writeFile(templateStorePath, `${JSON.stringify(store)}\n`, "utf8");
 
 		await expect(getTemplateRegistryHistory(34)).rejects.toThrow(

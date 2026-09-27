@@ -187,14 +187,16 @@ template's name as its subject on every update, so that rewrite
 any other difference does not. Listmonk also keeps a template's `body_source`
 when an update omits it or sends it empty or null, so promotion and rollback
 refuse to write a version without one over a live template that has one
-instead of leaving a mix of both versions. When a current sync capture records
-a new live version, it stores the version that was active immediately before
-the capture as `previousVersionId`. An unpinned rollback re-reads the live
-template inside the registry lock, resolves it with the same rule
-(`resolveTemplateLiveVersion()`), and restores that predecessor
-(`selectTemplateRollbackTarget()`); older versions without this link fall back
-to capture order. A `toVersionId` pin must match the resolved predecessor and
-authorizes overwriting drifted live content. Live content that matches
+instead of leaving a mix of both versions. Each new capture stores a
+`previousVersionId`: the preceding capture in observation order within the same
+registry-write revision, or the active version sampled before the first
+capture in that revision. Overlapping syncs repair these links by capture order
+even when their registry merges finish out of order. The CLI/MCP history output
+exposes the link; older versions without one fall back to capture order. An
+unpinned rollback re-reads the live template inside the registry lock, resolves
+it with the same rule (`resolveTemplateLiveVersion()`), and restores that
+predecessor (`selectTemplateRollbackTarget()`). A `toVersionId` pin must match
+the resolved predecessor and authorizes overwriting drifted live content. Live content that matches
 neither the active version nor the latest capture raises
 `TemplateRegistryDriftError` instead of guessing a target: sync first, or pin
 `toVersionId` to the version preceding the active one to overwrite it

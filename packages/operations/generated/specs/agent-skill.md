@@ -1442,7 +1442,7 @@ Prerequisites: `ops.templates.registry-sync`
 
 Verify with: none
 
-Retry guidance: Retry transient read failures with bounded backoff.
+Retry guidance: Use a version's previousVersionId as to_version_id when pinning rollback; older versions without a link use the previous entry in capture order. Retry transient read failures with bounded backoff.
 
 ## Promote template version (`ops.templates.registry-promote`)
 

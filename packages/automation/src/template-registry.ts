@@ -32,8 +32,10 @@ export interface TemplateRegistryVersion {
 	capturedAt: string;
 	/** Global order reserved immediately before the remote template read. */
 	captureOrder?: number;
-	/** Registry version active immediately before this capture became live. */
+	/** Prior observed version in this write epoch, or its active starting version. */
 	previousVersionId?: string;
+	/** Registry head revision observed immediately before this capture's read. */
+	captureHeadRevision?: number;
 	hash: string;
 	note?: string;
 	snapshot: TemplateVersionSnapshot;
@@ -267,6 +269,10 @@ function isTemplateRegistryVersion(
 				value.captureOrder > 0)) &&
 		(value.previousVersionId === undefined ||
 			typeof value.previousVersionId === "string") &&
+		(value.captureHeadRevision === undefined ||
+			(typeof value.captureHeadRevision === "number" &&
+				Number.isSafeInteger(value.captureHeadRevision) &&
+				value.captureHeadRevision >= 0)) &&
 		typeof value.hash === "string" &&
 		(value.note === undefined || typeof value.note === "string") &&
 		isTemplateVersionSnapshot(value.snapshot)
@@ -549,6 +555,7 @@ interface CapturedTemplateVersion {
 	capturedAt: string;
 	captureOrder: number;
 	headRevisionBeforeRead: number;
+	previousVersionId?: string;
 	snapshot: TemplateVersionSnapshot;
 	hash: string;
 }
@@ -665,6 +672,8 @@ async function captureTemplateRegistry(
 					}
 					const headRevisionBeforeRead =
 						latestRegistry.templates[String(templateId)]?.headRevision ?? 0;
+					const previousVersionId =
+						latestRegistry.templates[String(templateId)]?.activeVersionId;
 					const capturedAt = new Date().toISOString();
 					const template = await getTemplateById(client, templateId);
 					const snapshot = createTemplateSnapshot(template, templateId);
@@ -673,6 +682,7 @@ async function captureTemplateRegistry(
 						...stamp,
 						capturedAt,
 						headRevisionBeforeRead,
+						previousVersionId,
 						snapshot,
 						hash: createTemplateHash(snapshot),
 					});
@@ -726,6 +736,28 @@ function isCurrentTemplateCapture(
 	);
 }
 
+/**
+ * Captures can merge after a later same-template observation. Once both are
+ * present, rebuild their predecessor links in observation order within each
+ * registry-write epoch. The first capture in an epoch keeps the active version
+ * sampled before its read; later captures point to the preceding observation.
+ */
+function reconcileTemplateCapturePredecessors(
+	record: TemplateRegistryTemplateRecord,
+): void {
+	const previousByHeadRevision = new Map<number, TemplateRegistryVersion>();
+	for (const version of record.versions) {
+		if (version.captureHeadRevision === undefined) {
+			continue;
+		}
+		const previous = previousByHeadRevision.get(version.captureHeadRevision);
+		if (previous) {
+			version.previousVersionId = previous.versionId;
+		}
+		previousByHeadRevision.set(version.captureHeadRevision, version);
+	}
+}
+
 function mergeTemplateRegistryCapture(
 	capture: TemplateRegistryCapture,
 	options: TemplateRegistrySyncOptions,
@@ -746,6 +778,7 @@ function mergeTemplateRegistryCapture(
 		capturedAt,
 		captureOrder,
 		headRevisionBeforeRead,
+		previousVersionId,
 		snapshot,
 		hash,
 	} of capture.versions) {
@@ -821,14 +854,14 @@ function mergeTemplateRegistryCapture(
 			versionId,
 			capturedAt,
 			captureOrder,
-			...(isCurrentCapture && record.activeVersionId
-				? { previousVersionId: record.activeVersionId }
-				: {}),
+			...(previousVersionId === undefined ? {} : { previousVersionId }),
+			captureHeadRevision: headRevisionBeforeRead,
 			hash,
 			note: options.note,
 			snapshot,
 		});
 		record.versions.sort(compareTemplateVersions);
+		reconcileTemplateCapturePredecessors(record);
 		// Like the active version, the name follows only current captures: a
 		// stale one may predate a promotion that restored another name.
 		if (isCurrentCapture) {

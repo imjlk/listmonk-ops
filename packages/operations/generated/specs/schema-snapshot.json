@@ -29910,6 +29910,9 @@
                 "note": {
                   "type": "string"
                 },
+                "previousVersionId": {
+                  "type": "string"
+                },
                 "snapshot": {
                   "additionalProperties": false,
                   "properties": {

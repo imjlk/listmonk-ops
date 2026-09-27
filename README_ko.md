@@ -1566,11 +1566,13 @@ subject를 template 이름으로 저장하며, registry는 이를 여전히 쓴 
 취급합니다. Listmonk는 업데이트가 `body_source`를 생략하거나 비워도 기존 값을
 유지하므로, promote와 rollback은 `body_source`가 있는 live 템플릿 위에 그것이 없는
 버전을 쓰지 않고 거부합니다(두 버전이 섞인 상태를 남기지 않음).
-current sync capture가 새 live 버전을 기록하면 capture 직전 활성 버전도
-rollback predecessor로 저장합니다. 핀 없는 rollback은 registry lock 안에서
-live 템플릿을 다시 읽어 연결된 predecessor를 복원하며, predecessor link가 없는
-기존 저장 버전은 capture 순서를 사용합니다. 이 방식은 새 편집 전에 더 오래된
-버전을 promote했어도 실제 활성 상태였던 버전으로 돌아갑니다.
+새 capture는 `previousVersionId`를 저장합니다. 같은 registry-write revision 안에서는
+관찰 순서상 직전 capture를 predecessor로 쓰고, 해당 revision의 첫 capture는
+읽기 전에 조회한 활성 버전을 사용합니다. 겹친 sync의 registry merge가 capture 순서와
+다르게 끝나도 링크를 capture 순서로 다시 맞춥니다. CLI/MCP history 출력에 이 링크를
+포함하며, 링크가 없는 기존 저장 버전은 capture 순서를 사용합니다. 핀 없는 rollback은
+registry lock 안에서 live 템플릿을 다시 읽어 predecessor를 복원합니다. 이 방식은 새
+편집 전에 더 오래된 버전을 promote했어도 실제 활성 상태였던 버전으로 돌아갑니다.
 `--to-version-id` 핀은 확인된 predecessor와 일치해야 하며, registry 밖에서 바뀐
 live 내용을 덮어쓰도록 명시적으로 허용합니다. live 내용이 활성 버전과도
 최신 capture와도 일치하지 않으면(마지막 sync 이후 registry 밖에서 변경됨)

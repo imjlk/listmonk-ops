@@ -34354,7 +34354,7 @@
           "ops.templates.registry-promote",
           "ops.templates.registry-rollback"
         ],
-        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "retryGuidance": "Use a version's previousVersionId as to_version_id when pinning rollback; older versions without a link use the previous entry in capture order. Retry transient read failures with bounded backoff.",
         "useWhen": [
           "A template's stored version history must be inspected."
         ],
@@ -34455,6 +34455,9 @@
                   "note": {
                     "type": "string"
                   },
+                  "previousVersionId": {
+                    "type": "string"
+                  },
                   "snapshot": {
                     "additionalProperties": false,
                     "properties": {
@@ -34536,7 +34539,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Show the stored version history for a template",
+      "description": "Show stored template versions and each capture's rollback predecessor",
       "effects": [
         {
           "kind": "read",

@@ -160,6 +160,7 @@ export interface TemplateRegistrySyncOutput {
 export interface TemplateRegistryVersion {
 	versionId: string;
 	capturedAt: string;
+	previousVersionId?: string;
 	hash: string;
 	note?: string;
 	snapshot: {

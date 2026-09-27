@@ -318,7 +318,8 @@ export const opsTemplateRegistryHistoryOperationSpec = defineOperationSpec({
 	resource: "template",
 	verb: "registry-history",
 	title: "Show template version history",
-	description: "Show the stored version history for a template",
+	description:
+		"Show stored template versions and each capture's rollback predecessor",
 	contract: {
 		input: templateIdInputContract,
 		output: templateRegistryHistoryOutputContract,
@@ -338,7 +339,8 @@ export const opsTemplateRegistryHistoryOperationSpec = defineOperationSpec({
 			"ops.templates.registry-promote",
 			"ops.templates.registry-rollback",
 		],
-		retryGuidance: "Retry transient read failures with bounded backoff.",
+		retryGuidance:
+			"Use a version's previousVersionId as to_version_id when pinning rollback; older versions without a link use the previous entry in capture order. Retry transient read failures with bounded backoff.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_history",
