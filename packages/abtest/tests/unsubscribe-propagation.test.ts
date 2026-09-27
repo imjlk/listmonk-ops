@@ -33,6 +33,8 @@ interface FakeListmonkOptions {
 	pageCap?: number;
 	failOptOutRead?: boolean;
 	failUnsubscribe?: boolean;
+	/** Subscribers whose unsubscribe request fails (to model partial propagation). */
+	failUnsubscribeSubscriberIds?: number[];
 	/** Target lists the unsubscribe action silently skips (no manage permission). */
 	unmanageableListIds?: number[];
 }
@@ -111,7 +113,12 @@ function createFakeListmonk(options: FakeListmonkOptions = {}) {
 					ids: [...body.ids],
 					target_list_ids: [...body.target_list_ids],
 				});
-				if (options.failUnsubscribe) {
+				if (
+					options.failUnsubscribe ||
+					body.ids.some((id) =>
+						options.failUnsubscribeSubscriberIds?.includes(id),
+					)
+				) {
 					return {
 						error: { message: "permission denied" },
 						response: { status: 403 },
@@ -559,6 +566,22 @@ describe("propagateTemporaryListOptOuts", () => {
 		expect(result.detail).toContain("could not be read");
 	});
 
+	test("rejects successful subscriber pages with missing or invalid payloads", async () => {
+		for (const response of [
+			{},
+			{ data: {} },
+			{ data: { results: [] } },
+			{ data: { results: [], total: "0" } },
+		]) {
+			const client = {
+				subscriber: { list: async () => response },
+			} as unknown as ListmonkClient;
+			await expect(readTemporaryListOptOuts(client, 200)).rejects.toThrow(
+				/incomplete subscriber page payload/,
+			);
+		}
+	});
+
 	test("processes several lists in order", async () => {
 		const fake = createFakeListmonk();
 		fake.addSubscriber(1, { 201: "unsubscribed", [SOURCE_A]: "confirmed" });
@@ -721,7 +744,7 @@ describe("rollback carries opt-outs before removing temporary lists", () => {
 		expect(fake.membership(14, SOURCE_A)).toBe("unsubscribed");
 	});
 
-	test("keeps a list whose opt-outs cannot be carried out of deletedListIds", async () => {
+	test("keeps the complete rollback list set when opt-outs cannot be carried", async () => {
 		warnSpy = silenceWarnings();
 		const fake = createFakeListmonk({ failUnsubscribe: true });
 		seedAbTestAudience(fake, "scheduled");
@@ -731,11 +754,38 @@ describe("rollback carries opt-outs before removing temporary lists", () => {
 			fake.client,
 		).rollbackProvisioning(resources);
 
-		expect(rolledBack.deletedListIds.sort()).toEqual([200, 202]);
-		expect(fake.hasList(201)).toBe(true);
+		expect(rolledBack.deletedListIds).toEqual([]);
+		expect(fake.deletedLists).toEqual([]);
+		for (const listId of [200, 201, 202]) {
+			expect(fake.hasList(listId)).toBe(true);
+		}
 		expect(String(warnSpy.mock.calls[0]?.[0])).toContain(
 			"temporary list 201 kept to preserve its opt-outs",
 		);
+	});
+
+	test("keeps the complete list checkpoint when one list's opt-out propagation fails", async () => {
+		warnSpy = silenceWarnings();
+		const fake = createFakeListmonk({ failUnsubscribeSubscriberIds: [14] });
+		seedAbTestAudience(fake, "scheduled");
+		fake.unsubscribeViaCampaign(101, 14);
+
+		const rolledBack = await new ListmonkAbTestIntegration(
+			fake.client,
+		).rollbackProvisioning(resources);
+
+		expect(rolledBack.deletedListIds).toEqual([]);
+		expect(fake.deletedLists).toEqual([]);
+		for (const listId of [200, 201, 202]) {
+			expect(fake.hasList(listId)).toBe(true);
+		}
+		expect(
+			warnSpy.mock.calls.some(([message]) =>
+				String(message).includes(
+					"temporary list 201 kept to preserve its opt-outs",
+				),
+			),
+		).toBe(true);
 	});
 
 	test("provisioning hands the test's source lists to the rollback", async () => {

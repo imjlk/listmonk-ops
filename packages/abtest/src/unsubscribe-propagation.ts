@@ -237,9 +237,25 @@ export async function readTemporaryListOptOuts(
 				`Failed to read opt-outs on temporary list ${listId} (page ${page}): ${failure}`,
 			);
 		}
-		const rows: readonly unknown[] = response.data?.results ?? [];
-		reportedTotal =
-			typeof response.data?.total === "number" ? response.data.total : undefined;
+		const data = response.data;
+		if (
+			data === undefined ||
+			!Array.isArray(data.results) ||
+			typeof data.total !== "number" ||
+			!Number.isSafeInteger(data.total) ||
+			data.total < 0
+		) {
+			throw new Error(
+				`Failed to read opt-outs on temporary list ${listId} (page ${page}): incomplete subscriber page payload`,
+			);
+		}
+		if (reportedTotal !== undefined && reportedTotal !== data.total) {
+			throw new Error(
+				`Failed to read opt-outs on temporary list ${listId} (page ${page}): subscriber total changed from ${reportedTotal} to ${data.total}`,
+			);
+		}
+		reportedTotal = data.total;
+		const rows: readonly unknown[] = data.results;
 		for (const row of rows) {
 			const optOut = toTemporaryListOptOut(row, listId);
 			optOuts.set(optOut.subscriberId, optOut);

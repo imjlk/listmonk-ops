@@ -896,9 +896,9 @@ export class ListmonkAbTestIntegration {
 	 * Best-effort rollback of the campaigns and lists one provisioning call
 	 * created. An auto-launch that failed part-way may already have
 	 * scheduled a variant, so each list's opt-outs are carried to
-	 * `sourceListIds` before it is deleted; a list whose opt-outs are not
-	 * confirmed there is kept and left out of `deletedListIds`, so the
-	 * caller keeps its mapping.
+	 * `sourceListIds` before it is deleted. If any list's opt-outs cannot be
+	 * confirmed there, keep the complete list set so the caller retains a
+	 * complete segmentation checkpoint for retry.
 	 */
 	async rollbackProvisioning(
 		resources: ProvisionedAbTestResources,
@@ -911,24 +911,27 @@ export class ListmonkAbTestIntegration {
 		const deletedCampaignIds = await this.deleteCampaignsBestEffort([
 			...resources.campaignIds,
 		].reverse());
+		const listsInRollbackOrder = listIds.reverse();
 		const optOutPropagation = await propagateTemporaryListsOptOuts(
 			this.listmonkClient,
 			{
-				listIds: listIds.reverse(),
+				listIds: listsInRollbackOrder,
 				sourceListIds: resources.sourceListIds ?? [],
 			},
 		);
-		const deletableListIds: number[] = [];
+		const allOptOutsSafeToDelete = optOutPropagation.every(
+			(propagation) => propagation.safeToDelete,
+		);
 		for (const propagation of optOutPropagation) {
-			if (propagation.safeToDelete) {
-				deletableListIds.push(propagation.listId);
-			} else {
+			if (!propagation.safeToDelete) {
 				console.warn(
 					`A/B provisioning rollback: ${describeRetainedTemporaryList(propagation)}`,
 				);
 			}
 		}
-		const deletedListIds = await this.deleteListsBestEffort(deletableListIds);
+		const deletedListIds = await this.deleteListsBestEffort(
+			allOptOutsSafeToDelete ? listsInRollbackOrder : [],
+		);
 		return { deletedCampaignIds, deletedListIds };
 	}
 
