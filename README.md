@@ -347,6 +347,12 @@ Optional version pin:
 curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash -s -- --version 0.3.0
 ```
 
+Before installing, the script downloads the release's `checksums.txt` and
+compares the archive's SHA-256 digest using `sha256sum` or `shasum -a 256`.
+It installs nothing when `checksums.txt` is missing, does not list the archive,
+or does not match, or when neither tool is available. Every CLI release
+publishes `checksums.txt`; there is no option to skip the check.
+
 ## MCP Runtime Endpoint Override
 
 `listmonk-mcp` supports runtime flags, so local Docker Listmonk is not required.

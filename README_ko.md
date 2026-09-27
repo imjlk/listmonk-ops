@@ -339,6 +339,12 @@ curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/ins
 curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash -s -- --version 0.3.0
 ```
 
+설치 전에 스크립트가 릴리즈의 `checksums.txt`를 내려받아 `sha256sum` 또는
+`shasum -a 256`으로 아카이브의 SHA-256 다이제스트를 비교합니다.
+`checksums.txt`가 없거나, 아카이브 항목이 없거나, 값이 일치하지 않거나, 두 도구가
+모두 없으면 아무것도 설치하지 않습니다. 모든 CLI 릴리즈가 `checksums.txt`를
+게시하므로 검증을 건너뛰는 옵션은 없습니다.
+
 ## MCP 런타임 Endpoint 오버라이드
 
 `listmonk-mcp`는 런타임 플래그를 지원하므로 로컬 Docker Listmonk 없이도 실행할 수 있습니다.
