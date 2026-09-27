@@ -120,6 +120,11 @@ const URL_CREDENTIAL_PARAMETER_TOKENS = new Set([
  */
 const ABSOLUTE_URL_PREFIX = /^[a-z][a-z0-9+.-]*:[\\/]{2}/i;
 const ABSOLUTE_URL_PREFIX_ANYWHERE = /[a-z][a-z0-9+.-]*:[\\/]{2}/i;
+const ABSOLUTE_URL_PREFIX_AT_END = new RegExp(
+	`${ABSOLUTE_URL_PREFIX_ANYWHERE.source}\\S*$`,
+	"i",
+);
+const MAX_ENCODED_URL_NESTING_DEPTH = 3;
 
 function findAbsoluteUrlPrefix(
 	value: string,
@@ -356,7 +361,7 @@ function findSentenceEndingBoundary(
 	valueStart: number,
 	valueEnd: number,
 ): number | undefined {
-	if (!/[a-z][a-z0-9+.-]*:[\\/]{2}\S*$/i.test(value.slice(0, valueStart))) {
+	if (!ABSOLUTE_URL_PREFIX_AT_END.test(value.slice(0, valueStart))) {
 		return undefined;
 	}
 	const sentencePattern = /\.(?=\s+[A-Z])/g;
@@ -446,6 +451,215 @@ function redactAbsoluteUrl(prefix: string, rest: string): string {
 		queryStart === -1 ? beforeFragment : beforeFragment.slice(0, queryStart);
 	const query = queryStart === -1 ? "" : beforeFragment.slice(queryStart);
 	return `${prefix}${userinfo}${path}${redactCredentialQuery(query)}${redactCredentialFragment(fragment)}`;
+}
+
+interface DecodedTextWithSourceOffsets {
+	text: string;
+	sourceStarts: number[];
+	sourceEnds: number[];
+}
+
+interface TextRange {
+	start: number;
+	end: number;
+}
+
+function readPercentEncodedByte(value: string, index: number): number | undefined {
+	if (value[index] !== "%") return undefined;
+	const hex = value.slice(index + 1, index + 3);
+	if (!/^[\da-f]{2}$/i.test(hex)) return undefined;
+	return Number.parseInt(hex, 16);
+}
+
+/** Decode form-style URL text while retaining each decoded code unit's source span. */
+function decodeUrlTextWithSourceOffsets(
+	value: string,
+): DecodedTextWithSourceOffsets | undefined {
+	const decoded: string[] = [];
+	const sourceStarts: number[] = [];
+	const sourceEnds: number[] = [];
+	for (let index = 0; index < value.length; ) {
+		if (value[index] === "+") {
+			decoded.push(" ");
+			sourceStarts.push(index);
+			sourceEnds.push(index + 1);
+			index += 1;
+			continue;
+		}
+		if (value[index] === "%") {
+			const firstByte = readPercentEncodedByte(value, index);
+			if (firstByte === undefined) return undefined;
+			const byteCount =
+				firstByte <= 0x7f
+					? 1
+					: firstByte >= 0xc2 && firstByte <= 0xdf
+						? 2
+						: firstByte >= 0xe0 && firstByte <= 0xef
+							? 3
+							: firstByte >= 0xf0 && firstByte <= 0xf4
+								? 4
+								: 0;
+			if (byteCount === 0) return undefined;
+			let sourceEnd = index + 3;
+			for (let byteIndex = 1; byteIndex < byteCount; byteIndex += 1) {
+				const continuation = readPercentEncodedByte(value, sourceEnd);
+				if (
+					continuation === undefined ||
+					continuation < 0x80 ||
+					continuation > 0xbf
+				) {
+					return undefined;
+				}
+				sourceEnd += 3;
+			}
+			let character: string;
+			try {
+				character = decodeURIComponent(value.slice(index, sourceEnd));
+			} catch {
+				return undefined;
+			}
+			if ([...character].length !== 1) return undefined;
+			decoded.push(character);
+			for (let unit = 0; unit < character.length; unit += 1) {
+				sourceStarts.push(index);
+				sourceEnds.push(sourceEnd);
+			}
+			index = sourceEnd;
+			continue;
+		}
+
+		const sourceStart = index;
+		const codePoint = value.codePointAt(index);
+		if (codePoint === undefined) return undefined;
+		const character = String.fromCodePoint(codePoint);
+		const sourceEnd = index + character.length;
+		decoded.push(character);
+		for (let unit = 0; unit < character.length; unit += 1) {
+			sourceStarts.push(sourceStart);
+			sourceEnds.push(sourceEnd);
+		}
+		index = sourceEnd;
+	}
+	return { text: decoded.join(""), sourceStarts, sourceEnds };
+}
+
+/** Locate source spans changed only by this redactor's `[redacted]` replacements. */
+function findRedactionRanges(
+	original: string,
+	redacted: string,
+): TextRange[] | undefined {
+	const ranges: TextRange[] = [];
+	let originalIndex = 0;
+	let redactedIndex = 0;
+	while (redactedIndex < redacted.length) {
+		const markerAlreadyAligned =
+			original.startsWith(SETTINGS_REDACTED_VALUE, originalIndex) &&
+			redacted.startsWith(SETTINGS_REDACTED_VALUE, redactedIndex);
+		const markerSuffixMatches =
+			original[originalIndex + SETTINGS_REDACTED_VALUE.length] ===
+			redacted[redactedIndex + SETTINGS_REDACTED_VALUE.length];
+		if (
+			original[originalIndex] === redacted[redactedIndex] &&
+			(!markerAlreadyAligned || markerSuffixMatches)
+		) {
+			originalIndex += 1;
+			redactedIndex += 1;
+			continue;
+		}
+		if (!redacted.startsWith(SETTINGS_REDACTED_VALUE, redactedIndex)) {
+			return undefined;
+		}
+		const markerEnd = redactedIndex + SETTINGS_REDACTED_VALUE.length;
+		const nextMarker = redacted.indexOf(SETTINGS_REDACTED_VALUE, markerEnd);
+		const unchangedEnd = nextMarker === -1 ? redacted.length : nextMarker;
+		const unchangedSuffix = redacted.slice(markerEnd, unchangedEnd);
+		if (unchangedSuffix === "" && unchangedEnd !== redacted.length) {
+			return undefined;
+		}
+		const originalEnd =
+			unchangedSuffix === ""
+				? original.length
+				: original.indexOf(unchangedSuffix, originalIndex);
+		if (originalEnd < originalIndex || originalEnd === -1) return undefined;
+		ranges.push({ start: originalIndex, end: originalEnd });
+		originalIndex = originalEnd;
+		redactedIndex = markerEnd;
+	}
+	return originalIndex === original.length ? ranges : undefined;
+}
+
+function findEncodedAbsoluteUrlPrefix(
+	value: string,
+	fromIndex: number,
+): { index: number; prefixLength: number } | undefined {
+	const match = /[a-z][a-z0-9+.-]*(?:%3a(?:\/|%2f){2}|:(?:\/%2f|%2f\/|%2f%2f))/gi;
+	match.lastIndex = fromIndex;
+	const found = match.exec(value);
+	return found?.index === undefined
+		? undefined
+		: { index: found.index, prefixLength: found[0].length };
+}
+
+function encodedUrlCandidateEnd(value: string, fromIndex: number): number {
+	let index = fromIndex;
+	while (index < value.length && !/[\s&;'"<>]/.test(value[index] ?? "")) {
+		index += 1;
+	}
+	return index;
+}
+
+/**
+ * Redact nested URL credentials without normalizing their percent-encoding.
+ * Only the source spans corresponding to secrets are replaced; every other
+ * character remains byte-for-byte as it appeared in the setting.
+ */
+function redactEncodedNestedUrlValues(value: string, depth: number): string {
+	if (depth >= MAX_ENCODED_URL_NESTING_DEPTH) return value;
+	let result = value;
+	let scanFrom = 0;
+	while (scanFrom < result.length) {
+		const prefix = findEncodedAbsoluteUrlPrefix(result, scanFrom);
+		if (prefix === undefined) break;
+		const end = encodedUrlCandidateEnd(
+			result,
+			prefix.index + prefix.prefixLength,
+		);
+		const candidate = result.slice(prefix.index, end);
+		const decoded = decodeUrlTextWithSourceOffsets(candidate);
+		if (
+			decoded === undefined ||
+			!ABSOLUTE_URL_PREFIX_ANYWHERE.test(decoded.text)
+		) {
+			scanFrom = Math.max(end, prefix.index + prefix.prefixLength);
+			continue;
+		}
+		const redacted = redactUrlCredentialsAtDepth(decoded.text, depth + 1);
+		if (redacted === decoded.text) {
+			scanFrom = end;
+			continue;
+		}
+		const ranges = findRedactionRanges(decoded.text, redacted);
+		if (ranges === undefined) {
+			scanFrom = end;
+			continue;
+		}
+		let redactedCandidate = candidate;
+		for (const range of ranges.reverse()) {
+			const sourceStart = decoded.sourceStarts[range.start];
+			const sourceEnd = decoded.sourceEnds[range.end - 1];
+			if (sourceStart === undefined || sourceEnd === undefined) continue;
+			redactedCandidate =
+				redactedCandidate.slice(0, sourceStart) +
+				encodeURIComponent(SETTINGS_REDACTED_VALUE) +
+				redactedCandidate.slice(sourceEnd);
+		}
+		result =
+			result.slice(0, prefix.index) +
+			redactedCandidate +
+			result.slice(end);
+		scanFrom = prefix.index + redactedCandidate.length;
+	}
+	return result;
 }
 
 /**
@@ -538,9 +752,17 @@ function isBareUrlHost(value: string): boolean {
  * URL, while values without any credential-bearing component stay unchanged.
  */
 export function redactUrlCredentials(value: string): string {
-	const withSpacedValues = redactSpacedCredentialParameterValues(value);
+	return redactUrlCredentialsAtDepth(value, 0);
+}
+
+function redactUrlCredentialsAtDepth(value: string, depth: number): string {
+	const withEncodedValues = redactEncodedNestedUrlValues(value, depth);
+	const withSpacedValues = redactSpacedCredentialParameterValues(
+		withEncodedValues,
+	);
 	const tokens = withSpacedValues.split(/(\s+)/);
-	let redactedAny = withSpacedValues !== value;
+	let redactedAny =
+		withEncodedValues !== value || withSpacedValues !== withEncodedValues;
 	for (let index = 0; index < tokens.length; index += 2) {
 		let scanOffset = 0;
 		while (true) {

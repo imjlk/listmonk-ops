@@ -696,6 +696,22 @@ describe("settings URL credential redaction", () => {
 				"https://app.example.com/login?next=/dashboard?token=abc&page=2",
 				`https://app.example.com/login?next=/dashboard?token=${SETTINGS_REDACTED_VALUE}&page=2`,
 			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fcb%3Ftoken%3Dsecret%26page%3D2",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fcb%3Ftoken%3D%5Bredacted%5D%26page%3D2",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3a%2f%2fhost%2fcb%3ftoken%3dsecret%26page%3d2",
+				"https://app.example.com/login?redirect=https%3a%2f%2fhost%2fcb%3ftoken%3d%5Bredacted%5D%26page%3d2",
+			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fhost%2Fcb%3Ftoken%3D%5Bredacted%5Dsecret",
+				"https://app.example.com/login?redirect=https%3A%2F%2Fhost%2Fcb%3Ftoken%3D%5Bredacted%5D",
+			],
 		];
 		for (const [input, expected] of cases) {
 			expect(redactUrlCredentials(input)).toBe(expected);
@@ -703,6 +719,11 @@ describe("settings URL credential redaction", () => {
 		}
 		const nested = "https://app.example.com/login?next=/dashboard?tab=2&page=2";
 		expect(redactUrlCredentials(nested)).toBe(nested);
+		const encodedWithoutCredentials =
+			"https://app.example.com/login?redirect=https%3a%2f%2fhost%2fcb%3fpage%3d2%26Q%3dhello";
+		expect(redactUrlCredentials(encodedWithoutCredentials)).toBe(
+			encodedWithoutCredentials,
+		);
 	});
 
 	test("keeps everything but the redacted parts as written", () => {
