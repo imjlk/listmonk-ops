@@ -1,43 +1,10 @@
 import type { tags } from "typia";
-import type { ListmonkListRolePermission } from "../../src/user-roles";
 import type { ResourceId, NonEmptyString, ResourceIdInput } from "./primitives";
 
-export type ListmonkUserPermission =
-	| "lists:get_all"
-	| "lists:manage_all"
-	| "list:manage"
-	| "list:get"
-	| "subscribers:get"
-	| "subscribers:get_all"
-	| "subscribers:manage"
-	| "subscribers:import"
-	| "subscribers:sql_query"
-	| "tx:send"
-	| "campaigns:get"
-	| "campaigns:get_all"
-	| "campaigns:get_analytics"
-	| "campaigns:manage"
-	| "campaigns:manage_all"
-	| "campaigns:send"
-	| "bounces:get"
-	| "bounces:manage"
-	| "webhooks:post_bounce"
-	| "media:get"
-	| "media:manage"
-	| "templates:get"
-	| "templates:manage"
-	| "users:get"
-	| "users:manage"
-	| "roles:get"
-	| "roles:manage"
-	| "settings:get"
-	| "settings:manage"
-	| "settings:maintain";
-
-export type ListmonkUserRolePermission = Exclude<
+export type {
 	ListmonkUserPermission,
-	ListmonkListRolePermission
->;
+	ListmonkUserRolePermission,
+} from "../../src/user-role-permissions";
 
 export type ListVisibility = "public" | "private";
 

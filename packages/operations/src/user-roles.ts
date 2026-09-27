@@ -1,6 +1,13 @@
 import type { ListmonkClient, UserRole } from "@listmonk-ops/openapi";
+import type { ListmonkUserRolePermission } from "./user-role-permissions";
+import {
+	isListRolePermission,
+	LISTMONK_LIST_ROLE_PERMISSIONS,
+	LISTMONK_USER_PERMISSIONS,
+	MAX_USER_ROLE_PERMISSION_ENTRIES,
+	MAX_USER_ROLE_PERMISSIONS,
+} from "./user-role-permissions";
 import { bindUserRoleReconcileOperationSpec } from "./specs";
-import { z } from "zod";
 import { jsonResourceValue, unwrapResourceResponse } from "./resource-helpers";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -11,94 +18,20 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "./operation";
+import { z } from "zod";
 
-/**
- * Exact granular permission names exposed by Listmonk 6.2, including the
- * per-list `list:get` and `list:manage` permissions that only list roles
- * accept. User roles take {@link LISTMONK_USER_ROLE_PERMISSIONS}.
- */
-export const LISTMONK_USER_PERMISSIONS = [
-	"lists:get_all",
-	"lists:manage_all",
-	"list:manage",
-	"list:get",
-	"subscribers:get",
-	"subscribers:get_all",
-	"subscribers:manage",
-	"subscribers:import",
-	"subscribers:sql_query",
-	"tx:send",
-	"campaigns:get",
-	"campaigns:get_all",
-	"campaigns:get_analytics",
-	"campaigns:manage",
-	"campaigns:manage_all",
-	"campaigns:send",
-	"bounces:get",
-	"bounces:manage",
-	"webhooks:post_bounce",
-	"media:get",
-	"media:manage",
-	"templates:get",
-	"templates:manage",
-	"users:get",
-	"users:manage",
-	"roles:get",
-	"roles:manage",
-	"settings:get",
-	"settings:manage",
-	"settings:maintain",
-] as const;
-
-export type ListmonkUserPermission =
-	(typeof LISTMONK_USER_PERMISSIONS)[number];
-
-/**
- * Per-list permissions. Listmonk 6.2 grants them only through list roles
- * (cmd/roles.go validateListRole) and rejects them on user roles.
- */
-export const LISTMONK_LIST_ROLE_PERMISSIONS = [
-	"list:get",
-	"list:manage",
-] as const satisfies readonly ListmonkUserPermission[];
-
-export type ListmonkListRolePermission =
-	(typeof LISTMONK_LIST_ROLE_PERMISSIONS)[number];
-
-const LISTMONK_LIST_ROLE_PERMISSION_SET = new Set<string>(
+export {
 	LISTMONK_LIST_ROLE_PERMISSIONS,
-);
-
-export type ListmonkUserRolePermission = Exclude<
+	LISTMONK_USER_PERMISSIONS,
+	LISTMONK_USER_ROLE_PERMISSIONS,
+	LISTMONK_USER_ROLE_PERMISSION_PRESETS,
+	MAX_USER_ROLE_PERMISSIONS,
+} from "./user-role-permissions";
+export type {
+	ListmonkListRolePermission,
 	ListmonkUserPermission,
-	ListmonkListRolePermission
->;
-
-function isListRolePermission(
-	permission: unknown,
-): permission is ListmonkListRolePermission {
-	return (
-		typeof permission === "string" &&
-		LISTMONK_LIST_ROLE_PERMISSION_SET.has(permission)
-	);
-}
-
-/**
- * The permissions a Listmonk 6.2 user role accepts: the permissions.json
- * vocabulary that cmd/roles.go validateUserRole checks every entry against.
- */
-export const LISTMONK_USER_ROLE_PERMISSIONS: readonly ListmonkUserRolePermission[] =
-	LISTMONK_USER_PERMISSIONS.filter(
-		(permission): permission is ListmonkUserRolePermission =>
-			!isListRolePermission(permission),
-	);
-
-export const MAX_USER_ROLE_PERMISSIONS = 28 as const;
-
-export const LISTMONK_USER_ROLE_PERMISSION_PRESETS = {
-	transactionalSubscriberRuntime: ["subscribers:manage", "tx:send"],
-	templateProvisioner: ["templates:get", "templates:manage"],
-} as const satisfies Record<string, readonly ListmonkUserRolePermission[]>;
+	ListmonkUserRolePermission,
+} from "./user-role-permissions";
 
 const PROTECTED_SUPER_ADMIN_ROLE_ID = 1;
 
@@ -122,7 +55,7 @@ const userRoleDesiredStateSchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	permissions: z
 		.array(userPermissionSchema)
-		.max(MAX_USER_ROLE_PERMISSIONS)
+		.max(MAX_USER_ROLE_PERMISSION_ENTRIES)
 		.transform((permissions) => [...new Set(permissions)].sort()),
 });
 

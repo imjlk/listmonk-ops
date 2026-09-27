@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import type { UserRoleDesiredState } from "../src/user-roles";
+import { MAX_USER_ROLE_PERMISSION_ENTRIES } from "../src/user-role-permissions";
 import { userRoleManifestReconcileInputContract } from "../src/specs/contract-schemas";
 import {
 	ensureUserRole,
@@ -85,6 +86,31 @@ describe("declarative user role reconciliation", () => {
 				name: "Transactional runtime",
 				permissions: ["subscribers:manage", "tx:send"],
 			},
+		});
+	});
+
+	test("deduplicates full permission sets within the accepted input limit", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0, per_page: 0, page: 1 },
+		}));
+		const context = userRoleContext({
+			list: list as UserRoleClient["userRole"]["list"],
+		});
+		const permissions = [
+			...LISTMONK_USER_ROLE_PERMISSIONS,
+			LISTMONK_USER_ROLE_PERMISSIONS[0],
+			LISTMONK_USER_ROLE_PERMISSIONS[1],
+		];
+
+		expect(permissions).toHaveLength(MAX_USER_ROLE_PERMISSION_ENTRIES);
+		await expect(
+			reconcileUserRoleManifest(context, {
+				schema_version: 1,
+				roles: [{ name: "Full access", permissions }],
+			}),
+		).resolves.toMatchObject({
+			apply: false,
+			results: [{ name: "Full access", action: "create", applied: false }],
 		});
 	});
 
@@ -270,7 +296,7 @@ describe("declarative user role reconciliation", () => {
 		const contract = JSON.stringify(userRoleManifestReconcileInputContract);
 		expect(contract).not.toContain('"const":"list:get"');
 		expect(contract).not.toContain('"const":"list:manage"');
-		expect(contract).toContain('"maxItems":28');
+		expect(contract).toContain('"maxItems":30');
 	});
 
 	test("rejects list-role permissions before any remote call", async () => {
