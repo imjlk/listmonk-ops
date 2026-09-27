@@ -1968,6 +1968,10 @@ printf '%s' "$LISTMONK_SMTP_USERNAME" | shasum -a 256
 
 Store the result as `sha256:<hex>` in `smtp_username_fingerprints`; the raw
 username and the configured fingerprints are never returned by the doctor.
+Of the Listmonk settings, the doctor echoes only the SMTP hosts and
+`app.from_email`, and never reads a password, key, or URL-valued setting. An
+SMTP URL pasted into a host field (`smtps://user:pass@host:465`) is shown
+with its userinfo replaced by `[redacted]`.
 
 ```bash
 listmonk-cli providers list

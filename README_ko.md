@@ -1867,6 +1867,10 @@ printf '%s' "$LISTMONK_SMTP_USERNAME" | shasum -a 256
 
 결과를 `smtp_username_fingerprints`에 `sha256:<hex>` 형태로 저장합니다.
 Doctor는 원본 username과 설정된 지문을 결과에 노출하지 않습니다.
+Listmonk 설정 중 doctor가 결과에 그대로 표시하는 값은 SMTP host와
+`app.from_email`뿐이며, 비밀번호·키·URL 값 설정은 읽지 않습니다. Host 필드에
+SMTP URL(`smtps://user:pass@host:465`)을 붙여 넣은 경우 userinfo는
+`[redacted]`로 치환되어 표시됩니다.
 
 ```bash
 listmonk-cli providers list

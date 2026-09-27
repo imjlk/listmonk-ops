@@ -1,4 +1,5 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { redactUrlCredentials } from "@listmonk-ops/operations";
 import { Buffer } from "node:buffer";
 import { createHash, createPublicKey } from "node:crypto";
 import {
@@ -433,9 +434,17 @@ function smtpRecords(
 	);
 }
 
+/**
+ * Normalize a Listmonk SMTP host for comparison and output. The host is a
+ * free-form setting, and an SMTP URL pasted into it in the form other
+ * mailers accept (`smtps://user:pass@host:465`) would otherwise reach the
+ * diagnostics verbatim, so it passes through the shared settings URL
+ * redaction. Plain hostnames are unchanged, and a URL never matches the
+ * hostnames a provider profile expects either way.
+ */
 function smtpHost(record: Readonly<Record<string, unknown>>): string | undefined {
 	return typeof record.host === "string"
-		? record.host.toLowerCase().replace(/\.$/, "")
+		? redactUrlCredentials(record.host.toLowerCase().replace(/\.$/, ""))
 		: undefined;
 }
 
@@ -532,7 +541,9 @@ export function inspectListmonkProviderSettings(
 	const nativeBounceEnabled = providerBounceEnabled(profile, settings);
 
 	return {
-		...(configuredFrom === undefined ? {} : { from_email: configuredFrom }),
+		...(configuredFrom === undefined
+			? {}
+			: { from_email: redactUrlCredentials(configuredFrom) }),
 		...(configuredFromDomain === undefined
 			? {}
 			: { from_domain: configuredFromDomain }),
@@ -574,6 +585,15 @@ export function inspectListmonkProviderSettings(
 	};
 }
 
+/**
+ * Read the raw settings document. It never leaves this module as-is:
+ * `inspectListmonkProviderSettings` projects it into booleans, hostnames,
+ * and the From address (the free-form strings pass through the shared
+ * settings URL redaction), fingerprints SMTP usernames without returning
+ * them, and never reads a password, key, or URL-valued setting; the webhook
+ * check reads only booleans. The redacted `settings.get` document cannot
+ * be used instead because the username fingerprints need the raw value.
+ */
 async function readListmonkSettings(
 	context: ProviderInspectionContext,
 ): Promise<Readonly<Record<string, unknown>>> {
