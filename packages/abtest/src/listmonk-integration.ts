@@ -30,12 +30,23 @@ import {
 	type StratificationPolicyV1,
 	type StratificationResult,
 } from "./stratification";
+import {
+	describeRetainedTemporaryList,
+	propagateTemporaryListOptOuts,
+	propagateTemporaryListsOptOuts,
+	type TemporaryListOptOutPropagation,
+} from "./unsubscribe-propagation";
 
 export interface ProvisionedAbTestResources {
 	testId: string;
 	campaignIds: number[];
 	testListIds: number[];
 	holdoutListId?: number;
+	/**
+	 * Source audience lists that receive a temporary list's opt-outs before
+	 * a rollback deletes it; without them, a list holding opt-outs is kept.
+	 */
+	sourceListIds?: number[];
 }
 
 /**
@@ -762,8 +773,15 @@ export class ListmonkAbTestIntegration {
 	 * campaigns are deleted directly. Collects per-resource failures and
 	 * throws after attempting all resources so a single transient failure
 	 * does not leave other campaigns/lists un-attempted.
+	 *
+	 * Each temporary list's opt-outs are carried to `sourceListIds` before
+	 * the list is deleted. A list whose opt-outs are not confirmed there is
+	 * kept and reported as a failure, so the caller keeps its local record
+	 * and a retry resumes the propagation.
 	 */
 	async deleteTestResources(resources: {
+		/** Source audience lists that receive the temporary lists' opt-outs. */
+		sourceListIds?: readonly number[];
 		campaignIds: number[];
 		listIds: number[];
 	}): Promise<void> {
@@ -824,7 +842,25 @@ export class ListmonkAbTestIntegration {
 		// Only delete lists if no campaign errors — a surviving campaign
 		// may still reference its audience list.
 		if (errors.length === 0) {
-			for (const listId of [...resources.listIds].reverse()) {
+			// Deleting a list erases its unsubscribed memberships, so carry
+			// them to the source lists first and keep any list where that
+			// could not be confirmed.
+			const optOutPropagation = await propagateTemporaryListsOptOuts(
+				this.listmonkClient,
+				{
+					listIds: [...resources.listIds].reverse(),
+					sourceListIds: resources.sourceListIds ?? [],
+				},
+			);
+			const deletableListIds: number[] = [];
+			for (const propagation of optOutPropagation) {
+				if (propagation.safeToDelete) {
+					deletableListIds.push(propagation.listId);
+				} else {
+					errors.push(describeRetainedTemporaryList(propagation));
+				}
+			}
+			for (const listId of deletableListIds) {
 				try {
 					const deleteResult = await this.listmonkClient.list.delete({
 						path: { list_id: listId },
@@ -851,6 +887,14 @@ export class ListmonkAbTestIntegration {
 		}
 	}
 
+	/**
+	 * Best-effort rollback of the campaigns and lists one provisioning call
+	 * created. An auto-launch that failed part-way may already have
+	 * scheduled a variant, so each list's opt-outs are carried to
+	 * `sourceListIds` before it is deleted; a list whose opt-outs are not
+	 * confirmed there is kept and left out of `deletedListIds`, so the
+	 * caller keeps its mapping.
+	 */
 	async rollbackProvisioning(
 		resources: ProvisionedAbTestResources,
 	): Promise<{ deletedCampaignIds: number[]; deletedListIds: number[] }> {
@@ -862,7 +906,24 @@ export class ListmonkAbTestIntegration {
 		const deletedCampaignIds = await this.deleteCampaignsBestEffort([
 			...resources.campaignIds,
 		].reverse());
-		const deletedListIds = await this.deleteListsBestEffort(listIds.reverse());
+		const optOutPropagation = await propagateTemporaryListsOptOuts(
+			this.listmonkClient,
+			{
+				listIds: listIds.reverse(),
+				sourceListIds: resources.sourceListIds ?? [],
+			},
+		);
+		const deletableListIds: number[] = [];
+		for (const propagation of optOutPropagation) {
+			if (propagation.safeToDelete) {
+				deletableListIds.push(propagation.listId);
+			} else {
+				console.warn(
+					`A/B provisioning rollback: ${describeRetainedTemporaryList(propagation)}`,
+				);
+			}
+		}
+		const deletedListIds = await this.deleteListsBestEffort(deletableListIds);
 		return { deletedCampaignIds, deletedListIds };
 	}
 
@@ -986,7 +1047,31 @@ export class ListmonkAbTestIntegration {
 	}
 
 	/**
-	 * Cleans up temporary resources created for holdout A/B testing
+	 * Carry one temporary list's opt-outs to the source lists before a
+	 * best-effort cleanup deletes it. Records the result in `report` and
+	 * returns whether the list may be deleted; a list that may not is kept
+	 * with a warning.
+	 */
+	private async carryOptOutsBeforeListDeletion(
+		listId: number,
+		sourceListIds: readonly number[],
+		report: TemporaryListOptOutPropagation[],
+	): Promise<boolean> {
+		const propagation = await propagateTemporaryListOptOuts(
+			this.listmonkClient,
+			{ listId, sourceListIds },
+		);
+		report.push(propagation);
+		if (!propagation.safeToDelete) {
+			console.warn(describeRetainedTemporaryList(propagation));
+		}
+		return propagation.safeToDelete;
+	}
+
+	/**
+	 * Cleans up temporary resources created for holdout A/B testing. Each
+	 * list's opt-outs are carried to `options.sourceListIds` before it is
+	 * deleted; a list whose opt-outs are not confirmed there is kept.
 	 */
 	async cleanupHoldoutTest(
 		testId: string,
@@ -994,9 +1079,21 @@ export class ListmonkAbTestIntegration {
 		holdoutListId: number,
 		campaigns: number[],
 		keepWinnerCampaign: boolean = true,
-	): Promise<void> {
+		options: { sourceListIds?: readonly number[] } = {},
+	): Promise<TemporaryListOptOutPropagation[]> {
+		const sourceListIds = options.sourceListIds ?? [];
+		const optOutPropagation: TemporaryListOptOutPropagation[] = [];
 		// Delete test lists (but keep holdout list for winner campaign)
 		for (const listId of testLists) {
+			if (
+				!(await this.carryOptOutsBeforeListDeletion(
+					listId,
+					sourceListIds,
+					optOutPropagation,
+				))
+			) {
+				continue;
+			}
 			try {
 				await this.listmonkClient.list.delete({
 					path: { list_id: listId },
@@ -1007,7 +1104,14 @@ export class ListmonkAbTestIntegration {
 		}
 
 		// Optionally delete holdout list (usually kept for winner campaign)
-		if (!keepWinnerCampaign) {
+		if (
+			!keepWinnerCampaign &&
+			(await this.carryOptOutsBeforeListDeletion(
+				holdoutListId,
+				sourceListIds,
+				optOutPropagation,
+			))
+		) {
 			try {
 				await this.listmonkClient.list.delete({
 					path: { list_id: holdoutListId },
@@ -1032,19 +1136,34 @@ export class ListmonkAbTestIntegration {
 				console.warn(`Failed to update campaign ${campaignId}:`, error);
 			}
 		}
+		return optOutPropagation;
 	}
 
 	/**
 	 * Legacy cleanup method - kept for backward compatibility
-	 * Cleans up temporary resources created for A/B testing
+	 * Cleans up temporary resources created for A/B testing. Each list's
+	 * opt-outs are carried to `options.sourceListIds` before it is deleted;
+	 * a list whose opt-outs are not confirmed there is kept.
 	 */
 	async cleanup(
 		testId: string,
 		temporaryLists: number[],
 		campaigns: number[],
-	): Promise<void> {
+		options: { sourceListIds?: readonly number[] } = {},
+	): Promise<TemporaryListOptOutPropagation[]> {
+		const sourceListIds = options.sourceListIds ?? [];
+		const optOutPropagation: TemporaryListOptOutPropagation[] = [];
 		// Delete temporary lists
 		for (const listId of temporaryLists) {
+			if (
+				!(await this.carryOptOutsBeforeListDeletion(
+					listId,
+					sourceListIds,
+					optOutPropagation,
+				))
+			) {
+				continue;
+			}
 			try {
 				await this.listmonkClient.list.delete({
 					path: { list_id: listId },
@@ -1071,6 +1190,7 @@ export class ListmonkAbTestIntegration {
 				console.warn(`Failed to update campaign ${campaignId}:`, error);
 			}
 		}
+		return optOutPropagation;
 	}
 
 	/**

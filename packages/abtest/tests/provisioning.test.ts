@@ -321,6 +321,10 @@ describe("deleteTestResources retry safety", () => {
 					return { data: true };
 				},
 			},
+			// No subscriber unsubscribed from either temporary list.
+			subscriber: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+			},
 		} as unknown as ListmonkClient;
 
 		const integration = new ListmonkAbTestIntegration(client);

@@ -1,6 +1,12 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { formatListmonkErrorResponse } from "./listmonk-errors";
 import type { AbTest } from "./types";
+import {
+	describeRetainedTemporaryList,
+	propagateTemporaryListsOptOuts,
+	resolveOptOutSourceListIds,
+	type TemporaryListOptOutPropagation,
+} from "./unsubscribe-propagation";
 
 /**
  * Lifecycle planning and execution for A/B test cancellation and cleanup.
@@ -25,7 +31,10 @@ import type { AbTest } from "./types";
  *
  * Temporary lists are only deleted once no remaining backing campaign
  * references them, so an in-flight or partially-failed cancel cannot detach
- * a list a still-running campaign needs.
+ * a list a still-running campaign needs. Before a list is deleted, its
+ * unsubscribed memberships are carried to the test's source lists (see
+ * `unsubscribe-propagation.ts`); a list whose opt-outs cannot be carried is
+ * kept.
  *
  * Campaign names are never overwritten. The previous code renamed every
  * campaign to the same `A/B Test Completed - ...` string, which destroyed
@@ -55,6 +64,12 @@ export interface CancelPlan {
 	 * campaign IDs, not list IDs.
 	 */
 	campaignsBlockingListDeletion: number[];
+	/**
+	 * Source audience lists that receive a temporary list's opt-outs before
+	 * the list is deleted. A plan without them keeps every temporary list
+	 * that holds opt-outs.
+	 */
+	optOutSourceListIds?: number[];
 }
 
 export interface CancelExecutionResult {
@@ -100,6 +115,12 @@ export interface CancelExecutionResult {
 	 * "stop is not authoritative".
 	 */
 	hadFetchFailures: boolean;
+	/**
+	 * Opt-out propagation for every list the plan was cleared to delete. A
+	 * list whose opt-outs could not be carried to the source lists is kept
+	 * and reported as a `failed` list result.
+	 */
+	optOutPropagation: TemporaryListOptOutPropagation[];
 }
 
 export interface PlanCancelOptions {
@@ -244,6 +265,7 @@ export function planCancelAbTest(
 		campaignActions,
 		listActions,
 		campaignsBlockingListDeletion: survivingCampaignIds,
+		optOutSourceListIds: resolveOptOutSourceListIds(test),
 	};
 }
 
@@ -310,7 +332,8 @@ export function isNotFoundError(error: unknown): boolean {
  * is recorded in the result so the caller can decide whether to retry or
  * mark the test as reconcile-required.
  *
- * Lists are only deleted when no surviving campaign still references them.
+ * Lists are only deleted when no surviving campaign still references them
+ * and their opt-outs are confirmed on the plan's source lists.
  */
 export async function executeCancelPlan(
 	client: ListmonkClient,
@@ -400,6 +423,18 @@ export async function executeCancelPlan(
 	}
 
 	const anySurvivingReference = survivingListReferences.size > 0;
+	// Deleting a list erases its unsubscribed memberships, so carry them to
+	// the source lists first; a list whose opt-outs are not confirmed there
+	// is kept and reported as failed so the stop can be retried.
+	const optOutPropagation = anySurvivingReference
+		? []
+		: await propagateTemporaryListsOptOuts(client, {
+				listIds: plan.listActions.map((action) => action.listId),
+				sourceListIds: plan.optOutSourceListIds ?? [],
+			});
+	const propagationByListId = new Map(
+		optOutPropagation.map((propagation) => [propagation.listId, propagation]),
+	);
 	const listResults: CancelExecutionResult["listResults"] = await Promise.all(
 		plan.listActions.map(async (action) => {
 			// If any campaign survived (left, unobservable, or failed to
@@ -410,6 +445,17 @@ export async function executeCancelPlan(
 					listId: action.listId,
 					outcome: "skipped_active_reference" as const,
 					detail: "one or more campaigns survived cancel; list retained",
+				};
+			}
+			const propagation = propagationByListId.get(action.listId);
+			if (propagation?.safeToDelete !== true) {
+				return {
+					listId: action.listId,
+					outcome: "failed" as const,
+					detail:
+						propagation === undefined
+							? `temporary list ${action.listId} kept: its opt-outs were not checked`
+							: describeRetainedTemporaryList(propagation),
 				};
 			}
 			try {
@@ -469,6 +515,7 @@ export async function executeCancelPlan(
 		hadFailures,
 		// executeCancelPlan does not fetch statuses; only cancelAbTest does.
 		hadFetchFailures: false,
+		optOutPropagation,
 	};
 }
 
