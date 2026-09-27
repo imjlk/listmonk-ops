@@ -1,5 +1,5 @@
---- packages/openapi/spec/upstream/listmonk-v6.2.0.yaml	2026-09-27 20:47:06
-+++ packages/openapi/spec/listmonk.yaml	2026-09-27 20:47:31
+--- a/spec/upstream/listmonk-v6.2.0.yaml
++++ b/spec/listmonk.yaml
 @@ -246,6 +246,20 @@
                      type: array
                      items:
@@ -35,18 +35,10 @@
          - in: query
            name: subscription_status
            description: Subscription status to filter by if there are one or more list_ids.
-@@ -423,6 +437,36 @@
-       responses:
-         "200":
-           description: returns updated subscriber.
-+          content:
-+            application/json:
-+              schema:
-+                type: object
-+                properties:
-+                  data:
-+                    $ref: "#/components/schemas/Subscriber"
-+
+@@ -431,6 +445,36 @@
+                   data:
+                     $ref: "#/components/schemas/Subscriber"
+ 
 +    patch:
 +      description: partially modifies subscriber data while preserving omitted fields
 +      operationId: patchSubscriberById
@@ -69,9 +61,17 @@
 +      responses:
 +        "200":
 +          description: returns the updated subscriber
-           content:
-             application/json:
-               schema:
++          content:
++            application/json:
++              schema:
++                type: object
++                properties:
++                  data:
++                    $ref: "#/components/schemas/Subscriber"
++
+     delete:
+       description: handles subscriber deletion based on id
+       operationId: deleteSubscriberById
 @@ -889,7 +933,7 @@
                  properties:
                    data:
@@ -178,18 +178,16 @@
  
    "/campaigns/{id}/content":
      post:
-@@ -1629,19 +1690,18 @@
-           name: id
-           description: ID of campaign that you want to test
+@@ -1631,17 +1692,16 @@
            required: true
-+          schema:
-+            type: integer
+           schema:
+             type: integer
 +        - in: query
 +          name: template_id
 +          description: template to render the test message with instead of the campaign's own; the handler reads it only from the query string
 +          required: false
-           schema:
-             type: integer
++          schema:
++            type: integer
        requestBody:
          required: true
 -        description: template id
@@ -395,15 +393,6 @@
      LanguagePack:
        type: object
        properties:
-@@ -3756,7 +3860,7 @@
-           enum: [add, remove, unsubscribe]
-           description: Whether to add, remove, or unsubscribe the users.
-         target_list_ids:
--          type: integer
-+          type: array
-           description: The ids of the lists to be modified.
-           items:
-             type: integer
 @@ -3875,6 +3979,8 @@
            type: integer
          clicks:
