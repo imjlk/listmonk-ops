@@ -918,7 +918,8 @@
       "state": {
         "allowNoopFromTarget": true,
         "from": [
-          "draft"
+          "draft",
+          "paused"
         ],
         "resource": "campaign",
         "to": "scheduled"
@@ -1308,7 +1309,6 @@
         "allowNoopFromTarget": true,
         "from": [
           "draft",
-          "scheduled",
           "paused"
         ],
         "resource": "campaign",
@@ -1333,7 +1333,7 @@
         ],
         "retryGuidance": "On timeout, inspect campaigns.get before repeating the confirmed cancellation.",
         "useWhen": [
-          "An actively sending campaign must be stopped permanently."
+          "A running or paused campaign must be stopped permanently while keeping its history."
         ],
         "verifyWith": [
           "campaigns.get"
@@ -1476,7 +1476,8 @@
       "state": {
         "allowNoopFromTarget": true,
         "from": [
-          "running"
+          "running",
+          "paused"
         ],
         "resource": "campaign",
         "to": "cancelled"
@@ -30548,6 +30549,170 @@
     {
       "agent": {
         "avoidWhen": [
+          "The campaign is running, paused, or in a terminal status."
+        ],
+        "prerequisites": [
+          "campaigns.get"
+        ],
+        "related": [
+          "campaigns.schedule",
+          "campaigns.start"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff, then verify with campaigns.get.",
+        "useWhen": [
+          "A scheduled campaign must not send at its send_at.",
+          "A scheduled campaign must start now instead (unschedule, then campaigns.start)."
+        ],
+        "verifyWith": [
+          "campaigns.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected_updated_at": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Campaign updated_at observed by the preflight that approved this transition."
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Listmonk campaign ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_updated_at": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Campaign updated_at observed by the preflight that approved this transition."
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Listmonk campaign ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Return a scheduled campaign to draft so it no longer sends at its send_at. Validates the current status allows the transition; an already draft campaign is a no-op.",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        }
+      ],
+      "id": "campaigns.unschedule",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsUnscheduleOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsUnscheduleOperationSpec:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#unscheduleCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokeUnscheduleCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#unscheduleCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_unschedule_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same unschedule transition converges on the same draft state."
+      },
+      "since": "0.20.0",
+      "stability": "stable",
+      "state": {
+        "allowNoopFromTarget": true,
+        "from": [
+          "scheduled"
+        ],
+        "resource": "campaign",
+        "to": "draft"
+      },
+      "title": "Unschedule campaign",
+      "verb": "unschedule"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "A brand-new campaign should be created from scratch."
         ],
         "prerequisites": [
@@ -42177,6 +42342,18 @@
                     "description": "Whether the campaign's public archive page is enabled.",
                     "type": "boolean"
                   },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown",
+                    "description": "Archive metadata JSON; provide with the other archive fields to skip the pre-read."
+                  },
+                  "archive_slug": {
+                    "description": "Archive slug; provide with the other archive fields to skip the pre-read.",
+                    "type": "string"
+                  },
+                  "archive_template_id": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Archive template ID; use 0 to clear it."
+                  },
                   "id": {
                     "$ref": "#/components/schemas/ResourceId",
                     "description": "Positive Listmonk resource ID."
@@ -42186,6 +42363,15 @@
                   "id",
                   "archive"
                 ],
+                "type": "object"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
                 "type": "object"
               },
               "ResourceId": {
@@ -42202,6 +42388,18 @@
               "archive": {
                 "description": "Whether the campaign's public archive page is enabled.",
                 "type": "boolean"
+              },
+              "archive_meta": {
+                "$ref": "#/components/schemas/Recordstringunknown",
+                "description": "Archive metadata JSON; provide with the other archive fields to skip the pre-read."
+              },
+              "archive_slug": {
+                "description": "Archive slug; provide with the other archive fields to skip the pre-read.",
+                "type": "string"
+              },
+              "archive_template_id": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Archive template ID; use 0 to clear it."
               },
               "id": {
                 "$ref": "#/components/schemas/ResourceId",
@@ -42282,7 +42480,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.",
+      "description": "Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op. Supplying all three archive settings (slug, template ID, and metadata) together skips the pre-read of the campaign.",
       "effects": [
         {
           "kind": "write",
@@ -44774,14 +44972,16 @@
         ],
         "finished": [],
         "paused": [
-          "running"
+          "running",
+          "scheduled",
+          "cancelled"
         ],
         "running": [
           "paused",
           "cancelled"
         ],
         "scheduled": [
-          "running"
+          "draft"
         ]
       }
     },

@@ -528,7 +528,21 @@ The deprecated `completions` spelling remains an alias for migration compatibili
 
 ## Subscriber Lists
 
-The CLI exposes the same typed subscriber-list operations as the MCP server:
+The CLI exposes the same typed subscriber-list operations as the MCP server.
+Partial updates keep what you do not change: `lists update` carries the stored
+name and tags forward (Listmonk 6.2 requires a name and always overwrites
+tags), and `campaigns update`/`campaigns schedule` resend the stored target
+lists, media attachments, and attributes, which Listmonk's campaign `PUT`
+does not pre-fill (it rejects a missing list set and detaches unsent media).
+Pass `--media ""` to `campaigns update` to clear every attachment; callers
+without `campaigns:get` can pair it with explicit `--lists` and `--attribs`
+values so the complete update does not need a pre-read.
+`campaigns archive` resends the stored archive slug, template, and metadata so
+toggling the archive page keeps its public link. Callers with `campaigns:manage`
+but without `campaigns:get` can provide all three values directly to skip the
+pre-read. `campaigns clone` derives a fresh archive slug for an archived source
+the way Listmonk's own clone action does, because slugs are unique. Lifecycle transitions accept Listmonk
+6.2's updated-campaign echo as the acknowledgement:
 
 ```bash
 listmonk-cli lists list --page 1 --per-page 20
@@ -559,6 +573,7 @@ listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
 listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z \
   --expected-updated-at <campaignUpdatedAt-from-preflight> --confirm
+listmonk-cli campaigns unschedule --id 42
 listmonk-cli campaigns start --id 42 --expected-updated-at <updated_at> --confirm
 listmonk-cli campaigns pause --id 42 --expected-updated-at <updated_at>
 listmonk-cli campaigns cancel --id 42 --expected-updated-at <updated_at> --confirm
@@ -570,6 +585,9 @@ listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
 listmonk-cli campaigns analytics --type views --from 2026-08-01 \
   --to 2026-08-31 --campaign-ids 42,43
 listmonk-cli campaigns archive --id 42 --archive=true
+# With campaigns:manage-only credentials, pass every archive field to skip the read.
+listmonk-cli campaigns archive --id 42 --archive=true --archive-slug spring-sale \
+  --archive-template-id 4 --archive-meta '{"title":"Spring sale"}'
 
 listmonk-cli dashboard counts
 listmonk-cli dashboard charts
@@ -637,10 +655,13 @@ listmonk-cli bounces prune --per-page 100 --confirm
 listmonk-cli bounces prune --no-dry-run --bounce-ids 5,6,7 --confirm
 ```
 
-Campaign lifecycle transitions are validated client-side against an
-observed state machine (`draft → scheduled/running`, `scheduled →
-running`, `running → paused/cancelled`, `paused → running`,
-`finished`/`cancelled` are terminal). Subscriber
+Campaign lifecycle transitions are validated client-side against Listmonk
+6.2's status rules (`draft → scheduled/running`, `running →
+paused/cancelled`, `paused → running/scheduled/cancelled`,
+`finished`/`cancelled` are terminal). Listmonk starts a `scheduled` campaign
+itself at its `send_at`, so to send one early run `campaigns unschedule`
+(`scheduled → draft`) and then start it, and a campaign the deliverability guard paused can be
+cancelled directly. Subscriber
 bulk operations chunk IDs (default 500 per chunk) and support
 `--dry-run`, `--max-items`, and `--continue-on-error`. Media uploads
 enforce a MIME allowlist and a 10 MiB size cap.
@@ -737,7 +758,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 135 public shared operations now include a `spec` descriptor. Specs define
+All 136 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -746,8 +767,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 135 contracts are standalone TypeScript/Typia product contracts. The
-existing 134 remain `stable`; `abtest.conversion.record` is experimental. The
+All 136 contracts are standalone TypeScript/Typia product contracts. The
+existing 135 remain `stable`; `abtest.conversion.record` is experimental. The
 stable set includes the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and
@@ -1074,7 +1095,8 @@ store and confirmation gate were removed:
 
 - `listmonk_update_campaign_status`: use the shared lifecycle operations
   `listmonk_schedule_campaign` (with `send_at`), `listmonk_start_campaign`,
-  `listmonk_pause_campaign`, and `listmonk_cancel_campaign`.
+  `listmonk_unschedule_campaign`, `listmonk_pause_campaign`, and
+  `listmonk_cancel_campaign`.
 - `listmonk_delete_subscribers_by_query` and
   `listmonk_blocklist_subscribers_by_query`, which applied an arbitrary SQL
   expression in one unconfirmed call: resolve subscriber IDs with

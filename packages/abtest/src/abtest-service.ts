@@ -866,9 +866,9 @@ export class AbTestService {
 		}
 
 		// Cleanup Listmonk resources for any test that has remote campaigns.
-		// Use deleteTestResources which is status-aware: it cancels running
-		// campaigns before deleting (Listmonk v6.2.0 rejects DELETE on
-		// running campaigns), and throws on failure so the local record
+		// Use deleteTestResources which is status-aware: it cancels running or
+		// paused campaigns before deleting (Listmonk v6.2.0 rejects DELETE on
+		// active campaigns), and throws on failure so the local record
 		// persists for retry/reconcile.
 		if (
 			this.listmonkIntegration &&

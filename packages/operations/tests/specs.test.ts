@@ -51,6 +51,7 @@ import {
 	webhookReconcileOperationSpec,
 	webhookRuntimeStatusOperationSpec,
 } from "../src/specs";
+import { CAMPAIGN_TRANSITIONS } from "../src/campaign-lifecycle";
 import {
 	campaignCancelOperationSpec,
 	campaignPreflightOperationSpec,
@@ -121,13 +122,20 @@ export function assertHighRiskOperationSpecContracts(): void {
 	expect(transactionalSendOperationSpec.retry).toMatchObject({
 		kind: "conditional",
 	});
+	// Listmonk 6.2 starts only draft or paused campaigns (its scheduler starts
+	// scheduled ones) and cancels running or paused ones.
 	expect(campaignStartOperationSpec.state).toEqual({
 		resource: "campaign",
-		from: ["draft", "scheduled", "paused"],
+		from: ["draft", "paused"],
 		to: "running",
 		allowNoopFromTarget: true,
 	});
-	expect(campaignCancelOperationSpec.state?.to).toBe("cancelled");
+	expect(campaignCancelOperationSpec.state).toEqual({
+		resource: "campaign",
+		from: ["running", "paused"],
+		to: "cancelled",
+		allowNoopFromTarget: true,
+	});
 	expect(campaignPreflightOperationSpec.contract.output.schema.type).toBe(
 		"object",
 	);
@@ -143,6 +151,24 @@ export function assertHighRiskOperationSpecContracts(): void {
 describe("email operations specification", () => {
 	test("directly anchors high-risk operation descriptor contracts", () => {
 		assertHighRiskOperationSpecContracts();
+	});
+
+	test("publishes the same campaign transitions the runtime validates", () => {
+		// The published resource graph and the runtime state machine are two
+		// declarations; keep them identical so planners see the real edges.
+		const published = Object.fromEntries(
+			Object.entries(campaignResource.transitions).map(([state, targets]) => [
+				state,
+				[...targets].sort(),
+			]),
+		);
+		const runtime = Object.fromEntries(
+			Object.entries(CAMPAIGN_TRANSITIONS).map(([state, targets]) => [
+				state,
+				[...targets].sort(),
+			]),
+		);
+		expect(published).toEqual(runtime);
 	});
 
 	test("normalizes contract JSON through one deterministic implementation", () => {
@@ -186,6 +212,7 @@ describe("email operations specification", () => {
 			"campaigns.update",
 			"campaigns.delete",
 			"campaigns.pause",
+			"campaigns.unschedule",
 			"campaigns.clone",
 			"campaigns.preview",
 			"campaigns.test",
@@ -237,8 +264,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(135);
-		expect(new Set(operationIds).size).toBe(135);
+		expect(operationIds).toHaveLength(136);
+		expect(new Set(operationIds).size).toBe(136);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -248,7 +275,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(134);
+		).toHaveLength(135);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(

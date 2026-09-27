@@ -231,6 +231,62 @@ export const campaignsPauseOperationSpec = defineOperationSpec({
 	since: "0.9.0",
 });
 
+export const campaignsUnscheduleOperationSpec = defineOperationSpec({
+	id: "campaigns.unschedule",
+	resource: "campaign",
+	verb: "unschedule",
+	title: "Unschedule campaign",
+	description:
+		"Return a scheduled campaign to draft so it no longer sends at its send_at. Validates the current status allows the transition; an already draft campaign is a no-op.",
+	contract: {
+		input: campaignLifecycleInputContract,
+		output: campaignLifecycleOutputContract,
+	},
+	effects: [{ kind: "write", resource: "campaign", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason:
+			"Reapplying the same unschedule transition converges on the same draft state.",
+	},
+	state: {
+		resource: "campaign",
+		from: ["scheduled"],
+		to: "draft",
+		allowNoopFromTarget: true,
+	},
+	agent: {
+		useWhen: [
+			"A scheduled campaign must not send at its send_at.",
+			"A scheduled campaign must start now instead (unschedule, then campaigns.start).",
+		],
+		avoidWhen: ["The campaign is running, paused, or in a terminal status."],
+		prerequisites: ["campaigns.get"],
+		verifyWith: ["campaigns.get"],
+		related: ["campaigns.schedule", "campaigns.start"],
+		retryGuidance:
+			"Retry identical transient failures with bounded backoff, then verify with campaigns.get.",
+	},
+	projection: {
+		mcpName: "listmonk_unschedule_campaign",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsUnscheduleOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsUnscheduleOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/campaigns.ts#unscheduleCampaignOperation:variable",
+			invokerNode:
+				"packages/operations/src/campaigns.ts#invokeUnscheduleCampaignOperation:function",
+			executorNode:
+				"packages/operations/src/campaigns.ts#unscheduleCampaign:function",
+		},
+	},
+	stability: "stable",
+	since: "0.20.0",
+});
+
 export const campaignsCloneOperationSpec = defineOperationSpec({
 	id: "campaigns.clone",
 	resource: "campaign",
@@ -302,7 +358,7 @@ export const campaignsArchiveOperationSpec = defineOperationSpec({
 	verb: "archive",
 	title: "Toggle the campaign archive page",
 	description:
-		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.",
+		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op. Supplying all three archive settings (slug, template ID, and metadata) together skips the pre-read of the campaign.",
 	contract: {
 		input: campaignArchiveInputContract,
 		output: campaignArchiveOutputContract,
@@ -535,6 +591,10 @@ export function bindCampaignsDeleteOperationSpec(): typeof campaignsDeleteOperat
 
 export function bindCampaignsPauseOperationSpec(): typeof campaignsPauseOperationSpec {
 	return campaignsPauseOperationSpec;
+}
+
+export function bindCampaignsUnscheduleOperationSpec(): typeof campaignsUnscheduleOperationSpec {
+	return campaignsUnscheduleOperationSpec;
 }
 
 export function bindCampaignsCloneOperationSpec(): typeof campaignsCloneOperationSpec {

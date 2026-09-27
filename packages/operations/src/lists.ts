@@ -453,14 +453,39 @@ export async function createSubscriberList(
 	return { list: result.resource, created: result.created };
 }
 
+/**
+ * Listmonk 6.2's `PUT /lists/{id}` requires `name` and always overwrites
+ * `tags`, while it keeps the stored type, opt-in, status, and description
+ * when they are sent empty. Read the stored list and carry its name and tags
+ * forward when either field is omitted, so a partial update neither fails nor
+ * clears tags. Providing both fields explicitly skips the read, so a complete
+ * update needs no list-read permission. The read and the write are not atomic:
+ * a change made by someone else in between is overwritten (last writer wins),
+ * as Listmonk has no conditional update.
+ */
 export async function updateSubscriberList(
 	{ client }: ListOperationContext,
 	input: z.output<typeof updateListInputSchema>,
 ): Promise<List> {
-	const { id, ...body } = input;
+	const { id, ...changes } = input;
+	const current =
+		changes.name === undefined || changes.tags === undefined
+			? unwrapData(
+					await client.list.getById({ path: { list_id: id } }),
+					"Failed to load list before updating",
+				)
+			: undefined;
+	const name = changes.name ?? current?.name;
+	if (name === undefined) {
+		throw new Error(`List ${id} could not be updated without its stored name`);
+	}
 	const response = await client.list.update({
 		path: { list_id: id },
-		body,
+		body: {
+			...changes,
+			name,
+			tags: changes.tags ?? current?.tags ?? [],
+		},
 	});
 	return unwrapData(response, "Failed to update list");
 }

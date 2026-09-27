@@ -79,6 +79,7 @@ export type OperationSpecVerb =
 	| "add-to-lists"
 	| "remove-from-lists"
 	| "unblocklist"
+	| "unschedule"
 	| "guard"
 	| "deliverability-guard"
 	| "hygiene"

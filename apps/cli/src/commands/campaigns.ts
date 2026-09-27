@@ -21,6 +21,7 @@ import {
 	invokePreviewCampaignOperation,
 	invokeTestCampaignOperation,
 	invokePauseCampaignOperation,
+	invokeUnscheduleCampaignOperation,
 	invokeScheduleCampaignOperation,
 	invokeStartCampaignOperation,
 	invokeUpdateCampaignOperation,
@@ -206,6 +207,16 @@ export async function renderPauseCampaign(
 	return result;
 }
 
+export async function renderUnscheduleCampaign(
+	context: CampaignsCliContext,
+	input: CampaignLifecycleInput,
+) {
+	const result = await invokeUnscheduleCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} unscheduled (draft)`);
+	context.output.json(result);
+	return result;
+}
+
 export async function renderCancelCampaign(
 	context: CampaignsCliContext,
 	input: CampaignLifecycleInput,
@@ -246,7 +257,13 @@ const CAMPAIGN_ANALYTICS_DATE = new RegExp(
 
 export async function renderArchiveCampaign(
 	context: CampaignsCliContext,
-	input: { id: number; archive: boolean },
+	input: {
+		id: number;
+		archive: boolean;
+		archive_slug?: string;
+		archive_template_id?: number;
+		archive_meta?: Record<string, unknown>;
+	},
 ): Promise<void> {
 	const result = await invokeArchiveCampaignOperation(context, input);
 	context.output.success(
@@ -258,7 +275,13 @@ export async function renderArchiveCampaign(
 export async function handleArchiveCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number; archive: boolean }>): Promise<void> {
+}: HandlerArgs<{
+	id: number;
+	archive: boolean;
+	"archive-slug"?: string;
+	"archive-template-id"?: number;
+	"archive-meta"?: string;
+}>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
 		await renderArchiveCampaign(
@@ -266,6 +289,14 @@ export async function handleArchiveCampaignCommand({
 			{
 				id: flags.id,
 				archive: flags.archive,
+				archive_slug: flags["archive-slug"],
+				archive_template_id: flags["archive-template-id"],
+				archive_meta: flags["archive-meta"]
+					? parseJson<Record<string, unknown>>(
+							flags["archive-meta"],
+							"archive-meta",
+						)
+					: undefined,
 			},
 		);
 	} catch (error) {
@@ -523,7 +554,8 @@ export async function handleUpdateCampaignCommand({
 							"archive-meta",
 						)
 					: undefined,
-				media: flags.media ? parseCsvNumbers(flags.media) : undefined,
+				media:
+					flags.media === undefined ? undefined : parseCsvNumbers(flags.media),
 				subscribers: parseCsvStrings(flags.subscribers),
 			},
 		);
@@ -603,6 +635,24 @@ export async function handlePauseCampaignCommand({
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to pause campaign", error);
+	}
+}
+
+export async function handleUnscheduleCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number; "expected-updated-at"?: string }>) {
+	try {
+		const client = await getListmonkClient(args);
+		return await renderUnscheduleCampaign(
+			{ client, output: getOutput() },
+			{
+				id: flags.id,
+				expected_updated_at: flags["expected-updated-at"],
+			},
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to unschedule campaign", error);
 	}
 }
 
@@ -1014,6 +1064,18 @@ export default defineGroup({
 			handler: handlePauseCampaignCommand,
 		}),
 		defineCommand({
+			name: "unschedule",
+			operationId: "campaigns.unschedule",
+			description: "Return a scheduled campaign to draft",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				"expected-updated-at": expectedUpdatedAtOption(),
+			},
+			handler: handleUnscheduleCampaignCommand,
+		}),
+		defineCommand({
 			name: "cancel",
 			operationId: "campaigns.cancel",
 			description: "Cancel a campaign (terminal transition)",
@@ -1057,6 +1119,16 @@ export default defineGroup({
 				}),
 				archive: option(z.coerce.boolean(), {
 					description: "Archive page state (true to enable)",
+				}),
+				"archive-slug": option(z.string().optional(), {
+					description: "Archive slug; provide with the other archive fields to skip the pre-read",
+				}),
+				"archive-template-id": option(
+					z.coerce.number().int().nonnegative().optional(),
+					{ description: "Archive template ID (0 clears it)" },
+				),
+				"archive-meta": option(z.string().optional(), {
+					description: "Archive metadata JSON; provide with the other archive fields to skip the pre-read",
 				}),
 			},
 			handler: handleArchiveCampaignCommand,

@@ -3,35 +3,39 @@ import { CAMPAIGN_SEND_AT_PATTERN } from "./campaign-send-at";
 /**
  * Campaign lifecycle state machine.
  *
- * The transitions encoded below match the verified Listmonk 6.2.0 spike
- * recorded in `packages/abtest/src/lifecycle.ts`: `paused` and `cancelled`
- * are accepted **only** when the campaign is `running` (the server replies
- * `400 Only active campaigns can be cancelled` for `draft` or `scheduled`
- * sources). A scheduled campaign therefore cannot be cancelled directly;
- * callers must delete it instead.
+ * The transitions mirror Listmonk 6.2's `Core.UpdateCampaignStatus`
+ * (`internal/core/campaigns.go`), which rejects everything else with 400:
  *
- * `running` is reachable from `draft` and `scheduled`; `scheduled` is
- * reachable from `draft`. Resuming from `paused` is allowed because
- * Listmonk treats a paused campaign as still active. Terminal statuses
- * (`finished`, `cancelled`) cannot transition anywhere.
+ * - `scheduled` from `draft` or `paused` (and only with a `send_at`);
+ * - `running` from `draft` or `paused` — a `scheduled` campaign is started
+ *   by Listmonk's scheduler at `send_at`; to send it earlier, unschedule it
+ *   (`scheduled → draft`, `campaigns.unschedule`) and start it;
+ * - `draft` only from `scheduled` (unschedule);
+ * - `paused` from `running`;
+ * - `cancelled` from `running` or `paused`, so a campaign paused by the
+ *   deliverability guard can still be cancelled. A `draft` or `scheduled`
+ *   campaign cannot be cancelled; delete it instead.
+ *
+ * Terminal statuses (`finished`, `cancelled`) cannot transition anywhere.
  */
 export const CAMPAIGN_TRANSITIONS: Readonly<
 	Record<string, ReadonlySet<string>>
 > = {
 	draft: new Set(["scheduled", "running"]),
-	scheduled: new Set(["running"]),
+	scheduled: new Set(["draft"]),
 	running: new Set(["paused", "cancelled"]),
-	paused: new Set(["running"]),
+	paused: new Set(["scheduled", "running", "cancelled"]),
 	finished: new Set(),
 	cancelled: new Set(),
 };
 
 /**
- * Target statuses accepted by `PUT /campaigns/{id}/status`. Campaigns can
- * never transition back into `draft` or directly into `finished`, which is
- * why those values are absent.
+ * Target statuses accepted by `PUT /campaigns/{id}/status`. `draft` is only
+ * reachable from `scheduled` (unschedule), and `finished` is set by Listmonk
+ * itself, which is why it is absent.
  */
 export const CAMPAIGN_LIFECYCLE_TARGETS = [
+	"draft",
 	"scheduled",
 	"running",
 	"paused",
@@ -85,10 +89,29 @@ export class InvalidCampaignTransitionError extends Error {
 		public readonly targetStatus: CampaignLifecycleTarget,
 	) {
 		super(
-			`Campaign ${currentStatus ?? "<unknown>"} -> ${targetStatus} is not a valid lifecycle transition`,
+			`Campaign ${currentStatus ?? "<unknown>"} -> ${targetStatus} is not a valid lifecycle transition${transitionHint(currentStatus, targetStatus)}`,
 		);
 		this.name = "InvalidCampaignTransitionError";
 	}
+}
+
+function transitionHint(
+	current: string | undefined,
+	target: CampaignLifecycleTarget,
+): string {
+	if (current === "scheduled" && target === "running") {
+		return "; Listmonk starts a scheduled campaign at its send_at, so to send earlier unschedule it (campaigns unschedule) and start it";
+	}
+	if (
+		(current === "draft" || current === "scheduled") &&
+		target === "cancelled"
+	) {
+		return "; only running or paused campaigns can be cancelled, so delete it instead";
+	}
+	if (target === "draft" && current !== undefined) {
+		return "; only a scheduled campaign can be unscheduled back to draft";
+	}
+	return "";
 }
 
 /**

@@ -50,6 +50,9 @@ import {
 import type * as t from "../../generated/types.gen";
 import type {
 	Campaign,
+	CampaignArchiveBody,
+	CampaignArchiveEcho,
+	CampaignStatusTransition,
 	CampaignTestParams,
 	EnhancedListmonkClient,
 	List,
@@ -251,23 +254,28 @@ export function createCampaignOperations(
 		},
 		async updateStatus(options: {
 			path: { id: number };
-			body: { status: "scheduled" | "running" | "paused" | "cancelled" };
+			body: { status: CampaignStatusTransition };
 		}) {
 			const result = await updateCampaignStatusById({
 				...sdkOptions,
 				...options,
 			});
-			return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			// Listmonk 6.2 echoes the updated campaign, not `true`.
+			return (await transformResponse(result)) as FlattenedResponse<
+				Campaign | boolean
+			>;
 		},
 		async updateArchive(options: {
 			path: { id: number };
-			body: { archive: boolean };
+			body: CampaignArchiveBody;
 		}) {
 			const result = await updateCampaignArchiveById({
 				...sdkOptions,
 				...options,
 			});
-			return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			return (await transformResponse(
+				result,
+			)) as FlattenedResponse<CampaignArchiveEcho | boolean>;
 		},
 		async createContent(options: {
 			path: { id: number };

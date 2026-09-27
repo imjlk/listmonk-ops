@@ -1766,6 +1766,14 @@ const campaignLifecycleContracts: readonly CallPathContract[] = [
 		action: "packages/operations/src/campaigns.ts#pauseCampaign:function",
 	}),
 	...campaignLifecycleContractsFor({
+		verb: "unschedule",
+		cliHandler: "handleUnscheduleCampaignCommand",
+		cliRenderer: "renderUnscheduleCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeUnscheduleCampaignOperation:function",
+		action: "packages/operations/src/campaigns.ts#unscheduleCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
 		verb: "cancel",
 		cliHandler: "handleCancelCampaignCommand",
 		cliRenderer: "renderCancelCampaign",

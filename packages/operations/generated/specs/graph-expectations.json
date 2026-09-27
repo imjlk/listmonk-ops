@@ -2379,6 +2379,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/campaigns.ts#unscheduleCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsUnscheduleOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsUnscheduleOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsUnscheduleOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeUnscheduleCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#unscheduleCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsUnscheduleOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsUnscheduleOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#unscheduleCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeUnscheduleCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#unscheduleCampaignOperation:variable"
+      },
+      "operationId": "campaigns.unschedule"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCloneOperationSpec:function"

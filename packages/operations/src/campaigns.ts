@@ -14,6 +14,7 @@ import {
 	bindCampaignsDeleteOperationSpec,
 	bindCampaignsListOperationSpec,
 	bindCampaignsPauseOperationSpec,
+	bindCampaignsUnscheduleOperationSpec,
 	bindCampaignsStatsOperationSpec,
 	bindCampaignsUpdateOperationSpec,
 } from "./specs";
@@ -288,6 +289,9 @@ type CampaignCreateBody = NonNullable<
 >;
 type CampaignUpdateBody = NonNullable<
 	Parameters<ListmonkClient["campaign"]["update"]>[0]["body"]
+>;
+type CampaignArchiveEcho = NonNullable<
+	Awaited<ReturnType<ListmonkClient["campaign"]["updateArchive"]>>["data"]
 >;
 type CampaignListOptions = Parameters<
 	ListmonkClient["campaign"]["list"]
@@ -642,14 +646,95 @@ export async function createCampaign(
 	return { campaign: asCampaign(result.resource), created: result.created };
 }
 
+function numericEntryIds(
+	entries: readonly unknown[] | undefined,
+): number[] {
+	return (entries ?? []).flatMap((entry) => {
+		const id = (entry as { id?: unknown } | null)?.id;
+		return typeof id === "number" && Number.isSafeInteger(id) && id > 0
+			? [id]
+			: [];
+	});
+}
+
+/**
+ * Read the stored campaign that a partial write must carry forward. Listmonk
+ * has no conditional update, so the read and the following write are not
+ * atomic: a change made by someone else in between is overwritten
+ * (last writer wins), as it is in Listmonk's own editor.
+ */
+async function loadCampaignForWrite(
+	client: Pick<ListmonkClient, "campaign">,
+	id: number,
+	context: string,
+): Promise<z.output<typeof campaignSchema>> {
+	return asCampaign(
+		unwrapResourceResponse(
+			await client.campaign.getById({ path: { id } }),
+			context,
+		),
+	);
+}
+
+/**
+ * Build a `PUT /campaigns/{id}` body that keeps the stored campaign intact.
+ * Listmonk 6.2 pre-fills the stored campaign before binding the request,
+ * but list IDs, media IDs, and attribs are not part of that pre-fill:
+ * omitted `lists` fail with "Invalid list IDs", omitted `media` detach
+ * every attachment, and omitted `attribs` overwrite the stored ones. Carry
+ * the stored values forward unless the caller sets them. When all three
+ * overwrite-sensitive fields are explicit, no pre-read is needed and a
+ * complete payload requires no campaign-read permission. Pass `stored` when
+ * the caller already read the campaign, so the body is built from the same
+ * snapshot its checks validated; a snapshot whose `id` is missing or differs
+ * from `id` is rejected rather than written onto another campaign.
+ */
+export async function buildCampaignUpdateBody(
+	client: Pick<ListmonkClient, "campaign">,
+	id: number,
+	changes: Omit<z.output<typeof updateCampaignInputSchema>, "id">,
+	stored?: z.output<typeof campaignSchema>,
+): Promise<CampaignUpdateBody> {
+	if (stored !== undefined && stored.id !== id) {
+		throw new Error(
+			`Campaign snapshot mismatch: the stored snapshot is for campaign ${stored.id ?? "<missing id>"}, but the update targets campaign ${id}`,
+		);
+	}
+	const needsCurrent =
+		changes.lists === undefined ||
+		changes.media === undefined ||
+		changes.attribs === undefined;
+	const current =
+		stored ??
+		(needsCurrent
+			? await loadCampaignForWrite(
+					client,
+					id,
+					"Failed to load campaign before updating",
+				)
+			: undefined);
+	const lists = changes.lists ?? numericEntryIds(current?.lists);
+	if (lists.length === 0) {
+		throw new Error(
+			`Campaign ${id} has no remaining target lists; pass lists explicitly`,
+		);
+	}
+	return {
+		...changes,
+		lists,
+		media: changes.media ?? numericEntryIds(current?.media),
+		attribs: changes.attribs ?? current?.attribs ?? {},
+	} as CampaignUpdateBody;
+}
+
 export async function updateCampaign(
 	{ client }: CampaignOperationContext,
 	input: z.output<typeof updateCampaignInputSchema>,
 ): Promise<z.output<typeof campaignSchema>> {
-	const { id, ...body } = input;
+	const { id, ...changes } = input;
 	const response = await client.campaign.update({
 		path: { id },
-		body: body as CampaignUpdateBody,
+		body: await buildCampaignUpdateBody(client, id, changes),
 	});
 	return asCampaign(
 		unwrapResourceResponse(response, "Failed to update campaign"),
@@ -751,7 +836,8 @@ export type CampaignLifecycleOutput = z.output<
  * safe retries after timeouts.
  *
  * Returns the campaign's `send_at` so `scheduleCampaign` can detect
- * whether a reschedule is needed without a redundant `getById` call.
+ * whether a reschedule is needed, and the full snapshot so its update body
+ * is built without a redundant `getById` call.
  */
 async function loadCampaignForTransitionForTarget(
 	client: Pick<ListmonkClient, "campaign">,
@@ -762,6 +848,7 @@ async function loadCampaignForTransitionForTarget(
 	status: string;
 	send_at: string | null | undefined;
 	updated_at: string | undefined;
+	campaign: z.output<typeof campaignSchema>;
 }> {
 	const response = await client.campaign.getById({ path: { id } });
 	const campaign = asCampaign(
@@ -777,6 +864,7 @@ async function loadCampaignForTransitionForTarget(
 		status: currentStatus,
 		send_at: campaign.send_at,
 		updated_at: campaign.updated_at,
+		campaign,
 	};
 }
 
@@ -796,7 +884,31 @@ function assertExpectedCampaignRevision(
 	}
 }
 
+/**
+ * Listmonk 6.2 answers `PUT /campaigns/{id}/status` with the updated campaign
+ * rather than `true`, so requiring a boolean acknowledgement reported every
+ * applied transition as a failure. Accept `true` or a campaign echo, but only
+ * when the echoed status is the requested one.
+ */
+export function requireCampaignStatusAcknowledgement(
+	response: Parameters<typeof unwrapResourceResponse>[0],
+	target: CampaignLifecycleTarget,
+	context: string,
+): void {
+	const data = unwrapResourceResponse(response, context) as unknown;
+	if (data === true) return;
+	if (
+		typeof data === "object" &&
+		data !== null &&
+		(data as { status?: unknown }).status === target
+	) {
+		return;
+	}
+	throw new Error(`${context}: Listmonk did not confirm the ${target} status`);
+}
+
 const CAMPAIGN_LIFECYCLE_VERBS: Readonly<Record<CampaignLifecycleTarget, string>> = {
+	draft: "unschedule",
 	scheduled: "schedule",
 	running: "start",
 	paused: "pause",
@@ -831,7 +943,11 @@ async function transitionCampaign(
 		body: { status: target },
 	});
 	const verb = CAMPAIGN_LIFECYCLE_VERBS[target] ?? target;
-	requireAcknowledgement(response, `Failed to ${verb} campaign ${input.id}`);
+	requireCampaignStatusAcknowledgement(
+		response,
+		target,
+		`Failed to ${verb} campaign ${input.id}`,
+	);
 	return { id: input.id, status: target };
 }
 
@@ -874,7 +990,12 @@ export async function scheduleCampaign(
 	// non-scheduled status (e.g. draft).
 	const updateResponse = await ctx.client.campaign.update({
 		path: { id: input.id },
-		body: { send_at: input.send_at } as CampaignUpdateBody,
+		body: await buildCampaignUpdateBody(
+			ctx.client,
+			input.id,
+			{ send_at: input.send_at },
+			loaded.campaign,
+		),
 	});
 	asCampaign(
 		unwrapResourceResponse(updateResponse, "Failed to set campaign send_at"),
@@ -889,8 +1010,9 @@ export async function scheduleCampaign(
 			path: { id: input.id },
 			body: { status: "scheduled" },
 		});
-		requireAcknowledgement(
+		requireCampaignStatusAcknowledgement(
 			statusResponse,
+			"scheduled",
 			`Failed to schedule campaign ${input.id}`,
 		);
 	} catch (error) {
@@ -937,6 +1059,19 @@ export async function pauseCampaign(
 	input: z.output<typeof campaignLifecycleInputSchema>,
 ): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
 	return transitionCampaign(ctx, input, "paused");
+}
+
+/**
+ * Return a scheduled campaign to `draft` so it no longer sends at its
+ * `send_at` (Listmonk only accepts `draft` from `scheduled`). An already
+ * draft campaign is an idempotent no-op; a draft can then be edited,
+ * rescheduled, or started immediately.
+ */
+export async function unscheduleCampaign(
+	ctx: CampaignOperationContext,
+	input: z.output<typeof campaignLifecycleInputSchema>,
+): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
+	return transitionCampaign(ctx, input, "draft");
 }
 
 /**
@@ -1146,6 +1281,27 @@ interface CloneIssueOutcome {
 }
 
 /**
+ * Derive a fresh archive slug for a clone of an archived campaign. Like
+ * Listmonk's own clone action it slugifies the name, but the suffix adds a
+ * base-36 timestamp and random characters so concurrent clones of the same
+ * campaign are vanishingly unlikely to collide on the UNIQUE slug, and a name
+ * without ASCII letters or digits still yields a readable slug.
+ */
+export function cloneArchiveSlug(
+	name: string,
+	now: number = Date.now(),
+	random: () => number = Math.random,
+): string {
+	const base =
+		name
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "-")
+			.replace(/^-+|-+$/g, "") || "campaign";
+	const suffix = random().toString(36).slice(2, 6).padEnd(4, "0");
+	return `${base}-${now.toString(36)}${suffix}`;
+}
+
+/**
  * Build the create body for a clone from its source campaign. Shared by
  * the keyed and unkeyed paths; throws on load/parse failures.
  */
@@ -1153,14 +1309,10 @@ async function buildCloneCreateBody(
 	client: Pick<ListmonkClient, "campaign">,
 	input: { id: number; name: string },
 ): Promise<CampaignCreateBody> {
-	const sourceResponse = await client.campaign.getById({
-		path: { id: input.id },
-	});
-	const source = asCampaign(
-		unwrapResourceResponse(
-			sourceResponse,
-			`Failed to load campaign ${input.id} for clone`,
-		),
+	const source = await loadCampaignForWrite(
+		client,
+		input.id,
+		`Failed to load campaign ${input.id} for clone`,
 	);
 	const sourceLists = (source.lists ?? []).map((entry, index) => {
 		const listId = (entry as { id?: unknown }).id;
@@ -1196,7 +1348,10 @@ async function buildCloneCreateBody(
 		headers: source.headers,
 		attribs: source.attribs,
 		archive: source.archive,
-		archive_slug: source.archive_slug ?? undefined,
+		// archive_slug is UNIQUE, so copying it makes every clone of an
+		// archived campaign fail. Derive a fresh slug the way Listmonk's own
+		// clone action does.
+		archive_slug: source.archive ? cloneArchiveSlug(input.name) : undefined,
 		archive_template_id: source.archive_template_id ?? undefined,
 		archive_meta: source.archive_meta,
 		media: sourceMediaIds,
@@ -1457,6 +1612,22 @@ export const pauseCampaignOperation = defineOperation({
 	execute: pauseCampaign,
 });
 
+export const unscheduleCampaignOperation = defineOperation({
+	id: "campaigns.unschedule",
+	title: "Unschedule campaign",
+	description:
+		"Return a scheduled campaign to draft so it no longer sends at its send_at. Validates the current status allows the transition; an already draft campaign is a no-op.",
+	inputSchema: campaignLifecycleInputSchema,
+	outputSchema: campaignLifecycleOutputSchema,
+	safety: updateResourceSafety,
+	mcp: {
+		name: "listmonk_unschedule_campaign",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindCampaignsUnscheduleOperationSpec(),
+	execute: unscheduleCampaign,
+});
+
 export const cancelCampaignOperation = defineOperation({
 	id: "campaigns.cancel",
 	title: "Cancel campaign",
@@ -1673,6 +1844,30 @@ export async function invokePauseCampaignOperation(
 	);
 }
 
+export async function invokeUnscheduleCampaignOperation(
+	context: CampaignOperationContext,
+	input: unknown,
+): Promise<CampaignLifecycleOutput> {
+	const parsedInput = parseOperationInput(
+		unscheduleCampaignOperation.inputSchema,
+		input,
+	);
+	let output: CampaignLifecycleOutput;
+	try {
+		output = await unscheduleCampaign(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			unscheduleCampaignOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		unscheduleCampaignOperation.id,
+		unscheduleCampaignOperation.outputSchema,
+		output,
+	);
+}
+
 export async function invokeCancelCampaignOperation(
 	context: CampaignOperationContext,
 	input: unknown,
@@ -1804,6 +1999,20 @@ export async function invokeGetCampaignStatsOperation(
 
 const campaignArchiveInputSchema = campaignIdInputSchema.extend({
 	archive: z.boolean(),
+	archive_slug: z
+		.string()
+		.optional()
+		.describe("Archive slug; provide with the other archive fields to skip the pre-read."),
+	archive_template_id: z
+		.number()
+		.int()
+		.nonnegative()
+		.optional()
+		.describe("Archive template ID; use 0 to clear it."),
+	archive_meta: z
+		.record(z.string(), z.unknown())
+		.optional()
+		.describe("Archive metadata JSON; provide with the other archive fields to skip the pre-read."),
 });
 
 const campaignArchiveOutputSchema = z.looseObject({
@@ -1814,31 +2023,58 @@ const campaignArchiveOutputSchema = z.looseObject({
 });
 
 /**
- * Toggle the campaign's public archive page. The observed 6.2 endpoint
- * echoes the archive metadata rather than a bare boolean; the shared
- * contract reports the server-echoed archive flag when present and
- * falls back to the requested value for a bare acknowledgement. A
+ * Toggle the campaign's public archive page. Archive settings supplied by
+ * the caller override the stored values. Providing all three settings avoids
+ * the pre-read, which supports credentials without campaigns:get permission.
+ * Listmonk 6.2 echoes the applied settings rather than a bare boolean; a
  * negative acknowledgement fails closed.
  */
 export async function archiveCampaign(
 	{ client }: CampaignOperationContext,
 	input: z.output<typeof campaignArchiveInputSchema>,
 ): Promise<z.output<typeof campaignArchiveOutputSchema>> {
+	// Listmonk 6.2 rewrites archive_slug (an empty slug becomes NULL) and
+	// archive_meta (an absent map is stored as JSON null) on every toggle,
+	// so either resend the stored values or accept complete caller-provided
+	// settings to keep public archive links and placeholder data intact.
+	const hasCompleteArchiveSettings =
+		typeof input.archive_slug === "string" &&
+		typeof input.archive_template_id === "number" &&
+		input.archive_meta !== undefined;
+	const current = hasCompleteArchiveSettings
+		? undefined
+		: await loadCampaignForWrite(
+				client,
+				input.id,
+				"Failed to load campaign before toggling its archive",
+			);
+	const archiveMeta = input.archive_meta ?? current?.archive_meta;
 	const response = await client.campaign.updateArchive({
 		path: { id: input.id },
-		body: { archive: input.archive },
+		body: {
+			archive: input.archive,
+			archive_slug:
+				input.archive_slug ??
+				(typeof current?.archive_slug === "string" ? current.archive_slug : ""),
+			archive_template_id:
+				input.archive_template_id ??
+				(typeof current?.archive_template_id === "number"
+					? current.archive_template_id
+					: 0),
+			archive_meta:
+				typeof archiveMeta === "object" &&
+				archiveMeta !== null &&
+				!Array.isArray(archiveMeta)
+					? (archiveMeta as Record<string, unknown>)
+					: {},
+		},
 	});
+	// Listmonk 6.2 echoes the applied settings; an older bare boolean is
+	// still tolerated so a negative acknowledgement fails closed.
 	const metadata = unwrapResourceResponse(
 		response,
 		"Failed to toggle campaign archive",
-	) as unknown as
-		| boolean
-		| {
-				archive?: unknown;
-				archive_template_id?: unknown;
-				archive_slug?: unknown;
-		  }
-		| undefined;
+	) as CampaignArchiveEcho | boolean | undefined;
 	if (metadata === false) {
 		throw new Error(
 			"Failed to toggle campaign archive: Listmonk returned a negative acknowledgement",
@@ -1863,7 +2099,7 @@ export const archiveCampaignOperation = defineOperation({
 	id: "campaigns.archive",
 	title: "Toggle the campaign archive page",
 	description:
-		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.",
+		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op. Supplying all three archive settings (slug, template ID, and metadata) together skips the pre-read of the campaign.",
 	inputSchema: campaignArchiveInputSchema,
 	outputSchema: campaignArchiveOutputSchema,
 	safety: updateResourceSafety,
@@ -1961,6 +2197,7 @@ export const campaignOperations = [
 	scheduleCampaignOperation,
 	startCampaignOperation,
 	pauseCampaignOperation,
+	unscheduleCampaignOperation,
 	cancelCampaignOperation,
 	cloneCampaignOperation,
 	getCampaignStatsOperation,
@@ -2039,6 +2276,11 @@ export async function invokeCampaignOperationByMcpName(
 			return {
 				operation: pauseCampaignOperation,
 				output: await invokePauseCampaignOperation(context, input),
+			};
+		case unscheduleCampaignOperation.mcp.name:
+			return {
+				operation: unscheduleCampaignOperation,
+				output: await invokeUnscheduleCampaignOperation(context, input),
 			};
 		case cancelCampaignOperation.mcp.name:
 			return {

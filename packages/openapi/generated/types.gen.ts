@@ -957,7 +957,7 @@ export type Campaign = {
     archive_template_id?: number | null;
     archive_meta?: {
         [key: string]: unknown;
-    };
+    } | null;
     media?: Array<MediaFileObject>;
 };
 
@@ -2478,7 +2478,7 @@ export type UpdateCampaignStatusByIdData = {
      * campaign status update
      */
     body?: {
-        status?: 'scheduled' | 'running' | 'paused' | 'cancelled';
+        status?: 'draft' | 'scheduled' | 'running' | 'paused' | 'cancelled';
     };
     path: {
         /**
@@ -2508,6 +2508,7 @@ export type UpdateCampaignArchiveByIdData = {
     body?: {
         archive?: boolean;
         archive_template_id?: number;
+        archive_slug?: string;
         archive_meta?: {
             [key: string]: unknown;
         };
@@ -2527,7 +2528,17 @@ export type UpdateCampaignArchiveByIdResponses = {
      * response
      */
     200: {
-        data?: boolean;
+        /**
+         * The applied archive settings, echoed back with the slug normalized.
+         */
+        data?: {
+            archive?: boolean;
+            archive_template_id?: number | null;
+            archive_meta?: {
+                [key: string]: unknown;
+            } | null;
+            archive_slug?: string | null;
+        };
     };
 };
 

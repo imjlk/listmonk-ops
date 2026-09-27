@@ -62,7 +62,7 @@ Retry guidance: On timeout, inspect campaigns.get before repeating the confirmed
 
 Contract maturity: `stable`; effects: `write:campaign`; confirmation: `required`; retry: `reconcile`.
 
-Use when: An actively sending campaign must be stopped permanently.
+Use when: A running or paused campaign must be stopped permanently while keeping its history.
 
 Avoid when: A temporary pause is sufficient. The campaign is scheduled but has not started; Listmonk only cancels active campaigns.
 
@@ -1227,6 +1227,20 @@ Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; r
 Use when: A running campaign must be paused.
 
 Avoid when: The campaign is already paused or in a terminal status.
+
+Prerequisites: `campaigns.get`
+
+Verify with: `campaigns.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with campaigns.get.
+
+## Unschedule campaign (`campaigns.unschedule`)
+
+Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
+
+Use when: A scheduled campaign must not send at its send_at. A scheduled campaign must start now instead (unschedule, then campaigns.start).
+
+Avoid when: The campaign is running, paused, or in a terminal status.
 
 Prerequisites: `campaigns.get`
 

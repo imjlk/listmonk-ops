@@ -61,7 +61,7 @@ export const campaignStartOperationSpec = defineOperationSpec({
 	},
 	state: {
 		resource: "campaign",
-		from: ["draft", "scheduled", "paused"],
+		from: ["draft", "paused"],
 		to: "running",
 		allowNoopFromTarget: true,
 	},
@@ -129,12 +129,14 @@ export const campaignCancelOperationSpec = defineOperationSpec({
 	},
 	state: {
 		resource: "campaign",
-		from: ["running"],
+		from: ["running", "paused"],
 		to: "cancelled",
 		allowNoopFromTarget: true,
 	},
 	agent: {
-		useWhen: ["An actively sending campaign must be stopped permanently."],
+		useWhen: [
+			"A running or paused campaign must be stopped permanently while keeping its history.",
+		],
 		avoidWhen: [
 			"A temporary pause is sufficient.",
 			"The campaign is scheduled but has not started; Listmonk only cancels active campaigns.",

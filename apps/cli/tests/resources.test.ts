@@ -7,9 +7,11 @@ import {
 	renderCloneCampaign,
 	renderGetCampaignStats,
 	renderPauseCampaign,
+	renderUnscheduleCampaign,
 	renderScheduleCampaign,
 	renderStartCampaign,
 	renderCampaigns,
+	renderUpdateCampaign,
 	type CampaignsCliContext,
 } from "../src/commands/campaigns";
 import {
@@ -64,6 +66,29 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		expect(cliContext.output.table).toHaveBeenCalledWith([
 			{ id: 3, name: "Newsletter" },
 		]);
+	});
+
+	test("passes an explicitly empty media set without requiring a campaign read", async () => {
+		const update = mock(async () => ({ data: { id: 9 } }));
+		const cliContext = {
+			client: { campaign: { update } } as unknown as Pick<
+				ListmonkClient,
+				"campaign"
+			>,
+			output: output(),
+		} satisfies CampaignsCliContext;
+
+		await renderUpdateCampaign(cliContext, {
+			id: 9,
+			lists: [1],
+			media: [],
+			attribs: {},
+		});
+
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 9 },
+			body: { lists: [1], media: [], attribs: {} },
+		});
 	});
 
 	test("renders campaign previews and test sends through the shared operations", async () => {
@@ -338,6 +363,15 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			"Campaign 10 scheduled for 2026-08-01T09:00:00Z",
 		);
 
+		// Listmonk's scheduler starts a scheduled campaign itself; unschedule
+		// it back to draft to start it now.
+		await renderUnscheduleCampaign(cliContext, {
+			id: 10,
+			expected_updated_at: "2026-07-30T09:00:00Z",
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Campaign 10 unscheduled (draft)",
+		);
 		await renderStartCampaign(cliContext, {
 			id: 10,
 			expected_updated_at: "2026-07-30T09:00:00Z",
@@ -346,8 +380,7 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			"Campaign 10 started",
 		);
 
-		// Listmonk 6.2.0 only accepts cancel from `running`, so cancel must
-		// run while the campaign is still running (before any pause).
+		// Listmonk 6.2.0 cancels running or paused campaigns.
 		await renderCancelCampaign(cliContext, {
 			id: 10,
 			expected_updated_at: "2026-07-30T09:00:00Z",

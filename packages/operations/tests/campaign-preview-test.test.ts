@@ -215,9 +215,78 @@ describe("campaign analytics operation", () => {
 
 describe("campaign archive operation", () => {
 	test("toggles the archive page and echoes the state", async () => {
-		const updateArchive = mock(async () => ({
-			data: { archive: true, archive_template_id: 0, archive_slug: "" },
+		const getById = mock(async () => ({
+			data: {
+				id: 1,
+				archive: false,
+				archive_slug: "spring-sale",
+				archive_template_id: 4,
+				archive_meta: { name: "Reader" },
+			},
 		}));
+		const updateArchive = mock(async () => ({
+			data: {
+				archive: true,
+				archive_template_id: 4,
+				archive_slug: "spring-sale",
+			},
+		}));
+
+		await expect(
+			invokeArchiveCampaignOperation(
+				campaignContext({
+					getById: getById as unknown as CampaignClient["campaign"]["getById"],
+					updateArchive:
+						updateArchive as unknown as CampaignClient["campaign"]["updateArchive"],
+				}),
+				{ id: 1, archive: true },
+			),
+		).resolves.toMatchObject({
+			id: 1,
+			archive: true,
+			archive_slug: "spring-sale",
+		});
+		// Listmonk rewrites the slug and meta on every toggle, so the stored
+		// values are resent to keep public archive links working.
+		expect(updateArchive).toHaveBeenCalledWith({
+			path: { id: 1 },
+			body: {
+				archive: true,
+				archive_slug: "spring-sale",
+				archive_template_id: 4,
+				archive_meta: { name: "Reader" },
+			},
+		});
+	});
+
+	test("resends empty archive fields for a campaign that never had them", async () => {
+		const getById = mock(async () => ({
+			data: { id: 2, archive: false, archive_slug: null, archive_meta: null },
+		}));
+		const updateArchive = mock(async () => ({ data: true }));
+
+		await invokeArchiveCampaignOperation(
+			campaignContext({
+				getById: getById as unknown as CampaignClient["campaign"]["getById"],
+				updateArchive:
+					updateArchive as unknown as CampaignClient["campaign"]["updateArchive"],
+			}),
+			{ id: 2, archive: false },
+		);
+
+		expect(updateArchive).toHaveBeenCalledWith({
+			path: { id: 2 },
+			body: {
+				archive: false,
+				archive_slug: "",
+				archive_template_id: 0,
+				archive_meta: {},
+			},
+		});
+	});
+
+	test("uses explicit archive settings without requiring a campaign read", async () => {
+		const updateArchive = mock(async () => ({ data: true }));
 
 		await expect(
 			invokeArchiveCampaignOperation(
@@ -225,12 +294,54 @@ describe("campaign archive operation", () => {
 					updateArchive:
 						updateArchive as unknown as CampaignClient["campaign"]["updateArchive"],
 				}),
-				{ id: 1, archive: true },
+				{
+					id: 4,
+					archive: true,
+					archive_slug: "spring-sale",
+					archive_template_id: 7,
+					archive_meta: { heading: "Spring sale" },
+				},
 			),
-		).resolves.toMatchObject({ id: 1, archive: true });
+		).resolves.toMatchObject({ id: 4, archive: true });
 		expect(updateArchive).toHaveBeenCalledWith({
-			path: { id: 1 },
-			body: { archive: true },
+			path: { id: 4 },
+			body: {
+				archive: true,
+				archive_slug: "spring-sale",
+				archive_template_id: 7,
+				archive_meta: { heading: "Spring sale" },
+			},
 		});
+	});
+
+	test("accepts null fields in Listmonk's normalized archive echo", async () => {
+		const getById = mock(async () => ({
+			data: {
+				id: 3,
+				archive: false,
+				archive_slug: null,
+				archive_template_id: null,
+				archive_meta: null,
+			},
+		}));
+		const updateArchive = mock(async () => ({
+			data: {
+				archive: true,
+				archive_slug: null,
+				archive_template_id: null,
+				archive_meta: null,
+			},
+		}));
+
+		await expect(
+			invokeArchiveCampaignOperation(
+				campaignContext({
+					getById: getById as unknown as CampaignClient["campaign"]["getById"],
+					updateArchive:
+						updateArchive as unknown as CampaignClient["campaign"]["updateArchive"],
+				}),
+				{ id: 3, archive: true },
+			),
+		).resolves.toEqual({ id: 3, archive: true });
 	});
 });

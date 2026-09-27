@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	buildCampaignUpdateBody,
 	campaignOperations,
 	createCampaignOperation,
 	getCampaignOperationByMcpName,
@@ -22,6 +23,7 @@ import {
 	invokeCreateTemplateOperation,
 	invokeGetTemplatesOperation,
 	invokePauseCampaignOperation,
+	invokeUnscheduleCampaignOperation,
 	invokeReconcileTemplateManifestOperation,
 	invokeReconcileUserRoleManifestOperation,
 	invokeRemoveSubscribersFromListsOperation,
@@ -488,7 +490,7 @@ describe("shared CRUD resource operations", () => {
 	});
 
 	test("exposes object-root registries with safety metadata", () => {
-		expect(campaignOperations).toHaveLength(15);
+		expect(campaignOperations).toHaveLength(16);
 		expect(subscriberOperations).toHaveLength(15);
 		expect(templateOperations).toHaveLength(8);
 		expect(mediaOperations).toHaveLength(4);
@@ -952,13 +954,127 @@ describe("shared CRUD resource operations", () => {
 		).resolves.toBeUndefined();
 	});
 
+	test("carries stored lists, media, and attribs into partial campaign updates", async () => {
+		const getById = mock(async () => ({
+			data: {
+				id: 12,
+				name: "Draft",
+				status: "draft",
+				lists: [{ id: 3, name: "Newsletter" }, { id: null, name: "Deleted" }],
+				media: [{ id: 9, filename: "banner.png" }],
+				attribs: { owner: "ops" },
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const update = mock(async () => ({
+			data: { id: 12, name: "Renamed", status: "draft" },
+		})) as unknown as CampaignClient["campaign"]["update"];
+
+		await invokeUpdateCampaignOperation(
+			campaignContext({ getById, update }),
+			{ id: 12, name: "Renamed" },
+		);
+		// Listmonk 6.2 rejects a PUT without lists ("Invalid list IDs"),
+		// detaches media that are not resent, and overwrites attribs.
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 12 },
+			body: {
+				name: "Renamed",
+				lists: [3],
+				media: [9],
+				attribs: { owner: "ops" },
+			},
+		});
+
+		await invokeUpdateCampaignOperation(
+			campaignContext({ getById, update }),
+			{ id: 12, lists: [4], media: [], attribs: {} },
+		);
+		expect(update).toHaveBeenLastCalledWith({
+			path: { id: 12 },
+			body: { lists: [4], media: [], attribs: {} },
+		});
+
+		const orphaned = mock(async () => ({
+			data: { id: 13, status: "draft", lists: [{ id: null }] },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		await expect(
+			invokeUpdateCampaignOperation(
+				campaignContext({ getById: orphaned, update }),
+				{ id: 13, name: "No lists" },
+			),
+		).rejects.toThrow("has no remaining target lists");
+		expect(update).toHaveBeenCalledTimes(2);
+	});
+
+	test("does not read a campaign when its preservation fields are explicit", async () => {
+		const update = mock(async () => ({
+			data: { id: 15, name: "Explicit", status: "draft" },
+		})) as unknown as CampaignClient["campaign"]["update"];
+
+		await expect(
+			invokeUpdateCampaignOperation(campaignContext({ update }), {
+				id: 15,
+				name: "Explicit",
+				lists: [3],
+				media: [],
+				attribs: { owner: "ops" },
+			}),
+		).resolves.toMatchObject({ id: 15, name: "Explicit" });
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 15 },
+			body: {
+				name: "Explicit",
+				lists: [3],
+				media: [],
+				attribs: { owner: "ops" },
+			},
+		});
+	});
+
+	test("accepts Listmonk 6.2 campaign echoes as status acknowledgements", async () => {
+		const getById = mock(async () => ({
+			data: { id: 14, status: "running", lists: [{ id: 3 }] },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		// Listmonk 6.2 returns the updated campaign from PUT /campaigns/{id}/status.
+		const updateStatus = mock(async () => ({
+			data: { id: 14, status: "paused" },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		await expect(
+			invokePauseCampaignOperation(
+				campaignContext({ getById, updateStatus }),
+				{ id: 14 },
+			),
+		).resolves.toEqual({ id: 14, status: "paused" });
+
+		const mismatched = mock(async () => ({
+			data: { id: 14, status: "running" },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		await expect(
+			invokePauseCampaignOperation(
+				campaignContext({ getById, updateStatus: mismatched }),
+				{ id: 14 },
+			),
+		).rejects.toThrow("Listmonk did not confirm the paused status");
+
+		const rejected = mock(async () => ({
+			data: false,
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		await expect(
+			invokePauseCampaignOperation(
+				campaignContext({ getById, updateStatus: rejected }),
+				{ id: 14 },
+			),
+		).rejects.toThrow("Listmonk did not confirm the paused status");
+	});
+
 	test("validates campaign lifecycle state transitions before updating status", async () => {
 		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
 		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
 
 		// schedule: draft -> scheduled allowed when send_at is provided
 		const getById = mock(async () => ({
-			data: { id: 10, name: "Draft", status: "draft" },
+			data: { id: 10, name: "Draft", status: "draft", lists: [{ id: 3 }] },
 		})) as unknown as CampaignClient["campaign"]["getById"];
 		const scheduleResult = await invokeScheduleCampaignOperation(
 			campaignContext({
@@ -974,17 +1090,120 @@ describe("shared CRUD resource operations", () => {
 			body: { status: "scheduled" },
 		});
 
-		// start: scheduled -> running allowed
+		// start: paused -> running allowed
 		const startResult = await invokeStartCampaignOperation(
 			campaignContext({
 				getById: mock(async () => ({
-					data: { id: 10, status: "scheduled" },
+					data: { id: 10, status: "paused" },
 				})) as unknown as CampaignClient["campaign"]["getById"],
 				updateStatus: mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"],
 			}),
 			{ id: 10 },
 		);
 		expect(startResult).toEqual({ id: 10, status: "running" });
+	});
+
+	test("unschedules a scheduled campaign back to draft", async () => {
+		const statusOf = (status: string) =>
+			mock(async () => ({
+				data: { id: 12, status },
+			})) as unknown as CampaignClient["campaign"]["getById"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({ getById: statusOf("scheduled"), updateStatus }),
+				{ id: 12 },
+			),
+		).resolves.toEqual({ id: 12, status: "draft" });
+		expect(updateStatus).toHaveBeenCalledWith({
+			path: { id: 12 },
+			body: { status: "draft" },
+		});
+
+		// Already draft: an idempotent no-op without a status write.
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({ getById: statusOf("draft"), updateStatus }),
+				{ id: 12 },
+			),
+		).resolves.toEqual({ id: 12, status: "draft" });
+		// Listmonk only returns scheduled campaigns to draft.
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({ getById: statusOf("running"), updateStatus }),
+				{ id: 12 },
+			),
+		).rejects.toThrow(
+			/running -> draft is not a valid lifecycle transition; only a scheduled campaign can be unscheduled back to draft/,
+		);
+		expect(updateStatus).toHaveBeenCalledTimes(1);
+
+		// Listmonk 6.2 answers the status write with the updated campaign,
+		// not `true`; an echo in the requested status acknowledges it.
+		const campaignEcho = mock(async () => ({
+			data: { id: 12, status: "draft", send_at: null, lists: [{ id: 3 }] },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({
+					getById: statusOf("scheduled"),
+					updateStatus: campaignEcho,
+				}),
+				{ id: 12 },
+			),
+		).resolves.toEqual({ id: 12, status: "draft" });
+		// An echo in any other status is not a confirmation.
+		const staleEcho = mock(async () => ({
+			data: { id: 12, status: "scheduled" },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		await expect(
+			invokeUnscheduleCampaignOperation(
+				campaignContext({
+					getById: statusOf("scheduled"),
+					updateStatus: staleEcho,
+				}),
+				{ id: 12 },
+			),
+		).rejects.toThrow(
+			"Failed to unschedule campaign 12: Listmonk did not confirm the draft status",
+		);
+	});
+
+	test("follows Listmonk 6.2 campaign status rules", async () => {
+		const statusOf = (status: string) =>
+			mock(async () => ({
+				data: { id: 10, status, lists: [{ id: 3 }] },
+			})) as unknown as CampaignClient["campaign"]["getById"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		// A campaign paused by the deliverability guard can be cancelled.
+		await expect(
+			invokeCancelCampaignOperation(
+				campaignContext({ getById: statusOf("paused"), updateStatus }),
+				{ id: 10 },
+			),
+		).resolves.toEqual({ id: 10, status: "cancelled" });
+
+		// Listmonk starts a scheduled campaign itself; an early start needs an
+		// unschedule first, so the local check rejects it before the API call.
+		const calls = (updateStatus as unknown as ReturnType<typeof mock>).mock
+			.calls.length;
+		await expect(
+			invokeStartCampaignOperation(
+				campaignContext({ getById: statusOf("scheduled"), updateStatus }),
+				{ id: 10 },
+			),
+		).rejects.toThrow(/unschedule it \(campaigns unschedule\)/);
+		await expect(
+			invokeCancelCampaignOperation(
+				campaignContext({ getById: statusOf("draft"), updateStatus }),
+				{ id: 10 },
+			),
+		).rejects.toThrow(/delete it instead/);
+		expect(
+			(updateStatus as unknown as ReturnType<typeof mock>).mock.calls.length,
+		).toBe(calls);
 	});
 
 	test("rejects invalid campaign lifecycle transitions", async () => {
@@ -1051,7 +1270,7 @@ describe("shared CRUD resource operations", () => {
 		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
 		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
 		const getById = mock(async () => ({
-			data: { id: 10, status: "draft" },
+			data: { id: 10, status: "draft", lists: [{ id: 3 }] },
 		})) as unknown as CampaignClient["campaign"]["getById"];
 
 		for (const ts of [
@@ -1077,6 +1296,58 @@ describe("shared CRUD resource operations", () => {
 				),
 			).resolves.toEqual({ id: 10, status: "scheduled" });
 		}
+	});
+
+	test("builds the schedule body from the snapshot its checks read", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({
+			data: { id: 10, status: "scheduled" },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: {
+				id: 10,
+				status: "draft",
+				lists: [{ id: 3 }],
+				media: [{ id: 9 }],
+				attribs: { owner: "ops" },
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		await expect(
+			invokeScheduleCampaignOperation(
+				campaignContext({ getById, update, updateStatus }),
+				{ id: 10, send_at: "2026-08-01T09:00:00Z" },
+			),
+		).resolves.toEqual({ id: 10, status: "scheduled" });
+		// One read serves both the transition check and the carried-forward body.
+		expect(getById).toHaveBeenCalledTimes(1);
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 10 },
+			body: {
+				send_at: "2026-08-01T09:00:00Z",
+				lists: [3],
+				media: [9],
+				attribs: { owner: "ops" },
+			},
+		});
+
+		// A snapshot of another campaign is refused rather than written.
+		await expect(
+			buildCampaignUpdateBody(
+				campaignContext({ getById, update, updateStatus }).client,
+				11,
+				{ send_at: "2026-08-01T09:00:00Z" },
+				{ id: 10, lists: [{ id: 3 }] } as never,
+			),
+		).rejects.toThrow("Campaign snapshot mismatch");
+		await expect(
+			buildCampaignUpdateBody(
+				campaignContext({ getById, update, updateStatus }).client,
+				10,
+				{ send_at: "2026-08-01T09:00:00Z" },
+				{ lists: [{ id: 3 }] } as never,
+			),
+		).rejects.toThrow("<missing id>");
 	});
 
 	test("scheduling an already-scheduled campaign with the same send_at is a no-op", async () => {
@@ -1125,7 +1396,14 @@ describe("shared CRUD resource operations", () => {
 		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
 		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
 		const getById = mock(async () => ({
-			data: { id: 10, status: "scheduled", send_at: "2026-08-01T09:00:00Z" },
+			data: {
+				id: 10,
+				status: "scheduled",
+				send_at: "2026-08-01T09:00:00Z",
+				lists: [{ id: 3, name: "Newsletter" }],
+				media: [{ id: 9, filename: "banner.png" }],
+				attribs: { owner: "ops" },
+			},
 		})) as unknown as CampaignClient["campaign"]["getById"];
 
 		const result = await invokeScheduleCampaignOperation(
@@ -1134,9 +1412,16 @@ describe("shared CRUD resource operations", () => {
 		);
 		expect(result).toEqual({ id: 10, status: "scheduled" });
 		expect(update).toHaveBeenCalledTimes(1);
+		// Listmonk 6.2 does not pre-fill list IDs, media, or attribs on PUT,
+		// so the stored values are carried into the send_at update.
 		expect(update).toHaveBeenCalledWith({
 			path: { id: 10 },
-			body: { send_at: "2026-09-01T10:00:00Z" },
+			body: {
+				send_at: "2026-09-01T10:00:00Z",
+				lists: [3],
+				media: [9],
+				attribs: { owner: "ops" },
+			},
 		});
 		expect(updateStatus).not.toHaveBeenCalled();
 	});
@@ -1145,7 +1430,7 @@ describe("shared CRUD resource operations", () => {
 		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
 		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
 		const getById = mock(async () => ({
-			data: { id: 10, status: "draft", send_at: null },
+			data: { id: 10, status: "draft", send_at: null, lists: [{ id: 3 }] },
 		})) as unknown as CampaignClient["campaign"]["getById"];
 
 		const result = await invokeScheduleCampaignOperation(

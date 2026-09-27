@@ -1584,7 +1584,7 @@ paths:
               properties:
                 status:
                   type: string
-                  enum: [scheduled, running, paused, cancelled]
+                  enum: [draft, scheduled, running, paused, cancelled]
       responses:
         "200":
           description: response
@@ -1620,6 +1620,8 @@ paths:
                   type: boolean
                 archive_template_id:
                   type: integer
+                archive_slug:
+                  type: string
                 archive_meta:
                   type: object
       responses:
@@ -1631,7 +1633,20 @@ paths:
                 type: object
                 properties:
                   data:
-                    type: boolean
+                    type: object
+                    description: The applied archive settings, echoed back with the slug normalized.
+                    properties:
+                      archive:
+                        type: boolean
+                      archive_template_id:
+                        type: integer
+                        nullable: true
+                      archive_meta:
+                        type: object
+                        nullable: true
+                      archive_slug:
+                        type: string
+                        nullable: true
 
   "/campaigns/{id}/content":
     post:
@@ -4010,6 +4025,7 @@ components:
           nullable: true
         archive_meta:
           type: object
+          nullable: true
           additionalProperties: true
         media:
           type: array

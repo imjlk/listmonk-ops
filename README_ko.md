@@ -521,6 +521,19 @@ source <(listmonk-cli complete zsh)
 ## 구독자 리스트
 
 CLI는 MCP 서버와 동일한 타입드 구독자 리스트 Operation을 제공합니다.
+부분 수정은 바꾸지 않은 값을 유지합니다. `lists update`는 저장된 이름과 태그를
+그대로 전달하고(Listmonk 6.2는 이름을 요구하며 태그를 항상 덮어씁니다),
+`campaigns update`/`campaigns schedule`은 Listmonk 캠페인 `PUT`이 미리 채우지
+않는 대상 리스트, 미디어 첨부, 속성을 저장된 값으로 다시 보냅니다(리스트가
+없으면 거부되고 보내지 않은 미디어는 분리됩니다). `campaigns update --media ""`로
+첨부를 모두 지울 수 있으며, `campaigns:get` 권한이 없는 호출자는 `--lists`와
+`--attribs`도 명시해 사전 조회 없이 전체 수정 값을 전달할 수 있습니다.
+`campaigns archive`는 저장된
+archive slug, 템플릿, 메타데이터를 다시 보내 보관 페이지를 토글해도 공개 링크가
+유지됩니다. `campaigns:get` 권한이 없고 `campaigns:manage`만 있다면 세 값을 직접
+전달해 사전 조회를 생략할 수 있습니다. `campaigns clone`은 slug가 고유하므로 보관된 원본을 복제할 때
+Listmonk 자체 복제 기능과 같은 방식으로 새 archive slug를 만듭니다. 상태 전이는
+Listmonk 6.2가 돌려주는 갱신된 캠페인 객체를 확인 응답으로 인정합니다.
 
 ```bash
 listmonk-cli lists list --page 1 --per-page 20
@@ -551,6 +564,7 @@ listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
 listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z \
   --expected-updated-at <preflight의-campaignUpdatedAt> --confirm
+listmonk-cli campaigns unschedule --id 42
 listmonk-cli campaigns start --id 42 --expected-updated-at <updated_at> --confirm
 listmonk-cli campaigns pause --id 42 --expected-updated-at <updated_at>
 listmonk-cli campaigns cancel --id 42 --expected-updated-at <updated_at> --confirm
@@ -562,6 +576,9 @@ listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
 listmonk-cli campaigns analytics --type views --from 2026-08-01 \
   --to 2026-08-31 --campaign-ids 42,43
 listmonk-cli campaigns archive --id 42 --archive=true
+# campaigns:manage 권한만 있다면 읽기를 생략하도록 아카이브 값을 모두 전달합니다.
+listmonk-cli campaigns archive --id 42 --archive=true --archive-slug spring-sale \
+  --archive-template-id 4 --archive-meta '{"title":"Spring sale"}'
 
 listmonk-cli dashboard counts
 listmonk-cli dashboard charts
@@ -629,10 +646,12 @@ listmonk-cli bounces prune --per-page 100 --confirm
 listmonk-cli bounces prune --no-dry-run --bounce-ids 5,6,7 --confirm
 ```
 
-캠페인 상태 전이는 관찰된 상태 머신에 따라 클라이언트에서 검증합니다
-(`draft → scheduled/running`, `scheduled → running`,
-`running → paused/cancelled`, `paused → running`,
-`finished`/`cancelled`는 종단 상태). 구독자 일괄 작업은 ID를 청크
+캠페인 상태 전이는 Listmonk 6.2의 상태 규칙에 따라 클라이언트에서 검증합니다
+(`draft → scheduled/running`, `running → paused/cancelled`,
+`paused → running/scheduled/cancelled`, `finished`/`cancelled`는 종단 상태).
+Listmonk는 `scheduled` 캠페인을 `send_at`에 직접 시작하므로 일찍 보내려면
+`campaigns unschedule`로 `draft`로 되돌린 뒤 시작해야 하며, deliverability guard가 일시정지한 캠페인은 바로
+취소할 수 있습니다. 구독자 일괄 작업은 ID를 청크
 단위(기본 500개)로 나누며 `--dry-run`, `--max-items`,
 `--continue-on-error`를 지원합니다. 미디어 업로드는 MIME 허용 목록과
 10 MiB 크기 제한을 적용합니다.
@@ -726,7 +745,7 @@ GET이며 자동 재시도하지 않습니다. `not_checked`는 자격 증명이
 `readiness.listmonk`가 true가 되지 않습니다. 대상 URL의 인라인 자격 증명,
 쿼리 문자열, 프래그먼트는 결과에서 제거합니다.
 
-135개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+136개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -735,7 +754,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-135개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 134개는
+136개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 135개는
 `stable`이며 `abtest.conversion.record`는 experimental입니다. 안정 계약에는
 바운스 패밀리(`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
@@ -1014,7 +1033,8 @@ read-only이며, 모든 MCP 도구는 `readOnlyHint`, `destructiveHint`,
 
 - `listmonk_update_campaign_status`: 공용 lifecycle Operation인
   `listmonk_schedule_campaign` (`send_at` 포함), `listmonk_start_campaign`,
-  `listmonk_pause_campaign`, `listmonk_cancel_campaign`을 사용하세요.
+  `listmonk_unschedule_campaign`, `listmonk_pause_campaign`,
+  `listmonk_cancel_campaign`을 사용하세요.
 - 임의의 SQL 표현식을 확인 없이 한 번에 적용하던
   `listmonk_delete_subscribers_by_query`,
   `listmonk_blocklist_subscribers_by_query`: `listmonk_get_subscribers`

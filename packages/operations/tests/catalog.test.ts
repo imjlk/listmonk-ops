@@ -34,8 +34,8 @@ describe("operation catalog", () => {
 			campaignOperationCatalog,
 		]);
 
-		expect(catalog.entries).toHaveLength(20);
-		expect(listOperationCatalogSummaries(catalog)).toHaveLength(20);
+		expect(catalog.entries).toHaveLength(21);
+		expect(listOperationCatalogSummaries(catalog)).toHaveLength(21);
 		expect(listOperationCatalogSummaries(catalog, "lists")).toHaveLength(5);
 		expect(listOperationCatalogSummaries(catalog, "missing")).toEqual([]);
 		expect(listOperationCatalogSummaries(catalog, " campaigns ")).toEqual(

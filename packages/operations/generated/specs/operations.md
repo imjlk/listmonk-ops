@@ -25,7 +25,7 @@ Schedule a campaign to send at a specific time. Validates the current status all
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `stable` since `0.6.0`
-- State: `draft -> scheduled` (target-state no-op allowed)
+- State: `draft | paused -> scheduled` (target-state no-op allowed)
 
 ## `subscribers.blocklist`
 
@@ -51,7 +51,7 @@ Transition a campaign into the running status. Validates the current status allo
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `stable` since `0.7.0`
-- State: `draft | scheduled | paused -> running` (target-state no-op allowed)
+- State: `draft | paused -> running` (target-state no-op allowed)
 
 ## `campaigns.cancel`
 
@@ -64,7 +64,7 @@ Transition a campaign into the cancelled status. Validates the current status al
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `stable` since `0.7.0`
-- State: `running -> cancelled` (target-state no-op allowed)
+- State: `running | paused -> cancelled` (target-state no-op allowed)
 
 ## `transactional.send`
 
@@ -1065,6 +1065,19 @@ Transition a campaign into the paused status. Validates the current status allow
 - Stability: `stable` since `0.9.0`
 - State: `running -> paused` (target-state no-op allowed)
 
+## `campaigns.unschedule`
+
+Return a scheduled campaign to draft so it no longer sends at its send_at. Validates the current status allows the transition; an already draft campaign is a no-op.
+
+- Resource / verb: `campaign.unschedule`
+- MCP tool: `listmonk_unschedule_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:campaign`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.20.0`
+- State: `scheduled -> draft` (target-state no-op allowed)
+
 ## `campaigns.clone`
 
 Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.
@@ -1511,7 +1524,7 @@ Reload the Listmonk app configuration without a restart. Safe to repeat; setting
 
 ## `campaigns.archive`
 
-Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.
+Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op. Supplying all three archive settings (slug, template ID, and metadata) together skips the pre-read of the campaign.
 
 - Resource / verb: `campaign.archive`
 - MCP tool: `listmonk_archive_campaign`
