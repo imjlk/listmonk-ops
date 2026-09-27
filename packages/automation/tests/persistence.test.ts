@@ -12,6 +12,7 @@ import {
 	getTemplateRegistryHistory,
 	promoteTemplateVersion,
 	rollbackTemplateVersion,
+	selectTemplateRollbackTarget,
 	syncTemplateRegistry,
 	TemplateRegistryWriteTransactionError,
 } from "../src/template-registry";
@@ -151,6 +152,41 @@ afterEach(async () => {
 });
 
 describe("automation persistence", () => {
+	test("orders same-millisecond template versions by reserved capture order", () => {
+		const capturedAt = "2026-09-27T03:00:00.000Z";
+		const makeVersion = (
+			versionId: string,
+			captureOrder: number,
+			body: string,
+			hash: string,
+		) => ({
+			versionId,
+			capturedAt,
+			captureOrder,
+			hash,
+			snapshot: {
+				id: 77,
+				name: "Same millisecond",
+				type: "campaign",
+				subject: "",
+				body,
+			},
+		});
+		const previous = makeVersion("v_z_previous", 1, "<p>v1</p>", "hash-v1");
+		const latest = makeVersion("v_a_latest", 2, "<p>v2</p>", "hash-v2");
+
+		expect(
+			selectTemplateRollbackTarget(
+				{
+					templateId: 77,
+					activeVersionId: latest.versionId,
+					versions: [latest, previous],
+				},
+				latest.hash,
+			),
+		).toMatchObject({ versionId: previous.versionId });
+	});
+
 	test("preserves every concurrent segment snapshot", async () => {
 		const { segmentStorePath } = await useTemporaryStores();
 		let requestCount = 0;
@@ -1450,6 +1486,97 @@ describe("template registry active version", () => {
 		expect(bodies.get(41)).toBe("<p>v2</p>");
 	});
 
+	test("samples each template head immediately before its remote read", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		const remote = new Map<number, { name: string; body: string }>([
+			[45, { name: "Other", body: "<p>other</p>" }],
+			[46, { name: "Original", body: "<p>v1</p>" }],
+		]);
+		let holdFirstRead = false;
+		let firstReadStarted = (): void => {};
+		let releaseFirstRead = (): void => {};
+		const firstReadRequested = new Promise<void>((resolve) => {
+			firstReadStarted = resolve;
+		});
+		const firstReadGate = new Promise<void>((resolve) => {
+			releaseFirstRead = resolve;
+		});
+		const client = {
+			template: {
+				getById: async ({ path: { id } }: { path: { id: number } }) => {
+					if (id === 45 && holdFirstRead) {
+						holdFirstRead = false;
+						firstReadStarted();
+						await firstReadGate;
+					}
+					const template = remote.get(id);
+					if (!template) throw new Error(`Unknown template ${id}`);
+					return {
+						data: {
+							id,
+							name: template.name,
+							type: "campaign",
+							subject: "",
+							body: template.body,
+						},
+					};
+				},
+				update: async ({
+					path: { id },
+					body,
+				}: {
+					path: { id: number };
+					body: { name: string; body: string };
+				}) => {
+					const template = remote.get(id);
+					if (!template) throw new Error(`Unknown template ${id}`);
+					template.name = body.name;
+					template.body = body.body;
+					return { data: true };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		await syncTemplateRegistry(client, { templateIds: [46] });
+		remote.get(46)!.name = "Latest";
+		remote.get(46)!.body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [46] });
+		const previousVersion = versionIdFor(
+			await getTemplateRegistryHistory(46),
+			"<p>v1</p>",
+		);
+
+		holdFirstRead = true;
+		const sync = syncTemplateRegistry(client, { templateIds: [45, 46] });
+		await firstReadRequested;
+		await promoteTemplateVersion(client, 46, previousVersion);
+		remote.get(46)!.name = "After promotion edit";
+		remote.get(46)!.body = "<p>v3</p>";
+		releaseFirstRead();
+		const result = await sync;
+
+		expect(result.templates.find((template) => template.templateId === 46)).toMatchObject({
+			changed: true,
+			templateName: "After promotion edit",
+		});
+		const history = await getTemplateRegistryHistory(46);
+		expect(history.versions.map((version) => version.captureOrder)).toEqual([
+			1,
+			2,
+			4,
+		]);
+		const store = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			captureSequence: number;
+		};
+		expect(store.captureSequence).toBe(4);
+		const activeVersion = history.versions.find(
+			(version) => version.versionId === history.activeVersionId,
+		);
+		expect(activeVersion?.snapshot.body).toBe("<p>v3</p>");
+		expect(history.templateName).toBe("After promotion edit");
+	});
+
 	test("repairs a legacy registry whose sync left a stale active version", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		const { remote, client } = createTemplateRemote(28, "<p>v1</p>");
@@ -1496,13 +1623,29 @@ describe("template registry active version", () => {
 		remote.body = "<p>v2</p>";
 		await Bun.sleep(2);
 		await syncTemplateRegistry(client, { templateIds: [30] });
-		const v1 = versionIdFor(await getTemplateRegistryHistory(30), "<p>v1</p>");
+		const history = await getTemplateRegistryHistory(30);
+		const v1 = versionIdFor(history, "<p>v1</p>");
+		const v1Hash = history.versions.find(
+			(version) => version.versionId === v1,
+		)!.hash;
 
 		const rolled = await rollbackTemplateVersion(client, 30);
 		expect(rolled.versionId).toBe(v1);
 		// The live v1 content no longer hashes to its snapshot, but Listmonk
 		// stores every update's name as the subject: nothing reads as drift.
 		expect(remote.subject).toBe("Registry");
+		// A hash copied from history still pins this Listmonk-normalized write.
+		expect(
+			await rollbackTemplateVersion(client, 30, {
+				toVersionId: v1,
+				expectedRemoteHash: v1Hash,
+			}),
+		).toMatchObject({ rolledBack: false });
+		expect(
+			await promoteTemplateVersion(client, 30, v1, {
+				expectedRemoteHash: v1Hash,
+			}),
+		).toMatchObject({ promoted: false });
 		await expect(rollbackTemplateVersion(client, 30)).rejects.toThrow(
 			"Template 30 has no previous version to roll back to",
 		);

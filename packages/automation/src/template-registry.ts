@@ -30,6 +30,8 @@ export interface TemplateVersionSnapshot {
 export interface TemplateRegistryVersion {
 	versionId: string;
 	capturedAt: string;
+	/** Global order reserved immediately before the remote template read. */
+	captureOrder?: number;
 	hash: string;
 	note?: string;
 	snapshot: TemplateVersionSnapshot;
@@ -56,6 +58,8 @@ export interface TemplateRegistryTemplateRecord {
 
 export interface TemplateRegistryStore {
 	version: 1;
+	/** Monotonic order assigned to each template read across concurrent clients. */
+	captureSequence?: number;
 	templates: Record<string, TemplateRegistryTemplateRecord>;
 }
 
@@ -157,6 +161,7 @@ function compareTemplateVersions(
 ): number {
 	return (
 		left.capturedAt.localeCompare(right.capturedAt) ||
+		(left.captureOrder ?? 0) - (right.captureOrder ?? 0) ||
 		left.versionId.localeCompare(right.versionId)
 	);
 }
@@ -185,6 +190,10 @@ function isTemplateRegistryVersion(
 		typeof value.versionId === "string" &&
 		typeof value.capturedAt === "string" &&
 		!Number.isNaN(new Date(value.capturedAt).getTime()) &&
+		(value.captureOrder === undefined ||
+			(typeof value.captureOrder === "number" &&
+				Number.isSafeInteger(value.captureOrder) &&
+				value.captureOrder > 0)) &&
 		typeof value.hash === "string" &&
 		(value.note === undefined || typeof value.note === "string") &&
 		isTemplateVersionSnapshot(value.snapshot)
@@ -223,6 +232,16 @@ function parseTemplateRegistryStore(value: unknown): TemplateRegistryStore {
 			"Invalid template registry store: templates must be a record",
 		);
 	}
+	if (
+		value.captureSequence !== undefined &&
+		(typeof value.captureSequence !== "number" ||
+			!Number.isSafeInteger(value.captureSequence) ||
+			value.captureSequence < 0)
+	) {
+		throw new Error(
+			"Invalid template registry store: captureSequence must be a non-negative safe integer",
+		);
+	}
 	for (const [key, record] of Object.entries(value.templates)) {
 		if (!isTemplateRegistryRecord(record)) {
 			throw new Error(
@@ -237,7 +256,7 @@ function parseTemplateRegistryStore(value: unknown): TemplateRegistryStore {
 function createTemplateRegistryStore(): JsonFileStore<TemplateRegistryStore> {
 	return {
 		path: getOpsStorePaths().templateRegistryPath,
-		createDefault: () => ({ version: 1, templates: {} }),
+		createDefault: () => ({ version: 1, captureSequence: 0, templates: {} }),
 		parse: parseTemplateRegistryStore,
 		lock: { timeoutMs: TEMPLATE_REGISTRY_LOCK_TIMEOUT_MS },
 	};
@@ -310,6 +329,26 @@ function versionHoldsLiveContent(
 	}
 	const written = normalizeTemplateSnapshotForWrite(version.snapshot);
 	return written !== version.snapshot && createTemplateHash(written) === liveHash;
+}
+
+/**
+ * Accept a hash previously reported by a sync or stored in registry history
+ * when Listmonk's verified write normalization produced the live content.
+ */
+function liveTemplateMatchesRemoteHashPin(
+	record: Pick<TemplateRegistryTemplateRecord, "versions"> | undefined,
+	liveHash: string,
+	expectedRemoteHash: string,
+): boolean {
+	return (
+		liveHash === expectedRemoteHash ||
+		(record?.versions.some(
+			(version) =>
+				version.hash === expectedRemoteHash &&
+				versionHoldsLiveContent(version, liveHash),
+		) ??
+			false)
+	);
 }
 
 /**
@@ -423,6 +462,8 @@ interface CapturedTemplateVersion {
 	 * content. History and the active version follow this observation order.
 	 */
 	capturedAt: string;
+	captureOrder: number;
+	headRevisionBeforeRead: number;
 	snapshot: TemplateVersionSnapshot;
 	hash: string;
 }
@@ -434,9 +475,36 @@ interface TemplateRegistryCapture {
 	errors: string[];
 }
 
+async function reserveTemplateCaptureRead(
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
+	templateId: number,
+): Promise<{
+	capturedAt: string;
+	captureOrder: number;
+	headRevisionBeforeRead: number;
+}> {
+	return updateJsonFileStore(storeDefinition, (store) => {
+		const captureOrder = (store.captureSequence ?? 0) + 1;
+		if (!Number.isSafeInteger(captureOrder)) {
+			throw new Error("Template registry capture sequence is exhausted");
+		}
+		const stamp = {
+			capturedAt: new Date().toISOString(),
+			captureOrder,
+			headRevisionBeforeRead:
+				store.templates[String(templateId)]?.headRevision ?? 0,
+		};
+		return commitJsonFileStoreUpdate(
+			{ ...store, captureSequence: captureOrder },
+			stamp,
+		);
+	});
+}
+
 async function captureTemplateRegistry(
 	client: ListmonkClient,
 	options: TemplateRegistrySyncOptions,
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
 ): Promise<TemplateRegistryCapture> {
 	const capturedAt = new Date().toISOString();
 	const templateIds = await getTemplateIds(client, options.templateIds);
@@ -445,12 +513,15 @@ async function captureTemplateRegistry(
 
 	for (const templateId of templateIds) {
 		try {
-			const observedAt = new Date().toISOString();
+			const stamp = await reserveTemplateCaptureRead(
+				storeDefinition,
+				templateId,
+			);
 			const template = await getTemplateById(client, templateId);
 			const snapshot = createTemplateSnapshot(template, templateId);
 			versions.push({
 				templateId,
-				capturedAt: observedAt,
+				...stamp,
 				snapshot,
 				hash: createTemplateHash(snapshot),
 			});
@@ -468,21 +539,6 @@ async function captureTemplateRegistry(
 }
 
 /**
- * Registry head revisions keyed like the store, observed before a sync
- * captures remote templates outside the store lock.
- */
-function snapshotTemplateHeadRevisions(
-	store: TemplateRegistryStore,
-): ReadonlyMap<string, number> {
-	return new Map(
-		Object.entries(store.templates).map(([key, record]) => [
-			key,
-			record.headRevision ?? 0,
-		]),
-	);
-}
-
-/**
  * Whether a sync capture may move the active version. The capture runs
  * outside the store lock, so it can be stale when it merges: a capture not
  * newer than every stored version is superseded by those observations, and a
@@ -494,13 +550,18 @@ function snapshotTemplateHeadRevisions(
 function isCurrentTemplateCapture(
 	record: TemplateRegistryTemplateRecord,
 	capturedAt: string,
-	headRevisionBeforeCapture: number,
+	captureOrder: number,
+	headRevisionBeforeRead: number,
 ): boolean {
 	const latestVersion = record.versions.at(-1);
+	const followsLatest =
+		latestVersion === undefined ||
+		(latestVersion.captureOrder === undefined
+			? latestVersion.capturedAt.localeCompare(capturedAt) < 0 ||
+				latestVersion.capturedAt === capturedAt
+			: latestVersion.captureOrder < captureOrder);
 	return (
-		(record.headRevision ?? 0) === headRevisionBeforeCapture &&
-		(latestVersion === undefined ||
-			latestVersion.capturedAt.localeCompare(capturedAt) < 0)
+		(record.headRevision ?? 0) === headRevisionBeforeRead && followsLatest
 	);
 }
 
@@ -509,13 +570,19 @@ function mergeTemplateRegistryCapture(
 	options: TemplateRegistrySyncOptions,
 	store: TemplateRegistryStore,
 	storePath: string,
-	headRevisionsBeforeCapture: ReadonlyMap<string, number>,
 ): TemplateRegistrySyncResult {
 	let createdVersions = 0;
 	let unchangedTemplates = 0;
 	const templates: TemplateRegistrySyncResult["templates"] = [];
 
-	for (const { templateId, capturedAt, snapshot, hash } of capture.versions) {
+	for (const {
+		templateId,
+		capturedAt,
+		captureOrder,
+		headRevisionBeforeRead,
+		snapshot,
+		hash,
+	} of capture.versions) {
 		const key = String(templateId);
 		const record = store.templates[key] || {
 			templateId,
@@ -527,7 +594,8 @@ function mergeTemplateRegistryCapture(
 		const isCurrentCapture = isCurrentTemplateCapture(
 			record,
 			capturedAt,
-			headRevisionsBeforeCapture.get(key) ?? 0,
+			captureOrder,
+			headRevisionBeforeRead,
 		);
 		// The active version follows the live content, resolved exactly as a
 		// rollback resolves it. Content the active version already holds —
@@ -561,7 +629,7 @@ function mergeTemplateRegistryCapture(
 			continue;
 		}
 
-		const versionId = `v_${capturedAt}_${hash.slice(0, 10)}`;
+		const versionId = `v_${capturedAt}_${captureOrder}_${hash.slice(0, 10)}`;
 		const existingVersion = record.versions.find(
 			(version) => version.versionId === versionId,
 		);
@@ -581,6 +649,7 @@ function mergeTemplateRegistryCapture(
 		record.versions.push({
 			versionId,
 			capturedAt,
+			captureOrder,
 			hash,
 			note: options.note,
 			snapshot,
@@ -621,19 +690,17 @@ export async function syncTemplateRegistry(
 	options: TemplateRegistrySyncOptions = {},
 ): Promise<TemplateRegistrySyncResult> {
 	const storeDefinition = createTemplateRegistryStore();
-	// Observed before the capture so the merge can tell whether a promotion
-	// or rollback committed while the unlocked capture was in flight.
-	const headRevisionsBeforeCapture = snapshotTemplateHeadRevisions(
-		await readJsonFileStore(storeDefinition),
+	const capture = await captureTemplateRegistry(
+		client,
+		options,
+		storeDefinition,
 	);
-	const capture = await captureTemplateRegistry(client, options);
 	return updateJsonFileStore(storeDefinition, (store) => {
 		const result = mergeTemplateRegistryCapture(
 			capture,
 			options,
 			store,
 			storeDefinition.path,
-			headRevisionsBeforeCapture,
 		);
 		return commitJsonFileStoreUpdate(store, result);
 	});
@@ -824,6 +891,7 @@ export async function promoteTemplateVersion(
 			store,
 		): Promise<TemplateRemoteMutationOutcome<TemplatePromoteResult>> => {
 			const readLiveTemplate = createLiveTemplateReader(client, templateId);
+			const record = store.templates[String(templateId)];
 			// Hash check inside the lock so concurrent promotions cannot
 			// both pass the check before either acquires the lock.
 			if (!options?.force && options?.expectedRemoteHash) {
@@ -836,7 +904,13 @@ export async function promoteTemplateVersion(
 					body: remoteTemplate.body || "",
 					bodySource: remoteTemplate.body_source || undefined,
 				} satisfies TemplateVersionSnapshot);
-				if (remoteHash !== options.expectedRemoteHash) {
+				if (
+					!liveTemplateMatchesRemoteHashPin(
+						record,
+						remoteHash,
+						options.expectedRemoteHash,
+					)
+				) {
 					throw new Error(
 						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}. Use force=true to override.`,
 					);
@@ -849,7 +923,6 @@ export async function promoteTemplateVersion(
 			// callers' pins without changing anything. A drifted remote
 			// (hash differs) still takes the write below. force skips this
 			// short-circuit because it asks for an unconditional write.
-			const record = store.templates[String(templateId)];
 			if (!options?.force && record?.activeVersionId === versionId) {
 				const activeVersion = record.versions.find(
 					(version) => version.versionId === versionId,
@@ -976,7 +1049,13 @@ export async function rollbackTemplateVersion(
 					body: remoteTemplate.body || "",
 					bodySource: remoteTemplate.body_source || undefined,
 				} satisfies TemplateVersionSnapshot);
-				if (remoteHash !== options.expectedRemoteHash) {
+				if (
+					!liveTemplateMatchesRemoteHashPin(
+						record,
+						remoteHash,
+						options.expectedRemoteHash,
+					)
+				) {
 					throw new Error(
 						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}`,
 					);
