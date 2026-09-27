@@ -443,6 +443,10 @@ describe("settings URL credential redaction", () => {
 				"https://hooks.example/?accesskey=[redacted]&secretkey=[redacted]&clientkey=[redacted]&privatekey=[redacted]&sendgridkey=[redacted]&forwardemailkey=[redacted]&monkey=banana&hockey=nhl",
 			],
 			[
+				"https://hooks.example/?clientsecret=a&accesstoken=b&refreshtoken=c&sessiontoken=d&authtoken=e&apisecret=f&secretaccesskey=g&accesskeyid=h&signingkey=i&apikeysecret=j",
+				"https://hooks.example/?clientsecret=[redacted]&accesstoken=[redacted]&refreshtoken=[redacted]&sessiontoken=[redacted]&authtoken=[redacted]&apisecret=[redacted]&secretaccesskey=[redacted]&accesskeyid=[redacted]&signingkey=[redacted]&apikeysecret=[redacted]",
+			],
+			[
 				"https://id.example.com/logout?id_token_hint=jwt&client_assertion=assertion&assertion_token=saml&password_hint=visible",
 				"https://id.example.com/logout?id_token_hint=[redacted]&client_assertion=[redacted]&assertion_token=[redacted]&password_hint=visible",
 			],
