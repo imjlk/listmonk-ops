@@ -476,7 +476,10 @@ bun run ops:smoke:full
 - 로컬 대상이면 항상 `bun run stack:bootstrap-auth`를 실행해 `LISTMONK_API_TOKEN`
   또는 캐시된 토큰 파일을 검증하고, 둘 다 만료되었으면(예: `docker compose down -v`
   이후) 관리용 테스트 사용자를 다시 프로비저닝
-- 풀 모드는 실행이 중단되어도 직접 만든 구독자, 템플릿, A/B 테스트를 삭제
+- 풀 모드는 실행이 중단되어도 직접 만든 구독자, 템플릿, A/B 테스트를 삭제. 픽스처
+  이름은 실행마다 고유하므로 동시 실행끼리 픽스처를 공유하거나 서로 삭제하지 않지만,
+  각 실행에 별도의 `LISTMONK_OPS_SMOKE_LOG_DIR`를 지정하지 않으면 단계 로그와
+  리포트는 공유됨
 - JSON 리포트 경로: `${LISTMONK_OPS_SMOKE_REPORT:-/tmp/listmonk-ops-smoke/report.json}`,
   작업 감사 로그: `${LISTMONK_OPS_SMOKE_LOG_DIR:-/tmp/listmonk-ops-smoke}`의
   `operation-audit.json`

@@ -6,12 +6,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="${LISTMONK_OPS_SMOKE_LOG_DIR:-/tmp/listmonk-ops-smoke}"
 MODE="${LISTMONK_OPS_SMOKE_MODE:-quick}" # quick | full
 REPORT_FILE="${LISTMONK_OPS_SMOKE_REPORT:-$LOG_DIR/report.json}"
-RESULTS_TSV="$LOG_DIR/results.tsv"
 TARGET_HELPER="$ROOT_DIR/scripts/local-test-target.ts"
 
 mkdir -p "$LOG_DIR"
 # A run that stops early must not leave the previous run's report looking current.
-rm -f "$RESULTS_TSV" "$REPORT_FILE"
+rm -f "$REPORT_FILE"
 
 LISTMONK_API_URL="${LISTMONK_API_URL:-http://localhost:9000/api}"
 LISTMONK_USERNAME="${LISTMONK_USERNAME:-api-admin}"
@@ -24,9 +23,6 @@ LAST_STATUS=""
 # Full-mode fixtures. A *_CREATE_* value is the unique email or name of a
 # fixture whose create step has started but whose id is not bound yet. An id
 # stays set until its delete step has run.
-SUBSCRIBER_OUTPUT="$LOG_DIR/subscribers_create.json"
-TEMPLATE_OUTPUT="$LOG_DIR/templates_create.json"
-ABTEST_OUTPUT="$LOG_DIR/abtest_create.json"
 SUBSCRIBER_CREATE_EMAIL=""
 TEMPLATE_CREATE_NAME=""
 ABTEST_CREATE_NAME=""
@@ -64,12 +60,15 @@ run_cmd() {
 	printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$status" "$started_at" "$duration" "$logfile" >>"$RESULTS_TSV"
 }
 
-# Keep a command's stdout apart from its diagnostics so created records can be
-# parsed; run_cmd still logs stderr.
+# Keep a create step's JSON stdout apart from its diagnostics so its record can
+# be bound, then copy it into the step log that run_cmd writes.
 capture_stdout() {
 	local output="$1"
 	shift
-	"$@" >"$output"
+	local status=0
+	"$@" >"$output" || status=$?
+	cat "$output" || true
+	return "$status"
 }
 
 # Print the id of a record this run created: the output must report
@@ -90,9 +89,9 @@ require_fixture_id() {
 	if [[ "$LAST_STATUS" != "pass" || -n "$id" ]]; then
 		return 0
 	fi
-	echo "FAIL ${name}_id: no record created by this run in $LOG_DIR/${name}.json; check for a leftover fixture"
+	echo "FAIL ${name}_id: no record created by this run in $LOG_DIR/${name}.log; check for a leftover fixture"
 	FAIL_COUNT=$((FAIL_COUNT + 1))
-	printf '%s\t%s\t%s\t%s\t%s\n' "${name}_id" "fail" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" 0 "$LOG_DIR/${name}.json" >>"$RESULTS_TSV"
+	printf '%s\t%s\t%s\t%s\t%s\n' "${name}_id" "fail" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" 0 "$LOG_DIR/${name}.log" >>"$RESULTS_TSV"
 }
 
 # Bind the id of every fixture whose create step has run. Exit cleanup runs
@@ -140,6 +139,12 @@ fi
 
 SMOKE_TMP_ROOT="${TMPDIR:-/tmp}"
 SMOKE_STATE_DIR="$(mktemp -d "${SMOKE_TMP_ROOT%/}/listmonk-ops-smoke.XXXXXX")"
+# Step results and the create output that fixture binding reads stay private
+# to this run, even when concurrent runs share LOG_DIR.
+RESULTS_TSV="$SMOKE_STATE_DIR/results.tsv"
+SUBSCRIBER_OUTPUT="$SMOKE_STATE_DIR/subscribers_create.json"
+TEMPLATE_OUTPUT="$SMOKE_STATE_DIR/templates_create.json"
+ABTEST_OUTPUT="$SMOKE_STATE_DIR/abtest_create.json"
 
 on_exit() {
 	local status=$?

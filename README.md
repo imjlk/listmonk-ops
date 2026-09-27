@@ -486,7 +486,9 @@ Smoke script details:
   `LISTMONK_API_TOKEN` or the cached token file and reprovisions the managed
   test user when both are stale (for example after `docker compose down -v`)
 - Full mode deletes the subscriber, template, and A/B test it creates, including
-  when the run is interrupted
+  when the run is interrupted; fixture names are unique per run, so concurrent
+  runs never share or delete each other's fixtures, but they do share step logs
+  and the report unless each sets its own `LISTMONK_OPS_SMOKE_LOG_DIR`
 - Writes JSON report to `${LISTMONK_OPS_SMOKE_REPORT:-/tmp/listmonk-ops-smoke/report.json}`
   and the operation audit log to `operation-audit.json` in
   `${LISTMONK_OPS_SMOKE_LOG_DIR:-/tmp/listmonk-ops-smoke}`

@@ -6,6 +6,7 @@ import {
 	readFile,
 	rm,
 	stat,
+	symlink,
 	writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -497,11 +498,13 @@ describe("ops smoke full-mode fixture cleanup", () => {
 			const local = startFakeListmonk(TOKEN);
 			const usernames = ["smoke-run-a", "smoke-run-b"];
 
+			// Like default invocations, both runs share one log directory.
 			await Promise.all(
 				usernames.map(async (username) =>
 					runSmoke(await temporaryDirectory(), {
 						...fullSmoke(local.url, username),
 						PATH: `${stubDirectory}${delimiter}${process.env.PATH ?? ""}`,
+						LISTMONK_OPS_SMOKE_LOG_DIR: join(stubDirectory, "logs"),
 					}),
 				),
 			);
@@ -542,6 +545,39 @@ describe("ops smoke full-mode fixture cleanup", () => {
 						.map((request) => request.path),
 				).toEqual([`/api/subscribers/${subscriberId}`]);
 			}
+		},
+		SMOKE_TIMEOUT_MS,
+	);
+
+	test(
+		"binds fixtures from private create output, not the shared log directory",
+		async () => {
+			const directory = await temporaryDirectory();
+			// Stand in for a concurrent run overwriting create output in the shared
+			// log directory: anything written to these paths there is discarded.
+			for (const step of ["subscribers_create", "templates_create", "abtest_create"]) {
+				await symlink("/dev/null", join(directory, "logs", `${step}.json`));
+			}
+			const local = startFakeListmonk(TOKEN);
+
+			const result = await runSmoke(directory, fullSmoke(local.url));
+
+			const [subscriberId] = createdIds(local, "/api/subscribers");
+			const [templateId] = createdIds(local, "/api/templates");
+			expect(result.stdout, result.output).not.toContain(
+				"no record created by this run",
+			);
+			expect(
+				requestCount(local, "DELETE", `/api/subscribers/${subscriberId}`),
+			).toBe(1);
+			expect(requestCount(local, "DELETE", `/api/templates/${templateId}`)).toBe(
+				1,
+			);
+			// The step log keeps the create output for debugging.
+			expect(
+				await readFile(join(directory, "logs", "subscribers_create.log"), "utf8"),
+			).toContain(`"id": ${subscriberId}`);
+			expect(await leftoverStateDirectories(directory)).toEqual([]);
 		},
 		SMOKE_TIMEOUT_MS,
 	);
