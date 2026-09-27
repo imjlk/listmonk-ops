@@ -76,4 +76,14 @@ test("every CI job has a bounded timeout", () => {
 		expect(timeout as number, name).toBeGreaterThanOrEqual(10);
 		expect(timeout as number, name).toBeLessThanOrEqual(30);
 	}
+	// A timeout cancels the job rather than failing it, so diagnostics must
+	// also run on cancellation to explain a hung local-stack run.
+	for (const step of [
+		"Upload smoke artifacts on failure",
+		"Dump compose logs on failure",
+	]) {
+		expect(read(".github/workflows/ci.yml")).toContain(
+			`- name: ${step}\n        if: failure() || cancelled()\n`,
+		);
+	}
 });
