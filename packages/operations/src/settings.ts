@@ -203,10 +203,17 @@ function redactSpacedCredentialParameterValues(value: string): string {
 	while (scanFrom < value.length) {
 		const delimiterPattern = /[?&#;]/g;
 		delimiterPattern.lastIndex = scanFrom;
+		const hasStartAssignment =
+			scanFrom === 0 && /^[^=?&#;\s]+=/.test(value);
 		const delimiter = delimiterPattern.exec(value);
-		if (delimiter === null || delimiter.index === undefined) break;
+		if (
+			!hasStartAssignment &&
+			(delimiter === null || delimiter.index === undefined)
+		) {
+			break;
+		}
 
-		const nameStart = delimiter.index + 1;
+		const nameStart = hasStartAssignment ? 0 : delimiter!.index + 1;
 		let equals = -1;
 		for (let index = nameStart; index < value.length; index += 1) {
 			const character = value[index];

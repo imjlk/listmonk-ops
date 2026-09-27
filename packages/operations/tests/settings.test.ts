@@ -447,6 +447,10 @@ describe("settings URL credential redaction", () => {
 				"https://hooks.example/?clientsecret=[redacted]&accesstoken=[redacted]&refreshtoken=[redacted]&sessiontoken=[redacted]&authtoken=[redacted]&apisecret=[redacted]&secretaccesskey=[redacted]&accesskeyid=[redacted]&signingkey=[redacted]&apikeysecret=[redacted]",
 			],
 			[
+				"https://hooks.example/?awsaccesskeyid=a&awssecretaccesskey=b",
+				"https://hooks.example/?awsaccesskeyid=[redacted]&awssecretaccesskey=[redacted]",
+			],
+			[
 				"https://id.example.com/logout?id_token_hint=jwt&client_assertion=assertion&assertion_token=saml&password_hint=visible",
 				"https://id.example.com/logout?id_token_hint=[redacted]&client_assertion=[redacted]&assertion_token=[redacted]&password_hint=visible",
 			],
@@ -509,6 +513,7 @@ describe("settings URL credential redaction", () => {
 			"HTTPS://Lists.Example.com/Path?page=2&keyword=news#Top",
 			"https://cdn.jsdelivr.net/npm/@listmonk/logo.png",
 			"https://hooks.example.com/in?token=",
+			"token_type=Bearer&channel=sms",
 			"mailto:ops@example.com?subject=token",
 			"listmonk <noreply@example.com>",
 			"bounces@example.com",
@@ -771,6 +776,10 @@ describe("settings URL credential redaction", () => {
 
 	test("redacts credential parameters nested in other values", () => {
 		const cases: ReadonlyArray<readonly [string, string]> = [
+			[
+				"token=secret&channel=sms",
+				"token=[redacted]&channel=sms",
+			],
 			// A "/" after a port-like first word of a spaced passphrase.
 			[
 				"https://gw-user:8080 horse/battery@sms.example.com/send",
