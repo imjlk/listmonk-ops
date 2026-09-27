@@ -531,6 +531,27 @@ describe("settings URL credential redaction", () => {
 		}
 	});
 
+	test("redacts URLs embedded in punctuation and preserves their wrappers", () => {
+		const cases: ReadonlyArray<readonly [string, string]> = [
+			[
+				"appearance.css=background:url(https://user:pass@cdn.example/x?token=secret)",
+				`appearance.css=background:url(https://${SETTINGS_REDACTED_VALUE}@cdn.example/x?token=${SETTINGS_REDACTED_VALUE})`,
+			],
+			[
+				'"https://user:pass@cdn.example/x?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE"',
+				`"https://${SETTINGS_REDACTED_VALUE}@cdn.example/x?AWSAccessKeyId=${SETTINGS_REDACTED_VALUE}"`,
+			],
+			[
+				"background:url(https://cdn.example/x?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE),",
+				`background:url(https://cdn.example/x?AWSAccessKeyId=${SETTINGS_REDACTED_VALUE}),`,
+			],
+		];
+		for (const [input, expected] of cases) {
+			expect(redactUrlCredentials(input)).toBe(expected);
+			expect(redactUrlCredentials(expected)).toBe(expected);
+		}
+	});
+
 	test("redacts passphrases with delimiters or a leading port and every fragment parameter", () => {
 		const cases: ReadonlyArray<readonly [string, string]> = [
 			// "/", "?", and "#" inside a spaced passphrase.
@@ -545,6 +566,10 @@ describe("settings URL credential redaction", () => {
 			// A passphrase whose first word reads as a port.
 			[
 				"https://gw-user:8080 horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080 correct horse@sms.example.com/send",
 				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
 			],
 			// Fragment parameters before a "?".

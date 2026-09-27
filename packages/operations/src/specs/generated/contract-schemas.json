@@ -26420,7 +26420,7 @@
               "items": {
                 "$ref": "#/components/schemas/ListmonkUserRolePermission"
               },
-              "maxItems": 30,
+              "maxItems": 28,
               "type": "array"
             }
           },

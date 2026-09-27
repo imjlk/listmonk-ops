@@ -119,6 +119,16 @@ const URL_CREDENTIAL_PARAMETER_TOKENS = new Set([
  * CSS rules such as `a:hover` out.
  */
 const ABSOLUTE_URL_PREFIX = /^[a-z][a-z0-9+.-]*:[\\/]{2}/i;
+const ABSOLUTE_URL_PREFIX_ANYWHERE = /[a-z][a-z0-9+.-]*:[\\/]{2}/i;
+
+function findAbsoluteUrlPrefix(
+	value: string,
+	fromIndex = 0,
+): { index: number; prefix: string } | undefined {
+	const match = ABSOLUTE_URL_PREFIX_ANYWHERE.exec(value.slice(fromIndex));
+	if (match === null || match.index === undefined) return undefined;
+	return { index: fromIndex + match.index, prefix: match[0] };
+}
 
 /** WHATWG special schemes, whose authority a "\" also ends. */
 const SPECIAL_URL_SCHEMES = new Set([
@@ -146,7 +156,10 @@ function decodeQueryParameterName(encodedName: string): string {
 }
 
 function isCredentialQueryParameter(encodedName: string): boolean {
-	const name = decodeQueryParameterName(encodedName).toLowerCase();
+	const name = decodeQueryParameterName(encodedName)
+		.replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+		.replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+		.toLowerCase();
 	if (isCredentialFieldName(name)) return true;
 	return name
 		.split(/[^a-z0-9]+/)
@@ -169,7 +182,17 @@ function redactCredentialParameters(text: string, separators: RegExp): string {
 		const separator = parameter.indexOf("=");
 		if (separator <= 0 || separator === parameter.length - 1) continue;
 		if (!isCredentialQueryParameter(parameter.slice(0, separator))) continue;
-		parts[index] = `${parameter.slice(0, separator + 1)}${SETTINGS_REDACTED_VALUE}`;
+		const value = parameter.slice(separator + 1);
+		// The nested-query pass can see a value already replaced by this
+		// function. Keep the marker (and any URL wrapper after it) idempotent.
+		if (
+			value.startsWith(SETTINGS_REDACTED_VALUE) &&
+			/^[)\]}>'",]*$/.test(value.slice(SETTINGS_REDACTED_VALUE.length))
+		) {
+			continue;
+		}
+		const suffix = /[)\]}>'",]+$/.exec(value)?.[0] ?? "";
+		parts[index] = `${parameter.slice(0, separator + 1)}${SETTINGS_REDACTED_VALUE}${suffix}`;
 		redacted = true;
 	}
 	return redacted ? parts.join("") : text;
@@ -275,10 +298,24 @@ function spacedUserinfoEnd(
 	const authority = token.slice(prefix.length);
 	if (!authority.includes(":") || /[@/?#\\]/.test(authority)) return index;
 	if (parseUrl(token) !== undefined) {
-		const next = tokens[index + 2] ?? "";
-		return !ABSOLUTE_URL_PREFIX.test(next) && next.includes("@")
-			? index + 2
-			: index;
+		const last = Math.min(
+			tokens.length - 1,
+			index + 2 * MAX_SPACED_USERINFO_TOKENS,
+		);
+		for (let next = index + 2; next <= last; next += 2) {
+			const candidate = tokens[next] ?? "";
+			if (ABSOLUTE_URL_PREFIX.test(candidate)) return index;
+			const at = candidate.indexOf("@");
+			if (at === -1) continue;
+			const hostAndPath = candidate.slice(at + 1);
+			// A directly following address keeps the existing conservative
+			// behavior. After one or more passphrase words, require URL
+			// authority/path syntax so ordinary prose stays untouched.
+			return next === index + 2 || /[/?#\\]/.test(hostAndPath) || /:\d/.test(hostAndPath)
+				? next
+				: index;
+		}
+		return index;
 	}
 	const last = Math.min(
 		tokens.length - 1,
@@ -306,17 +343,34 @@ export function redactUrlCredentials(value: string): string {
 	const tokens = value.split(/(\s+)/);
 	let redactedAny = false;
 	for (let index = 0; index < tokens.length; index += 2) {
-		const token = tokens[index] ?? "";
-		const prefix = ABSOLUTE_URL_PREFIX.exec(token)?.[0];
-		if (prefix === undefined) continue;
-		const end = spacedUserinfoEnd(tokens, index, prefix);
-		const url = tokens.slice(index, end + 1).join("");
-		const redacted = redactAbsoluteUrl(prefix, url.slice(prefix.length));
-		if (redacted === url) continue;
-		// Tokens sit at even indices and whitespace at odd ones; replacing
-		// an odd-length run with one element keeps that alternation.
-		tokens.splice(index, end - index + 1, redacted);
-		redactedAny = true;
+		let scanOffset = 0;
+		while (true) {
+			const token = tokens[index] ?? "";
+			const match = findAbsoluteUrlPrefix(token, scanOffset);
+			if (match === undefined) break;
+			const nextMatch = findAbsoluteUrlPrefix(
+				token,
+				match.index + match.prefix.length,
+			);
+			const candidateEnd = nextMatch?.index ?? token.length;
+			const candidateToken = token.slice(match.index, candidateEnd);
+			const candidateTokens = tokens.slice(index);
+			candidateTokens[0] = candidateToken;
+			const end = spacedUserinfoEnd(candidateTokens, 0, match.prefix);
+			const url = candidateTokens.slice(0, end + 1).join("");
+			const redacted = redactAbsoluteUrl(
+				match.prefix,
+				url.slice(match.prefix.length),
+			);
+			const suffix = token.slice(candidateEnd);
+			tokens.splice(
+				index,
+				end + 1,
+				`${token.slice(0, match.index)}${redacted}${suffix}`,
+			);
+			if (redacted !== url) redactedAny = true;
+			scanOffset = match.index + redacted.length;
+		}
 	}
 	return redactedAny ? tokens.join("") : value;
 }
