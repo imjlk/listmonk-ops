@@ -272,4 +272,49 @@ describe("campaign clone operations", () => {
 		).rejects.toThrow(/Failed to clone campaign/);
 		expect(records.has("clone-rejected")).toBe(false);
 	});
+
+	test("releases the claim when the connection is refused before dispatch", async () => {
+		const { store, records } = createInMemoryResourceCreateStore();
+		const getById = mock(async () => ({ data: source })) as unknown as CampaignClient["campaign"]["getById"];
+		// The generated client returns transport failures as an error envelope
+		// without a response; a refused connection never reached Listmonk.
+		const refused = Object.assign(
+			new TypeError("Unable to connect. Is the computer able to access the url?"),
+			{ code: "ConnectionRefused" },
+		);
+		const create = mock(async () => ({
+			error: refused,
+		})) as unknown as CampaignClient["campaign"]["create"];
+		const ctx = {
+			client: {
+				campaign: { getById, create },
+			} as unknown as CampaignClient,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		await expect(
+			invokeCloneCampaignOperation(ctx, {
+				id: 11,
+				name: "Copy",
+				idempotency_key: "clone-refused",
+			}),
+		).rejects.toThrow(/Failed to clone campaign/);
+		// The key stays reusable instead of being burned as unresolved.
+		expect(records.has("clone-refused")).toBe(false);
+
+		// A statusless failure that is not a proven pre-dispatch error stays
+		// ambiguous and marks the key unknown.
+		const ambiguous = mock(async () => ({
+			error: new TypeError("socket hang up"),
+		})) as unknown as CampaignClient["campaign"]["create"];
+		await expect(
+			invokeCloneCampaignOperation(
+				{ ...ctx, client: { campaign: { getById, create: ambiguous } } as unknown as CampaignClient },
+				{ id: 11, name: "Copy", idempotency_key: "clone-ambiguous" },
+			),
+		).rejects.toThrow(/Failed to clone campaign/);
+		expect(records.get("clone-ambiguous")?.status).toBe("unknown");
+	});
 });

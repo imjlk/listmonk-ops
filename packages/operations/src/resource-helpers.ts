@@ -64,8 +64,63 @@ export class ResourceResponseError extends Error {
 	}
 }
 
-export function isResourceMissingError(error: unknown): boolean {
-	return error instanceof ResourceResponseError && error.status === 404;
+const NOT_FOUND_MESSAGE = /\bnot found\b/i;
+
+const RESOURCE_LABELS = [
+	"template",
+	"campaign",
+	"list",
+	"subscriber",
+	"bounce",
+	"media",
+] as const;
+
+/** Listmonk resources whose "<Resource> not found" answers can be scoped. */
+export type ResourceLabel = (typeof RESOURCE_LABELS)[number];
+
+// Listmonk's answer is "<Resource> not found", optionally with the lookup key
+// ("Subscriber (42: ) not found", or "Bounce 7 not found" from a local lookup),
+// so the label must directly precede "not found": "Subscriber list not found"
+// is a list miss, not a subscriber miss. Compiled once per known label.
+const LABELLED_NOT_FOUND: ReadonlyMap<string, RegExp> = new Map(
+	RESOURCE_LABELS.map((label) => [
+		label,
+		new RegExp(
+			`\\b${label}\\b(?:\\s*\\([^)]*\\)|\\s+#?\\d+)?\\s+not found\\b`,
+			"i",
+		),
+	]),
+);
+
+/**
+ * Whether a lookup failed because the resource does not exist. Listmonk 6.2
+ * answers a missing template, campaign, list, subscriber, or bounce with
+ * HTTP 400 and an i18n "<Resource> not found" message (only media uses 404),
+ * so a 400 counts as a miss only when the server message says so. Pass the
+ * expected `resource` (for example "subscriber") so an answer about some
+ * other missing entity, or a 404 from a proxy or misrouted request, is not
+ * mistaken for the one the caller asked about. Without a label, any 404
+ * still counts as a miss.
+ */
+export function isResourceMissingError(
+	error: unknown,
+	resource?: ResourceLabel,
+): boolean {
+	if (!(error instanceof ResourceResponseError)) return false;
+	if (error.status !== 400 && error.status !== 404) return false;
+	if (error.status === 404 && resource === undefined) return true;
+	// Match the server's answer, not the wrapper message: unwrapResourceResponse
+	// prefixes the caller's context (for example "Failed to get subscriber"),
+	// which names the expected resource whatever the server said. Errors
+	// raised without a cause, such as a bounce lookup's own 404, carry the
+	// answer in their message.
+	const message =
+		error.cause === undefined
+			? error.message
+			: toResourceErrorMessage(error.cause);
+	if (resource === undefined) return NOT_FOUND_MESSAGE.test(message);
+	// An unknown label (possible only from untyped callers) never matches.
+	return LABELLED_NOT_FOUND.get(resource)?.test(message) === true;
 }
 
 export function toResourceErrorMessage(error: unknown): string {

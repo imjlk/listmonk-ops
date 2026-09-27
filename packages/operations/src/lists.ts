@@ -8,7 +8,10 @@ import {
 	bindListsUpdateOperationSpec,
 } from "./specs";
 import { executeKeyedCreate } from "./keyed-create";
-import { isDefinitivePreDispatchError } from "./transactional-idempotency";
+import {
+	isDefinitiveCreateRejection,
+	isDefinitivePreDispatchError,
+} from "./transactional-idempotency";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -403,18 +406,16 @@ export async function createSubscriberList(
 				};
 			}
 			if (hasResponseError(response)) {
-				const status =
-					typeof response.response?.status === "number"
-						? response.response.status
-						: undefined;
 				return {
 					failure: {
 						error: new Error(
 							`Failed to create list: ${toErrorMessage(response.error)}`,
 						),
-						// A 4xx answer rejected the request outright; a 5xx or a
-						// statusless error may have partially processed it.
-						definitive: status !== undefined && status >= 400 && status < 500,
+						// A 4xx answer or a proven pre-dispatch transport failure
+						// (e.g. a refused connection, returned as an error envelope
+						// without a response) rejected the create; anything else may
+						// have been partially processed.
+						definitive: isDefinitiveCreateRejection(response),
 					},
 				};
 			}

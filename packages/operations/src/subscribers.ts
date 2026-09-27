@@ -46,7 +46,7 @@ import {
 	executeSubscriberBulk,
 } from "./subscriber-bulk";
 
-export { isResourceMissingError } from "./resource-helpers";
+export { isResourceMissingError, type ResourceLabel } from "./resource-helpers";
 
 export interface SubscriberOperationContext {
 	/**

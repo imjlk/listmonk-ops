@@ -1241,6 +1241,94 @@ describe("sequence execution", () => {
 		});
 	});
 
+	test("cancels an enrollment when Listmonk 6.2 reports the subscriber missing with 400", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "deleted subscriber",
+					steps: [{ id: "send", type: "send", templateId: 9 }],
+				},
+				now,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 42 },
+				now,
+			),
+		);
+
+		expect(
+			await runSequenceTick(
+				executionContext(
+					repository,
+					idempotencyStore,
+					client({
+						subscriberGet: async () => ({
+							// Listmonk 6.2 answers a missing subscriber with 400.
+							error: { message: "Subscriber (42: ) not found" },
+							response: { status: 400 },
+						}),
+					}),
+				),
+				{ now },
+			),
+		).toMatchObject({ cancelled: 1 });
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "cancelled",
+			lastError: expect.stringContaining("no longer exists"),
+		});
+	});
+
+	test("does not cancel an enrollment when the answer names another missing entity", async () => {
+		for (const [status, message] of [
+			[400, "Template not found"],
+			[404, "404 page not found"],
+		] as const) {
+			const { repository, idempotencyStore } = await createStores();
+			const now = new Date();
+			const definition = await repository.createDefinition(
+				createSequenceDefinition(
+					{
+						name: "other missing entity",
+						steps: [{ id: "send", type: "send", templateId: 9 }],
+					},
+					now,
+				),
+			);
+			const enrollment = await repository.createEnrollment(
+				createSequenceEnrollment(
+					definition,
+					{ sequenceId: definition.id, subscriberId: 42 },
+					now,
+				),
+			);
+
+			const result = await runSequenceTick(
+				executionContext(
+					repository,
+					idempotencyStore,
+					client({
+						subscriberGet: async () => ({
+							error: { message },
+							response: { status },
+						}),
+					}),
+				),
+				{ now },
+			);
+
+			expect(result).toMatchObject({ cancelled: 0 });
+			const stored = await repository.getEnrollment(enrollment.id);
+			expect(stored?.status).toBe("failed");
+			expect(stored?.lastError).toContain(message);
+			expect(stored?.lastError).not.toContain("no longer exists");
+		}
+	});
+
 	test("retries a definitive pre-dispatch failure instead of terminalizing", async () => {
 		const { repository, idempotencyStore } = await createStores();
 		const now = new Date("2026-08-01T09:00:00.000Z");
