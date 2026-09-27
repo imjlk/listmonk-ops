@@ -285,6 +285,35 @@ describe("campaign archive operation", () => {
 		});
 	});
 
+	test("uses explicit archive settings without requiring a campaign read", async () => {
+		const updateArchive = mock(async () => ({ data: true }));
+
+		await expect(
+			invokeArchiveCampaignOperation(
+				campaignContext({
+					updateArchive:
+						updateArchive as unknown as CampaignClient["campaign"]["updateArchive"],
+				}),
+				{
+					id: 4,
+					archive: true,
+					archive_slug: "spring-sale",
+					archive_template_id: 7,
+					archive_meta: { heading: "Spring sale" },
+				},
+			),
+		).resolves.toMatchObject({ id: 4, archive: true });
+		expect(updateArchive).toHaveBeenCalledWith({
+			path: { id: 4 },
+			body: {
+				archive: true,
+				archive_slug: "spring-sale",
+				archive_template_id: 7,
+				archive_meta: { heading: "Spring sale" },
+			},
+		});
+	});
+
 	test("accepts null fields in Listmonk's normalized archive echo", async () => {
 		const getById = mock(async () => ({
 			data: {

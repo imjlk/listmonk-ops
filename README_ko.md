@@ -527,7 +527,8 @@ CLI는 MCP 서버와 동일한 타입드 구독자 리스트 Operation을 제공
 않는 대상 리스트, 미디어 첨부, 속성을 저장된 값으로 다시 보냅니다(리스트가
 없으면 거부되고 보내지 않은 미디어는 분리됩니다). `campaigns archive`는 저장된
 archive slug, 템플릿, 메타데이터를 다시 보내 보관 페이지를 토글해도 공개 링크가
-유지되며, `campaigns clone`은 slug가 고유하므로 보관된 원본을 복제할 때
+유지됩니다. `campaigns:get` 권한이 없고 `campaigns:manage`만 있다면 세 값을 직접
+전달해 사전 조회를 생략할 수 있습니다. `campaigns clone`은 slug가 고유하므로 보관된 원본을 복제할 때
 Listmonk 자체 복제 기능과 같은 방식으로 새 archive slug를 만듭니다. 상태 전이는
 Listmonk 6.2가 돌려주는 갱신된 캠페인 객체를 확인 응답으로 인정합니다.
 
@@ -572,6 +573,9 @@ listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
 listmonk-cli campaigns analytics --type views --from 2026-08-01 \
   --to 2026-08-31 --campaign-ids 42,43
 listmonk-cli campaigns archive --id 42 --archive=true
+# campaigns:manage 권한만 있다면 읽기를 생략하도록 아카이브 값을 모두 전달합니다.
+listmonk-cli campaigns archive --id 42 --archive=true --archive-slug spring-sale \
+  --archive-template-id 4 --archive-meta '{"title":"Spring sale"}'
 
 listmonk-cli dashboard counts
 listmonk-cli dashboard charts

@@ -358,7 +358,7 @@ export const campaignsArchiveOperationSpec = defineOperationSpec({
 	verb: "archive",
 	title: "Toggle the campaign archive page",
 	description:
-		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.",
+		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op. Archive slug, template ID, and metadata can be supplied to avoid reading the campaign first.",
 	contract: {
 		input: campaignArchiveInputContract,
 		output: campaignArchiveOutputContract,

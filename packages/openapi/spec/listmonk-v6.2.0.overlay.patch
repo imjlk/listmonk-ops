@@ -114,7 +114,7 @@
                  archive_meta:
                    type: object
        responses:
-@@ -1585,7 +1631,19 @@
+@@ -1585,7 +1631,20 @@
                  type: object
                  properties:
                    data:
@@ -129,6 +129,7 @@
 +                        nullable: true
 +                      archive_meta:
 +                        type: object
++                        nullable: true
 +                      archive_slug:
 +                        type: string
 +                        nullable: true

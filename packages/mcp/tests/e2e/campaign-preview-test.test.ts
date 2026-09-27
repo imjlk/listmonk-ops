@@ -278,6 +278,8 @@ describe("Campaign and template preview CLI/MCP parity", () => {
 
 	test("toggles the campaign archive through both adapters", async () => {
 		const fixtureId = (await createDraftCampaignFixture()).id;
+		const archiveSlug = `codex-archive-${fixtureId}`;
+		const archiveMeta = { source: "adapter-parity-test" };
 
 		try {
 			// Restore OFF through the CLI, then verify ON through MCP.
@@ -289,6 +291,12 @@ describe("Campaign and template preview CLI/MCP parity", () => {
 					"--id",
 					String(fixtureId),
 					"--archive=true",
+					"--archive-slug",
+					archiveSlug,
+					"--archive-template-id",
+					"0",
+					"--archive-meta",
+					JSON.stringify(archiveMeta),
 				]),
 				"archive",
 			);
@@ -301,6 +309,9 @@ describe("Campaign and template preview CLI/MCP parity", () => {
 				await client.callTool("listmonk_archive_campaign", {
 					id: fixtureId,
 					archive: false,
+					archive_slug: archiveSlug,
+					archive_template_id: 0,
+					archive_meta: archiveMeta,
 				}),
 				"Failed to disable the archive through MCP",
 			);

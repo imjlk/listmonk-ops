@@ -257,7 +257,13 @@ const CAMPAIGN_ANALYTICS_DATE = new RegExp(
 
 export async function renderArchiveCampaign(
 	context: CampaignsCliContext,
-	input: { id: number; archive: boolean },
+	input: {
+		id: number;
+		archive: boolean;
+		archive_slug?: string;
+		archive_template_id?: number;
+		archive_meta?: Record<string, unknown>;
+	},
 ): Promise<void> {
 	const result = await invokeArchiveCampaignOperation(context, input);
 	context.output.success(
@@ -269,7 +275,13 @@ export async function renderArchiveCampaign(
 export async function handleArchiveCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number; archive: boolean }>): Promise<void> {
+}: HandlerArgs<{
+	id: number;
+	archive: boolean;
+	"archive-slug"?: string;
+	"archive-template-id"?: number;
+	"archive-meta"?: string;
+}>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
 		await renderArchiveCampaign(
@@ -277,6 +289,14 @@ export async function handleArchiveCampaignCommand({
 			{
 				id: flags.id,
 				archive: flags.archive,
+				archive_slug: flags["archive-slug"],
+				archive_template_id: flags["archive-template-id"],
+				archive_meta: flags["archive-meta"]
+					? parseJson<Record<string, unknown>>(
+							flags["archive-meta"],
+							"archive-meta",
+						)
+					: undefined,
 			},
 		);
 	} catch (error) {
@@ -1098,6 +1118,16 @@ export default defineGroup({
 				}),
 				archive: option(z.coerce.boolean(), {
 					description: "Archive page state (true to enable)",
+				}),
+				"archive-slug": option(z.string().optional(), {
+					description: "Archive slug; provide with the other archive fields to skip the pre-read",
+				}),
+				"archive-template-id": option(
+					z.coerce.number().int().nonnegative().optional(),
+					{ description: "Archive template ID (0 clears it)" },
+				),
+				"archive-meta": option(z.string().optional(), {
+					description: "Archive metadata JSON; provide with the other archive fields to skip the pre-read",
 				}),
 			},
 			handler: handleArchiveCampaignCommand,

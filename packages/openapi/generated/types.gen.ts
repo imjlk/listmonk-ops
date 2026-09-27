@@ -2536,7 +2536,7 @@ export type UpdateCampaignArchiveByIdResponses = {
             archive_template_id?: number | null;
             archive_meta?: {
                 [key: string]: unknown;
-            };
+            } | null;
             archive_slug?: string | null;
         };
     };

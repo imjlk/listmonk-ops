@@ -1643,6 +1643,7 @@ paths:
                         nullable: true
                       archive_meta:
                         type: object
+                        nullable: true
                       archive_slug:
                         type: string
                         nullable: true

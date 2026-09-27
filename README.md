@@ -535,9 +535,10 @@ tags), and `campaigns update`/`campaigns schedule` resend the stored target
 lists, media attachments, and attributes, which Listmonk's campaign `PUT`
 does not pre-fill (it rejects a missing list set and detaches unsent media).
 `campaigns archive` resends the stored archive slug, template, and metadata so
-toggling the archive page keeps its public link, and `campaigns clone` derives
-a fresh archive slug for an archived source the way Listmonk's own clone
-action does, because slugs are unique. Lifecycle transitions accept Listmonk
+toggling the archive page keeps its public link. Callers with `campaigns:manage`
+but without `campaigns:get` can provide all three values directly to skip the
+pre-read. `campaigns clone` derives a fresh archive slug for an archived source
+the way Listmonk's own clone action does, because slugs are unique. Lifecycle transitions accept Listmonk
 6.2's updated-campaign echo as the acknowledgement:
 
 ```bash
@@ -581,6 +582,9 @@ listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
 listmonk-cli campaigns analytics --type views --from 2026-08-01 \
   --to 2026-08-31 --campaign-ids 42,43
 listmonk-cli campaigns archive --id 42 --archive=true
+# With campaigns:manage-only credentials, pass every archive field to skip the read.
+listmonk-cli campaigns archive --id 42 --archive=true --archive-slug spring-sale \
+  --archive-template-id 4 --archive-meta '{"title":"Spring sale"}'
 
 listmonk-cli dashboard counts
 listmonk-cli dashboard charts

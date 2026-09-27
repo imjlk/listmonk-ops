@@ -42447,7 +42447,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.",
+      "description": "Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op. Archive slug, template ID, and metadata can be supplied to avoid reading the campaign first.",
       "effects": [
         {
           "kind": "write",

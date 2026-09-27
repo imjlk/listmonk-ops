@@ -1999,6 +1999,20 @@ export async function invokeGetCampaignStatsOperation(
 
 const campaignArchiveInputSchema = campaignIdInputSchema.extend({
 	archive: z.boolean(),
+	archive_slug: z
+		.string()
+		.optional()
+		.describe("Archive slug; provide with the other archive fields to skip the pre-read."),
+	archive_template_id: z
+		.number()
+		.int()
+		.nonnegative()
+		.optional()
+		.describe("Archive template ID; use 0 to clear it."),
+	archive_meta: z
+		.record(z.string(), z.unknown())
+		.optional()
+		.describe("Archive metadata JSON; provide with the other archive fields to skip the pre-read."),
 });
 
 const campaignArchiveOutputSchema = z.looseObject({
@@ -2009,10 +2023,10 @@ const campaignArchiveOutputSchema = z.looseObject({
 });
 
 /**
- * Toggle the campaign's public archive page. Listmonk 6.2 echoes the
- * applied archive settings rather than a bare boolean; the shared
- * contract reports the server-echoed archive flag when present and
- * falls back to the requested value for a bare acknowledgement. A
+ * Toggle the campaign's public archive page. Archive settings supplied by
+ * the caller override the stored values. Providing all three settings avoids
+ * the pre-read, which supports credentials without campaigns:get permission.
+ * Listmonk 6.2 echoes the applied settings rather than a bare boolean; a
  * negative acknowledgement fails closed.
  */
 export async function archiveCampaign(
@@ -2021,24 +2035,32 @@ export async function archiveCampaign(
 ): Promise<z.output<typeof campaignArchiveOutputSchema>> {
 	// Listmonk 6.2 rewrites archive_slug (an empty slug becomes NULL) and
 	// archive_meta (an absent map is stored as JSON null) on every toggle,
-	// so resend the stored values to keep public archive links and the
-	// archive placeholder data intact.
-	const current = await loadCampaignForWrite(
-		client,
-		input.id,
-		"Failed to load campaign before toggling its archive",
-	);
-	const archiveMeta = current.archive_meta;
+	// so either resend the stored values or accept complete caller-provided
+	// settings to keep public archive links and placeholder data intact.
+	const hasCompleteArchiveSettings =
+		typeof input.archive_slug === "string" &&
+		typeof input.archive_template_id === "number" &&
+		input.archive_meta !== undefined;
+	const current = hasCompleteArchiveSettings
+		? undefined
+		: await loadCampaignForWrite(
+				client,
+				input.id,
+				"Failed to load campaign before toggling its archive",
+			);
+	const archiveMeta = input.archive_meta ?? current?.archive_meta;
 	const response = await client.campaign.updateArchive({
 		path: { id: input.id },
 		body: {
 			archive: input.archive,
 			archive_slug:
-				typeof current.archive_slug === "string" ? current.archive_slug : "",
+				input.archive_slug ??
+				(typeof current?.archive_slug === "string" ? current.archive_slug : ""),
 			archive_template_id:
-				typeof current.archive_template_id === "number"
+				input.archive_template_id ??
+				(typeof current?.archive_template_id === "number"
 					? current.archive_template_id
-					: 0,
+					: 0),
 			archive_meta:
 				typeof archiveMeta === "object" &&
 				archiveMeta !== null &&
@@ -2077,7 +2099,7 @@ export const archiveCampaignOperation = defineOperation({
 	id: "campaigns.archive",
 	title: "Toggle the campaign archive page",
 	description:
-		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op.",
+		"Enable or disable the campaign's public archive page. Repeating the same toggle is a documented no-op. Archive slug, template ID, and metadata can be supplied to avoid reading the campaign first.",
 	inputSchema: campaignArchiveInputSchema,
 	outputSchema: campaignArchiveOutputSchema,
 	safety: updateResourceSafety,
