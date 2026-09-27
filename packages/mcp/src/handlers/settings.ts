@@ -1,4 +1,5 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { redactSettingsCredentials } from "@listmonk-ops/operations";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
 import { createErrorResult, handleDataResponse } from "../utils/response.js";
@@ -60,7 +61,20 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 
 			case "listmonk_get_server_config": {
 				const response = await client.system.getConfig();
-				return handleDataResponse(response, "Failed to fetch server config");
+				// The 6.2 server config echoes settings-derived URLs (app.root_url
+				// as root_url, security.trusted_urls as
+				// public_subscription.redirect_urls), so it gets the same
+				// redaction as settings.get.
+				return handleDataResponse(
+					{
+						...response,
+						data:
+							response.data === undefined
+								? undefined
+								: redactSettingsCredentials(response.data),
+					},
+					"Failed to fetch server config",
+				);
 			}
 
 			default:
