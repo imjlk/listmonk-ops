@@ -8,7 +8,7 @@
         "@ttsc/graph": "0.30.4",
         "@ttsc/lint": "0.30.4",
         "@types/bun": "^1.4.2",
-        "@types/node": "^26.6.2",
+        "@types/node": "^26.6.3",
         "esbuild": "0.28.2",
         "ttsc": "0.30.4",
         "typescript": "7.0.2",
@@ -16,7 +16,7 @@
     },
     "apps/cli": {
       "name": "@listmonk-ops/cli",
-      "version": "0.17.1",
+      "version": "0.18.0",
       "bin": {
         "listmonk-cli": "dist/js/index.js",
       },
@@ -24,11 +24,11 @@
         "@clack/prompts": "1.8.1",
         "@gunshi/plugin-completion": "0.37.3",
         "@gunshi/plugin-i18n": "0.37.3",
-        "@listmonk-ops/abtest": "workspace:^0.9.1",
-        "@listmonk-ops/automation": "workspace:^0.9.0",
-        "@listmonk-ops/common": "workspace:^0.7.1",
-        "@listmonk-ops/openapi": "workspace:^0.10.0",
-        "@listmonk-ops/operations": "workspace:^0.19.0",
+        "@listmonk-ops/abtest": "workspace:^0.9.2",
+        "@listmonk-ops/automation": "workspace:^0.9.1",
+        "@listmonk-ops/common": "workspace:^0.7.2",
+        "@listmonk-ops/openapi": "workspace:^0.11.0",
+        "@listmonk-ops/operations": "workspace:^0.20.0",
         "gunshi": "0.37.3",
         "postgres": "3.4.9",
         "zod": "4.6.5",
@@ -40,11 +40,11 @@
     },
     "packages/abtest": {
       "name": "@listmonk-ops/abtest",
-      "version": "0.9.1",
+      "version": "0.9.2",
       "dependencies": {
-        "@listmonk-ops/common": "workspace:^0.7.1",
-        "@listmonk-ops/openapi": "workspace:^0.10.0",
-        "@listmonk-ops/operations": "workspace:^0.19.0",
+        "@listmonk-ops/common": "workspace:^0.7.2",
+        "@listmonk-ops/openapi": "workspace:^0.11.0",
+        "@listmonk-ops/operations": "workspace:^0.20.0",
         "zod": "4.6.5",
       },
       "devDependencies": {
@@ -55,13 +55,13 @@
     },
     "packages/automation": {
       "name": "@listmonk-ops/automation",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "dependencies": {
         "@aws-sdk/client-sesv2": "3.1137.0",
         "@aws-sdk/credential-providers": "3.1137.0",
-        "@listmonk-ops/common": "workspace:^0.7.1",
-        "@listmonk-ops/openapi": "workspace:^0.10.0",
-        "@listmonk-ops/operations": "workspace:^0.19.0",
+        "@listmonk-ops/common": "workspace:^0.7.2",
+        "@listmonk-ops/openapi": "workspace:^0.11.0",
+        "@listmonk-ops/operations": "workspace:^0.20.0",
         "parse5": "8.0.0",
         "postgres": "3.4.9",
         "zod": "4.6.5",
@@ -74,7 +74,7 @@
     },
     "packages/common": {
       "name": "@listmonk-ops/common",
-      "version": "0.7.1",
+      "version": "0.7.2",
       "devDependencies": {
         "@types/bun": "1.4.2",
         "esbuild": "0.28.2",
@@ -83,16 +83,16 @@
     },
     "packages/mcp": {
       "name": "@listmonk-ops/mcp",
-      "version": "0.16.1",
+      "version": "0.17.0",
       "bin": {
         "listmonk-mcp": "bin/listmonk-mcp.js",
       },
       "dependencies": {
-        "@listmonk-ops/abtest": "workspace:^0.9.1",
-        "@listmonk-ops/automation": "workspace:^0.9.0",
-        "@listmonk-ops/common": "workspace:^0.7.1",
-        "@listmonk-ops/openapi": "workspace:^0.10.0",
-        "@listmonk-ops/operations": "workspace:^0.19.0",
+        "@listmonk-ops/abtest": "workspace:^0.9.2",
+        "@listmonk-ops/automation": "workspace:^0.9.1",
+        "@listmonk-ops/common": "workspace:^0.7.2",
+        "@listmonk-ops/openapi": "workspace:^0.11.0",
+        "@listmonk-ops/operations": "workspace:^0.20.0",
         "@modelcontextprotocol/sdk": "1.30.0",
         "hono": "4.13.8",
       },
@@ -103,7 +103,7 @@
     },
     "packages/openapi": {
       "name": "@listmonk-ops/openapi",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "devDependencies": {
         "@hey-api/openapi-ts": "0.99.0",
         "@types/bun": "1.4.2",
@@ -113,10 +113,10 @@
     },
     "packages/operations": {
       "name": "@listmonk-ops/operations",
-      "version": "0.19.0",
+      "version": "0.20.0",
       "dependencies": {
-        "@listmonk-ops/common": "workspace:^0.7.1",
-        "@listmonk-ops/openapi": "workspace:^0.10.0",
+        "@listmonk-ops/common": "workspace:^0.7.2",
+        "@listmonk-ops/openapi": "workspace:^0.11.0",
         "zod": "4.6.5",
       },
       "devDependencies": {
@@ -271,7 +271,7 @@
 
     "@smithy/node-http-handler": ["@smithy/node-http-handler@4.12.1", "", { "dependencies": { "@smithy/core": "^3.33.3", "@smithy/types": "^4.18.0", "tslib": "^2.6.2" } }, "sha512-ThMkboGeONWXAelq9FvGsuJC4rOi+qyC4/zhUF58xYpxUg5sQKx2VXZYJmtNjr4dSuBJ1HeJXETQILCz3wOHvw=="],
 
-    "@smithy/signature-v4": ["@smithy/signature-v4@5.7.3", "", { "dependencies": { "@smithy/core": "^3.33.3", "@smithy/types": "^4.17.2", "tslib": "^2.6.2" } }, "sha512-7ImGm+FkHRLcBaRttIAMZ6bzJZWb2cJGoYjq46F2UjycujWzrL9GEN9h4w7eQyXJYnltrUhxbbieBAIRrdqpow=="],
+    "@smithy/signature-v4": ["@smithy/signature-v4@5.7.4", "", { "dependencies": { "@smithy/core": "^3.35.0", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-tHy0K0VtqNd5Y7Y41h0a0Lhh0L1GzC08dTWg0F7vRJWFtTENg7IZikf3wQkanYIRdb7ngoIPMTmqgUi401fEeQ=="],
 
     "@smithy/types": ["@smithy/types@4.19.0", "", { "dependencies": { "tslib": "^2.6.2" } }, "sha512-r7jh49VJxGerfAcTQA6gXcKc+98zOp/tqRwzYjgOE+iSQsP6cEU1hq2QzbuipmP68QtYdY9wKEhiCQZIzHgZ4Q=="],
 
@@ -297,7 +297,7 @@
 
     "@types/json-schema": ["@types/json-schema@7.0.15", "", {}, "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA=="],
 
-    "@types/node": ["@types/node@26.6.2", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-X1P21scMv4zGKLYqjdGjaKa7COa0RKVYYZZN/NfvLQ1JegxFhdhpZG/Lyn8AXx6CDUavKAd11v6BvfpkDByK8g=="],
+    "@types/node": ["@types/node@26.6.3", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-dsqMQQoeTLqu9wynDD00q573mNzso3IdQOAfHRJqLCcmCFPoGo9A1bDpUcv/9tnKpErQWv9uKeGfl37EIS02Yg=="],
 
     "@typescript/typescript-aix-ppc64": ["@typescript/typescript-aix-ppc64@7.0.2", "", { "os": "aix", "cpu": "ppc64" }, "sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ=="],
 
@@ -339,11 +339,11 @@
 
     "@typescript/typescript-win32-x64": ["@typescript/typescript-win32-x64@7.0.2", "", { "os": "win32", "cpu": "x64" }, "sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g=="],
 
-    "@typia/interface": ["@typia/interface@15.0.0", "", {}, "sha512-iLl1Xtawi+GkdIILJdRyEKi1CZxj/ZRoz5jZ636GLGX83xWy95CZEo/WMJEcjJfdc3UhVK6xbh881d9iuZ+3uA=="],
+    "@typia/interface": ["@typia/interface@15.0.1", "", {}, "sha512-dB5M3exm6/6PyfIUEQeE8Klhil3bayHXtvDiNWJyTvemHP5FpKiCyCjeGzPT6AG5cnSjzx10OPT3RDBULPuekw=="],
 
     "@typia/mcp": ["@typia/mcp@14.0.6", "", { "dependencies": { "@typia/interface": "^14.0.6", "@typia/utils": "^14.0.6" }, "peerDependencies": { "@modelcontextprotocol/sdk": ">=1.12.0" } }, "sha512-TI0QbjQ2/vQS6u/VzH8pVy93/DK4truTPLxHK9TsT41qjjVzyP0w1G1gjBMxSnYAZUxoEUTPwUuSGcEnjyuwlQ=="],
 
-    "@typia/utils": ["@typia/utils@15.0.0", "", { "dependencies": { "@typia/interface": "^15.0.0" } }, "sha512-8gELqfowtStO/3gEc1ABRbFB8rKhabBJ7pNuhQ+7DV9aPKJGDfni6nxkRR0BCV7nuKZ5ev9DGjo8uAgnQ3vq+g=="],
+    "@typia/utils": ["@typia/utils@15.0.1", "", { "dependencies": { "@typia/interface": "^15.0.1" } }, "sha512-bq6m8U2ZPIjkoHPAtPAkOtC3P1ekFBRoh7+Xa7eAOy/jp/o3v58BojN3uTLXsZOWB79GmMqCpeyJNgtfs7Z2aA=="],
 
     "accepts": ["accepts@2.0.0", "", { "dependencies": { "mime-types": "^3.0.0", "negotiator": "^1.0.0" } }, "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng=="],
 
@@ -363,7 +363,7 @@
 
     "bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
 
-    "bundle-name": ["bundle-name@4.1.0", "", { "dependencies": { "run-applescript": "^7.0.0" } }, "sha512-tjwM5exMg6BGRI+kNmTntNsvdZS1X8BFYS6tnJ2hdH0kVxM6/eVZ2xy+FqStSWvYmtfFMDLIxurorHwDKfDz5Q=="],
+    "bundle-name": ["bundle-name@4.1.1", "", { "dependencies": { "run-applescript": "^7.0.0" } }, "sha512-DdH81/zPLVS11EUgWq3tEu/xn+EzljlMYooDNdzWEnFha3R3NBMpMV1UqYIpjYHV/SgpFKMIX1Oh7o06SjM/oA=="],
 
     "bytes": ["bytes@3.1.2", "", {}, "sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg=="],
 
@@ -634,6 +634,8 @@
     "zod": ["zod@4.6.5", "", {}, "sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q=="],
 
     "zod-to-json-schema": ["zod-to-json-schema@3.25.2", "", { "peerDependencies": { "zod": "^3.25.28 || ^4" } }, "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA=="],
+
+    "@listmonk-ops/mcp/@types/node": ["@types/node@26.6.2", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-X1P21scMv4zGKLYqjdGjaKa7COa0RKVYYZZN/NfvLQ1JegxFhdhpZG/Lyn8AXx6CDUavKAd11v6BvfpkDByK8g=="],
 
     "@listmonk-ops/openapi/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
