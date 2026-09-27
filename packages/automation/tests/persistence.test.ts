@@ -1598,6 +1598,63 @@ describe("template registry active version", () => {
 		expect(sequenceStore.captureSequence).toBe(2);
 	});
 
+	test("migrates legacy template versions before new monotonic captures", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		const { remote, client } = createTemplateRemote(49, "<p>v1</p>");
+		await syncTemplateRegistry(client, { templateIds: [49] });
+
+		// Simulate a registry written before per-template capture order existed.
+		const registry = JSON.parse(
+			await readFile(templateStorePath, "utf8"),
+		) as {
+			captureSequence?: number;
+			templates: Record<string, { versions: Array<Record<string, unknown>> }>;
+		};
+		delete registry.captureSequence;
+		delete registry.templates["49"]!.versions[0]!.captureOrder;
+		registry.templates["49"]!.versions[0]!.capturedAt =
+			"2099-01-01T00:00:00.000Z";
+		await writeFile(templateStorePath, `${JSON.stringify(registry)}\n`, "utf8");
+
+		await editAndSync(remote, client, 49, "<p>v2</p>");
+
+		const history = await getTemplateRegistryHistory(49);
+		expect(history.versions.map((version) => version.captureOrder)).toEqual([
+			1,
+			2,
+		]);
+		expect(history.versions.map((version) => version.snapshot.body)).toEqual([
+			"<p>v1</p>",
+			"<p>v2</p>",
+		]);
+		const rollback = await rollbackTemplateVersion(client, 49);
+		expect(rollback.versionId).toBe(versionIdFor(history, "<p>v1</p>"));
+		expect(remote.body).toBe("<p>v1</p>");
+	});
+
+	test("reconciles an older capture sidecar with the registry high-water mark", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		const { remote, client } = createTemplateRemote(50, "<p>v1</p>");
+		await syncTemplateRegistry(client, { templateIds: [50] });
+
+		const registry = JSON.parse(
+			await readFile(templateStorePath, "utf8"),
+		) as { captureSequence: number };
+		registry.captureSequence = 10;
+		await writeFile(templateStorePath, `${JSON.stringify(registry)}\n`, "utf8");
+		await editAndSync(remote, client, 50, "<p>v2</p>");
+
+		const history = await getTemplateRegistryHistory(50);
+		expect(history.versions.map((version) => version.captureOrder)).toEqual([
+			1,
+			11,
+		]);
+		const sequenceStore = JSON.parse(
+			await readFile(`${templateStorePath}.capture-sequence.json`, "utf8"),
+		) as { captureSequence: number };
+		expect(sequenceStore.captureSequence).toBe(11);
+	});
+
 	test("samples each template head immediately before its remote read", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		const remote = new Map<number, { name: string; body: string }>([

@@ -173,6 +173,75 @@ function compareTemplateVersions(
 	);
 }
 
+function migrateLegacyTemplateCaptureOrders(
+	store: TemplateRegistryStore,
+): void {
+	const records = Object.values(store.templates);
+	const legacyVersions = records
+		.flatMap((record) => record.versions)
+		.filter((version) => version.captureOrder === undefined)
+		.sort(
+			(left, right) =>
+				left.capturedAt.localeCompare(right.capturedAt) ||
+				left.versionId.localeCompare(right.versionId),
+		);
+	if (legacyVersions.length === 0) {
+		return;
+	}
+
+	// Keep known modern observations in their monotonic order. Legacy entries
+	// have only wall-clock timestamps, so place them relative to that sequence
+	// by timestamp once, then persist a single global capture order.
+	const ordered = records
+		.flatMap((record) => record.versions)
+		.filter((version) => version.captureOrder !== undefined)
+		.sort(
+			(left, right) =>
+				(left.captureOrder ?? 0) - (right.captureOrder ?? 0) ||
+				left.capturedAt.localeCompare(right.capturedAt) ||
+				left.versionId.localeCompare(right.versionId),
+		);
+	for (const version of legacyVersions) {
+		const nextVersionIndex = ordered.findIndex(
+			(candidate) =>
+				candidate.capturedAt.localeCompare(version.capturedAt) > 0,
+		);
+		ordered.splice(
+			nextVersionIndex === -1 ? ordered.length : nextVersionIndex,
+			0,
+			version,
+		);
+	}
+	for (const [index, version] of ordered.entries()) {
+		version.captureOrder = index + 1;
+	}
+	for (const record of records) {
+		record.versions.sort(compareTemplateVersions);
+	}
+}
+
+function getTemplateRegistryCaptureSequenceHighWater(
+	store: TemplateRegistryStore,
+): number {
+	let highWater = store.captureSequence ?? 0;
+	let hasLegacyVersion = false;
+	let versionCount = 0;
+	for (const record of Object.values(store.templates)) {
+		versionCount += record.versions.length;
+		for (const version of record.versions) {
+			if (version.captureOrder !== undefined) {
+				highWater = Math.max(highWater, version.captureOrder);
+			} else {
+				hasLegacyVersion = true;
+			}
+		}
+	}
+	if (hasLegacyVersion) {
+		highWater = Math.max(highWater, versionCount);
+	}
+	return highWater;
+}
+
 function isTemplateVersionSnapshot(
 	value: unknown,
 ): value is TemplateVersionSnapshot {
@@ -513,9 +582,10 @@ function createTemplateCaptureSequenceStore(
 
 async function reserveTemplateCaptureRead(
 	sequenceStore: JsonFileStore<TemplateRegistryCaptureSequenceStore>,
+	minimumSequence: number,
 ): Promise<{ captureOrder: number }> {
 	return updateJsonFileStore(sequenceStore, (store) => {
-		const captureOrder = store.captureSequence + 1;
+		const captureOrder = Math.max(store.captureSequence, minimumSequence) + 1;
 		if (!Number.isSafeInteger(captureOrder)) {
 			throw new Error("Template registry capture sequence is exhausted");
 		}
@@ -557,9 +627,11 @@ async function captureTemplateRegistry(
 	const capturedAt = new Date().toISOString();
 	const templateIds = await getTemplateIds(client, options.templateIds);
 	const registry = await readJsonFileStore(storeDefinition);
+	const captureSequenceHighWater =
+		getTemplateRegistryCaptureSequenceHighWater(registry);
 	const sequenceStore = createTemplateCaptureSequenceStore(
 		storeDefinition,
-		registry.captureSequence ?? 0,
+		captureSequenceHighWater,
 	);
 	const versions: CapturedTemplateVersion[] = [];
 	const errors: string[] = [];
@@ -569,8 +641,19 @@ async function captureTemplateRegistry(
 			const version = await updateJsonFileStore(
 				createTemplateCaptureReadLockStore(storeDefinition, templateId),
 				async (lockState) => {
-					const stamp = await reserveTemplateCaptureRead(sequenceStore);
+					let stamp = await reserveTemplateCaptureRead(
+					sequenceStore,
+					captureSequenceHighWater,
+				);
 					const latestRegistry = await readJsonFileStore(storeDefinition);
+					const latestCaptureSequence =
+						getTemplateRegistryCaptureSequenceHighWater(latestRegistry);
+					if (latestCaptureSequence >= stamp.captureOrder) {
+						stamp = await reserveTemplateCaptureRead(
+							sequenceStore,
+							latestCaptureSequence,
+						);
+					}
 					const headRevisionBeforeRead =
 						latestRegistry.templates[String(templateId)]?.headRevision ?? 0;
 					const capturedAt = new Date().toISOString();
@@ -636,6 +719,7 @@ function mergeTemplateRegistryCapture(
 	store: TemplateRegistryStore,
 	storePath: string,
 ): TemplateRegistrySyncResult {
+	migrateLegacyTemplateCaptureOrders(store);
 	store.captureSequence = Math.max(
 		store.captureSequence ?? 0,
 		capture.captureSequence,
