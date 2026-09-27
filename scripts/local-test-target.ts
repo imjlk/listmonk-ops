@@ -88,14 +88,20 @@ const RECORD_ID_TOKEN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 /**
  * Read the id of a record created by CLI `--format json` output, only when
- * the record echoes the unique value it was created with. Cleanup therefore
- * never deletes a resource this run did not create.
+ * the output reports `created: true` and the record echoes the unique value it
+ * was created with. A replayed record (`created: false`, such as a subscriber
+ * whose email already existed) was created by someone else, so cleanup never
+ * deletes a resource this run did not create.
  */
 export function readCreatedRecordId(
 	output: string,
 	match: { key: string; field: string; value: string },
 ): string | undefined {
-	const record = parseJsonObject(output)?.[match.key];
+	const envelope = parseJsonObject(output);
+	if (envelope?.created !== true) {
+		return undefined;
+	}
+	const record = envelope[match.key];
 	if (typeof record !== "object" || record === null) {
 		return undefined;
 	}

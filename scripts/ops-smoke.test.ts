@@ -23,7 +23,15 @@ type RecordedRequest = {
 	method: string;
 	path: string;
 	authorization: string | null;
+	body: string;
+	/** Id the fake assigned when this request created a fixture. */
+	createdId?: number;
 };
+
+type FakeListmonk = { url: string; requests: RecordedRequest[] };
+
+const FIXTURE_PATH = /^\/api\/(subscribers|templates)(?:\/(\d+))?$/;
+const EMPTY_PAGE = { results: [], total: 0, per_page: 20, page: 1 };
 
 const cleanups: (() => Promise<void> | void)[] = [];
 
@@ -42,41 +50,123 @@ async function temporaryDirectory(): Promise<string> {
 	return directory;
 }
 
-/** A loopback stand-in for Listmonk that records every request it receives. */
+/**
+ * A loopback stand-in for Listmonk that records every request it receives.
+ * It accepts the token for any username, assigns subscriber and template ids,
+ * and, like Listmonk, rejects a second subscriber with the same email, which
+ * the CLI then replays as the existing subscriber with `created: false`.
+ */
 function startFakeListmonk(
 	acceptedToken?: string,
 	beforeResponse?: (request: RecordedRequest) => Promise<void>,
-) {
+): FakeListmonk {
 	const requests: RecordedRequest[] = [];
+	const fixtures = new Map<string, Record<string, unknown>>();
+	let nextId = 4242;
 	const server = Bun.serve({
 		hostname: "127.0.0.1",
 		port: 0,
 		async fetch(request) {
 			const url = new URL(request.url);
 			const authorization = request.headers.get("authorization");
-			const recorded = {
+			const recorded: RecordedRequest = {
 				method: request.method,
 				path: `${url.pathname}${url.search}`,
 				authorization,
+				body: await request.text(),
 			};
 			requests.push(recorded);
 			await beforeResponse?.(recorded);
 			if (url.pathname === "/health") {
 				return Response.json({ data: true });
 			}
-			if (authorization !== `token ${USERNAME}:${acceptedToken}`) {
+			if (
+				acceptedToken === undefined ||
+				!authorization?.startsWith("token ") ||
+				!authorization.endsWith(`:${acceptedToken}`)
+			) {
 				return Response.json({ message: "Invalid API token" }, { status: 403 });
 			}
 			if (url.pathname === "/api/about") {
 				return Response.json({ data: { version: "v6.2.0" } });
 			}
-			return Response.json({
-				data: { results: [], total: 0, per_page: 20, page: 1 },
-			});
+			const [, collection, id] = FIXTURE_PATH.exec(url.pathname) ?? [];
+			if (collection !== undefined && id === undefined) {
+				const subscribers = [...fixtures.entries()]
+					.filter(([path]) => path.startsWith("/api/subscribers/"))
+					.map(([, fixture]) => fixture);
+				if (request.method === "POST") {
+					const input = JSON.parse(recorded.body) as Record<string, unknown>;
+					if (
+						collection === "subscribers" &&
+						subscribers.some((subscriber) => subscriber.email === input.email)
+					) {
+						return Response.json(
+							{ message: "E-mail already exists." },
+							{ status: 409 },
+						);
+					}
+					const createdId = nextId++;
+					recorded.createdId = createdId;
+					const timestamps = {
+						created_at: "2026-01-01T00:00:00Z",
+						updated_at: "2026-01-01T00:00:00Z",
+					};
+					const fixture =
+						collection === "subscribers"
+							? {
+									...input,
+									...timestamps,
+									id: createdId,
+									uuid: `subscriber-${createdId}`,
+									lists: [
+										{ id: 1, name: "Default", subscription_status: "unconfirmed" },
+									],
+								}
+							: { ...input, ...timestamps, id: createdId, is_default: false };
+					fixtures.set(`${url.pathname}/${createdId}`, fixture);
+					return Response.json({ data: fixture });
+				}
+				// Subscriber pages include the create-replay lookup by email.
+				const results = collection === "subscribers" ? subscribers : [];
+				return Response.json({
+					data: { ...EMPTY_PAGE, results, total: results.length },
+				});
+			}
+			if (id !== undefined && request.method === "DELETE") {
+				// Listmonk also reports success for an already-deleted record.
+				fixtures.delete(url.pathname);
+				return Response.json({ data: true });
+			}
+			const fixture = fixtures.get(url.pathname);
+			if (fixture !== undefined && request.method === "GET") {
+				return Response.json({ data: fixture });
+			}
+			if (request.method === "GET" && !/\/\d+$/.test(url.pathname)) {
+				return Response.json({ data: EMPTY_PAGE });
+			}
+			return Response.json({ message: "Not found" }, { status: 404 });
 		},
 	});
 	cleanups.push(() => server.stop(true));
 	return { url: `http://127.0.0.1:${server.port}/api`, requests };
+}
+
+function requestCount(fake: FakeListmonk, method: string, path: string) {
+	return fake.requests.filter(
+		(request) => request.method === method && request.path === path,
+	).length;
+}
+
+function createdIds(fake: FakeListmonk, path: string, username = USERNAME) {
+	return fake.requests
+		.filter(
+			(request) =>
+				request.method === "POST" &&
+				request.path === path &&
+				request.authorization === `token ${username}:${TOKEN}`,
+		)
+		.map((request) => request.createdId);
 }
 
 /** Start the smoke with a minimal environment: no GITHUB_ENV or operator shell. */
@@ -247,17 +337,13 @@ describe("ops smoke local target isolation", () => {
 				`Unable to validate or provision a Listmonk API token for ${USERNAME}`,
 			);
 			expect(
-				local.requests.filter(
-					(request) =>
-						request.authorization === `token ${USERNAME}:stale-token`,
-				),
-			).toEqual([
-				{
-					method: "GET",
-					path: "/api/lists?page=1&per_page=1",
-					authorization: `token ${USERNAME}:stale-token`,
-				},
-			]);
+				local.requests
+					.filter(
+						(request) =>
+							request.authorization === `token ${USERNAME}:stale-token`,
+					)
+					.map((request) => `${request.method} ${request.path}`),
+			).toEqual(["GET /api/lists?page=1&per_page=1"]);
 			expect(
 				local.requests.some((request) =>
 					request.path.startsWith("/api/campaigns"),
@@ -318,4 +404,145 @@ describe("ops smoke local target isolation", () => {
 			SMOKE_TIMEOUT_MS,
 		);
 	}
+});
+
+// Full mode runs only against these in-process loopback fakes.
+describe("ops smoke full-mode fixture cleanup", () => {
+	const fullSmoke = (url: string, username = USERNAME) => ({
+		LISTMONK_OPS_SMOKE_MODE: "full",
+		LISTMONK_API_URL: url,
+		LISTMONK_USERNAME: username,
+		LISTMONK_API_TOKEN: TOKEN,
+	});
+
+	test(
+		"deletes a fixture whose create finished while a signal stopped the run",
+		async () => {
+			const directory = await temporaryDirectory();
+			const smoke: { child?: Bun.Subprocess } = {};
+			// Signal the script during `subscribers create`; the create still
+			// finishes and writes its output before bash honors the signal.
+			const local = startFakeListmonk(TOKEN, async (request) => {
+				if (request.method === "POST" && request.path === "/api/subscribers") {
+					smoke.child?.kill("SIGTERM");
+					await Bun.sleep(300);
+				}
+			});
+			const run = startSmoke(directory, fullSmoke(local.url));
+			smoke.child = run.child;
+
+			const result = await run.result;
+
+			expect(result.exitCode, result.output).toBe(143);
+			expect(createdIds(local, "/api/subscribers")).toEqual([4242]);
+			expect(requestCount(local, "DELETE", "/api/subscribers/4242")).toBe(1);
+			expect(requestCount(local, "POST", "/api/templates")).toBe(0);
+			expect(await leftoverStateDirectories(directory)).toEqual([]);
+		},
+		SMOKE_TIMEOUT_MS,
+	);
+
+	test(
+		"still deletes the remaining fixtures when a signal interrupts cleanup",
+		async () => {
+			const directory = await temporaryDirectory();
+			const smoke: { child?: Bun.Subprocess; signaled?: boolean } = {};
+			// Signal the script during the first subscriber delete of the normal
+			// cleanup; the template delete is still pending at that point.
+			const local = startFakeListmonk(TOKEN, async (request) => {
+				if (
+					request.method === "DELETE" &&
+					request.path.startsWith("/api/subscribers/") &&
+					!smoke.signaled
+				) {
+					smoke.signaled = true;
+					smoke.child?.kill("SIGTERM");
+					await Bun.sleep(300);
+				}
+			});
+			const run = startSmoke(directory, fullSmoke(local.url));
+			smoke.child = run.child;
+
+			const result = await run.result;
+
+			expect(result.exitCode, result.output).toBe(143);
+			expect(smoke.signaled).toBe(true);
+			const [subscriberId] = createdIds(local, "/api/subscribers");
+			const [templateId] = createdIds(local, "/api/templates");
+			expect(
+				requestCount(local, "DELETE", `/api/subscribers/${subscriberId}`),
+			).toBeGreaterThanOrEqual(1);
+			expect(requestCount(local, "DELETE", `/api/templates/${templateId}`)).toBe(
+				1,
+			);
+			expect(await leftoverStateDirectories(directory)).toEqual([]);
+		},
+		SMOKE_TIMEOUT_MS,
+	);
+
+	test(
+		"gives concurrent runs in the same second distinct fixtures",
+		async () => {
+			const stubDirectory = await temporaryDirectory();
+			const realDate = Bun.which("date");
+			if (realDate === null) {
+				throw new Error("date is required");
+			}
+			// Both runs see the same `date +%s`, like runs started in one second.
+			await writeFile(
+				join(stubDirectory, "date"),
+				`#!/usr/bin/env bash\nif [[ "$*" == "+%s" ]]; then echo 1790000000; exit 0; fi\nexec "${realDate}" "$@"\n`,
+			);
+			await chmod(join(stubDirectory, "date"), 0o755);
+			const local = startFakeListmonk(TOKEN);
+			const usernames = ["smoke-run-a", "smoke-run-b"];
+
+			await Promise.all(
+				usernames.map(async (username) =>
+					runSmoke(await temporaryDirectory(), {
+						...fullSmoke(local.url, username),
+						PATH: `${stubDirectory}${delimiter}${process.env.PATH ?? ""}`,
+					}),
+				),
+			);
+
+			const createBodies = (path: string) =>
+				usernames.map((username) =>
+					local.requests
+						.filter(
+							(request) =>
+								request.method === "POST" &&
+								request.path === path &&
+								request.authorization === `token ${username}:${TOKEN}`,
+						)
+						.map((request) => JSON.parse(request.body) as Record<string, unknown>),
+				);
+			const [emailsA, emailsB] = createBodies("/api/subscribers").map((bodies) =>
+				bodies.map((body) => body.email),
+			);
+			expect(emailsA).toHaveLength(1);
+			expect(emailsB).toHaveLength(1);
+			expect(emailsA).not.toEqual(emailsB);
+			const [namesA, namesB] = createBodies("/api/templates").map((bodies) =>
+				bodies.map((body) => body.name),
+			);
+			expect(namesA).not.toEqual(namesB);
+			// Each run created its own subscriber and deleted only that one.
+			for (const username of usernames) {
+				const [subscriberId] = createdIds(local, "/api/subscribers", username);
+				expect(subscriberId).toBeNumber();
+				expect(
+					local.requests
+						.filter(
+							(request) =>
+								request.method === "DELETE" &&
+								request.path.startsWith("/api/subscribers/") &&
+								request.authorization === `token ${username}:${TOKEN}`,
+						)
+						.map((request) => request.path),
+				).toEqual([`/api/subscribers/${subscriberId}`]);
+			}
+		},
+		SMOKE_TIMEOUT_MS,
+	);
 });

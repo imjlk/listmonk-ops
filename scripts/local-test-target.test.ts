@@ -140,7 +140,23 @@ describe("local test target guard", () => {
 		for (const id of [0, -1, 1.5, "", "42; rm -rf /", "a b", null]) {
 			expect(
 				readCreatedRecordId(
-					JSON.stringify({ subscriber: { id, email: match.value } }),
+					JSON.stringify({
+						subscriber: { id, email: match.value },
+						created: true,
+					}),
+					match,
+				),
+			).toBeUndefined();
+		}
+		// A replayed record (for example an existing subscriber with the same
+		// email) was not created by this run and must never be cleaned up.
+		for (const created of [false, undefined, "true"]) {
+			expect(
+				readCreatedRecordId(
+					JSON.stringify({
+						subscriber: { id: 42, email: match.value },
+						created,
+					}),
 					match,
 				),
 			).toBeUndefined();

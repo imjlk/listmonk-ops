@@ -21,10 +21,18 @@ export LISTMONK_TEST_TOKEN_FILE="${LISTMONK_TEST_TOKEN_FILE:-/tmp/listmonk-ops-a
 PASS_COUNT=0
 FAIL_COUNT=0
 LAST_STATUS=""
+# Full-mode fixtures. A *_CREATE_* value is the unique email or name of a
+# fixture whose create step has started but whose id is not bound yet. An id
+# stays set until its delete step has run.
+SUBSCRIBER_OUTPUT="$LOG_DIR/subscribers_create.json"
+TEMPLATE_OUTPUT="$LOG_DIR/templates_create.json"
+ABTEST_OUTPUT="$LOG_DIR/abtest_create.json"
+SUBSCRIBER_CREATE_EMAIL=""
+TEMPLATE_CREATE_NAME=""
+ABTEST_CREATE_NAME=""
 SUB_ID=""
 TEMPLATE_ID=""
 TEST_ID=""
-FIXTURE_CLEANUP_DONE=0
 
 print_info() {
 	echo "[smoke] $*"
@@ -64,8 +72,8 @@ capture_stdout() {
 	"$@" >"$output"
 }
 
-# Print the id of a record this run created, but only when the record echoes
-# the unique email or name it was created with.
+# Print the id of a record this run created: the output must report
+# `created: true` and echo the unique email or name the record was created with.
 created_record_id() {
 	local file="$1"
 	shift
@@ -82,26 +90,46 @@ require_fixture_id() {
 	if [[ "$LAST_STATUS" != "pass" || -n "$id" ]]; then
 		return 0
 	fi
-	echo "FAIL ${name}_id: no created record id in $LOG_DIR/${name}.json; delete that fixture manually"
+	echo "FAIL ${name}_id: no record created by this run in $LOG_DIR/${name}.json; check for a leftover fixture"
 	FAIL_COUNT=$((FAIL_COUNT + 1))
 	printf '%s\t%s\t%s\t%s\t%s\n' "${name}_id" "fail" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" 0 "$LOG_DIR/${name}.json" >>"$RESULTS_TSV"
 }
 
-# Delete full-mode fixtures once: after the full flow, or from the exit trap
-# when the run is interrupted.
-cleanup_full_fixtures() {
-	if [[ "$FIXTURE_CLEANUP_DONE" -eq 1 ]]; then
-		return 0
+# Bind the id of every fixture whose create step has run. Exit cleanup runs
+# this too: a signal is honored as soon as a create step returns, before the
+# script reaches the binding after it, so the fixture would otherwise leak.
+bind_created_ids() {
+	if [[ -n "$SUBSCRIBER_CREATE_EMAIL" ]]; then
+		SUB_ID="$(created_record_id "$SUBSCRIBER_OUTPUT" subscriber email "$SUBSCRIBER_CREATE_EMAIL")"
+		SUBSCRIBER_CREATE_EMAIL=""
 	fi
-	FIXTURE_CLEANUP_DONE=1
+	if [[ -n "$TEMPLATE_CREATE_NAME" ]]; then
+		TEMPLATE_ID="$(created_record_id "$TEMPLATE_OUTPUT" template name "$TEMPLATE_CREATE_NAME")"
+		TEMPLATE_CREATE_NAME=""
+	fi
+	if [[ -n "$ABTEST_CREATE_NAME" ]]; then
+		TEST_ID="$(created_record_id "$ABTEST_OUTPUT" test name "$ABTEST_CREATE_NAME")"
+		ABTEST_CREATE_NAME=""
+	fi
+}
+
+# Delete every bound fixture, after the full flow or from the exit trap. An id
+# is cleared only after its delete step returns, so when a signal stops the
+# run during cleanup, the exit trap repeats the interrupted delete (deletes
+# are idempotent) and still deletes the remaining fixtures.
+cleanup_full_fixtures() {
+	bind_created_ids
 	if [[ -n "$TEST_ID" ]]; then
 		run_cmd "abtest_delete" bun run cli -- abtest delete --test-id "$TEST_ID" --confirm
+		TEST_ID=""
 	fi
 	if [[ -n "$SUB_ID" ]]; then
 		run_cmd "subscribers_delete" bun run cli -- subscribers delete --id "$SUB_ID" --confirm
+		SUB_ID=""
 	fi
 	if [[ -n "$TEMPLATE_ID" ]]; then
 		run_cmd "templates_delete" bun run cli -- templates delete --id "$TEMPLATE_ID" --confirm
+		TEMPLATE_ID=""
 	fi
 }
 
@@ -220,17 +248,21 @@ run_cmd "subscribers_list" bun run cli -- subscribers list --per-page 5
 run_cmd "abtest_list" bun run cli -- abtest list
 
 if [[ "$MODE" == "full" ]]; then
-	TS="$(date +%s)"
-	EMAIL="ops-smoke-${TS}@example.com"
-	TEMPLATE_NAME="ops-smoke-template-${TS}"
-	AB_NAME="ops-smoke-ab-${TS}"
+	# Unique per run, including concurrent runs started in the same second. A
+	# shared email would make Listmonk replay one run's subscriber to the other.
+	FIXTURE_SUFFIX="$(date +%s)-$$-$RANDOM"
+	EMAIL="ops-smoke-${FIXTURE_SUFFIX}@example.com"
+	TEMPLATE_NAME="ops-smoke-template-${FIXTURE_SUFFIX}"
+	AB_NAME="ops-smoke-ab-${FIXTURE_SUFFIX}"
 
-	run_cmd "subscribers_create" capture_stdout "$LOG_DIR/subscribers_create.json" bun run --silent cli -- --format json subscribers create --email "$EMAIL" --name "Ops Smoke" --lists 1
-	SUB_ID="$(created_record_id "$LOG_DIR/subscribers_create.json" subscriber email "$EMAIL")"
+	SUBSCRIBER_CREATE_EMAIL="$EMAIL"
+	run_cmd "subscribers_create" capture_stdout "$SUBSCRIBER_OUTPUT" bun run --silent cli -- --format json subscribers create --email "$EMAIL" --name "Ops Smoke" --lists 1
+	bind_created_ids
 	require_fixture_id "subscribers_create" "$SUB_ID"
 
-	run_cmd "templates_create" capture_stdout "$LOG_DIR/templates_create.json" bun run --silent cli -- --format json templates create --name "$TEMPLATE_NAME" --type campaign --subject "Ops Smoke" --body "<html><body>{{ template \"content\" . }}</body></html>"
-	TEMPLATE_ID="$(created_record_id "$LOG_DIR/templates_create.json" template name "$TEMPLATE_NAME")"
+	TEMPLATE_CREATE_NAME="$TEMPLATE_NAME"
+	run_cmd "templates_create" capture_stdout "$TEMPLATE_OUTPUT" bun run --silent cli -- --format json templates create --name "$TEMPLATE_NAME" --type campaign --subject "Ops Smoke" --body "<html><body>{{ template \"content\" . }}</body></html>"
+	bind_created_ids
 	require_fixture_id "templates_create" "$TEMPLATE_ID"
 
 	if [[ -n "$TEMPLATE_ID" ]]; then
@@ -242,8 +274,9 @@ if [[ "$MODE" == "full" ]]; then
 		run_cmd "tx_send" bun run cli -- tx send --template-id 3 --subscriber-id "$SUB_ID" --content-type html --data '{"order_id":"OPS-SMOKE","shipping_date":"2026-03-05"}'
 	fi
 
-	run_cmd "abtest_create" capture_stdout "$LOG_DIR/abtest_create.json" bun run --silent cli -- --format json abtest create --name "$AB_NAME" --campaign-id 1 --variants '[{"name":"A","percentage":50},{"name":"B","percentage":50}]' --lists 1 --subject "Ops Smoke AB" --body "<p>Ops Smoke AB</p>" --testing-mode holdout --test-group-percentage 10 --ignore-sample-size-warnings true --confirm
-	TEST_ID="$(created_record_id "$LOG_DIR/abtest_create.json" test name "$AB_NAME")"
+	ABTEST_CREATE_NAME="$AB_NAME"
+	run_cmd "abtest_create" capture_stdout "$ABTEST_OUTPUT" bun run --silent cli -- --format json abtest create --name "$AB_NAME" --campaign-id 1 --variants '[{"name":"A","percentage":50},{"name":"B","percentage":50}]' --lists 1 --subject "Ops Smoke AB" --body "<p>Ops Smoke AB</p>" --testing-mode holdout --test-group-percentage 10 --ignore-sample-size-warnings true --confirm
+	bind_created_ids
 	require_fixture_id "abtest_create" "$TEST_ID"
 	if [[ -n "$TEST_ID" ]]; then
 		run_cmd "abtest_get" bun run cli -- abtest get --test-id "$TEST_ID"
