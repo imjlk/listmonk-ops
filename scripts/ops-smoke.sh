@@ -120,15 +120,21 @@ cleanup_full_fixtures() {
 	bind_created_ids
 	if [[ -n "$TEST_ID" ]]; then
 		run_cmd "abtest_delete" bun run cli -- abtest delete --test-id "$TEST_ID" --confirm
-		TEST_ID=""
+		if [[ "$LAST_STATUS" == "pass" ]]; then
+			TEST_ID=""
+		fi
 	fi
 	if [[ -n "$SUB_ID" ]]; then
 		run_cmd "subscribers_delete" bun run cli -- subscribers delete --id "$SUB_ID" --confirm
-		SUB_ID=""
+		if [[ "$LAST_STATUS" == "pass" ]]; then
+			SUB_ID=""
+		fi
 	fi
 	if [[ -n "$TEMPLATE_ID" ]]; then
 		run_cmd "templates_delete" bun run cli -- templates delete --id "$TEMPLATE_ID" --confirm
-		TEMPLATE_ID=""
+		if [[ "$LAST_STATUS" == "pass" ]]; then
+			TEMPLATE_ID=""
+		fi
 	fi
 }
 

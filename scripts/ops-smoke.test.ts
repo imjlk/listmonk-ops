@@ -59,7 +59,9 @@ async function temporaryDirectory(): Promise<string> {
  */
 function startFakeListmonk(
 	acceptedToken?: string,
-	beforeResponse?: (request: RecordedRequest) => Promise<void>,
+	beforeResponse?: (
+		request: RecordedRequest,
+	) => Promise<Response | void> | Response | void,
 ): FakeListmonk {
 	const requests: RecordedRequest[] = [];
 	const fixtures = new Map<string, Record<string, unknown>>();
@@ -77,7 +79,10 @@ function startFakeListmonk(
 				body: await request.text(),
 			};
 			requests.push(recorded);
-			await beforeResponse?.(recorded);
+			const overriddenResponse = await beforeResponse?.(recorded);
+			if (overriddenResponse instanceof Response) {
+				return overriddenResponse;
+			}
 			if (url.pathname === "/health") {
 				return Response.json({ data: true });
 			}
@@ -476,6 +481,42 @@ describe("ops smoke full-mode fixture cleanup", () => {
 			expect(requestCount(local, "DELETE", `/api/templates/${templateId}`)).toBe(
 				1,
 			);
+			expect(await leftoverStateDirectories(directory)).toEqual([]);
+		},
+		SMOKE_TIMEOUT_MS,
+	);
+
+	test(
+		"retries a failed fixture delete from exit cleanup",
+		async () => {
+			const directory = await temporaryDirectory();
+			let failedSubscriberDelete = false;
+			const local = startFakeListmonk(TOKEN, (request) => {
+				if (
+					!failedSubscriberDelete &&
+					request.method === "DELETE" &&
+					request.path.startsWith("/api/subscribers/")
+				) {
+					failedSubscriberDelete = true;
+					return Response.json(
+						{ message: "temporary delete failure" },
+						{ status: 503 },
+					);
+				}
+			});
+
+			const result = await runSmoke(directory, fullSmoke(local.url));
+
+			const [subscriberId] = createdIds(local, "/api/subscribers");
+			const [templateId] = createdIds(local, "/api/templates");
+			expect(result.exitCode, result.output).toBe(1);
+			expect(result.stdout).toContain("FAIL subscribers_delete");
+			expect(
+				requestCount(local, "DELETE", `/api/subscribers/${subscriberId}`),
+			).toBe(2);
+			expect(
+				requestCount(local, "DELETE", `/api/templates/${templateId}`),
+			).toBe(1);
 			expect(await leftoverStateDirectories(directory)).toEqual([]);
 		},
 		SMOKE_TIMEOUT_MS,
