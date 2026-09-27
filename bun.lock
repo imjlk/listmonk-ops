@@ -110,9 +110,6 @@
         "esbuild": "0.28.2",
         "typescript": "5.9.3",
       },
-      "peerDependencies": {
-        "typescript": ">=5.9.3 <8",
-      },
     },
     "packages/operations": {
       "name": "@listmonk-ops/operations",

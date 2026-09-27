@@ -33,6 +33,7 @@
 		"ops:smoke": "bash ./scripts/ops-smoke.sh",
 		"ops:smoke:full": "LISTMONK_OPS_SMOKE_MODE=full bash ./scripts/ops-smoke.sh",
 		"check:cli-pack-size": "bash ./scripts/check-cli-pack-size.sh",
+		"check:cli-npm-install": "bun run ./scripts/check-cli-npm-install.ts",
 		"operations:specs:generate": "bun run --cwd packages/operations generate:specs",
 		"operations:specs:runtime-contracts:generate": "bun run ./scripts/run-runtime-operation-contracts.ts",
 		"operations:specs:runtime-contracts:check": "bun run ./scripts/run-runtime-operation-contracts.ts --check",

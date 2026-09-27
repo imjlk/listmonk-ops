@@ -9,6 +9,9 @@ test("CI reuses the full build without removing binary or integration coverage",
 		workflow.indexOf("run: bun run test:built"),
 	);
 	expect(workflow).toContain("bun run --cwd apps/cli test:binary");
+	expect(workflow.indexOf("run: bun run build")).toBeLessThan(
+		workflow.indexOf("run: bun run check:cli-npm-install"),
+	);
 	expect(workflow).toContain("outbound-webhook-postgres.test.ts");
 	expect(workflow).toContain("sequence-postgres.test.ts");
 	expect(workflow).toContain("bun run test:e2e");

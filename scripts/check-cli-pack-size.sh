@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Complete offline agent discovery embeds the shared operation specification in
-# the single-file CLI bundle. Sequence consent, deliverability playbooks, and
-# Listmonk 6.2 write-semantics support add ordinary code and generated contract
-# growth. Keep enough room for that growth; this budget should catch accidental
-# bundle expansion, not block a release over a few KB.
+# The published JS bundle keeps @listmonk-ops workspace packages external so
+# the CLI and automation share one module instance. The npm install checks
+# verify that package shape directly. The single-file CLI still embeds shared
+# operation specifications, so this generous budget leaves room for normal
+# feature and generated-contract growth while catching accidental bundle
+# expansion without blocking a release over a few KB.
 MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-2100000}"
 MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-400000}"
 
