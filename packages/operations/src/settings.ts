@@ -353,8 +353,12 @@ function userinfoEnd(prefix: string, rest: string): number {
  * `[redacted]`. Everything else, down to letter case, ports, and
  * percent-encoding, is kept as written.
  */
-function redactAbsoluteUrl(prefix: string, rest: string): string {
-	const at = userinfoEnd(prefix, rest);
+function redactAbsoluteUrl(
+	prefix: string,
+	rest: string,
+	spacedUserinfoEndOverride?: number,
+): string {
+	const at = spacedUserinfoEndOverride ?? userinfoEnd(prefix, rest);
 	const userinfo = at > 0 ? `${SETTINGS_REDACTED_VALUE}@` : "";
 	const location = at > 0 ? rest.slice(at + 1) : rest;
 	const hashStart = location.indexOf("#");
@@ -679,9 +683,54 @@ function findEncodedUrlAuthorityDelimiterLength(value: string): number | undefin
 	return undefined;
 }
 
-function encodedUrlCandidateEnd(value: string, fromIndex: number): number {
+function wrapperStackBefore(value: string, end: number): string[] {
+	const openers: string[] = [];
+	const openingFor: Record<string, string> = {
+		")": "(",
+		"]": "[",
+		"}": "{",
+	};
+	for (let index = 0; index < end; index += 1) {
+		const character = value[index] ?? "";
+		if (character === "(" || character === "[" || character === "{") {
+			openers.push(character);
+			continue;
+		}
+		const matchingOpener = openingFor[character];
+		if (matchingOpener !== undefined && matchingOpener === openers.at(-1)) {
+			openers.pop();
+		}
+	}
+	return openers;
+}
+
+function encodedUrlCandidateEnd(
+	value: string,
+	fromIndex: number,
+	prefixIndex: number,
+): number {
+	const initialOpeners = wrapperStackBefore(value, prefixIndex);
+	const openers = [...initialOpeners];
+	const openingFor: Record<string, string> = {
+		")": "(",
+		"]": "[",
+		"}": "{",
+	};
 	let index = fromIndex;
 	while (index < value.length && !/[\s&;'"<>]/.test(value[index] ?? "")) {
+		const character = value[index] ?? "";
+		if (character === "(" || character === "[" || character === "{") {
+			openers.push(character);
+		} else {
+			const matchingOpener = openingFor[character];
+			if (
+				matchingOpener !== undefined &&
+				matchingOpener === openers.at(-1)
+			) {
+				if (openers.length === initialOpeners.length) return index;
+				openers.pop();
+			}
+		}
 		index += 1;
 	}
 	return index;
@@ -702,6 +751,7 @@ function redactEncodedNestedUrlValues(value: string, depth: number): string {
 		const end = encodedUrlCandidateEnd(
 			result,
 			prefix.index + prefix.prefixLength,
+			prefix.index,
 		);
 		const candidate = result.slice(prefix.index, end);
 		const decoded = decodeUrlTextWithSourceOffsets(candidate);
@@ -766,8 +816,21 @@ function spacedUserinfoEnd(
 	const token = tokens[index] ?? "";
 	const authority = token.slice(prefix.length);
 	if (!authority.includes(":") || authority.includes("@")) return index;
-	if (parseUrl(token) !== undefined) {
-		if (/[/?#\\]/.test(authority)) return index;
+	const parsedUrl = parseUrl(token);
+	if (parsedUrl !== undefined) {
+		const authorityDelimiter = authority.search(/[/?#\\]/);
+		const authorityBeforeDelimiter =
+			authorityDelimiter === -1
+				? authority
+				: authority.slice(0, authorityDelimiter);
+		const portText = authorityBeforeDelimiter.slice(
+			authorityBeforeDelimiter.lastIndexOf(":") + 1,
+		);
+		const numericFirstPassphrase =
+			!parsedUrl.hostname.includes(".") &&
+			!parsedUrl.hostname.includes(":") &&
+			/^\d+$/.test(portText);
+		if (/[/?#\\]/.test(authority) && !numericFirstPassphrase) return index;
 		const last = Math.min(
 			tokens.length - 1,
 			index + 2 * MAX_SPACED_USERINFO_TOKENS,
@@ -879,18 +942,22 @@ function redactUrlCredentialsAtDepth(value: string, depth: number): string {
 			candidateTokens[0] = candidateToken;
 			const end = spacedUserinfoEnd(candidateTokens, 0, match.prefix);
 			const url = candidateTokens.slice(0, end + 1).join("");
+			const spacedAt = end > 0 ? url.indexOf("@", match.prefix.length) : -1;
 			const redacted = redactAbsoluteUrl(
 				match.prefix,
 				url.slice(match.prefix.length),
+				spacedAt === -1 ? undefined : spacedAt - match.prefix.length,
 			);
 			const suffix = token.slice(candidateEnd);
-			tokens.splice(
-				index,
-				end + 1,
-				`${token.slice(0, match.index)}${redacted}${suffix}`,
-			);
+			const replacedToken =
+				`${token.slice(0, match.index)}${redacted}${suffix}`;
+			tokens.splice(index, end + 1, replacedToken);
 			if (redacted !== url) redactedAny = true;
-			scanOffset = match.index + redacted.length;
+			const nextMatchAfterRedaction = findAbsoluteUrlPrefix(
+				replacedToken,
+				match.index + match.prefix.length,
+			);
+			scanOffset = nextMatchAfterRedaction?.index ?? replacedToken.length;
 		}
 	}
 	return redactedAny ? tokens.join("") : value;

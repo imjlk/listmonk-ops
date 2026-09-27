@@ -594,6 +594,7 @@ describe("settings URL credential redaction", () => {
 		for (const text of [
 			"http://listmonk:9000 contact ops@v1.2.3",
 			"https://docs.example.com/guide#section-2",
+			"https://smtp.example.com:8080/docs contact ops@example.com/send",
 		]) {
 			expect(redactUrlCredentials(text)).toBe(text);
 		}
@@ -620,6 +621,18 @@ describe("settings URL credential redaction", () => {
 			[
 				"background:url(https://cdn.example/x?token=secret) no-repeat center",
 				`background:url(https://cdn.example/x?token=${SETTINGS_REDACTED_VALUE}) no-repeat center`,
+			],
+			[
+				"background:url(https%3A%2F%2Fcdn.example%2Fx%3Ftoken%3Dsecret) no-repeat center",
+				"background:url(https%3A%2F%2Fcdn.example%2Fx%3Ftoken%3D%5Bredacted%5D) no-repeat center",
+			],
+			[
+				"https%3A%2F%2Fcdn.example%2Fx%3Ftoken%3Dsecret)",
+				"https%3A%2F%2Fcdn.example%2Fx%3Ftoken%3D%5Bredacted%5D",
+			],
+			[
+				"src:url(https://u:pass word@h/a),url(https://u2:p2@h2/b)",
+				`src:url(https://${SETTINGS_REDACTED_VALUE}@h/a),url(https://${SETTINGS_REDACTED_VALUE}@h2/b)`,
 			],
 			[
 				"https://user:foo://bar@host.example/path",
@@ -699,6 +712,26 @@ describe("settings URL credential redaction", () => {
 			],
 			[
 				"https://gw-user:8080 correct horse battery@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080/ correct horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:443/ correct horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"http://gw-user:80/ correct horse@sms.example.com/send",
+				`http://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080?mode=fast correct horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080#section correct horse@sms.example.com/send",
 				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
 			],
 			[
