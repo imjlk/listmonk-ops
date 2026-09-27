@@ -348,14 +348,16 @@ export function isListmonkNotFoundAnswer(response: unknown): boolean {
 		return false;
 	}
 	const body = (response as { error?: unknown }).error;
-	const message =
-		typeof body === "string"
-			? body
-			: body !== null &&
-					typeof body === "object" &&
-					typeof (body as { message?: unknown }).message === "string"
-				? (body as { message: string }).message
-				: "";
+	let message = "";
+	if (typeof body === "string") {
+		message = body;
+	} else if (
+		body !== null &&
+		typeof body === "object" &&
+		typeof (body as { message?: unknown }).message === "string"
+	) {
+		message = (body as { message: string }).message;
+	}
 	return /^(?:campaign|list) not found\.?$/i.test(message.trim());
 }
 
