@@ -1,0 +1,5 @@
+---
+npm/@listmonk-ops/cli: patch (Security)
+---
+
+Stop the standalone `listmonk-cli` binary from loading a `bunfig.toml` from the working directory, where a `preload` entry could run arbitrary code, and document that a working-directory `.env`, which both distributions still load, is trusted configuration that can redirect the connection target and credentials (the npm package also follows Bun's working-directory `bunfig.toml`). CLI argument handling is fixed as well: `--no-body` on `campaigns get`, `campaigns list`, and `templates list` now omits bodies instead of sending `no_body=false`; comma-separated ID lists such as `--lists`, `--media`, and `--bounce-ids` reject malformed entries like `12,O4` or `0x10` instead of dropping or rewriting them, and ID options accept only positive decimal integers; confirmation errors say to rerun with `--confirm`; `tx send` reports a Listmonk rejection as a warning and exits nonzero while keeping its JSON result on stdout; and the `abtest create` example includes the required `--lists`.

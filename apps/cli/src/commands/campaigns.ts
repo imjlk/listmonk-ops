@@ -35,9 +35,11 @@ import {
 	option,
 } from "../lib/command";
 import {
-	parseCsvNumbers,
 	parseCsvNumbersStrict,
 	parseJson,
+	parsePositiveIntegerId,
+	nonNegativeIntegerIdSchema,
+	positiveIntegerIdSchema,
 	toErrorMessage,
 } from "../lib/command-utils";
 import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
@@ -408,13 +410,7 @@ export async function handleGetCampaignCommand({
 function parseTemplateIdFlag(value: string | undefined): number | null | undefined {
 	if (value === undefined) return undefined;
 	if (value === "null") return null;
-	const num = Number(value);
-	if (!Number.isFinite(num) || num <= 0) {
-		throw new Error(
-			`Invalid template ID '${value}': expected a positive integer or 'null'`,
-		);
-	}
-	return num;
+	return parsePositiveIntegerId(value, "template ID");
 }
 
 type CreateCommandFlags = {
@@ -473,7 +469,7 @@ export async function handleCreateCampaignCommand({
 				altbody: flags.altbody,
 				type: flags.type,
 				template_id: parseTemplateIdFlag(flags["template-id"]),
-				lists: parseCsvNumbers(flags.lists),
+				lists: parseCsvNumbersStrict(flags.lists, "list IDs"),
 				tags: parseCsvStrings(flags.tags),
 				messenger: flags.messenger,
 				content_type: flags["content-type"],
@@ -493,7 +489,9 @@ export async function handleCreateCampaignCommand({
 							"archive-meta",
 						)
 					: undefined,
-				media: flags.media ? parseCsvNumbers(flags.media) : undefined,
+				media: flags.media
+					? parseCsvNumbersStrict(flags.media, "media IDs")
+					: undefined,
 				subscribers: parseCsvStrings(flags.subscribers),
 			},
 		);
@@ -516,6 +514,14 @@ type UpdateCommandFlags = Omit<CreateCommandFlags, "name" | "subject" | "from-em
 	"content-type"?: "richtext" | "html" | "markdown" | "plain" | "visual";
 };
 
+function parseCampaignMediaIdsFlag(
+	value: string | undefined,
+): number[] | undefined {
+	if (value === undefined) return undefined;
+	if (value === "") return [];
+	return parseCsvNumbersStrict(value, "media IDs");
+}
+
 export async function handleUpdateCampaignCommand({
 	flags,
 	...args
@@ -534,7 +540,9 @@ export async function handleUpdateCampaignCommand({
 				altbody: flags.altbody,
 				type: flags.type,
 				template_id: parseTemplateIdFlag(flags["template-id"]),
-				lists: flags.lists ? parseCsvNumbers(flags.lists) : undefined,
+				lists: flags.lists
+					? parseCsvNumbersStrict(flags.lists, "list IDs")
+					: undefined,
 				tags: parseCsvStrings(flags.tags),
 				messenger: flags.messenger,
 				content_type: flags["content-type"],
@@ -554,8 +562,7 @@ export async function handleUpdateCampaignCommand({
 							"archive-meta",
 						)
 					: undefined,
-				media:
-					flags.media === undefined ? undefined : parseCsvNumbers(flags.media),
+				media: parseCampaignMediaIdsFlag(flags.media),
 				subscribers: parseCsvStrings(flags.subscribers),
 			},
 		);
@@ -854,7 +861,7 @@ export default defineGroup({
 			operationId: "campaigns.get",
 			description: "Get campaign details",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				"no-body": option(z.boolean().optional(), {
@@ -921,7 +928,7 @@ export default defineGroup({
 					description: "Archive slug",
 				}),
 				"archive-template-id": option(
-					z.coerce.number().int().positive().optional(),
+					positiveIntegerIdSchema.optional(),
 					{ description: "Archive template ID" },
 				),
 				"archive-meta": option(z.string().optional(), {
@@ -941,7 +948,7 @@ export default defineGroup({
 			operationId: "campaigns.update",
 			description: "Update a campaign",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				name: option(z.string().trim().min(1).optional(), {
@@ -997,14 +1004,15 @@ export default defineGroup({
 					description: "Archive slug",
 				}),
 				"archive-template-id": option(
-					z.coerce.number().int().positive().optional(),
+					positiveIntegerIdSchema.optional(),
 					{ description: "Archive template ID" },
 				),
 				"archive-meta": option(z.string().optional(), {
 					description: "Archive metadata JSON",
 				}),
 				media: option(z.string().optional(), {
-					description: "Comma-separated media IDs",
+					description:
+						"Comma-separated media IDs (empty value clears attachments)",
 				}),
 				subscribers: option(z.string().optional(), {
 					description: "Comma-separated recipient emails",
@@ -1017,7 +1025,7 @@ export default defineGroup({
 			operationId: "campaigns.delete",
 			description: "Delete a campaign",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 			},
@@ -1028,7 +1036,7 @@ export default defineGroup({
 			operationId: "campaigns.schedule",
 			description: "Schedule a campaign to send at a specific time",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				"send-at": option(z.string().trim().min(1), {
@@ -1044,7 +1052,7 @@ export default defineGroup({
 			operationId: "campaigns.start",
 			description: "Start a campaign (transition to running)",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				"expected-updated-at": expectedUpdatedAtOption(),
@@ -1056,7 +1064,7 @@ export default defineGroup({
 			operationId: "campaigns.pause",
 			description: "Pause a running campaign",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				"expected-updated-at": expectedUpdatedAtOption(),
@@ -1068,7 +1076,7 @@ export default defineGroup({
 			operationId: "campaigns.unschedule",
 			description: "Return a scheduled campaign to draft",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				"expected-updated-at": expectedUpdatedAtOption(),
@@ -1080,7 +1088,7 @@ export default defineGroup({
 			operationId: "campaigns.cancel",
 			description: "Cancel a campaign (terminal transition)",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				"expected-updated-at": expectedUpdatedAtOption(),
@@ -1092,7 +1100,7 @@ export default defineGroup({
 			operationId: "campaigns.clone",
 			description: "Clone an existing campaign under a new name",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Source campaign ID",
 				}),
 				name: option(z.string().trim().min(1), {
@@ -1114,7 +1122,7 @@ export default defineGroup({
 			description:
 				"Enable or disable the campaign's public archive page",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				archive: option(z.coerce.boolean(), {
@@ -1124,7 +1132,7 @@ export default defineGroup({
 					description: "Archive slug; provide with the other archive fields to skip the pre-read",
 				}),
 				"archive-template-id": option(
-					z.coerce.number().int().nonnegative().optional(),
+					nonNegativeIntegerIdSchema.optional(),
 					{ description: "Archive template ID (0 clears it)" },
 				),
 				"archive-meta": option(z.string().optional(), {
@@ -1160,7 +1168,7 @@ export default defineGroup({
 			operationId: "campaigns.preview",
 			description: "Render the stored campaign body to HTML without sending",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 			},
@@ -1172,7 +1180,7 @@ export default defineGroup({
 			description:
 				"Send the campaign as a test message to existing-subscriber emails",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 				subscribers: option(z.string().trim().min(3), {
@@ -1182,7 +1190,7 @@ export default defineGroup({
 				subject: option(z.string().trim().min(1).optional(), {
 					description: "Subject override for the test message",
 				}),
-				"template-id": option(z.coerce.number().int().positive().optional(), {
+				"template-id": option(positiveIntegerIdSchema.optional(), {
 					description: "Template override for the test message",
 				}),
 				body: option(z.string().min(1).optional(), {
@@ -1202,7 +1210,7 @@ export default defineGroup({
 			operationId: "campaigns.stats",
 			description: "Read delivery stats for a campaign",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Campaign ID",
 				}),
 			},

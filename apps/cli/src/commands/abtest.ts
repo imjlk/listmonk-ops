@@ -36,8 +36,10 @@ import { getOutput } from "../lib/output";
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
 import {
-	parseCsvNumbers,
+	parseCsvNumbersStrict,
 	parseJson,
+	parsePositiveIntegerId,
+	positiveIntegerIdSchema,
 	toErrorMessage,
 } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
@@ -193,7 +195,7 @@ export function buildCreateInputFromFlags(flags: {
 	}
 
 	const normalizedVariants = normalizeVariants(parsedVariants);
-	const lists = parseCsvNumbers(flags.lists);
+	const lists = parseCsvNumbersStrict(flags.lists, "list IDs");
 	const testingMode = flags["testing-mode"] ?? "holdout";
 	const testGroupPercentage =
 		flags["test-group-percentage"] ?? (testingMode === "holdout" ? 10 : 100);
@@ -374,10 +376,12 @@ async function promptInteractiveInput(
 	const campaignIdResult = await clack.text({
 		message: "Base campaign ID",
 		validate: (value = "") => {
-			const parsed = Number(value);
-			return Number.isInteger(parsed) && parsed > 0
-				? undefined
-				: "Campaign ID must be a positive integer";
+			try {
+				parsePositiveIntegerId(value, "campaign ID");
+				return undefined;
+			} catch (error) {
+				return toErrorMessage(error);
+			}
 		},
 	});
 	if (clack.isCancel(campaignIdResult)) {
@@ -459,7 +463,7 @@ async function promptInteractiveInput(
 		placeholder: "1,2,3",
 		validate: (value = "") => {
 			try {
-				parseCsvNumbers(value);
+				parseCsvNumbersStrict(value, "list IDs");
 				return undefined;
 			} catch (error) {
 				return toErrorMessage(error);
@@ -552,7 +556,7 @@ async function promptInteractiveInput(
 
 	const input = buildCreateInputFromFlags({
 		name: nameResult,
-		"campaign-id": Number(campaignIdResult),
+		"campaign-id": parsePositiveIntegerId(campaignIdResult, "campaign ID"),
 		variants: JSON.stringify(variants),
 		lists: listsResult,
 		subject: subjectResult,
@@ -764,7 +768,7 @@ export default defineGroup({
 							"Explicit create replay key; omitting one derives it from the request so identical retries replay",
 					},
 				),
-				"campaign-id": option(z.coerce.number().int().positive(), {
+				"campaign-id": option(positiveIntegerIdSchema, {
 					description: "Base campaign ID",
 				}),
 				variants: option(z.string().min(2), {
@@ -898,7 +902,7 @@ export default defineGroup({
 						await invokeCliRecommendAbTestSampleSize(
 							args,
 							{
-								lists: parseCsvNumbers(flags.lists),
+								lists: parseCsvNumbersStrict(flags.lists, "list IDs"),
 								test_group_percentage: flags["test-group-percentage"],
 								variant_count: flags["variant-count"],
 							},

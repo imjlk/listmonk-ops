@@ -31,7 +31,7 @@ export default defineCommand({
 				"",
 				"# A/B test",
 				"listmonk-cli abtest interactive --interactive",
-				'listmonk-cli abtest create --name "Subject test" --campaign-id 100 --variants \'[{"name":"A"},{"name":"B"}]\' --confirm',
+				'listmonk-cli abtest create --name "Subject test" --campaign-id 100 --lists 1,2 --variants \'[{"name":"A"},{"name":"B"}]\' --confirm',
 				"",
 				"# Ops automation",
 				"listmonk-cli ops preflight --campaign-id 100",

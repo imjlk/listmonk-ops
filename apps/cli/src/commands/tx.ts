@@ -22,10 +22,17 @@ import {
 	type HandlerArgs,
 	option,
 } from "../lib/command";
-import { parseJson, toErrorMessage } from "../lib/command-utils";
+import {
+	parseJson,
+	positiveIntegerIdSchema,
+	toErrorMessage,
+} from "../lib/command-utils";
 import { resolveListmonkSession } from "../lib/listmonk";
 
-type TransactionalOutput = Pick<typeof OutputUtils, "json" | "success">;
+type TransactionalOutput = Pick<
+	typeof OutputUtils,
+	"json" | "success" | "warning"
+>;
 
 export interface TransactionalCliContext {
 	client: Pick<ListmonkClient, "transactional">;
@@ -51,12 +58,26 @@ export function createTransactionalCommandError(error: unknown): Error {
 	);
 }
 
+/**
+ * Listmonk answered but declined the message (`data: false`). A replay of
+ * such an answer is a rejection too: the message was never sent.
+ */
+export function isTransactionalSendRejected(
+	output: SendTransactionalOutput,
+): boolean {
+	return !output.sent;
+}
+
 function summarizeTransactionalOutput(output: SendTransactionalOutput): string {
 	if (output.status === "replayed") {
-		return `Transactional message replayed (duplicate of idempotency key ${output.idempotency_key ?? "?"})`;
+		return output.sent
+			? `Transactional message replayed (duplicate of idempotency key ${output.idempotency_key ?? "?"})`
+			: `Transactional message was rejected by Listmonk (replayed result for idempotency key ${output.idempotency_key ?? "?"})`;
 	}
 	if (output.status === "failed") {
-		return "Transactional message was rejected by Listmonk";
+		return output.idempotency_key === undefined
+			? "Transactional message was rejected by Listmonk"
+			: `Transactional message was rejected by Listmonk (idempotency key ${output.idempotency_key})`;
 	}
 	if (output.idempotency_key !== undefined) {
 		return `Transactional message sent (idempotency key ${output.idempotency_key})`;
@@ -67,10 +88,16 @@ function summarizeTransactionalOutput(output: SendTransactionalOutput): string {
 export async function renderTransactionalSend(
 	context: TransactionalCliContext,
 	input: SendTransactionalInput,
-): Promise<void> {
+): Promise<SendTransactionalOutput> {
 	const output = await invokeSendTransactionalOperation(context, input);
-	context.output.success(summarizeTransactionalOutput(output));
+	const summary = summarizeTransactionalOutput(output);
+	if (isTransactionalSendRejected(output)) {
+		context.output.warning(summary);
+	} else {
+		context.output.success(summary);
+	}
 	context.output.json(output);
+	return output;
 }
 
 type SendTransactionalFlags = {
@@ -112,7 +139,7 @@ export async function handleSendTransactionalCommand({
 				)
 			: undefined;
 
-		await renderTransactionalSend(
+		const output = await renderTransactionalSend(
 			{
 				client,
 				output: getOutput(),
@@ -135,6 +162,12 @@ export async function handleSendTransactionalCommand({
 				idempotency_key: flags["idempotency-key"],
 			},
 		);
+		// Listmonk's negative acknowledgement is a completed send attempt rather
+		// than a CLI error: keep the structured result on stdout and report the
+		// rejection through the exit code.
+		if (isTransactionalSendRejected(output)) {
+			process.exitCode = 1;
+		}
 	} catch (error) {
 		if (error instanceof TransactionalReconcileError) {
 			// Reconcile-required errors carry operator guidance that the
@@ -208,13 +241,13 @@ export default defineGroup({
 			operationId: "transactional.send",
 			description: "Send a transactional email",
 			options: {
-				"template-id": option(z.coerce.number().int().positive(), {
+				"template-id": option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 				"subscriber-email": option(z.string().trim().email().optional(), {
 					description: "Recipient subscriber email",
 				}),
-				"subscriber-id": option(z.coerce.number().int().positive().optional(), {
+				"subscriber-id": option(positiveIntegerIdSchema.optional(), {
 					description: "Recipient subscriber ID",
 				}),
 				"from-email": option(z.string().trim().min(1).optional(), {

@@ -10,6 +10,20 @@ const TARGETS = [
 	{ target: "bun-darwin-arm64", output: "listmonk-cli-darwin-arm64" },
 ] as const;
 
+// The binary runs in whatever directory an operator happens to be in, so it
+// must not read Bun runtime configuration from there. A bunfig.toml can
+// `preload` arbitrary code, and the CLI has no use for one. `.env` loading is
+// documented behavior for both executables, so it stays enabled explicitly and
+// the README documents that trust boundary. Runtime tsconfig.json and
+// package.json autoload are already off by default; pin them so a future Bun
+// default cannot silently widen what the binary reads from the working directory.
+const RUNTIME_AUTOLOAD_FLAGS = [
+	"--no-compile-autoload-bunfig",
+	"--compile-autoload-dotenv",
+	"--no-compile-autoload-tsconfig",
+	"--no-compile-autoload-package-json",
+] as const;
+
 mkdirSync(DIST_DIR, { recursive: true });
 
 function build(target: string | undefined, outputPath: string): void {
@@ -19,6 +33,7 @@ function build(target: string | undefined, outputPath: string): void {
 		"src/index.ts",
 		"--compile",
 		"--minify",
+		...RUNTIME_AUTOLOAD_FLAGS,
 		`--outfile=${outputPath}`,
 	];
 	if (target) {

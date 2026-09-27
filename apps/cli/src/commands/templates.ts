@@ -25,7 +25,11 @@ import {
 	type HandlerArgs,
 	option,
 } from "../lib/command";
-import { parseJson, toErrorMessage } from "../lib/command-utils";
+import {
+	parseJson,
+	positiveIntegerIdSchema,
+	toErrorMessage,
+} from "../lib/command-utils";
 import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
 
 type TemplatesOutput = Pick<
@@ -383,7 +387,7 @@ export default defineGroup({
 			operationId: "templates.get",
 			description: "Get template details",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 			},
@@ -418,7 +422,7 @@ export default defineGroup({
 			operationId: "templates.update",
 			description: "Update a template",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 				name: option(z.string().trim().min(1).optional(), {
@@ -442,7 +446,7 @@ export default defineGroup({
 			operationId: "templates.delete",
 			description: "Delete a template",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 			},
@@ -453,7 +457,7 @@ export default defineGroup({
 			operationId: "templates.preview",
 			description: "Render the stored template to HTML without sending",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 			},
@@ -464,7 +468,7 @@ export default defineGroup({
 			operationId: "templates.set-default",
 			description: "Set a template as default",
 			options: {
-				id: option(z.coerce.number().int().positive(), {
+				id: option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
 			},

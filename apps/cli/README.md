@@ -21,6 +21,12 @@ curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/ins
 Prebuilt standalone binaries are available for Linux x64/arm64 and Apple
 silicon macOS (arm64). Intel Macs are not supported.
 
+Both distributions load `.env` files from the current working directory, and
+those values can change the connection target and credential source, so run
+`listmonk-cli` only from directories you trust. The standalone binary never
+loads `bunfig.toml`; the npm package runs through `bun`, which also applies a
+working-directory `bunfig.toml`, including `preload` scripts that execute code.
+
 ## Usage
 
 ```bash
@@ -64,6 +70,8 @@ explicit per-store paths and Postgres settings retain precedence. See the root
 [Korean](https://github.com/imjlk/listmonk-ops/blob/main/README_ko.md) configuration
 guide for the JSON format, precedence, path resolution, and rotation behavior.
 
+`tx send` exits nonzero when Listmonk rejects the message, still printing the
+`{"sent":false,"status":"failed"}` result on stdout.
 `tx records --format json` inspects redacted, target-bound transactional send
 records. `tx reconcile --key KEY --expected-revision REVISION --decision
 accepted|retry --reason TEXT --confirm` records a verified operator decision.
@@ -77,6 +85,10 @@ With `LISTMONK_OPS_SEQUENCE_DATABASE_URL`, transactional sends and these
 inspection commands share the sequence PostgreSQL claim store. For an
 ambiguous sequence enrollment, reconcile its claim first, then resolve the
 enrollment as `sent` after `accepted` or `not_sent` after `retry`.
+
+ID flags and comma-separated ID lists such as `--lists 10,11` accept only
+positive decimal integers; a malformed entry such as `12,O4` or `0x10` fails
+the command instead of being dropped or reinterpreted.
 
 Shared operations with `confirmationRequired: true` need the global
 `--confirm` flag, for example `listmonk-cli lists delete --id 10 --confirm`.
