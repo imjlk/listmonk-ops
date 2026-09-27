@@ -47,6 +47,25 @@ describe("agent discovery operations", () => {
 		expect(result.results[0]?.use_when.length).toBeGreaterThan(0);
 	});
 
+	test("scopes search to a known family and rejects an unknown one", async () => {
+		const scoped = await invokeSpecSearchOperation(context, {
+			query: "*",
+			family: " lists ",
+			limit: 100,
+		});
+		expect(scoped.total).toBeGreaterThan(0);
+		expect(scoped.results.every((result) => result.family === "lists")).toBe(
+			true,
+		);
+
+		await expect(
+			invokeSpecSearchOperation(context, {
+				query: "schedule campaign",
+				family: "campaign",
+			}),
+		).rejects.toThrow('Unknown operation family "campaign"');
+	});
+
 	test("describes every public operation by ID or MCP name", async () => {
 		const described = await invokeSpecDescribeOperation(context, {
 			operation: "listmonk_schedule_campaign",
