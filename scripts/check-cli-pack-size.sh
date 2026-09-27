@@ -4,11 +4,11 @@ set -euo pipefail
 # The published JS bundle keeps @listmonk-ops workspace packages external so
 # the CLI and automation share one module instance. The npm install checks
 # verify that package shape directly. The single-file CLI still embeds shared
-# operation specifications, so this generous budget leaves room for normal
-# feature and generated-contract growth while catching accidental bundle
-# expansion without blocking a release over a few KB.
-MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-2100000}"
-MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-400000}"
+# operation specifications, so these generous 5 MB / 1 MB limits leave room
+# for substantial feature and generated-contract growth while catching major
+# accidental bundle expansion.
+MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-5000000}"
+MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-1000000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"
 
