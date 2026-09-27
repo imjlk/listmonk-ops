@@ -50,9 +50,23 @@ bun install
 # 2) 로컬 Listmonk 스택 기동
 docker compose up -d
 
-# 3) Mailpit SMTP 설정 적용
+# 3) Mailpit SMTP 설정 적용 (Listmonk가 healthy 상태가 될 때까지 대기)
 ./setup-smtp.sh
+
+# 4) 로컬 API 사용자와 토큰 준비
+bun run stack:bootstrap-auth
+
+# 5) CLI가 이 토큰을 쓰도록 설정하고 연결 확인
+export LISTMONK_API_TOKEN_FILE=/tmp/listmonk-ops-api-token
+bun run cli -- status
 ```
+
+`stack:bootstrap-auth`는 loopback이 아닌 URL을 거부합니다. 아직 유효한 캐시 토큰은
+그대로 쓰고, 그렇지 않으면 로컬 관리자 계정으로 로그인해 관리용 `api-admin` API
+사용자를 다시 만듭니다. 토큰은 `/tmp/listmonk-ops-api-token`에 `0600` 권한으로
+저장됩니다(경로는 `LISTMONK_TEST_TOKEN_FILE`로 변경). CLI와 MCP 서버의 기본값이
+`http://localhost:9000/api`와 `api-admin` 사용자명이므로, 로컬 스택에서는 토큰
+파일만 지정하면 됩니다.
 
 로컬 접근 주소:
 - Listmonk Admin: `http://localhost:9000/admin`

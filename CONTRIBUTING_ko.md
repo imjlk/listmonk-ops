@@ -189,7 +189,8 @@ stale해 보이면 클라이언트를 재시작하세요. 재시작 전에는 du
 
 ```bash
 docker compose up -d
-./setup-smtp.sh
+./setup-smtp.sh               # Listmonk가 healthy 상태가 될 때까지 대기
+bun run stack:bootstrap-auth  # API 사용자와 토큰(/tmp/listmonk-ops-api-token) 준비
 ```
 
 선택 검증:

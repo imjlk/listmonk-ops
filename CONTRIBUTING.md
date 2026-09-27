@@ -191,7 +191,8 @@ If you need the local Listmonk stack:
 
 ```bash
 docker compose up -d
-./setup-smtp.sh
+./setup-smtp.sh               # waits until Listmonk is healthy
+bun run stack:bootstrap-auth  # API user + token in /tmp/listmonk-ops-api-token
 ```
 
 Optional checks:

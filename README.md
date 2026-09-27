@@ -50,9 +50,24 @@ bun install
 # 2) Start local Listmonk stack
 docker compose up -d
 
-# 3) Configure SMTP for Mailpit
+# 3) Configure SMTP for Mailpit (waits until Listmonk is healthy)
 ./setup-smtp.sh
+
+# 4) Provision the local API user and token
+bun run stack:bootstrap-auth
+
+# 5) Point the CLI at that token and check the connection
+export LISTMONK_API_TOKEN_FILE=/tmp/listmonk-ops-api-token
+bun run cli -- status
 ```
+
+`stack:bootstrap-auth` refuses non-loopback URLs. It keeps a still-valid cached
+token; otherwise it signs in with the local admin credentials and recreates
+the managed `api-admin` API user. The token is written to
+`/tmp/listmonk-ops-api-token` with mode `0600` (override the path with
+`LISTMONK_TEST_TOKEN_FILE`). The CLI and MCP server default to
+`http://localhost:9000/api` and the `api-admin` username, so the token file is
+the only setting they need for the local stack.
 
 Local endpoints:
 - Listmonk Admin: `http://localhost:9000/admin`
