@@ -610,6 +610,14 @@ describe("settings URL credential redaction", () => {
 				"See https://host.example.com/?token=secret. Then continue.",
 				`See https://host.example.com/?token=${SETTINGS_REDACTED_VALUE}. Then continue.`,
 			],
+			[
+				"https://host.example.com/?password=secret)",
+				`https://host.example.com/?password=${SETTINGS_REDACTED_VALUE}`,
+			],
+			[
+				"https://host.example.com/?password=))))",
+				`https://host.example.com/?password=${SETTINGS_REDACTED_VALUE}`,
+			],
 		];
 		for (const [input, expected] of cases) {
 			expect(redactUrlCredentials(input)).toBe(expected);

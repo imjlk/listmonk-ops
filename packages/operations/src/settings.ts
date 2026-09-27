@@ -183,13 +183,12 @@ function redactCredentialParameters(text: string, separators: RegExp): string {
 		if (separator <= 0 || separator === parameter.length - 1) continue;
 		if (!isCredentialQueryParameter(parameter.slice(0, separator))) continue;
 		const value = parameter.slice(separator + 1);
-		// The nested-query pass can see a value already replaced by this
-		// function. Keep the marker (and any URL wrapper after it) idempotent.
+		// The nested-query pass can see a value already replaced by the spaced
+		// credential pass. That pass preserves wrappers only after matching them.
 		if (isAlreadyRedactedCredentialValue(value)) {
 			continue;
 		}
-		const suffix = /[)\]}>'",.]+$/.exec(value)?.[0] ?? "";
-		parts[index] = `${parameter.slice(0, separator + 1)}${SETTINGS_REDACTED_VALUE}${suffix}`;
+		parts[index] = `${parameter.slice(0, separator + 1)}${SETTINGS_REDACTED_VALUE}`;
 		redacted = true;
 	}
 	return redacted ? parts.join("") : text;
@@ -295,12 +294,9 @@ function redactSpacedCredentialParameterValues(value: string): string {
 			sentenceEnd ?? explicitValueEnd,
 		);
 		const parameterValue = value.slice(valueStart, valueEnd);
-		if (!isAlreadyRedactedCredentialValue(parameterValue)) {
+		if (parameterValue !== SETTINGS_REDACTED_VALUE) {
 			let secretEnd = valueEnd;
-			while (
-				secretEnd > valueStart &&
-				/[)\]}>'",\s]/.test(value[secretEnd - 1] ?? "")
-			) {
+			while (secretEnd > valueStart && /\s/.test(value[secretEnd - 1] ?? "")) {
 				secretEnd -= 1;
 			}
 			if (secretEnd > valueStart) {
@@ -341,7 +337,7 @@ function findCredentialValueWrapperBoundary(
 		const suffix = value.slice(index + wrapper[0].length);
 		if (
 			/[^\s)\]}>'\",]/.test(secretPart) &&
-			/^[)\]}>'\",]*(?:\s|$)/.test(suffix) &&
+			/^[)\]}>'\",.]*(?:[&;#?]|\s|$)/.test(suffix) &&
 			hasMatchingOpeningWrapper(value, valueStart, wrapper[0])
 		) {
 			return index;
