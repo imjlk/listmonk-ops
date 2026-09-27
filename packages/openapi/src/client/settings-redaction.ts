@@ -2,7 +2,7 @@
 export const SETTINGS_REDACTED_VALUE = "[redacted]";
 
 const CREDENTIAL_QUERY_NAME_SUFFIX =
-	/(?:^|_)(?:[^_]*key|access_key_id|api_key_id|secret_key_id|key_id|key_pair_id|session_id|auth|authorization|credential|credentials|hmac|jwt|login|pass|password|passphrase|passwd|pwd|secret|sessid|session|sessionid|sig|signature|token|user|username)$/;
+	/(?:^|_)(?:[^_]*key|access_key_id|api_key_id|secret_key_id|key_id|key_pair_id|session_id|id_token_hint|client_assertion|assertion_token|saml_assertion|assertion|auth|authorization|credential|credentials|hmac|jwt|login|pass|password|passphrase|passwd|pwd|secret|sessid|session|sessionid|sig|signature|token|user|username)$/;
 
 /** Match whole credential parameter names while preserving unrelated metadata. */
 export function isSettingsCredentialQueryParameter(

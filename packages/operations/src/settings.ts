@@ -430,6 +430,48 @@ interface TextRange {
 	end: number;
 }
 
+const SETTINGS_REDACTED_MARKERS = [SETTINGS_REDACTED_VALUE];
+for (let depth = 0; depth < MAX_ENCODED_URL_NESTING_DEPTH; depth += 1) {
+	const previous = SETTINGS_REDACTED_MARKERS.at(-1);
+	if (previous !== undefined) {
+		SETTINGS_REDACTED_MARKERS.push(encodeURIComponent(previous));
+	}
+}
+SETTINGS_REDACTED_MARKERS.reverse();
+
+function redactedMarkerAt(
+	value: string,
+	index: number,
+): string | undefined {
+	for (const marker of SETTINGS_REDACTED_MARKERS) {
+		const candidate = value.slice(index, index + marker.length);
+		if (
+			marker.includes("%")
+				? candidate.toLowerCase() === marker.toLowerCase()
+				: candidate === marker
+		) {
+			return marker;
+		}
+	}
+	return undefined;
+}
+
+function nextRedactedMarker(
+	value: string,
+	fromIndex: number,
+): { index: number; marker: string } | undefined {
+	let next: { index: number; marker: string } | undefined;
+	for (const marker of SETTINGS_REDACTED_MARKERS) {
+		const index = marker.includes("%")
+			? value.toLowerCase().indexOf(marker.toLowerCase(), fromIndex)
+			: value.indexOf(marker, fromIndex);
+		if (index !== -1 && (next === undefined || index < next.index)) {
+			next = { index, marker };
+		}
+	}
+	return next;
+}
+
 /** Ranges must be sorted in ascending order and must not overlap. */
 function replaceTextRanges(
 	value: string,
@@ -591,12 +633,15 @@ function findRedactionRanges(
 	let originalIndex = 0;
 	let redactedIndex = 0;
 	while (redactedIndex < redacted.length) {
+		const originalMarker = redactedMarkerAt(original, originalIndex);
+		const redactedMarker = redactedMarkerAt(redacted, redactedIndex);
 		const markerAlreadyAligned =
-			original.startsWith(SETTINGS_REDACTED_VALUE, originalIndex) &&
-			redacted.startsWith(SETTINGS_REDACTED_VALUE, redactedIndex);
+			originalMarker !== undefined &&
+			redactedMarker?.toLowerCase() === originalMarker.toLowerCase();
 		const markerSuffixMatches =
-			original[originalIndex + SETTINGS_REDACTED_VALUE.length] ===
-			redacted[redactedIndex + SETTINGS_REDACTED_VALUE.length];
+			originalMarker !== undefined &&
+			original[originalIndex + originalMarker.length] ===
+				redacted[redactedIndex + (redactedMarker?.length ?? 0)];
 		if (
 			original[originalIndex] === redacted[redactedIndex] &&
 			(!markerAlreadyAligned || markerSuffixMatches)
@@ -605,20 +650,20 @@ function findRedactionRanges(
 			redactedIndex += 1;
 			continue;
 		}
-		if (!redacted.startsWith(SETTINGS_REDACTED_VALUE, redactedIndex)) {
+		if (redactedMarker === undefined) {
 			return undefined;
 		}
-		const markerEnd = redactedIndex + SETTINGS_REDACTED_VALUE.length;
-		const nextMarker = redacted.indexOf(SETTINGS_REDACTED_VALUE, markerEnd);
-		const unchangedEnd = nextMarker === -1 ? redacted.length : nextMarker;
+		const markerEnd = redactedIndex + redactedMarker.length;
+		const nextMarker = nextRedactedMarker(redacted, markerEnd);
+		const unchangedEnd = nextMarker?.index ?? redacted.length;
 		const unchangedSuffix = redacted.slice(markerEnd, unchangedEnd);
-		if (unchangedSuffix === "" && unchangedEnd !== redacted.length) {
+		if (unchangedSuffix === "" && nextMarker !== undefined) {
 			return undefined;
 		}
 		const originalEnd =
 			unchangedSuffix === ""
 				? original.length
-				: nextMarker === -1
+				: nextMarker === undefined
 					? original.endsWith(unchangedSuffix)
 						? original.length - unchangedSuffix.length
 						: -1
@@ -635,12 +680,54 @@ function findEncodedAbsoluteUrlPrefix(
 	value: string,
 	fromIndex: number,
 ): { index: number; prefixLength: number } | undefined {
-	const match = /[a-z][a-z0-9+.-]*(?:%3a(?:\/|%2f){2}|:(?:\/%2f|%2f\/|%2f%2f))/gi;
-	match.lastIndex = fromIndex;
-	const found = match.exec(value);
-	return found?.index === undefined
-		? undefined
-		: { index: found.index, prefixLength: found[0].length };
+	const schemePattern = /[a-z][a-z0-9+.-]*/gi;
+	schemePattern.lastIndex = fromIndex;
+	let scheme = schemePattern.exec(value);
+	while (scheme !== null && scheme.index !== undefined) {
+		const schemeEnd = scheme.index + scheme[0].length;
+		const delimiterLength = findEncodedUrlAuthorityDelimiterLength(
+			value.slice(schemeEnd, schemeEnd + 32),
+		);
+		if (delimiterLength !== undefined) {
+			const encodedDelimiter = value.slice(
+				schemeEnd,
+				schemeEnd + delimiterLength,
+			);
+			if (encodedDelimiter.includes("%")) {
+				return {
+					index: scheme.index,
+					prefixLength: scheme[0].length + delimiterLength,
+				};
+			}
+		}
+		schemePattern.lastIndex = schemeEnd;
+		scheme = schemePattern.exec(value);
+	}
+	return undefined;
+}
+
+function findEncodedUrlAuthorityDelimiterLength(value: string): number | undefined {
+	let decodedValue = value;
+	let sourceEnds = Array.from(
+		{ length: value.length },
+		(_, index) => index + 1,
+	);
+	for (let depth = 0; depth < MAX_ENCODED_URL_NESTING_DEPTH; depth += 1) {
+		const decoded = decodeUrlTextWithSourceOffsets(decodedValue);
+		if (decoded === undefined) return undefined;
+		if (decoded.text.startsWith("://")) {
+			const endInCurrent = decoded.sourceEnds[2];
+			return endInCurrent === undefined
+				? undefined
+				: sourceEnds[endInCurrent - 1];
+		}
+		if (decoded.text === decodedValue) return undefined;
+		sourceEnds = decoded.sourceEnds.map(
+			(end) => sourceEnds[end - 1] ?? end,
+		);
+		decodedValue = decoded.text;
+	}
+	return undefined;
 }
 
 function encodedUrlCandidateEnd(value: string, fromIndex: number): number {
@@ -671,7 +758,8 @@ function redactEncodedNestedUrlValues(value: string, depth: number): string {
 		const decoded = decodeUrlTextWithSourceOffsets(candidate);
 		if (
 			decoded === undefined ||
-			!ABSOLUTE_URL_PREFIX_ANYWHERE.test(decoded.text)
+			(!ABSOLUTE_URL_PREFIX_ANYWHERE.test(decoded.text) &&
+				findEncodedAbsoluteUrlPrefix(decoded.text, 0) === undefined)
 		) {
 			scanFrom = Math.max(end, prefix.index + prefix.prefixLength);
 			continue;
@@ -780,6 +868,9 @@ function isBareUrlHost(value: string): boolean {
 	}
 	if (url.hostname === "localhost") return true;
 	const labels = url.hostname.toLowerCase().split(".");
+	if (labels.length === 1) {
+		return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(labels[0] ?? "");
+	}
 	if (labels.length < 2 || !/^[a-z]{2,63}$/.test(labels.at(-1) ?? "")) {
 		return false;
 	}

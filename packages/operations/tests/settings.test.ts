@@ -435,6 +435,10 @@ describe("settings URL credential redaction", () => {
 				"https://id.example.com/cb?passwordless=true&tokenizer=bert",
 			],
 			[
+				"https://id.example.com/logout?id_token_hint=jwt&client_assertion=assertion&assertion_token=saml&password_hint=visible",
+				"https://id.example.com/logout?id_token_hint=[redacted]&client_assertion=[redacted]&assertion_token=[redacted]&password_hint=visible",
+			],
+			[
 				"https://hooks.example.com/?smtp_password=a&db_password=b&shared_secret=c&api_secret=d&s3.password=e&access_key_id=f&api_key_id=g&secret_key_id=h&key_id=i&key_pair_id=j&session_id=k&password_hint=l&secret_mode=m&token_type=Bearer",
 				"https://hooks.example.com/?smtp_password=[redacted]&db_password=[redacted]&shared_secret=[redacted]&api_secret=[redacted]&s3.password=[redacted]&access_key_id=[redacted]&api_key_id=[redacted]&secret_key_id=[redacted]&key_id=[redacted]&key_pair_id=[redacted]&session_id=[redacted]&password_hint=l&secret_mode=m&token_type=Bearer",
 			],
@@ -694,6 +698,10 @@ describe("settings URL credential redaction", () => {
 				`https://${SETTINGS_REDACTED_VALUE}@example.com`,
 			],
 			[
+				"https://gw-user:8080 correct horse@mailserver",
+				`https://${SETTINGS_REDACTED_VALUE}@mailserver`,
+			],
+			[
 				"https://gw-user:correct/horse battery@sms.example.com/send",
 				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
 			],
@@ -739,6 +747,14 @@ describe("settings URL credential redaction", () => {
 			[
 				"https://outer.example/?redirect=https%3A%2F%2Fuser%3Aabc%40host%40host",
 				"https://outer.example/?redirect=https%3A%2F%2F%5Bredacted%5D%40host",
+			],
+			[
+				"https://app.example/?redirect=https%253A%252F%252Fuser%253Apass%2540inner",
+				"https://app.example/?redirect=https%253A%252F%252F%5Bredacted%5D%2540inner",
+			],
+			[
+				"https://app.example/?redirect=https%25253A%25252F%25252Fuser%25253Apass%252540inner",
+				"https://app.example/?redirect=https%25253A%25252F%25252F%5Bredacted%5D%252540inner",
 			],
 			[
 				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fcb%3Ftoken%3Dsecret%26page%3D2",
