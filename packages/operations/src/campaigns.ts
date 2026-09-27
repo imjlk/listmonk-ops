@@ -289,6 +289,9 @@ type CampaignCreateBody = NonNullable<
 type CampaignUpdateBody = NonNullable<
 	Parameters<ListmonkClient["campaign"]["update"]>[0]["body"]
 >;
+type CampaignArchiveEcho = NonNullable<
+	Awaited<ReturnType<ListmonkClient["campaign"]["updateArchive"]>>["data"]
+>;
 type CampaignListOptions = Parameters<
 	ListmonkClient["campaign"]["list"]
 >[0];
@@ -678,18 +681,23 @@ async function loadCampaignForWrite(
  * but list IDs, media IDs, and attribs are not part of that pre-fill:
  * omitted `lists` fail with "Invalid list IDs", omitted `media` detach
  * every attachment, and omitted `attribs` overwrite the stored ones. Carry
- * the stored values forward unless the caller sets them.
+ * the stored values forward unless the caller sets them. Pass `stored` when
+ * the caller already read the campaign, so the body is built from the same
+ * snapshot its checks validated.
  */
 export async function buildCampaignUpdateBody(
 	client: Pick<ListmonkClient, "campaign">,
 	id: number,
 	changes: Omit<z.output<typeof updateCampaignInputSchema>, "id">,
+	stored?: z.output<typeof campaignSchema>,
 ): Promise<CampaignUpdateBody> {
-	const current = await loadCampaignForWrite(
-		client,
-		id,
-		"Failed to load campaign before updating",
-	);
+	const current =
+		stored ??
+		(await loadCampaignForWrite(
+			client,
+			id,
+			"Failed to load campaign before updating",
+		));
 	const lists = changes.lists ?? numericEntryIds(current.lists);
 	if (lists.length === 0) {
 		throw new Error(
@@ -813,7 +821,8 @@ export type CampaignLifecycleOutput = z.output<
  * safe retries after timeouts.
  *
  * Returns the campaign's `send_at` so `scheduleCampaign` can detect
- * whether a reschedule is needed without a redundant `getById` call.
+ * whether a reschedule is needed, and the full snapshot so its update body
+ * is built without a redundant `getById` call.
  */
 async function loadCampaignForTransitionForTarget(
 	client: Pick<ListmonkClient, "campaign">,
@@ -824,6 +833,7 @@ async function loadCampaignForTransitionForTarget(
 	status: string;
 	send_at: string | null | undefined;
 	updated_at: string | undefined;
+	campaign: z.output<typeof campaignSchema>;
 }> {
 	const response = await client.campaign.getById({ path: { id } });
 	const campaign = asCampaign(
@@ -839,6 +849,7 @@ async function loadCampaignForTransitionForTarget(
 		status: currentStatus,
 		send_at: campaign.send_at,
 		updated_at: campaign.updated_at,
+		campaign,
 	};
 }
 
@@ -963,9 +974,12 @@ export async function scheduleCampaign(
 	// non-scheduled status (e.g. draft).
 	const updateResponse = await ctx.client.campaign.update({
 		path: { id: input.id },
-		body: await buildCampaignUpdateBody(ctx.client, input.id, {
-			send_at: input.send_at,
-		}),
+		body: await buildCampaignUpdateBody(
+			ctx.client,
+			input.id,
+			{ send_at: input.send_at },
+			loaded.campaign,
+		),
 	});
 	asCampaign(
 		unwrapResourceResponse(updateResponse, "Failed to set campaign send_at"),
@@ -1918,8 +1932,8 @@ const campaignArchiveOutputSchema = z.looseObject({
 });
 
 /**
- * Toggle the campaign's public archive page. The observed 6.2 endpoint
- * echoes the archive metadata rather than a bare boolean; the shared
+ * Toggle the campaign's public archive page. Listmonk 6.2 echoes the
+ * applied archive settings rather than a bare boolean; the shared
  * contract reports the server-echoed archive flag when present and
  * falls back to the requested value for a bare acknowledgement. A
  * negative acknowledgement fails closed.
@@ -1956,17 +1970,12 @@ export async function archiveCampaign(
 					: {},
 		},
 	});
+	// Listmonk 6.2 echoes the applied settings; an older bare boolean is
+	// still tolerated so a negative acknowledgement fails closed.
 	const metadata = unwrapResourceResponse(
 		response,
 		"Failed to toggle campaign archive",
-	) as unknown as
-		| boolean
-		| {
-				archive?: unknown;
-				archive_template_id?: unknown;
-				archive_slug?: unknown;
-		  }
-		| undefined;
+	) as CampaignArchiveEcho | boolean | undefined;
 	if (metadata === false) {
 		throw new Error(
 			"Failed to toggle campaign archive: Listmonk returned a negative acknowledgement",

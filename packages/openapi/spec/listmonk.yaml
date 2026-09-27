@@ -1633,7 +1633,17 @@ paths:
                 type: object
                 properties:
                   data:
-                    type: boolean
+                    type: object
+                    description: The applied archive settings, echoed back with the slug normalized.
+                    properties:
+                      archive:
+                        type: boolean
+                      archive_template_id:
+                        type: integer
+                      archive_meta:
+                        type: object
+                      archive_slug:
+                        type: string
 
   "/campaigns/{id}/content":
     post:

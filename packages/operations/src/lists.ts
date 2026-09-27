@@ -457,7 +457,9 @@ export async function createSubscriberList(
  * Listmonk 6.2's `PUT /lists/{id}` requires `name` and always overwrites
  * `tags`, while it keeps the stored type, opt-in, status, and description
  * when they are sent empty. Read the stored list and carry its name and tags
- * forward so a partial update neither fails nor clears tags.
+ * forward so a partial update neither fails nor clears tags. The read and the
+ * write are not atomic: a change made by someone else in between is
+ * overwritten (last writer wins), as Listmonk has no conditional update.
  */
 export async function updateSubscriberList(
 	{ client }: ListOperationContext,

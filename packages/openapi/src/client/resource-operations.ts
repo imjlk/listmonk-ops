@@ -51,6 +51,7 @@ import type * as t from "../../generated/types.gen";
 import type {
 	Campaign,
 	CampaignArchiveBody,
+	CampaignArchiveEcho,
 	CampaignTestParams,
 	EnhancedListmonkClient,
 	List,
@@ -271,7 +272,9 @@ export function createCampaignOperations(
 				...sdkOptions,
 				...options,
 			});
-			return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			return (await transformResponse(
+				result,
+			)) as FlattenedResponse<CampaignArchiveEcho>;
 		},
 		async createContent(options: {
 			path: { id: number };

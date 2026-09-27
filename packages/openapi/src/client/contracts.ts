@@ -184,7 +184,7 @@ export interface CampaignOperations
 	updateArchive(options: {
 		path: { id: number };
 		body: CampaignArchiveBody;
-	}): Promise<FlattenedResponse<boolean>>;
+	}): Promise<FlattenedResponse<CampaignArchiveEcho>>;
 	createContent(options: {
 		path: { id: number };
 		body: {
@@ -255,6 +255,14 @@ export type TransactionalSendParams = NonNullable<
 export type CampaignArchiveBody = NonNullable<
 	t.UpdateCampaignArchiveByIdData["body"]
 > & { archive: boolean };
+
+/**
+ * Listmonk 6.2 answers `PUT /campaigns/{id}/archive` with the applied
+ * archive settings (the slug normalized), not a boolean.
+ */
+export type CampaignArchiveEcho = NonNullable<
+	t.UpdateCampaignArchiveByIdResponses[200]["data"]
+>;
 
 /**
  * The generated CampaignRequest models `subscribers` as optional, but the
