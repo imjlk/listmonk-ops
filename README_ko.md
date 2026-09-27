@@ -1409,11 +1409,14 @@ A/B 테스트 도메인은 발송 결과를 왜곡할 수 있는 여러 정확�
   cleanup helper는 임시 variant·holdout list를 삭제하기 전에 수신 거부한
   구성원을 테스트의 원본 list에서도 `unsubscribed`로 표시하고(`manageLists`의
   `unsubscribe` action, 멤버십을 새로 추가하지 않음) 결과를 확인합니다. 수신
-  거부를 옮기지 못한 list는(원본 list가 기록되지 않은 테스트 포함) 삭제하지
-  않고 남깁니다. stop과 delete는 해당 list와 이유를 담아 실패하므로 재시도할 수
-  있고, rollback은 list 매핑을 유지합니다. 삭제되지 않는 list(완료된 테스트,
-  stop이 cancelled campaign 때문에 보존한 list)는 수신 거부 기록을 유지하지만
-  원본 list로 복사하지 않으므로, 이런 list를 직접 삭제하기 전에 먼저 옮기세요.
+  조회 결과가 비어 있어도 list 자체를 읽을 수 있거나 이미 삭제된 list임을
+  확인한 경우에만 안전하게 처리합니다. 권한 부족이나 조회 오류는 빈 결과로
+  간주하지 않습니다. 수신 거부를 옮기지 못한 list는(원본 list가 기록되지 않은
+  테스트 포함) 삭제하지 않고 남깁니다. stop과 delete는 해당 list와 이유를 담아
+  실패하므로 재시도할 수 있고, rollback은 list 매핑을 유지합니다. 삭제되지 않는
+  list(완료된 테스트나 stop이 cancelled campaign 때문에 보존한 list)는 수신 거부
+  기록을 유지하지만 원본 list로 복사하지 않으므로, 이런 list를 직접 삭제하기 전에
+  먼저 옮기세요.
   campaign이나 list가 삭제된 뒤의 수신 거부 링크는 아무것도 기록하지 않습니다.
 - **신뢰도 임계값 반영**: 저장된 `confidenceThreshold`로 alpha를 계산하여
   유의성 판정과 결과에 반영합니다.

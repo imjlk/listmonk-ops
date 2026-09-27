@@ -1481,10 +1481,13 @@ send results. Summary of the current behavior:
   a provisioning rollback, and the legacy cleanup helpers now carry the
   unsubscribed members of each temporary variant or holdout list to the
   test's source lists (the `manageLists` `unsubscribe` action, which never
-  adds a membership) and confirm the result before deleting the list. A
-  list whose opt-outs cannot be carried, including one from a test that
-  records no source lists, is kept: stop and delete fail with the list and
-  the reason so they can be retried, and a rollback keeps the list mapped.
+  adds a membership) and confirm the result before deleting the list. An
+  empty opt-out query is accepted only after the list itself is readable or
+  Listmonk confirms that it has already been removed; permission or API errors
+  keep the list. A list whose opt-outs cannot be carried, including one from
+  a test that records no source lists, is kept: stop and delete fail with the
+  list and the reason so they can be retried, and a rollback keeps the list
+  mapped.
   Lists that are not deleted (completed tests, or lists a stop keeps for
   cancelled campaigns) keep their opt-outs without copying them, so carry
   those over before removing such a list by hand. An unsubscribe link whose

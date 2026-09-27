@@ -189,7 +189,12 @@ describe("executeCancelPlan", () => {
 				updateStatus,
 				delete: deleteCampaign,
 			},
-			list: { delete: deleteList },
+			list: {
+				getById: async ({ path }: { path: { list_id: number } }) => ({
+					data: { id: path.list_id },
+				}),
+				delete: deleteList,
+			},
 			// No subscriber unsubscribed from a temporary list.
 			subscriber: { list: async () => ({ data: { results: [], total: 0 } }) },
 		} as unknown as ListmonkClient;
@@ -529,12 +534,20 @@ describe("Listmonk 6.2 not-found answers", () => {
 				updateStatus: async () => missingCampaign,
 			},
 			list: {
+				getById: async () => ({
+					error: { message: "List not found" },
+					response: { status: 400 },
+				}),
 				delete: async ({ path }: { path: { list_id: number } }) => {
 					deletedLists.push(path.list_id);
 					return { data: true };
 				},
 			},
-			subscriber: { list: async () => ({ data: { results: [], total: 0 } }) },
+			subscriber: {
+				list: async () => {
+					throw new Error("must not scan an already-deleted temporary list");
+				},
+			},
 		} as unknown as ListmonkClient;
 
 		const result = await cancelAbTest(client, makeTest());

@@ -316,6 +316,9 @@ describe("deleteTestResources retry safety", () => {
 				},
 			},
 			list: {
+				getById: async ({ path }: { path: { list_id: number } }) => ({
+					data: { id: path.list_id },
+				}),
 				delete: async ({ path }: { path: { list_id: number } }) => {
 					deletedLists.push(path.list_id);
 					return { data: true };
@@ -382,6 +385,9 @@ describe("deleteTestResources retry safety", () => {
 				},
 			},
 			list: {
+				getById: async ({ path }: { path: { list_id: number } }) => ({
+					data: { id: path.list_id },
+				}),
 				delete: async ({ path }: { path: { list_id: number } }) => {
 					deletedLists.push(path.list_id);
 					return { data: true };

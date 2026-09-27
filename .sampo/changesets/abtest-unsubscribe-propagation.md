@@ -1,5 +1,6 @@
 ---
 npm/@listmonk-ops/abtest: patch (Fixed)
+npm/@listmonk-ops/openapi: patch (Changed)
 npm/@listmonk-ops/mcp: patch (Fixed)
 npm/@listmonk-ops/cli: patch (Fixed)
 ---

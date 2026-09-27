@@ -1,4 +1,5 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { formatListmonkError, listmonkResponseStatus } from "./listmonk-errors";
 import type { AbTest } from "./types";
 
 /**
@@ -23,10 +24,11 @@ import type { AbTest } from "./types";
  *
  * 1. reads the subscribers whose membership on the temporary list is
  *    `unsubscribed` (`GET /subscribers` with `list_id` and
- *    `subscription_status=unsubscribed`, paginated) and fails closed unless
- *    every returned row really carries that membership: for an API user
- *    without permission on the list, Listmonk replaces the list filter with
- *    the user's other lists, or with none, instead of rejecting it;
+ *    `subscription_status=unsubscribed`, paginated) after first verifying
+ *    that the list exists and is readable, and fails closed unless every
+ *    returned row really carries that membership. For an API user without
+ *    permission on the list, Listmonk may replace the list filter with the
+ *    user's other lists, or with none, instead of rejecting it;
  * 2. applies the `manageLists` `unsubscribe` action
  *    (`PUT /subscribers/lists`) to the source lists. Listmonk only updates
  *    existing memberships for this action, so it never subscribes anyone to a
@@ -137,7 +139,57 @@ function describeEnvelopeFailure(response: unknown): string | undefined {
 	const status = isRecord(response.response)
 		? response.response.status
 		: undefined;
-	return typeof status === "number" ? `HTTP ${status}: ${message}` : message;
+	return typeof status === "number" && (status < 200 || status >= 300)
+		? `HTTP ${status}: ${message}`
+		: message;
+}
+
+function isMissingListResponse(response: unknown): boolean {
+	const status = listmonkResponseStatus(response);
+	if (
+		(status !== 400 && status !== 404) ||
+		!isRecord(response) ||
+		response.error === undefined
+	) {
+		return false;
+	}
+	return /^list(?:\s+(?:with\s+id\s+)?\d+)?\s+not found\.?$/i.test(
+		formatListmonkError(response.error).trim(),
+	);
+}
+
+type ListReadability =
+	| { status: "readable" | "not_found" }
+	| { status: "unreadable"; detail: string };
+
+async function probeListReadability(
+	client: ListmonkClient,
+	listId: number,
+): Promise<ListReadability> {
+	try {
+		const response = await client.list.getById({ path: { list_id: listId } });
+		if (isMissingListResponse(response)) {
+			return { status: "not_found" };
+		}
+		const failure = describeEnvelopeFailure(response);
+		if (failure !== undefined) {
+			return { status: "unreadable", detail: failure };
+		}
+		if (
+			!isRecord(response) ||
+			!("data" in response) ||
+			!isRecord(response.data) ||
+			response.data.id !== listId
+		) {
+			return {
+				status: "unreadable",
+				detail: "the response did not confirm the requested list",
+			};
+		}
+		return { status: "readable" };
+	} catch (error) {
+		return { status: "unreadable", detail: describeError(error) };
+	}
 }
 
 function normalizeListIds(listIds: readonly number[]): number[] {
@@ -357,6 +409,28 @@ export async function propagateTemporaryListOptOuts(
 		(sourceListId) => sourceListId !== listId,
 	);
 	const readOptions = { pageSize: input.pageSize };
+	const readability = await probeListReadability(client, listId);
+	if (readability.status === "not_found") {
+		return {
+			listId,
+			status: "no_opt_outs",
+			safeToDelete: true,
+			optedOutCount: 0,
+			propagatedCount: 0,
+			sourceListIds,
+		};
+	}
+	if (readability.status === "unreadable") {
+		return {
+			listId,
+			status: "failed",
+			safeToDelete: false,
+			optedOutCount: 0,
+			propagatedCount: 0,
+			sourceListIds,
+			detail: `its opt-outs could not be verified because list ${listId} could not be read: ${readability.detail}`,
+		};
+	}
 	let optOuts: TemporaryListOptOut[];
 	try {
 		optOuts = await readTemporaryListOptOuts(client, listId, readOptions);

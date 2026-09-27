@@ -2,7 +2,10 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ListmonkClient } from "@listmonk-ops/openapi";
+import {
+	createListmonkClient,
+	type ListmonkClient,
+} from "@listmonk-ops/openapi";
 import { AbTestService } from "../src/abtest-service";
 import { createAbTestExecutors } from "../src/factory";
 import {
@@ -144,6 +147,18 @@ function createFakeListmonk(options: FakeListmonkOptions = {}) {
 			},
 		},
 		list: {
+			getById: async ({ path }: { path: { list_id: number } }) => {
+				const hasMembership = [...memberships.values()].some((subscriberLists) =>
+					subscriberLists.has(path.list_id),
+				);
+				if (!lists.has(path.list_id) && !hasMembership) {
+					return {
+						error: { message: "List not found" },
+						response: { status: 400 },
+					};
+				}
+				return { data: { id: path.list_id, name: `List ${path.list_id}` } };
+			},
 			delete: async ({ path }: { path: { list_id: number } }) => {
 				if (!lists.delete(path.list_id)) {
 					// Listmonk 6.2 acknowledges deleting a missing list.
@@ -429,6 +444,7 @@ describe("findUnpropagatedOptOuts and unsubscribeSubscribersFromLists", () => {
 describe("propagateTemporaryListOptOuts", () => {
 	test("allows deleting a list nobody unsubscribed from", async () => {
 		const fake = createFakeListmonk();
+		fake.addLists(200);
 		fake.addSubscriber(1, { 200: "unconfirmed", [SOURCE_A]: "confirmed" });
 
 		const result = await propagateTemporaryListOptOuts(fake.client, {
@@ -443,6 +459,174 @@ describe("propagateTemporaryListOptOuts", () => {
 			propagatedCount: 0,
 		});
 		expect(fake.unsubscribes).toEqual([]);
+	});
+
+	test.each([400, 404])(
+		"treats Listmonk %i List not found as already cleaned",
+		async (status) => {
+			const reads: Array<Record<string, unknown>> = [];
+			const client = {
+				subscriber: {
+					list: async ({ query }: { query: Record<string, unknown> }) => {
+						reads.push(query);
+						return { data: { results: [], total: 0 } };
+					},
+				},
+				list: {
+					getById: async () => ({
+						error: { message: "List not found" },
+						response: { status },
+					}),
+				},
+			} as unknown as ListmonkClient;
+
+			const result = await propagateTemporaryListOptOuts(client, {
+				listId: 200,
+				sourceListIds: [SOURCE_A],
+			});
+
+			expect(result).toMatchObject({
+				status: "no_opt_outs",
+				safeToDelete: true,
+				optedOutCount: 0,
+			});
+			expect(reads).toEqual([]);
+		},
+	);
+
+	test("keeps the list and avoids scanning when the list is unreadable", async () => {
+		let subscriberReads = 0;
+		const client = {
+			subscriber: {
+				list: async () => {
+					subscriberReads += 1;
+					return { data: { results: [], total: 0 } };
+				},
+			},
+			list: {
+				getById: async () => ({
+					error: { message: "permission denied" },
+					response: { status: 403 },
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		const result = await propagateTemporaryListOptOuts(client, {
+			listId: 200,
+			sourceListIds: [SOURCE_A],
+		});
+
+		expect(result).toMatchObject({ status: "failed", safeToDelete: false });
+		expect(result.detail).toContain("HTTP 403: permission denied");
+		expect(subscriberReads).toBe(0);
+	});
+
+	test("keeps the list when another list-read error resembles not-found", async () => {
+		for (const response of [
+			{
+				error: { message: "List not found" },
+				response: { status: 500 },
+			},
+			{
+				error: { message: "permission denied" },
+				response: { status: 400 },
+			},
+		]) {
+			const client = {
+				subscriber: {
+					list: async () => ({ data: { results: [], total: 0 } }),
+				},
+				list: { getById: async () => response },
+			} as unknown as ListmonkClient;
+			const result = await propagateTemporaryListOptOuts(client, {
+				listId: 200,
+				sourceListIds: [SOURCE_A],
+			});
+
+			expect(result).toMatchObject({ status: "failed", safeToDelete: false });
+		}
+	});
+
+	test("rejects malformed subscriber pages through the real Listmonk client", async () => {
+		for (const malformedPage of [{}, { data: {} }]) {
+			const requestedPaths: string[] = [];
+			const server = Bun.serve({
+				port: 0,
+				fetch(request) {
+					const url = new URL(request.url);
+					requestedPaths.push(url.pathname);
+					if (url.pathname === "/api/lists/200") {
+						return Response.json({
+							data: { id: 200, name: "Temporary list" },
+						});
+					}
+					if (url.pathname === "/api/subscribers") {
+						return Response.json(malformedPage);
+					}
+					return new Response("Not Found", { status: 404 });
+				},
+			});
+
+			try {
+				const client = createListmonkClient({
+					baseUrl: `http://127.0.0.1:${server.port}/api`,
+					retries: 0,
+				});
+				const result = await propagateTemporaryListOptOuts(client, {
+					listId: 200,
+					sourceListIds: [SOURCE_A],
+				});
+
+				expect(result).toMatchObject({
+					status: "failed",
+					safeToDelete: false,
+				});
+				expect(result.detail).toContain(
+					"List response did not contain an array-valued results field",
+				);
+				expect(requestedPaths).toEqual([
+					"/api/lists/200",
+					"/api/subscribers",
+				]);
+			} finally {
+				server.stop(true);
+			}
+		}
+	});
+
+	test("accepts a valid empty page through the real Listmonk client", async () => {
+		const server = Bun.serve({
+			port: 0,
+			fetch(request) {
+				const url = new URL(request.url);
+				if (url.pathname === "/api/lists/200") {
+					return Response.json({ data: { id: 200, name: "Temporary list" } });
+				}
+				if (url.pathname === "/api/subscribers") {
+					return Response.json({ data: { results: [], total: 0 } });
+				}
+				return new Response("Not Found", { status: 404 });
+			},
+		});
+
+		try {
+			const client = createListmonkClient({
+				baseUrl: `http://127.0.0.1:${server.port}/api`,
+				retries: 0,
+			});
+			const result = await propagateTemporaryListOptOuts(client, {
+				listId: 200,
+				sourceListIds: [SOURCE_A],
+			});
+
+			expect(result).toMatchObject({
+				status: "no_opt_outs",
+				safeToDelete: true,
+				optedOutCount: 0,
+			});
+		} finally {
+			server.stop(true);
+		}
 	});
 
 	test("carries opt-outs to the source lists the subscriber belongs to", async () => {
@@ -556,6 +740,7 @@ describe("propagateTemporaryListOptOuts", () => {
 
 	test("keeps the list when the opt-outs cannot be read", async () => {
 		const fake = createFakeListmonk({ failOptOutRead: true });
+		fake.addLists(200);
 
 		const result = await propagateTemporaryListOptOuts(fake.client, {
 			listId: 200,
