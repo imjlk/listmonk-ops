@@ -1486,6 +1486,62 @@ describe("template registry active version", () => {
 		expect(bodies.get(41)).toBe("<p>v2</p>");
 	});
 
+	test("serializes concurrent remote reads for the same template", async () => {
+		await useTemporaryStores();
+		let readCount = 0;
+		let firstReadStarted = (): void => {};
+		let releaseFirstRead = (): void => {};
+		const firstReadRequested = new Promise<void>((resolve) => {
+			firstReadStarted = resolve;
+		});
+		const firstReadGate = new Promise<void>((resolve) => {
+			releaseFirstRead = resolve;
+		});
+		const client = {
+			template: {
+				getById: async ({ path: { id } }: { path: { id: number } }) => {
+					readCount += 1;
+					const readNumber = readCount;
+					if (readNumber === 1) {
+						firstReadStarted();
+						await firstReadGate;
+					}
+					return {
+						data: {
+							id,
+							name: "Serialized",
+							type: "campaign",
+							subject: "",
+							body: `<p>v${readNumber}</p>`,
+						},
+					};
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		const firstSync = syncTemplateRegistry(client, { templateIds: [47] });
+		await firstReadRequested;
+		const secondSync = syncTemplateRegistry(client, { templateIds: [47] });
+		await Bun.sleep(10);
+		expect(readCount).toBe(1);
+
+		releaseFirstRead();
+		await Promise.all([firstSync, secondSync]);
+
+		const history = await getTemplateRegistryHistory(47);
+		expect(readCount).toBe(2);
+		expect(
+			history.versions.map((version) => version.snapshot.body),
+		).toEqual(["<p>v1</p>", "<p>v2</p>"]);
+		expect(history.versions.map((version) => version.captureOrder)).toEqual([
+			1,
+			2,
+		]);
+		expect(history.activeVersionId).toBe(
+			versionIdFor(history, "<p>v2</p>"),
+		);
+	});
+
 	test("samples each template head immediately before its remote read", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		const remote = new Map<number, { name: string; body: string }>([

@@ -501,6 +501,24 @@ async function reserveTemplateCaptureRead(
 	});
 }
 
+function createTemplateCaptureReadLockStore(
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
+	templateId: number,
+): JsonFileStore<null> {
+	return {
+		path: `${storeDefinition.path}.capture-${templateId}`,
+		createDefault: () => null,
+		parse: (value) => {
+			if (value !== null) {
+				throw new Error("Invalid template registry capture lock store");
+			}
+			return null;
+		},
+		lock: storeDefinition.lock,
+		skipUnchangedWrites: true,
+	};
+}
+
 async function captureTemplateRegistry(
 	client: ListmonkClient,
 	options: TemplateRegistrySyncOptions,
@@ -513,18 +531,24 @@ async function captureTemplateRegistry(
 
 	for (const templateId of templateIds) {
 		try {
-			const stamp = await reserveTemplateCaptureRead(
-				storeDefinition,
-				templateId,
+			const version = await updateJsonFileStore(
+				createTemplateCaptureReadLockStore(storeDefinition, templateId),
+				async (lockState) => {
+					const stamp = await reserveTemplateCaptureRead(
+						storeDefinition,
+						templateId,
+					);
+					const template = await getTemplateById(client, templateId);
+					const snapshot = createTemplateSnapshot(template, templateId);
+					return commitJsonFileStoreUpdate(lockState, {
+						templateId,
+						...stamp,
+						snapshot,
+						hash: createTemplateHash(snapshot),
+					});
+				},
 			);
-			const template = await getTemplateById(client, templateId);
-			const snapshot = createTemplateSnapshot(template, templateId);
-			versions.push({
-				templateId,
-				...stamp,
-				snapshot,
-				hash: createTemplateHash(snapshot),
-			});
+			versions.push(version);
 		} catch (error) {
 			try {
 				await options.onCaptureError?.({ templateId, error });
