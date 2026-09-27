@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	liveTemplateMatchesRemoteHashPin,
 	normalizeTemplateSnapshotForWrite,
 	resolveTemplateLiveVersion,
 	selectTemplateRollbackTarget,
@@ -120,6 +121,34 @@ describe("normalizeTemplateSnapshotForWrite", () => {
 		expect(normalizeTemplateSnapshotForWrite(transactional)).toBe(transactional);
 		const normalized = { ...campaign, subject: "Newsletter" };
 		expect(normalizeTemplateSnapshotForWrite(normalized)).toBe(normalized);
+	});
+});
+
+// The history-hash pin matching Listmonk's subject rewrite needs real
+// content hashes, so persistence.test.ts covers it end to end.
+describe("liveTemplateMatchesRemoteHashPin", () => {
+	test("matches the exact live hash a sync reported", () => {
+		expect(
+			liveTemplateMatchesRemoteHashPin(templateRecord("v4"), "hash-z", "hash-z"),
+		).toBe(true);
+		expect(liveTemplateMatchesRemoteHashPin(undefined, "hash-z", "hash-z")).toBe(
+			true,
+		);
+	});
+
+	test("conflicts when the pinned version does not hold the live content", () => {
+		// hash-a is a stored version's hash, but the live content changed.
+		expect(
+			liveTemplateMatchesRemoteHashPin(templateRecord("v4"), "hash-z", "hash-a"),
+		).toBe(false);
+		// A pin naming no stored version cannot match other live content.
+		expect(
+			liveTemplateMatchesRemoteHashPin(templateRecord("v4"), "hash-a", "hash-y"),
+		).toBe(false);
+		// Without a registry record, only the exact live hash matches.
+		expect(liveTemplateMatchesRemoteHashPin(undefined, "hash-z", "hash-a")).toBe(
+			false,
+		);
 	});
 });
 

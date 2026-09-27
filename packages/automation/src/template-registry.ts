@@ -431,7 +431,7 @@ function versionHoldsLiveContent(
  * Accept a hash previously reported by a sync or stored in registry history
  * when Listmonk's verified write normalization produced the live content.
  */
-function liveTemplateMatchesRemoteHashPin(
+export function liveTemplateMatchesRemoteHashPin(
 	record: Pick<TemplateRegistryTemplateRecord, "versions"> | undefined,
 	liveHash: string,
 	expectedRemoteHash: string,
