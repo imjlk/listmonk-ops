@@ -198,6 +198,36 @@ describe("deleteTestResources retry safety", () => {
 		expect(deletedCampaigns).toEqual([2]);
 		expect(deletedLists).toEqual([11, 10]);
 	});
+
+	test("cancels paused campaigns before deleting their resources", async () => {
+		const transitions: Array<{ id: number; status: string }> = [];
+		const deletedCampaigns: number[] = [];
+		const client = {
+			campaign: {
+				getById: async () => ({ data: { id: 3, status: "paused" } }),
+				updateStatus: async ({
+					path,
+					body,
+				}: {
+					path: { id: number };
+					body: { status: string };
+				}) => {
+					transitions.push({ id: path.id, status: body.status });
+					return { data: true };
+				},
+				delete: async ({ path }: { path: { id: number } }) => {
+					deletedCampaigns.push(path.id);
+					return { data: true };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		const integration = new ListmonkAbTestIntegration(client);
+		await integration.deleteTestResources({ campaignIds: [3], listIds: [] });
+
+		expect(transitions).toEqual([{ id: 3, status: "cancelled" }]);
+		expect(deletedCampaigns).toEqual([3]);
+	});
 });
 
 describe("segmentSubscribersForHoldout stratification", () => {

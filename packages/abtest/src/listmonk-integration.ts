@@ -1,5 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { AbTest, TestResults, Variant } from "./types";
+import { isListmonkCampaignCancellationStatus } from "./lifecycle";
 import {
 	allocateByLargestRemainder,
 	allocateTestAndHoldout,
@@ -796,7 +797,7 @@ export class ListmonkAbTestIntegration {
 				const status = (
 					response as { data?: { status?: string } }
 				)?.data?.status;
-				if (status === "running") {
+				if (isListmonkCampaignCancellationStatus(status)) {
 					const cancelResult =
 						await this.listmonkClient.campaign.updateStatus({
 							path: { id: campaignId },
@@ -808,7 +809,7 @@ export class ListmonkAbTestIntegration {
 						!isNotFound(cancelResult)
 					) {
 						throw new Error(
-							`Failed to cancel running campaign ${campaignId}: ${this.formatError(cancelResult.error)}`,
+							`Failed to cancel ${status} campaign ${campaignId}: ${this.formatError(cancelResult.error)}`,
 						);
 					}
 				}

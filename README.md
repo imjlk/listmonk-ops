@@ -534,6 +534,9 @@ name and tags forward (Listmonk 6.2 requires a name and always overwrites
 tags), and `campaigns update`/`campaigns schedule` resend the stored target
 lists, media attachments, and attributes, which Listmonk's campaign `PUT`
 does not pre-fill (it rejects a missing list set and detaches unsent media).
+Pass `--media ""` to `campaigns update` to clear every attachment; callers
+without `campaigns:get` can pair it with explicit `--lists` and `--attribs`
+values so the complete update does not need a pre-read.
 `campaigns archive` resends the stored archive slug, template, and metadata so
 toggling the archive page keeps its public link. Callers with `campaigns:manage`
 but without `campaigns:get` can provide all three values directly to skip the

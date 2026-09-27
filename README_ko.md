@@ -525,7 +525,10 @@ CLI는 MCP 서버와 동일한 타입드 구독자 리스트 Operation을 제공
 그대로 전달하고(Listmonk 6.2는 이름을 요구하며 태그를 항상 덮어씁니다),
 `campaigns update`/`campaigns schedule`은 Listmonk 캠페인 `PUT`이 미리 채우지
 않는 대상 리스트, 미디어 첨부, 속성을 저장된 값으로 다시 보냅니다(리스트가
-없으면 거부되고 보내지 않은 미디어는 분리됩니다). `campaigns archive`는 저장된
+없으면 거부되고 보내지 않은 미디어는 분리됩니다). `campaigns update --media ""`로
+첨부를 모두 지울 수 있으며, `campaigns:get` 권한이 없는 호출자는 `--lists`와
+`--attribs`도 명시해 사전 조회 없이 전체 수정 값을 전달할 수 있습니다.
+`campaigns archive`는 저장된
 archive slug, 템플릿, 메타데이터를 다시 보내 보관 페이지를 토글해도 공개 링크가
 유지됩니다. `campaigns:get` 권한이 없고 `campaigns:manage`만 있다면 세 값을 직접
 전달해 사전 조회를 생략할 수 있습니다. `campaigns clone`은 slug가 고유하므로 보관된 원본을 복제할 때

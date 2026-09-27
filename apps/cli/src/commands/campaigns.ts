@@ -554,7 +554,8 @@ export async function handleUpdateCampaignCommand({
 							"archive-meta",
 						)
 					: undefined,
-				media: flags.media ? parseCsvNumbers(flags.media) : undefined,
+				media:
+					flags.media === undefined ? undefined : parseCsvNumbers(flags.media),
 				subscribers: parseCsvStrings(flags.subscribers),
 			},
 		);

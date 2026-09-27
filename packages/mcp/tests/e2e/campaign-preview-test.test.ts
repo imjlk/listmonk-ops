@@ -327,6 +327,37 @@ describe("Campaign and template preview CLI/MCP parity", () => {
 		}
 	});
 
+	test("clears campaign media through an explicit CLI update", async () => {
+		const fixtureId = (await createDraftCampaignFixture()).id;
+
+		try {
+			const cliResult = parseCliJson<{ id?: number }>(
+				runCliCampaignCommand([
+					"--format",
+					"json",
+					"update",
+					"--id",
+					String(fixtureId),
+					"--lists",
+					"1",
+					"--media",
+					"",
+					"--attribs",
+					"{}",
+				]),
+				"update",
+			);
+			expect(cliResult).toMatchObject({ id: fixtureId });
+
+			const stored = await createTestClient().campaign.getById({
+				path: { id: fixtureId },
+			});
+			expect((stored.data as { media?: unknown[] }).media ?? []).toEqual([]);
+		} finally {
+			await deleteCampaignFixture(fixtureId);
+		}
+	});
+
 	test("renders the same template preview through both adapters", async () => {
 		const cliPreview = parseCliJson<{ html?: string }>(
 			runCliTemplateCommand([

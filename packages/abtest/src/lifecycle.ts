@@ -119,8 +119,15 @@ export interface PlanCancelOptions {
 
 // Listmonk 6.2 cancels running or paused campaigns, so a paused variant is
 // cancelled (keeping its delivery history) instead of deleted.
-const DEFAULT_ACTIVE_STATUSES = ["running", "paused"];
+const DEFAULT_ACTIVE_STATUSES = ["running", "paused"] as const;
 const DEFAULT_TERMINAL_STATUSES = ["finished", "sent", "cancelled"];
+
+/** Listmonk 6.2 accepts cancellation for running and paused campaigns. */
+export function isListmonkCampaignCancellationStatus(
+	status: string | undefined,
+): status is "running" | "paused" {
+	return DEFAULT_ACTIVE_STATUSES.some((activeStatus) => activeStatus === status);
+}
 /**
  * Pseudo-status used when a campaign's status fetch returned a 404 — the
  * campaign is gone and cannot reference its lists anymore, so the planner
@@ -139,7 +146,6 @@ export function planCancelAbTest(
 	observedStatuses: Map<number, string>,
 	options: PlanCancelOptions = {},
 ): CancelPlan {
-	const active = options.activeStatuses ?? DEFAULT_ACTIVE_STATUSES;
 	const terminal = options.terminalStatuses ?? DEFAULT_TERMINAL_STATUSES;
 	const deleteTerminal = options.deleteTerminalCampaigns ?? false;
 
@@ -172,7 +178,11 @@ export function planCancelAbTest(
 			});
 			continue;
 		}
-		if (active.includes(status)) {
+		if (
+			options.activeStatuses === undefined
+				? isListmonkCampaignCancellationStatus(status)
+				: options.activeStatuses.includes(status)
+		) {
 			campaignActions.push({ kind: "cancel", campaignId: mapping.campaignId });
 			// A cancelled campaign still references its temporary list for any
 			// partial delivery history and Listmonk's own reporting, so retain

@@ -11,6 +11,7 @@ import {
 	renderScheduleCampaign,
 	renderStartCampaign,
 	renderCampaigns,
+	renderUpdateCampaign,
 	type CampaignsCliContext,
 } from "../src/commands/campaigns";
 import {
@@ -65,6 +66,29 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		expect(cliContext.output.table).toHaveBeenCalledWith([
 			{ id: 3, name: "Newsletter" },
 		]);
+	});
+
+	test("passes an explicitly empty media set without requiring a campaign read", async () => {
+		const update = mock(async () => ({ data: { id: 9 } }));
+		const cliContext = {
+			client: { campaign: { update } } as unknown as Pick<
+				ListmonkClient,
+				"campaign"
+			>,
+			output: output(),
+		} satisfies CampaignsCliContext;
+
+		await renderUpdateCampaign(cliContext, {
+			id: 9,
+			lists: [1],
+			media: [],
+			attribs: {},
+		});
+
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 9 },
+			body: { lists: [1], media: [], attribs: {} },
+		});
 	});
 
 	test("renders campaign previews and test sends through the shared operations", async () => {
