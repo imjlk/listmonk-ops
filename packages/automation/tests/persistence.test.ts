@@ -1099,6 +1099,10 @@ describe("automation persistence", () => {
 		const captureFailures: unknown[] = [];
 		const client = {
 			template: {
+				list: async () => {
+					reads += 1;
+					return { data: { results: [{ id: 1 }] } };
+				},
 				getById: async () => {
 					reads += 1;
 					return { data: { id: 1, name: "Unread", type: "campaign" } };
@@ -1106,14 +1110,16 @@ describe("automation persistence", () => {
 			},
 		} as unknown as ListmonkClient;
 
-		await expect(
-			syncTemplateRegistry(client, {
-				templateIds: [1],
-				onCaptureError: (failure) => {
-					captureFailures.push(failure);
-				},
-			}),
-		).rejects.toThrow("expected schema version 1");
+		for (const templateIds of [[1], undefined]) {
+			await expect(
+				syncTemplateRegistry(client, {
+					templateIds,
+					onCaptureError: (failure) => {
+						captureFailures.push(failure);
+					},
+				}),
+			).rejects.toThrow("expected schema version 1");
+		}
 		expect(reads).toBe(0);
 		expect(captureFailures).toEqual([]);
 	});

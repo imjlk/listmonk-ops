@@ -712,8 +712,10 @@ async function captureTemplateRegistry(
 	storeDefinition: JsonFileStore<TemplateRegistryStore>,
 ): Promise<TemplateRegistryCapture> {
 	const capturedAt = new Date().toISOString();
-	const templateIds = await getTemplateIds(client, options.templateIds);
+	// Read the store before listing templates, so a registry the sync could
+	// not merge into fails it before any Listmonk request.
 	const registry = await readJsonFileStore(storeDefinition);
+	const templateIds = await getTemplateIds(client, options.templateIds);
 	const captureSequenceHighWater =
 		getTemplateRegistryCaptureSequenceHighWater(registry);
 	const sequenceStore = createTemplateCaptureSequenceStore(
