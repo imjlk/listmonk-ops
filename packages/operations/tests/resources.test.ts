@@ -1315,6 +1315,14 @@ describe("shared CRUD resource operations", () => {
 				{ id: 10, lists: [{ id: 3 }] } as never,
 			),
 		).rejects.toThrow("Campaign snapshot mismatch");
+		await expect(
+			buildCampaignUpdateBody(
+				campaignContext({ getById, update, updateStatus }).client,
+				10,
+				{ send_at: "2026-08-01T09:00:00Z" },
+				{ lists: [{ id: 3 }] } as never,
+			),
+		).rejects.toThrow("<missing id>");
 	});
 
 	test("scheduling an already-scheduled campaign with the same send_at is a no-op", async () => {
