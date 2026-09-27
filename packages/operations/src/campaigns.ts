@@ -692,6 +692,11 @@ export async function buildCampaignUpdateBody(
 	changes: Omit<z.output<typeof updateCampaignInputSchema>, "id">,
 	stored?: z.output<typeof campaignSchema>,
 ): Promise<CampaignUpdateBody> {
+	if (stored?.id !== undefined && stored.id !== id) {
+		throw new Error(
+			`Campaign snapshot mismatch: the stored snapshot is for campaign ${stored.id}, but the update targets campaign ${id}`,
+		);
+	}
 	const current =
 		stored ??
 		(await loadCampaignForWrite(

@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	buildCampaignUpdateBody,
 	campaignOperations,
 	createCampaignOperation,
 	getCampaignOperationByMcpName,
@@ -1270,6 +1271,50 @@ describe("shared CRUD resource operations", () => {
 				),
 			).resolves.toEqual({ id: 10, status: "scheduled" });
 		}
+	});
+
+	test("builds the schedule body from the snapshot its checks read", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({
+			data: { id: 10, status: "scheduled" },
+		})) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: {
+				id: 10,
+				status: "draft",
+				lists: [{ id: 3 }],
+				media: [{ id: 9 }],
+				attribs: { owner: "ops" },
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		await expect(
+			invokeScheduleCampaignOperation(
+				campaignContext({ getById, update, updateStatus }),
+				{ id: 10, send_at: "2026-08-01T09:00:00Z" },
+			),
+		).resolves.toEqual({ id: 10, status: "scheduled" });
+		// One read serves both the transition check and the carried-forward body.
+		expect(getById).toHaveBeenCalledTimes(1);
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 10 },
+			body: {
+				send_at: "2026-08-01T09:00:00Z",
+				lists: [3],
+				media: [9],
+				attribs: { owner: "ops" },
+			},
+		});
+
+		// A snapshot of another campaign is refused rather than written.
+		await expect(
+			buildCampaignUpdateBody(
+				campaignContext({ getById, update, updateStatus }).client,
+				11,
+				{ send_at: "2026-08-01T09:00:00Z" },
+				{ id: 10, lists: [{ id: 3 }] } as never,
+			),
+		).rejects.toThrow("Campaign snapshot mismatch");
 	});
 
 	test("scheduling an already-scheduled campaign with the same send_at is a no-op", async () => {
