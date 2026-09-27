@@ -712,6 +712,10 @@ describe("settings URL credential redaction", () => {
 				"https://app.example.com/login?redirect=https%3A%2F%2Fhost%2Fcb%3Ftoken%3D%5Bredacted%5Dsecret",
 				"https://app.example.com/login?redirect=https%3A%2F%2Fhost%2Fcb%3Ftoken%3D%5Bredacted%5D",
 			],
+			[
+				"https://app.example.com/login?redirect=https%3A%2F%2Fuser%3Apass%40host%2Fpath%25ZZ",
+				"https://app.example.com/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host%2Fpath%25ZZ",
+			],
 		];
 		for (const [input, expected] of cases) {
 			expect(redactUrlCredentials(input)).toBe(expected);

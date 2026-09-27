@@ -471,6 +471,21 @@ function readPercentEncodedByte(value: string, index: number): number | undefine
 	return Number.parseInt(hex, 16);
 }
 
+function appendMappedText(
+	decoded: string[],
+	sourceStarts: number[],
+	sourceEnds: number[],
+	text: string,
+	sourceStart: number,
+	sourceEnd: number,
+): void {
+	decoded.push(text);
+	for (let unit = 0; unit < text.length; unit += 1) {
+		sourceStarts.push(sourceStart);
+		sourceEnds.push(sourceEnd);
+	}
+}
+
 /** Decode form-style URL text while retaining each decoded code unit's source span. */
 function decodeUrlTextWithSourceOffsets(
 	value: string,
@@ -480,15 +495,31 @@ function decodeUrlTextWithSourceOffsets(
 	const sourceEnds: number[] = [];
 	for (let index = 0; index < value.length; ) {
 		if (value[index] === "+") {
-			decoded.push(" ");
-			sourceStarts.push(index);
-			sourceEnds.push(index + 1);
+			appendMappedText(
+				decoded,
+				sourceStarts,
+				sourceEnds,
+				" ",
+				index,
+				index + 1,
+			);
 			index += 1;
 			continue;
 		}
 		if (value[index] === "%") {
 			const firstByte = readPercentEncodedByte(value, index);
-			if (firstByte === undefined) return undefined;
+			if (firstByte === undefined) {
+				appendMappedText(
+					decoded,
+					sourceStarts,
+					sourceEnds,
+					"%",
+					index,
+					index + 1,
+				);
+				index += 1;
+				continue;
+			}
 			const byteCount =
 				firstByte <= 0x7f
 					? 1
@@ -499,7 +530,18 @@ function decodeUrlTextWithSourceOffsets(
 							: firstByte >= 0xf0 && firstByte <= 0xf4
 								? 4
 								: 0;
-			if (byteCount === 0) return undefined;
+			if (byteCount === 0) {
+				appendMappedText(
+					decoded,
+					sourceStarts,
+					sourceEnds,
+					value.slice(index, index + 3),
+					index,
+					index + 3,
+				);
+				index += 3;
+				continue;
+			}
 			let sourceEnd = index + 3;
 			for (let byteIndex = 1; byteIndex < byteCount; byteIndex += 1) {
 				const continuation = readPercentEncodedByte(value, sourceEnd);
@@ -508,22 +550,46 @@ function decodeUrlTextWithSourceOffsets(
 					continuation < 0x80 ||
 					continuation > 0xbf
 				) {
-					return undefined;
+					break;
 				}
 				sourceEnd += 3;
+			}
+			if (sourceEnd !== index + 3 * byteCount) {
+				appendMappedText(
+					decoded,
+					sourceStarts,
+					sourceEnds,
+					value.slice(index, index + 3),
+					index,
+					index + 3,
+				);
+				index += 3;
+				continue;
 			}
 			let character: string;
 			try {
 				character = decodeURIComponent(value.slice(index, sourceEnd));
 			} catch {
-				return undefined;
+				appendMappedText(
+					decoded,
+					sourceStarts,
+					sourceEnds,
+					value.slice(index, index + 3),
+					index,
+					index + 3,
+				);
+				index += 3;
+				continue;
 			}
 			if ([...character].length !== 1) return undefined;
-			decoded.push(character);
-			for (let unit = 0; unit < character.length; unit += 1) {
-				sourceStarts.push(index);
-				sourceEnds.push(sourceEnd);
-			}
+			appendMappedText(
+				decoded,
+				sourceStarts,
+				sourceEnds,
+				character,
+				index,
+				sourceEnd,
+			);
 			index = sourceEnd;
 			continue;
 		}
@@ -533,11 +599,14 @@ function decodeUrlTextWithSourceOffsets(
 		if (codePoint === undefined) return undefined;
 		const character = String.fromCodePoint(codePoint);
 		const sourceEnd = index + character.length;
-		decoded.push(character);
-		for (let unit = 0; unit < character.length; unit += 1) {
-			sourceStarts.push(sourceStart);
-			sourceEnds.push(sourceEnd);
-		}
+		appendMappedText(
+			decoded,
+			sourceStarts,
+			sourceEnds,
+			character,
+			sourceStart,
+			sourceEnd,
+		);
 		index = sourceEnd;
 	}
 	return { text: decoded.join(""), sourceStarts, sourceEnds };
