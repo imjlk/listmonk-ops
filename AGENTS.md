@@ -1,8 +1,8 @@
 # Repository agent guide
 
-This file applies to the entire repository. `CLAUDE.md` and `GEMINI.md` must
-remain symbolic links to this file so supported coding agents receive the same
-instructions.
+This file applies to the entire repository and is the single source of agent
+instructions. `GEMINI.md` must remain a symbolic link to this file so supported
+coding agents receive the same instructions.
 
 ## Project snapshot
 
@@ -244,8 +244,8 @@ checks still run.
 - Update both English and Korean user documentation when user-visible behavior
   changes: `README.md` / `README_ko.md` and, when applicable,
   `CONTRIBUTING.md` / `CONTRIBUTING_ko.md`.
-- Keep `CLAUDE.md` and `GEMINI.md` as relative symbolic links to `AGENTS.md`;
-  do not duplicate agent instructions.
+- Keep `GEMINI.md` as a relative symbolic link to `AGENTS.md`, and do not add
+  per-agent copies such as `CLAUDE.md`; do not duplicate agent instructions.
 - Do not commit `dist`, package archives, logs, local environment files, or
   generated smoke reports unless the task explicitly requires an artifact
   update and the file is intentionally tracked.
