@@ -339,12 +339,18 @@ describe("mcp runtime entrypoint", () => {
 			port: 0,
 			fetch(request) {
 				const url = new URL(request.url);
+				if (url.pathname === "/api/lists/1") {
+					return Response.json({
+						data: { id: 1, name: "Source", optin: "single" },
+					});
+				}
 				if (url.pathname === "/api/subscribers") {
 					const results = Array.from({ length: 40 }, (_, index) => ({
 						id: index + 1,
 						uuid: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
 						email: `subscriber-${index + 1}@example.test`,
 						status: "enabled",
+						lists: [{ id: 1, subscription_status: "confirmed" }],
 					}));
 					return Response.json({
 						data: { results, total: results.length, per_page: 500, page: 1 },
