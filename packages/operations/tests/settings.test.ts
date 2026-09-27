@@ -430,6 +430,14 @@ describe("settings URL credential redaction", () => {
 				"https://cdn.example.com/a.png?Expires=1798761600&Signature=a&Key-Pair-Id=b",
 				"https://cdn.example.com/a.png?Expires=1798761600&Signature=[redacted]&Key-Pair-Id=[redacted]",
 			],
+			[
+				"https://example.test/?token=https://secret.example/path",
+				"https://example.test/?token=[redacted]",
+			],
+			[
+				"https://sms.example/send?token=correct horse battery&to=1",
+				"https://sms.example/send?token=[redacted]&to=1",
+			],
 			// Percent-encoded names and the legacy ";" separator still match.
 			[
 				"https://hooks.example.com/in?q=a;%74oken=b",
@@ -545,6 +553,10 @@ describe("settings URL credential redaction", () => {
 				"background:url(https://cdn.example/x?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE),",
 				`background:url(https://cdn.example/x?AWSAccessKeyId=${SETTINGS_REDACTED_VALUE}),`,
 			],
+			[
+				"background:url(https://cdn.example/x?token=secret);color:red",
+				`background:url(https://cdn.example/x?token=${SETTINGS_REDACTED_VALUE});color:red`,
+			],
 		];
 		for (const [input, expected] of cases) {
 			expect(redactUrlCredentials(input)).toBe(expected);
@@ -570,6 +582,10 @@ describe("settings URL credential redaction", () => {
 			],
 			[
 				"https://gw-user:8080 correct horse@sms.example.com/send",
+				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
+			],
+			[
+				"https://gw-user:8080 correct horse battery@sms.example.com/send",
 				`https://${SETTINGS_REDACTED_VALUE}@sms.example.com/send`,
 			],
 			// Fragment parameters before a "?".

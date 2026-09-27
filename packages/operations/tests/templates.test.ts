@@ -1,5 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
+import { z } from "zod";
 import {
 	invokeDeleteTemplateOperation,
 	invokeReconcileTemplateManifestOperation,
@@ -8,6 +9,7 @@ import {
 	planTemplateReconcile,
 	reconcileTemplate,
 	reconcileTemplateManifest,
+	reconcileTemplateManifestOperation,
 	templateOperations,
 } from "../src";
 import { createListmonk62TemplateStore } from "./helpers/listmonk-template-store";
@@ -148,6 +150,40 @@ describe("template operations", () => {
 });
 
 describe("template manifest reconciliation against Listmonk 6.2 persistence", () => {
+	test("publishes type-dependent subject constraints in the operation schema", () => {
+		const schema = z.toJSONSchema(reconcileTemplateManifestOperation.inputSchema, {
+			io: "input",
+		}) as {
+			properties?: {
+				templates?: {
+					items?: {
+						anyOf?: Array<{
+							properties?: Record<string, { const?: string; pattern?: string }>;
+							required?: string[];
+						}>;
+						oneOf?: Array<{
+							properties?: Record<string, { const?: string; pattern?: string }>;
+							required?: string[];
+						}>;
+					};
+				};
+			};
+		};
+		const itemSchema = schema.properties?.templates?.items;
+		const variants = itemSchema?.oneOf ?? itemSchema?.anyOf ?? [];
+		const campaign = variants.find(
+			(variant) => variant.properties?.type?.const === "campaign",
+		);
+		const tx = variants.find(
+			(variant) => variant.properties?.type?.const === "tx",
+		);
+
+		expect(variants).toHaveLength(3);
+		expect(campaign?.properties?.subject?.pattern).toBe("^\\s*$");
+		expect(tx?.properties?.subject?.pattern).toBe("^\\s*\\S[\\s\\S]*$");
+		expect(tx?.required).toContain("subject");
+	});
+
 	test("re-plans an applied manifest as unchanged across every template type", async () => {
 		const listmonk = createListmonk62TemplateStore();
 		const templateContext = { client: { template: listmonk.template } };

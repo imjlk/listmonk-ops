@@ -176,6 +176,45 @@ const manifestTemplateEntrySchema = createTemplateInputSchema.omit({
 	idempotency_key: true,
 });
 
+const templateManifestEntryBaseSchema = createTemplateInputSchema
+	.omit({ idempotency_key: true, type: true, subject: true })
+	.extend({ name: z.string().trim().min(1).max(120) });
+const templateManifestTypeDescription =
+	"Template type; omitted values default to campaign.";
+const templateManifestSubjectDescription =
+	"Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign.";
+const blankTemplateSubjectSchema = z
+	.string()
+	.regex(/^\s*$/)
+	.optional()
+	.default("")
+	.describe(templateManifestSubjectDescription);
+const nonBlankTemplateSubjectSchema = z
+	.string()
+	.min(1)
+	.regex(/^\s*\S[\s\S]*$/)
+	.describe(templateManifestSubjectDescription);
+const templateManifestOperationEntrySchema = z.union([
+	templateManifestEntryBaseSchema.extend({
+		type: z
+			.literal("campaign")
+			.optional()
+			.default("campaign")
+			.describe(templateManifestTypeDescription),
+		subject: blankTemplateSubjectSchema,
+	}),
+	templateManifestEntryBaseSchema.extend({
+		type: z
+			.literal("campaign_visual")
+			.describe(templateManifestTypeDescription),
+		subject: blankTemplateSubjectSchema,
+	}),
+	templateManifestEntryBaseSchema.extend({
+		type: z.literal("tx").describe(templateManifestTypeDescription),
+		subject: nonBlankTemplateSubjectSchema,
+	}),
+]);
+
 export const MAX_TEMPLATE_MANIFEST_BYTES = 1024 * 1024;
 const TEMPLATE_MANIFEST_OPERATION_ID = "templates.reconcile";
 
@@ -230,7 +269,7 @@ const templateManifestEntrySchema = manifestTemplateEntrySchema.extend({
 });
 
 const templateManifestOperationInputSchema = templateManifestSchema.safeExtend({
-	templates: z.array(templateManifestEntrySchema).min(1).max(500),
+	templates: z.array(templateManifestOperationEntrySchema).min(1).max(500),
 	dry_run: z.boolean().default(true),
 });
 
@@ -352,6 +391,9 @@ function parseTemplateManifestOperationInput(
 			`Template manifest exceeds the ${MAX_TEMPLATE_MANIFEST_BYTES}-byte limit`,
 		);
 	}
+	// Preserve the detailed domain errors while exposing the stricter
+	// type-dependent subject rules in the published operation JSON Schema.
+	parseOperationInput(templateManifestSchema, input);
 	return parseOperationInput(templateManifestOperationInputSchema, input);
 }
 

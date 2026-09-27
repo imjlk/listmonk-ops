@@ -24347,45 +24347,14 @@
     "components": {
       "schemas": {
         "TemplateManifestEntry": {
-          "additionalProperties": false,
-          "properties": {
-            "body": {
-              "maxLength": 1048576,
-              "minLength": 1,
-              "type": "string"
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/__type__type"
             },
-            "body_source": {
-              "type": "string"
-            },
-            "name": {
-              "maxLength": 120,
-              "minLength": 1,
-              "type": "string"
-            },
-            "subject": {
-              "description": "Email subject of a `tx` template, where Listmonk 6.2 requires a\nnon-blank value. Optional on input and defaults to `\"\"`, matching the\nruntime Zod schema's `.optional().default(\"\")`. Listmonk 6.2 discards\nthe subject of `campaign` and `campaign_visual` templates, whose subject\nis set per campaign, so reconciliation rejects a non-empty subject for\nthose types, never diffs their stored one, and rejects a blank one for\n`tx`.",
-              "type": "string"
-            },
-            "type": {
-              "description": "Template type. Optional on input and defaults to `\"campaign\"`, matching\nthe runtime Zod schema's `.default(\"campaign\")`.",
-              "oneOf": [
-                {
-                  "const": "campaign"
-                },
-                {
-                  "const": "campaign_visual"
-                },
-                {
-                  "const": "tx"
-                }
-              ]
+            {
+              "$ref": "#/components/schemas/__type__type-o1"
             }
-          },
-          "required": [
-            "name",
-            "body"
-          ],
-          "type": "object"
+          ]
         },
         "TemplateManifestReconcileInput": {
           "additionalProperties": false,
@@ -24409,6 +24378,83 @@
           "required": [
             "schema_version",
             "templates"
+          ],
+          "type": "object"
+        },
+        "TrimmedNonEmptyString": {
+          "minLength": 1,
+          "pattern": "^\\s*\\S[\\s\\S]*$",
+          "type": "string"
+        },
+        "__type__type": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "maxLength": 1048576,
+              "minLength": 1,
+              "type": "string"
+            },
+            "body_source": {
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            "subject": {
+              "description": "Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign.",
+              "pattern": "^\\s*$",
+              "type": "string"
+            },
+            "type": {
+              "description": "Template type; omitted values default to campaign.",
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "campaign_visual"
+                }
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "body"
+          ],
+          "type": "object"
+        },
+        "__type__type-o1": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "maxLength": 1048576,
+              "minLength": 1,
+              "type": "string"
+            },
+            "body_source": {
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            "subject": {
+              "$ref": "#/components/schemas/TrimmedNonEmptyString",
+              "description": "Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign."
+            },
+            "type": {
+              "const": "tx",
+              "description": "Template type; omitted values default to campaign."
+            }
+          },
+          "required": [
+            "name",
+            "body",
+            "type",
+            "subject"
           ],
           "type": "object"
         }

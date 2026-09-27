@@ -93,26 +93,23 @@ export interface TemplateCollectionOutput {
 
 export type TemplateManifestType = TemplateType;
 
-export interface TemplateManifestEntry {
+export type TemplateManifestEntry = {
 	name: NonEmptyString & tags.MaxLength<120>;
-	/**
-	 * Template type. Optional on input and defaults to `"campaign"`, matching
-	 * the runtime Zod schema's `.default("campaign")`.
-	 */
-	type?: TemplateManifestType;
-	/**
-	 * Email subject of a `tx` template, where Listmonk 6.2 requires a
-	 * non-blank value. Optional on input and defaults to `""`, matching the
-	 * runtime Zod schema's `.optional().default("")`. Listmonk 6.2 discards
-	 * the subject of `campaign` and `campaign_visual` templates, whose subject
-	 * is set per campaign, so reconciliation rejects a non-empty subject for
-	 * those types, never diffs their stored one, and rejects a blank one for
-	 * `tx`.
-	 */
-	subject?: string;
 	body_source?: string;
 	body: NonEmptyString & tags.MaxLength<1048576>;
-}
+} & (
+	{
+		/** Template type; omitted values default to campaign. */
+		type?: "campaign" | "campaign_visual" | undefined;
+		/** Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign. */
+		subject?: (string & tags.Pattern<"^\\s*$">) | undefined;
+	} | {
+		/** Template type; omitted values default to campaign. */
+		type: "tx";
+		/** Email subject: tx templates require a non-blank value; campaign templates leave it blank because Listmonk sets the subject per campaign. */
+		subject: TrimmedNonEmptyString;
+	}
+);
 
 export interface TemplateManifestReconcileInput {
 	schema_version: 1;

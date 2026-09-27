@@ -227,6 +227,76 @@ function redactCredentialFragment(fragment: string): string {
 	return `#${redactCredentialParameterList(fragment.slice(1))}`;
 }
 
+/**
+ * Redact complete credential query values before URL scanning splits on
+ * whitespace. Some Listmonk settings contain unencoded values such as
+ * `?token=correct horse battery&to=1`; the value ends at an explicit query
+ * separator, not at the first space. An absolute URL used as the value of a
+ * credential parameter is also consumed as part of that same secret.
+ */
+function redactSpacedCredentialParameterValues(value: string): string {
+	const firstUrl = findAbsoluteUrlPrefix(value);
+	if (firstUrl === undefined) return value;
+
+	const replacements: Array<{ start: number; end: number }> = [];
+	let scanFrom = firstUrl.index + firstUrl.prefix.length;
+	while (scanFrom < value.length) {
+		const delimiterPattern = /[?&#;]/g;
+		delimiterPattern.lastIndex = scanFrom;
+		const delimiter = delimiterPattern.exec(value);
+		if (delimiter === null || delimiter.index === undefined) break;
+
+		const nameStart = delimiter.index + 1;
+		let equals = -1;
+		for (let index = nameStart; index < value.length; index += 1) {
+			const character = value[index];
+			if (character === "=") {
+				equals = index;
+				break;
+			}
+			if (character === undefined || /[\s?&#;]/.test(character)) break;
+		}
+		if (equals === -1) {
+			scanFrom = nameStart;
+			continue;
+		}
+
+		const name = value.slice(nameStart, equals);
+		if (!isCredentialQueryParameter(name)) {
+			scanFrom = equals + 1;
+			continue;
+		}
+
+		const valueStart = equals + 1;
+		const endPattern = /[&;#]/g;
+		endPattern.lastIndex = valueStart;
+		const nextSeparator = endPattern.exec(value);
+		const valueEnd = nextSeparator?.index ?? value.length;
+		let secretEnd = valueEnd;
+		while (
+			secretEnd > valueStart &&
+			/[)\]}>'",\s]/.test(value[secretEnd - 1] ?? "")
+		) {
+			secretEnd -= 1;
+		}
+
+		if (
+			secretEnd > valueStart &&
+			!value.startsWith(SETTINGS_REDACTED_VALUE, valueStart)
+		) {
+			replacements.push({ start: valueStart, end: secretEnd });
+		}
+		scanFrom = nextSeparator === null ? value.length : valueEnd + 1;
+	}
+
+	if (replacements.length === 0) return value;
+	let redacted = value;
+	for (const replacement of replacements.reverse()) {
+		redacted = `${redacted.slice(0, replacement.start)}${SETTINGS_REDACTED_VALUE}${redacted.slice(replacement.end)}`;
+	}
+	return redacted;
+}
+
 function parseUrl(text: string): URL | undefined {
 	try {
 		return new URL(text);
@@ -340,8 +410,9 @@ function spacedUserinfoEnd(
  * nothing to redact, is returned unchanged.
  */
 export function redactUrlCredentials(value: string): string {
-	const tokens = value.split(/(\s+)/);
-	let redactedAny = false;
+	const withSpacedValues = redactSpacedCredentialParameterValues(value);
+	const tokens = withSpacedValues.split(/(\s+)/);
+	let redactedAny = withSpacedValues !== value;
 	for (let index = 0; index < tokens.length; index += 2) {
 		let scanOffset = 0;
 		while (true) {
