@@ -14,8 +14,12 @@ import type { AbTest } from "./types";
  * the opt-out would be lost and later campaigns to the source lists would
  * still reach the recipient.
  *
- * Every path that deletes a temporary list first calls
- * {@link propagateTemporaryListOptOuts}, which:
+ * Every path that deletes a temporary list a campaign may have reached (stop,
+ * delete, provisioning rollback, and the legacy `cleanupHoldoutTest` and
+ * `cleanup`) first calls {@link propagateTemporaryListOptOuts}. The
+ * segmentation rollbacks do not: they only delete lists created moments
+ * earlier in the same call, before any campaign targets them. The
+ * propagation:
  *
  * 1. reads the subscribers whose membership on the temporary list is
  *    `unsubscribed` (`GET /subscribers` with `list_id` and
@@ -255,7 +259,10 @@ export async function readTemporaryListOptOuts(
 /**
  * Subscriber ids among `optOuts` that still hold a membership on one of the
  * source lists whose status is not `unsubscribed`. A subscriber who is not a
- * member of a source list needs nothing there.
+ * member of a source list needs nothing there: Listmonk 6.2 returns every
+ * membership in `lists` and, for lists the API user cannot read, only masks
+ * the name (keeping `id` and `subscription_status`), so a missing source list
+ * means the subscriber left it or the list was deleted, not that it is hidden.
  */
 export function findUnpropagatedOptOuts(
 	optOuts: readonly TemporaryListOptOut[],
