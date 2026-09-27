@@ -466,16 +466,23 @@ export async function updateSubscriberList(
 	input: z.output<typeof updateListInputSchema>,
 ): Promise<List> {
 	const { id, ...changes } = input;
-	const current = unwrapData(
-		await client.list.getById({ path: { list_id: id } }),
-		"Failed to load list before updating",
-	);
+	const current =
+		changes.name === undefined || changes.tags === undefined
+			? unwrapData(
+					await client.list.getById({ path: { list_id: id } }),
+					"Failed to load list before updating",
+				)
+			: undefined;
+	const name = changes.name ?? current?.name;
+	if (name === undefined) {
+		throw new Error(`List ${id} could not be updated without its stored name`);
+	}
 	const response = await client.list.update({
 		path: { list_id: id },
 		body: {
 			...changes,
-			name: changes.name ?? current.name,
-			tags: changes.tags ?? current.tags ?? [],
+			name,
+			tags: changes.tags ?? current?.tags ?? [],
 		},
 	});
 	return unwrapData(response, "Failed to update list");

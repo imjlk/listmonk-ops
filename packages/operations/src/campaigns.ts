@@ -698,14 +698,20 @@ export async function buildCampaignUpdateBody(
 			`Campaign snapshot mismatch: the stored snapshot is for campaign ${stored.id ?? "<missing id>"}, but the update targets campaign ${id}`,
 		);
 	}
+	const needsCurrent =
+		changes.lists === undefined ||
+		changes.media === undefined ||
+		changes.attribs === undefined;
 	const current =
 		stored ??
-		(await loadCampaignForWrite(
-			client,
-			id,
-			"Failed to load campaign before updating",
-		));
-	const lists = changes.lists ?? numericEntryIds(current.lists);
+		(needsCurrent
+			? await loadCampaignForWrite(
+					client,
+					id,
+					"Failed to load campaign before updating",
+				)
+			: undefined);
+	const lists = changes.lists ?? numericEntryIds(current?.lists);
 	if (lists.length === 0) {
 		throw new Error(
 			`Campaign ${id} has no remaining target lists; pass lists explicitly`,
@@ -714,8 +720,8 @@ export async function buildCampaignUpdateBody(
 	return {
 		...changes,
 		lists,
-		media: changes.media ?? numericEntryIds(current.media),
-		attribs: changes.attribs ?? current.attribs ?? {},
+		media: changes.media ?? numericEntryIds(current?.media),
+		attribs: changes.attribs ?? current?.attribs ?? {},
 	} as CampaignUpdateBody;
 }
 

@@ -1006,6 +1006,31 @@ describe("shared CRUD resource operations", () => {
 		expect(update).toHaveBeenCalledTimes(2);
 	});
 
+	test("does not read a campaign when its preservation fields are explicit", async () => {
+		const update = mock(async () => ({
+			data: { id: 15, name: "Explicit", status: "draft" },
+		})) as unknown as CampaignClient["campaign"]["update"];
+
+		await expect(
+			invokeUpdateCampaignOperation(campaignContext({ update }), {
+				id: 15,
+				name: "Explicit",
+				lists: [3],
+				media: [],
+				attribs: { owner: "ops" },
+			}),
+		).resolves.toMatchObject({ id: 15, name: "Explicit" });
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 15 },
+			body: {
+				name: "Explicit",
+				lists: [3],
+				media: [],
+				attribs: { owner: "ops" },
+			},
+		});
+	});
+
 	test("accepts Listmonk 6.2 campaign echoes as status acknowledgements", async () => {
 		const getById = mock(async () => ({
 			data: { id: 14, status: "running", lists: [{ id: 3 }] },

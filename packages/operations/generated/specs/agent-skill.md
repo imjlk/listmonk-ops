@@ -62,7 +62,7 @@ Retry guidance: On timeout, inspect campaigns.get before repeating the confirmed
 
 Contract maturity: `stable`; effects: `write:campaign`; confirmation: `required`; retry: `reconcile`.
 
-Use when: An actively sending campaign must be stopped permanently.
+Use when: A running or paused campaign must be stopped permanently while keeping its history.
 
 Avoid when: A temporary pause is sufficient. The campaign is scheduled but has not started; Listmonk only cancels active campaigns.
 

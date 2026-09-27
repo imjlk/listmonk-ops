@@ -137,6 +137,24 @@ describe("subscriber-list operations", () => {
 		});
 	});
 
+	test("does not read a list when name and tags are explicit", async () => {
+		const update = mock(async () => ({
+			data: { id: 9, name: "Explicit", tags: ["ops"] },
+		})) as unknown as ListClient["list"]["update"];
+
+		await expect(
+			invokeUpdateListOperation(context({ update }), {
+				id: 9,
+				name: "Explicit",
+				tags: ["ops"],
+			}),
+		).resolves.toMatchObject({ id: 9, name: "Explicit" });
+		expect(update).toHaveBeenCalledWith({
+			path: { list_id: 9 },
+			body: { name: "Explicit", tags: ["ops"] },
+		});
+	});
+
 	test("resolves a create response whose body is empty", async () => {
 		const create = mock(async () => ({ data: undefined }));
 		const list = mock(async () => ({

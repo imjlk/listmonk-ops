@@ -1333,7 +1333,7 @@
         ],
         "retryGuidance": "On timeout, inspect campaigns.get before repeating the confirmed cancellation.",
         "useWhen": [
-          "An actively sending campaign must be stopped permanently."
+          "A running or paused campaign must be stopped permanently while keeping its history."
         ],
         "verifyWith": [
           "campaigns.get"
