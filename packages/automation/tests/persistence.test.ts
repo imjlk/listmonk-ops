@@ -935,3 +935,31 @@ describe("automation persistence", () => {
 		);
 	});
 });
+
+describe("segment drift alert thresholds", () => {
+	test("never alerts on an unchanged count, even with zero thresholds", async () => {
+		await useTemporaryStores();
+		let count = 100;
+		const client = {
+			list: {
+				list: async () => ({
+					data: {
+						results: [{ id: 7, name: "Stable", subscriber_count: count }],
+					},
+				}),
+			},
+		} as unknown as ListmonkClient;
+		const options = { threshold: 0, minAbsoluteChange: 0 };
+
+		await runSegmentDriftSnapshot(client, options);
+		const unchanged = await runSegmentDriftSnapshot(client, options);
+		expect(unchanged.comparisons[0]).toMatchObject({
+			delta: 0,
+			alert: false,
+		});
+
+		count = 101;
+		const changed = await runSegmentDriftSnapshot(client, options);
+		expect(changed.comparisons[0]).toMatchObject({ delta: 1, alert: true });
+	});
+});
