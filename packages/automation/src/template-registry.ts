@@ -470,13 +470,14 @@ export function resolveTemplateLiveVersion(
 }
 
 /**
- * Select the version a rollback writes: the version captured immediately
- * before the live version. Unpinned, live content the registry cannot place
+ * Select the recorded predecessor of the version resolved as live. A linked
+ * `previousVersionId` takes precedence; older versions without a link fall
+ * back to capture order. Unpinned, live content the registry cannot place
  * fails closed with {@link TemplateRegistryDriftError}. An explicit
- * `toVersionId` must still equal the selected target, so a pinned retry
- * after an intervening change conflicts instead of rolling elsewhere; under
- * drift the pin authorizes overwriting the unrecorded live content, and the
- * target stays relative to the registry's active version.
+ * `toVersionId` must still equal the selected target, so a pinned retry after
+ * an intervening change conflicts instead of rolling elsewhere; under drift
+ * the pin authorizes overwriting the unrecorded live content, and the target
+ * stays relative to the registry's active version.
  */
 export function selectTemplateRollbackTarget(
 	record: Pick<
@@ -503,14 +504,14 @@ export function selectTemplateRollbackTarget(
 		(version) => version.versionId === baseVersionId,
 	);
 	const baseVersion = history[baseIndex];
-	const targetVersion =
-		baseVersion?.previousVersionId === undefined
-			? baseIndex > 0
-				? history[baseIndex - 1]
-				: undefined
-			: history.find(
-					(version) => version.versionId === baseVersion.previousVersionId,
-				);
+	let targetVersion: TemplateRegistryVersion | undefined;
+	if (baseVersion?.previousVersionId !== undefined) {
+		targetVersion = history.find(
+			(version) => version.versionId === baseVersion.previousVersionId,
+		);
+	} else if (baseIndex > 0) {
+		targetVersion = history[baseIndex - 1];
+	}
 	if (!targetVersion) {
 		throw new Error(
 			`Template ${record.templateId} has no previous version to roll back to`,
