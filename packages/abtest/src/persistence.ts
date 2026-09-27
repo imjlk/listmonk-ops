@@ -9,6 +9,7 @@ import {
 	writeJsonFileStore,
 } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { isAudienceEligibilityPolicyVersion } from "./audience";
 import { AbTestNotFoundError } from "./errors";
 export { AbTestConflictError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
@@ -656,7 +657,9 @@ function isStoredAudienceSnapshot(value: unknown): boolean {
 		Number.isInteger(value.subscriberCount) &&
 		value.subscriberCount >= 0 &&
 		typeof value.subscriberChecksum === "string" &&
-		value.eligibilityPolicyVersion === 1
+		// Legacy version 1 snapshots (status-only eligibility) stay loadable
+		// next to current version 2 snapshots (per-list consent).
+		isAudienceEligibilityPolicyVersion(value.eligibilityPolicyVersion)
 	);
 }
 

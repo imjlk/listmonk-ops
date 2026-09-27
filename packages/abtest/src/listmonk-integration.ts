@@ -303,11 +303,15 @@ export class ListmonkAbTestIntegration {
 		let holdoutListId: number | undefined;
 
 		// Resolve the audience once via the paginated AudienceResolver, which
-		// paginates by list_id server-side, keeps status=enabled subscribers,
-		// validates id+uuid presence, deduplicates by UUID, and computes a
-		// deterministic checksum. We use the resolver's members() directly so
-		// the assignment manifest and the actual list population share the
-		// same UUID-based identity and ranked order.
+		// paginates by list_id server-side, keeps enabled subscribers whose
+		// source-list membership permits delivery (no per-list unsubscribes,
+		// no unconfirmed double opt-in members), validates id+uuid presence,
+		// deduplicates by UUID, and computes a deterministic checksum. This
+		// is the only consent gate: the temporary variant/holdout lists below
+		// are single opt-in, so Listmonk cannot re-check source consent at
+		// send time. We use the resolver's members() directly so the
+		// assignment manifest and the actual list population share the same
+		// UUID-based identity and ranked order.
 		const resolver = createListmonkAudienceResolver(this.listmonkClient);
 		const resolvedSnapshot = await resolver.resolve(originalLists);
 		const resolvedMembers: readonly AudienceMember[] = resolver.members();
@@ -1145,8 +1149,8 @@ export class ListmonkAbTestIntegration {
 	/**
 	 * Resolved audience members for the given source lists. Backed by the
 	 * paginated AudienceResolver, which filters by list_id server-side,
-	 * keeps only status==='enabled' subscribers, validates id+uuid presence,
-	 * and deduplicates by UUID.
+	 * keeps only enabled subscribers whose source-list membership permits
+	 * delivery, validates id+uuid presence, and deduplicates by UUID.
 	 *
 	 * Note: email is not carried by AudienceMember, so it is returned as
 	 * undefined rather than a misleading empty string. Downstream code uses

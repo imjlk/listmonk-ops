@@ -358,6 +358,8 @@ interface StatisticalAnalysis {
 - System validates percentage allocation and variant count
 
 #### 2. Subscriber Segmentation
+- Admits only subscribers whose source-list membership permits delivery
+  (see [Audience eligibility](#audience-eligibility))
 - Randomly splits subscribers into test group (10%) and holdout group (90%)
 - Creates temporary lists for each variant within the test group
 - Maintains holdout list for winner deployment
@@ -535,6 +537,9 @@ const contentTest = await abTestExecutors.createAbTest({
 **Test Creation Fails**
 - Check that percentage distribution sums to 100%
 - Verify all target lists exist and are accessible
+- An audience error about a source list's opt-in mode or a member's list
+  membership (`AudienceResolutionError`) means consent could not be
+  verified; check that the API user can read every source list, then retry
 - Ensure variant count is between 2-3
 
 **No Statistical Significance**
@@ -598,9 +603,10 @@ planning documents and are the reason some planned behavior had to change.
   combined with `list_id`, but because freshly added memberships are
   `unconfirmed`, filtering by `subscription_status=confirmed` excludes every
   programmatically added recipient. Audience resolvers therefore must
-  **not** rely on `subscription_status=confirmed` as the eligibility gate; use
-  the subscriber's top-level `status === "enabled"` instead and treat
-  list-level `subscription_status` as informational.
+  **not** use `subscription_status=confirmed` as a server-side filter. The
+  list-level `subscription_status` is still the consent signal: evaluate each
+  source membership together with the list's opt-in mode (see
+  [Audience eligibility](#audience-eligibility)).
 
 ### Campaign lifecycle and status transitions
 
@@ -671,6 +677,73 @@ assignment and chunked bulk list membership:
   `assignmentSeed`, `audienceSnapshot`, `assignmentManifest`, and
   `revision` fields. Version 1 documents are read transparently and
   upgraded to v2 on the next write.
+
+## Audience eligibility
+
+Every recipient-selection path — create-time validation, sample-size
+recommendation, holdout provisioning, full-split provisioning, and
+crash-resume re-segmentation — resolves the audience through
+`createListmonkAudienceResolver`. Variant and holdout members are copied onto
+temporary **single opt-in** lists, where Listmonk can no longer see the
+consent recorded on the source list, so the resolver applies Listmonk's own
+regular-campaign delivery rule (`next-campaign-subscribers`) up front:
+
+| Subscriber `status` | Source list opt-in | Membership `subscription_status` | Eligible |
+| --- | --- | --- | --- |
+| `enabled` | single | `unconfirmed` or `confirmed` | yes |
+| `enabled` | double | `confirmed` | yes |
+| `enabled` | double | `unconfirmed` | no |
+| `enabled` | single or double | `unsubscribed` | no |
+| `disabled` or `blocklisted` | any | any | no |
+
+- A subscriber in several source lists is eligible when any of those source
+  memberships permits delivery.
+- Each source list's opt-in mode is read once from `GET /lists/{id}` before
+  paging and is never inferred from subscriber payloads, so the API user
+  needs read access to every source list. Listmonk silently drops `list_id`
+  filters the user cannot read, so an unreadable list fails closed instead
+  of paging an unfiltered subscriber set.
+- Resolution fails with `AudienceResolutionError` — before any Listmonk list
+  or membership is created — when a source list cannot be read, reports an
+  unknown opt-in mode, or returns an enabled subscriber without exactly one
+  recognizable membership for that list. An undeterminable consent state is
+  never guessed into (or silently out of) the audience; fix the permission
+  or data problem and retry.
+- New audience snapshots record `eligibilityPolicyVersion: 2`. Tests stored
+  with legacy version 1 snapshots (top-level `status` only) still load and
+  serialize unchanged; a crash-resumed provisioning re-resolves its audience
+  under version 2.
+- Eligibility is evaluated whenever the audience is resolved; the temporary
+  variant and holdout lists hold the members admitted at provisioning time.
+
+Verified against Listmonk v6.2.0 on the local Compose stack:
+`GET /subscribers?list_id=` returns every member, including `unsubscribed`
+memberships and `disabled` or `blocklisted` subscribers. Each `lists[]` entry
+carries the membership's `subscription_status` plus the list record's own
+fields, including `optin` and the list's `status` (`active`/`archived`, not
+the membership status). Blocklisting a subscriber flips every membership to
+`unsubscribed`. `GET /lists/{id}` returns `optin` (`single` or `double`), and
+an unknown id answers HTTP 400 `List not found`.
+
+### 수신 대상 자격 (Korean)
+
+생성 시 검증, 표본 크기 추천, holdout/full-split 프로비저닝, 크래시 후 재분할 등
+수신자를 고르는 모든 경로는 `createListmonkAudienceResolver`로 audience를
+조회합니다. variant/holdout 구성원은 임시 **단일 옵트인** 리스트로 복사되어
+Listmonk가 발송 시점에 소스 리스트의 동의 상태를 다시 확인할 수 없으므로,
+resolver가 Listmonk 캠페인 발송 규칙을 미리 적용합니다.
+
+- 구독자 `status`가 `enabled`이고 소스 리스트 멤버십이 발송을 허용해야 합니다.
+  `unsubscribed` 멤버십은 제외하고, 더블 옵트인 리스트는 `confirmed`만,
+  단일 옵트인 리스트는 `unconfirmed`/`confirmed`를 허용합니다.
+- 여러 소스 리스트에 속한 구독자는 그중 하나라도 허용하면 포함됩니다.
+- 옵트인 방식은 `GET /lists/{id}`로 소스 리스트마다 한 번 확인하므로 API
+  사용자에게 모든 소스 리스트 읽기 권한이 필요합니다.
+- 리스트를 읽을 수 없거나, 옵트인 방식을 알 수 없거나, 해당 리스트 멤버십을
+  정확히 하나로 확인할 수 없는 활성 구독자가 있으면 리스트·멤버십을 만들기 전에
+  `AudienceResolutionError`로 실패합니다.
+- 새 스냅샷은 `eligibilityPolicyVersion: 2`를 기록하며, 버전 1 스냅샷으로 저장된
+  기존 테스트도 그대로 불러옵니다.
 
 ## Experiment collision guard (advanced experimentation)
 
