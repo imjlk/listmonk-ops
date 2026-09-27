@@ -1450,13 +1450,13 @@ Contract maturity: `stable`; effects: `write:template`; confirmation: `required`
 
 Use when: A previously captured template version must be restored to Listmonk.
 
-Avoid when: The target version is already the active remote template.
+Avoid when: The target version is already the active remote template. The target version lacks body_source while the live template has one; Listmonk retains the live source and the executor rejects this restore, even with force.
 
 Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Echo the observed remote template hash as expected_remote_hash — ops.templates.registry-sync's per-template hash output carries it for the current remote content, and registry-history exposes the stored snapshot hashes — so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; an already-current target is a documented `promoted: false` no-op that issues no write, while a promotion that changed the remote hash conflicts on its own echo — on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first.
+Retry guidance: Echo the observed remote template hash as expected_remote_hash — ops.templates.registry-sync's per-template hash output carries it for the current remote content, and registry-history exposes the stored snapshot hashes — so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; an already-current target is a documented `promoted: false` no-op that issues no write, while a promotion that changed the remote hash conflicts on its own echo — on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first. Promotion fails closed before writing if the target lacks body_source but the live template has one; force does not bypass this because Listmonk retains the live source.
 
 ## Rollback template version (`ops.templates.registry-rollback`)
 
@@ -1464,13 +1464,13 @@ Contract maturity: `stable`; effects: `write:template`; confirmation: `required`
 
 Use when: A template must be reverted to its previous stored version.
 
-Avoid when: No previous version exists in the registry.
+Avoid when: No previous version exists in the registry. The rollback target lacks body_source while the live template has one; Listmonk retains the live source and the executor rejects this restore, even with force.
 
 Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Pin the full set — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op for a freshly observed pin set; a successful rollback advances the head revision, so a retry echoing the original pins conflicts even after its own success — on that conflict reconcile with ops.templates.registry-history and templates.get, where an already-applied rollback shows the target active; with any pin missing, do the same inspection before retrying.
+Retry guidance: Pin the full set — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op for a freshly observed pin set; a successful rollback advances the head revision, so a retry echoing the original pins conflicts even after its own success — on that conflict reconcile with ops.templates.registry-history and templates.get, where an already-applied rollback shows the target active; with any pin missing, do the same inspection before retrying. Rollback fails closed before writing if the target lacks body_source but the live template has one; force does not bypass this because Listmonk retains the live source.
 
 ## List A/B tests (`abtest.list`)
 

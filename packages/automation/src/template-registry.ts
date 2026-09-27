@@ -159,6 +159,13 @@ function compareTemplateVersions(
 	left: TemplateRegistryVersion,
 	right: TemplateRegistryVersion,
 ): number {
+	if (left.captureOrder !== undefined && right.captureOrder !== undefined) {
+		return (
+			left.captureOrder - right.captureOrder ||
+			left.capturedAt.localeCompare(right.capturedAt) ||
+			left.versionId.localeCompare(right.versionId)
+		);
+	}
 	return (
 		left.capturedAt.localeCompare(right.capturedAt) ||
 		(left.captureOrder ?? 0) - (right.captureOrder ?? 0) ||
@@ -471,36 +478,59 @@ interface CapturedTemplateVersion {
 interface TemplateRegistryCapture {
 	/** When the sync began; each template carries its own observation time. */
 	capturedAt: string;
+	captureSequence: number;
 	versions: CapturedTemplateVersion[];
 	errors: string[];
 }
 
-async function reserveTemplateCaptureRead(
+interface TemplateRegistryCaptureSequenceStore {
+	version: 1;
+	captureSequence: number;
+}
+
+function createTemplateCaptureSequenceStore(
 	storeDefinition: JsonFileStore<TemplateRegistryStore>,
-	templateId: number,
-): Promise<{
-	capturedAt: string;
-	captureOrder: number;
-	headRevisionBeforeRead: number;
-}> {
-	return updateJsonFileStore(storeDefinition, (store) => {
-		const captureOrder = (store.captureSequence ?? 0) + 1;
+	initialSequence: number,
+): JsonFileStore<TemplateRegistryCaptureSequenceStore> {
+	return {
+		path: `${storeDefinition.path}.capture-sequence.json`,
+		createDefault: () => ({ version: 1, captureSequence: initialSequence }),
+		parse: (value) => {
+			if (
+				!isRecord(value) ||
+				value.version !== 1 ||
+				typeof value.captureSequence !== "number" ||
+				!Number.isSafeInteger(value.captureSequence) ||
+				value.captureSequence < 0
+			) {
+				throw new Error("Invalid template registry capture sequence store");
+			}
+			return value as unknown as TemplateRegistryCaptureSequenceStore;
+		},
+		lock: storeDefinition.lock,
+	};
+}
+
+async function reserveTemplateCaptureRead(
+	sequenceStore: JsonFileStore<TemplateRegistryCaptureSequenceStore>,
+): Promise<{ captureOrder: number }> {
+	return updateJsonFileStore(sequenceStore, (store) => {
+		const captureOrder = store.captureSequence + 1;
 		if (!Number.isSafeInteger(captureOrder)) {
 			throw new Error("Template registry capture sequence is exhausted");
 		}
-		const stamp = {
-			capturedAt: new Date().toISOString(),
-			captureOrder,
-			headRevisionBeforeRead:
-				store.templates[String(templateId)]?.headRevision ?? 0,
-		};
 		return commitJsonFileStoreUpdate(
-			{ ...store, captureSequence: captureOrder },
-			stamp,
+			{ version: 1, captureSequence: captureOrder },
+			{ captureOrder },
 		);
 	});
 }
 
+/**
+ * The per-template lock spans sequence reservation and the remote GET. Its
+ * payload stays null, so skipUnchangedWrites creates only the lock sidecar and
+ * avoids rewriting a dummy JSON document; reads for other templates proceed.
+ */
 function createTemplateCaptureReadLockStore(
 	storeDefinition: JsonFileStore<TemplateRegistryStore>,
 	templateId: number,
@@ -526,6 +556,11 @@ async function captureTemplateRegistry(
 ): Promise<TemplateRegistryCapture> {
 	const capturedAt = new Date().toISOString();
 	const templateIds = await getTemplateIds(client, options.templateIds);
+	const registry = await readJsonFileStore(storeDefinition);
+	const sequenceStore = createTemplateCaptureSequenceStore(
+		storeDefinition,
+		registry.captureSequence ?? 0,
+	);
 	const versions: CapturedTemplateVersion[] = [];
 	const errors: string[] = [];
 
@@ -534,15 +569,18 @@ async function captureTemplateRegistry(
 			const version = await updateJsonFileStore(
 				createTemplateCaptureReadLockStore(storeDefinition, templateId),
 				async (lockState) => {
-					const stamp = await reserveTemplateCaptureRead(
-						storeDefinition,
-						templateId,
-					);
+					const stamp = await reserveTemplateCaptureRead(sequenceStore);
+					const latestRegistry = await readJsonFileStore(storeDefinition);
+					const headRevisionBeforeRead =
+						latestRegistry.templates[String(templateId)]?.headRevision ?? 0;
+					const capturedAt = new Date().toISOString();
 					const template = await getTemplateById(client, templateId);
 					const snapshot = createTemplateSnapshot(template, templateId);
 					return commitJsonFileStoreUpdate(lockState, {
 						templateId,
 						...stamp,
+						capturedAt,
+						headRevisionBeforeRead,
 						snapshot,
 						hash: createTemplateHash(snapshot),
 					});
@@ -559,7 +597,10 @@ async function captureTemplateRegistry(
 		}
 	}
 
-	return { capturedAt, versions, errors };
+	const captureSequence = (await readJsonFileStore(
+		sequenceStore,
+	)).captureSequence;
+	return { capturedAt, captureSequence, versions, errors };
 }
 
 /**
@@ -595,6 +636,10 @@ function mergeTemplateRegistryCapture(
 	store: TemplateRegistryStore,
 	storePath: string,
 ): TemplateRegistrySyncResult {
+	store.captureSequence = Math.max(
+		store.captureSequence ?? 0,
+		capture.captureSequence,
+	);
 	let createdVersions = 0;
 	let unchangedTemplates = 0;
 	const templates: TemplateRegistrySyncResult["templates"] = [];

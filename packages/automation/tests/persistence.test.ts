@@ -187,6 +187,41 @@ describe("automation persistence", () => {
 		).toMatchObject({ versionId: previous.versionId });
 	});
 
+	test("orders template history by capture order when the system clock moves backward", () => {
+		const previous = {
+			versionId: "v_first",
+			capturedAt: "2026-09-27T03:00:00.000Z",
+			captureOrder: 1,
+			hash: "hash-v1",
+			snapshot: {
+				id: 78,
+				name: "Clock rollback",
+				type: "campaign",
+				subject: "",
+				body: "<p>v1</p>",
+			},
+		};
+		const latest = {
+			...previous,
+			versionId: "v_second",
+			capturedAt: "2026-09-27T02:59:59.000Z",
+			captureOrder: 2,
+			hash: "hash-v2",
+			snapshot: { ...previous.snapshot, body: "<p>v2</p>" },
+		};
+
+		expect(
+			selectTemplateRollbackTarget(
+				{
+					templateId: 78,
+					activeVersionId: latest.versionId,
+					versions: [previous, latest],
+				},
+				latest.hash,
+			),
+		).toMatchObject({ versionId: previous.versionId });
+	});
+
 	test("preserves every concurrent segment snapshot", async () => {
 		const { segmentStorePath } = await useTemporaryStores();
 		let requestCount = 0;
@@ -1542,6 +1577,27 @@ describe("template registry active version", () => {
 		);
 	});
 
+	test("seeds a missing capture counter from the registry high-water mark", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		const { remote, client } = createTemplateRemote(48, "<p>v1</p>");
+		await syncTemplateRegistry(client, { templateIds: [48] });
+
+		// A copied legacy registry can exist without the new sidecar. Its
+		// persisted high-water mark must keep version orders from restarting.
+		await rm(`${templateStorePath}.capture-sequence.json`, { force: true });
+		await editAndSync(remote, client, 48, "<p>v2</p>");
+
+		const history = await getTemplateRegistryHistory(48);
+		expect(history.versions.map((version) => version.captureOrder)).toEqual([
+			1,
+			2,
+		]);
+		const sequenceStore = JSON.parse(
+			await readFile(`${templateStorePath}.capture-sequence.json`, "utf8"),
+		) as { captureSequence: number };
+		expect(sequenceStore.captureSequence).toBe(2);
+	});
+
 	test("samples each template head immediately before its remote read", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		const remote = new Map<number, { name: string; body: string }>([
@@ -1549,6 +1605,7 @@ describe("template registry active version", () => {
 			[46, { name: "Original", body: "<p>v1</p>" }],
 		]);
 		let holdFirstRead = false;
+		let registrySequenceAtRead: number | undefined;
 		let firstReadStarted = (): void => {};
 		let releaseFirstRead = (): void => {};
 		const firstReadRequested = new Promise<void>((resolve) => {
@@ -1562,6 +1619,10 @@ describe("template registry active version", () => {
 				getById: async ({ path: { id } }: { path: { id: number } }) => {
 					if (id === 45 && holdFirstRead) {
 						holdFirstRead = false;
+						const registry = JSON.parse(
+							await readFile(templateStorePath, "utf8"),
+						) as { captureSequence: number };
+						registrySequenceAtRead = registry.captureSequence;
 						firstReadStarted();
 						await firstReadGate;
 					}
@@ -1625,7 +1686,12 @@ describe("template registry active version", () => {
 		const store = JSON.parse(await readFile(templateStorePath, "utf8")) as {
 			captureSequence: number;
 		};
+		expect(registrySequenceAtRead).toBe(2);
 		expect(store.captureSequence).toBe(4);
+		const sequenceStore = JSON.parse(
+			await readFile(`${templateStorePath}.capture-sequence.json`, "utf8"),
+		) as { captureSequence: number };
+		expect(sequenceStore.captureSequence).toBe(4);
 		const activeVersion = history.versions.find(
 			(version) => version.versionId === history.activeVersionId,
 		);

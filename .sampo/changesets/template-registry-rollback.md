@@ -1,5 +1,6 @@
 ---
 npm/@listmonk-ops/automation: patch (Fixed)
+npm/@listmonk-ops/operations: patch (Fixed)
 npm/@listmonk-ops/mcp: patch (Fixed)
 npm/@listmonk-ops/cli: patch (Fixed)
 ---
