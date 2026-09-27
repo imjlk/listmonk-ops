@@ -284,4 +284,35 @@ describe("campaign archive operation", () => {
 			},
 		});
 	});
+
+	test("accepts null fields in Listmonk's normalized archive echo", async () => {
+		const getById = mock(async () => ({
+			data: {
+				id: 3,
+				archive: false,
+				archive_slug: null,
+				archive_template_id: null,
+				archive_meta: null,
+			},
+		}));
+		const updateArchive = mock(async () => ({
+			data: {
+				archive: true,
+				archive_slug: null,
+				archive_template_id: null,
+				archive_meta: null,
+			},
+		}));
+
+		await expect(
+			invokeArchiveCampaignOperation(
+				campaignContext({
+					getById: getById as unknown as CampaignClient["campaign"]["getById"],
+					updateArchive:
+						updateArchive as unknown as CampaignClient["campaign"]["updateArchive"],
+				}),
+				{ id: 3, archive: true },
+			),
+		).resolves.toEqual({ id: 3, archive: true });
+	});
 });

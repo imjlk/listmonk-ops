@@ -1640,10 +1640,12 @@ paths:
                         type: boolean
                       archive_template_id:
                         type: integer
+                        nullable: true
                       archive_meta:
                         type: object
                       archive_slug:
                         type: string
+                        nullable: true
 
   "/campaigns/{id}/content":
     post:

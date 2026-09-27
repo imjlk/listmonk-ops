@@ -179,12 +179,12 @@ export interface CampaignOperations
 	}): Promise<FlattenedResponse<string>>;
 	updateStatus(options: {
 		path: { id: number };
-		body: { status: "draft" | "scheduled" | "running" | "paused" | "cancelled" };
+		body: { status: CampaignStatusTransition };
 	}): Promise<FlattenedResponse<Campaign | boolean>>;
 	updateArchive(options: {
 		path: { id: number };
 		body: CampaignArchiveBody;
-	}): Promise<FlattenedResponse<CampaignArchiveEcho>>;
+	}): Promise<FlattenedResponse<CampaignArchiveEcho | boolean>>;
 	createContent(options: {
 		path: { id: number };
 		body: {
@@ -250,11 +250,22 @@ export type TransactionalSendParams = NonNullable<
 
 /**
  * `PUT /campaigns/{id}/archive` rewrites the slug (an empty slug becomes
- * NULL) and meta on every call, so callers resend the stored values.
+ * NULL) and meta on every call, so callers resend all four archive fields;
+ * use an empty slug, `0`, and `{}` to clear fields that have no stored value.
  */
 export type CampaignArchiveBody = NonNullable<
 	t.UpdateCampaignArchiveByIdData["body"]
-> & { archive: boolean };
+> & {
+	archive: boolean;
+	archive_slug: string;
+	archive_template_id: number;
+	archive_meta: { [key: string]: unknown };
+};
+
+/** Statuses accepted by the Listmonk campaign transition endpoint. */
+export type CampaignStatusTransition = NonNullable<
+	NonNullable<t.UpdateCampaignStatusByIdData["body"]>["status"]
+>;
 
 /**
  * Listmonk 6.2 answers `PUT /campaigns/{id}/archive` with the applied

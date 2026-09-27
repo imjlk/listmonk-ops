@@ -114,7 +114,7 @@
                  archive_meta:
                    type: object
        responses:
-@@ -1585,7 +1631,17 @@
+@@ -1585,7 +1631,19 @@
                  type: object
                  properties:
                    data:
@@ -126,14 +126,16 @@
 +                        type: boolean
 +                      archive_template_id:
 +                        type: integer
++                        nullable: true
 +                      archive_meta:
 +                        type: object
 +                      archive_slug:
 +                        type: string
++                        nullable: true
  
    "/campaigns/{id}/content":
      post:
-@@ -1754,7 +1798,7 @@
+@@ -1754,7 +1800,7 @@
          - in: query
            name: no_body
            description: boolean flag for response with/without body

@@ -2533,11 +2533,11 @@ export type UpdateCampaignArchiveByIdResponses = {
          */
         data?: {
             archive?: boolean;
-            archive_template_id?: number;
+            archive_template_id?: number | null;
             archive_meta?: {
                 [key: string]: unknown;
             };
-            archive_slug?: string;
+            archive_slug?: string | null;
         };
     };
 };

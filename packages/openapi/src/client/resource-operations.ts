@@ -52,6 +52,7 @@ import type {
 	Campaign,
 	CampaignArchiveBody,
 	CampaignArchiveEcho,
+	CampaignStatusTransition,
 	CampaignTestParams,
 	EnhancedListmonkClient,
 	List,
@@ -253,7 +254,7 @@ export function createCampaignOperations(
 		},
 		async updateStatus(options: {
 			path: { id: number };
-			body: { status: "draft" | "scheduled" | "running" | "paused" | "cancelled" };
+			body: { status: CampaignStatusTransition };
 		}) {
 			const result = await updateCampaignStatusById({
 				...sdkOptions,
@@ -274,7 +275,7 @@ export function createCampaignOperations(
 			});
 			return (await transformResponse(
 				result,
-			)) as FlattenedResponse<CampaignArchiveEcho>;
+			)) as FlattenedResponse<CampaignArchiveEcho | boolean>;
 		},
 		async createContent(options: {
 			path: { id: number };
