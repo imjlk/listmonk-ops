@@ -105,6 +105,13 @@ export interface SubscriberOperations
 		SubscriberTypes["getById"],
 		SubscriberTypes["delete"]
 	> {
+	/**
+	 * Reads a subscriber page without the tolerant list-payload normalization
+	 * used by `list`, for callers that must validate completeness themselves.
+	 */
+	listRaw?(
+		options?: Omit<t.GetSubscribersData, "url" | "body" | "path">,
+	): Promise<CrudResult<unknown>>;
 	patch(options: Omit<t.PatchSubscriberByIdData, "url">): Promise<CrudResult<Subscriber>>;
 	manageLists(options: {
 		body: {

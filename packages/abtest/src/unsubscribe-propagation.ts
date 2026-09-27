@@ -252,9 +252,10 @@ function toTemporaryListOptOut(
 
 /**
  * Read every subscriber whose membership on `listId` is `unsubscribed`.
- * Pages through `GET /subscribers` and throws, rather than returning a
- * partial or unfiltered set, when a page fails, a row does not carry the
- * unsubscribed membership, or fewer rows arrive than Listmonk reported.
+ * Pages through the raw `GET /subscribers` response and throws, rather than
+ * returning a partial or unfiltered set, when the client cannot preserve raw
+ * pages, a page fails, a row does not carry the unsubscribed membership, or
+ * fewer rows arrive than Listmonk reported.
  */
 export async function readTemporaryListOptOuts(
 	client: ListmonkClient,
@@ -275,23 +276,32 @@ export async function readTemporaryListOptOuts(
 				`Reading opt-outs on temporary list ${listId} exceeded ${OPT_OUT_READ_MAX_PAGES} pages`,
 			);
 		}
-		const response = await client.subscriber.list({
+		const options = {
 			query: {
 				list_id: [listId],
 				subscription_status: UNSUBSCRIBED,
 				page,
 				per_page: pageSize,
 			},
-		});
+		};
+		const rawListPage = client.subscriber.listRaw;
+		if (rawListPage === undefined) {
+			throw new Error(
+				"the Listmonk client does not support raw subscriber page reads",
+			);
+		}
+		const response: unknown = await rawListPage(options);
 		const failure = describeEnvelopeFailure(response);
 		if (failure !== undefined) {
 			throw new Error(
 				`Failed to read opt-outs on temporary list ${listId} (page ${page}): ${failure}`,
 			);
 		}
-		const data = response.data;
+		const data = isRecord(response) && "data" in response
+			? response.data
+			: undefined;
 		if (
-			data === undefined ||
+			!isRecord(data) ||
 			!Array.isArray(data.results) ||
 			typeof data.total !== "number" ||
 			!Number.isSafeInteger(data.total) ||

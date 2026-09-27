@@ -709,8 +709,8 @@ planning documents and are the reason some planned behavior had to change.
   other lists, or with none, instead of rejecting it. Cleanup first reads the
   list itself: an already-missing list is treated as cleaned, while a
   permission or other read failure keeps it before any subscriber scan. The
-  handwritten client reports successful list responses without a `results`
-  array as errors instead of normalizing them to an empty page.
+  handwritten client exposes `subscriber.listRaw` for callers that need to
+  validate the original pagination fields before tolerant list normalization.
 - `PUT /subscribers/lists` with `action: "unsubscribe"` updates only
   existing memberships, answers `true` even when nothing changed, and
   silently skips target lists the API user cannot manage (it is rejected

@@ -248,6 +248,9 @@ Raw SDK failures can lack `request` or `response`; guard them (for example,
 `result.response?.status`) when inspecting transport errors.
 Import individual generated functions from `@listmonk-ops/openapi/sdk` instead;
 `createListmonkClient()` remains the ergonomic full-client entrypoint.
+For subscriber pagination that must distinguish an explicitly empty page from
+an incomplete response, `client.subscriber.listRaw()` preserves the original
+`results` and `total` fields before the standard list normalizer fills defaults.
 
 The A/B test, segment drift, and template registry stores use versioned JSON,
 atomic replacement, and cross-process write locks so CLI and MCP processes can

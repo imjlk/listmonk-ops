@@ -327,6 +327,7 @@ describe("deleteTestResources retry safety", () => {
 			// No subscriber unsubscribed from either temporary list.
 			subscriber: {
 				list: async () => ({ data: { results: [], total: 0 } }),
+				listRaw: async () => ({ data: { results: [], total: 0 } }),
 			},
 		} as unknown as ListmonkClient;
 
@@ -395,6 +396,7 @@ describe("deleteTestResources retry safety", () => {
 			},
 			subscriber: {
 				list: async () => ({ data: { results: [], total: 0 } }),
+				listRaw: async () => ({ data: { results: [], total: 0 } }),
 			},
 		} as unknown as ListmonkClient;
 

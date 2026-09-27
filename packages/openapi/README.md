@@ -125,6 +125,10 @@ of silently disabling requests.
 
 Listmonk v6.2 additions include `system.getAbout()`, `subscriber.patch()`, and transactional `altbody` support.
 
+Use `client.subscriber.listRaw()` when a caller must validate pagination
+completeness itself. It preserves the original subscriber `results` and
+`total` fields instead of applying the tolerant defaults used by `list()`.
+
 Example:
 
 ```ts

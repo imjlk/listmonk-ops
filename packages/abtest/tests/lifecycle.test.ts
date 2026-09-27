@@ -196,7 +196,10 @@ describe("executeCancelPlan", () => {
 				delete: deleteList,
 			},
 			// No subscriber unsubscribed from a temporary list.
-			subscriber: { list: async () => ({ data: { results: [], total: 0 } }) },
+			subscriber: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+				listRaw: async () => ({ data: { results: [], total: 0 } }),
+			},
 		} as unknown as ListmonkClient;
 	}
 
@@ -351,7 +354,10 @@ describe("executeCancelPlan error envelopes", () => {
 			campaign: { updateStatus, delete: deleteCampaign },
 			list: { delete: deleteList },
 			// No subscriber unsubscribed from a temporary list.
-			subscriber: { list: async () => ({ data: { results: [], total: 0 } }) },
+			subscriber: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+				listRaw: async () => ({ data: { results: [], total: 0 } }),
+			},
 		} as unknown as ListmonkClient;
 	}
 

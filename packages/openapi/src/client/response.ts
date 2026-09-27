@@ -74,20 +74,13 @@ function hasResponseError(value: unknown): value is ErrorEnvelope {
 	);
 }
 
-type NormalizedListPayload<T> = {
-	data: ListPayload<T>;
-	error?: string;
-};
-
-function normalizeListPayload<T>(data: unknown): NormalizedListPayload<T> {
+function normalizeListPayload<T>(data: unknown): ListResult<T>["data"] {
 	if (Array.isArray(data)) {
 		return {
-			data: {
-				results: data as T[],
-				total: data.length,
-				per_page: data.length,
-				page: 1,
-			},
+			results: data as T[],
+			total: data.length,
+			per_page: data.length,
+			page: 1,
 		};
 	}
 
@@ -96,47 +89,40 @@ function normalizeListPayload<T>(data: unknown): NormalizedListPayload<T> {
 		if (Array.isArray(listData.results)) {
 			const results = listData.results as T[];
 			return {
-				data: {
-					results,
-					total:
-						typeof listData.total === "number" ? listData.total : results.length,
-					per_page:
-						typeof listData.per_page === "number"
-							? listData.per_page
-							: results.length,
-					page: typeof listData.page === "number" ? listData.page : 1,
-				},
+				results,
+				total:
+					typeof listData.total === "number" ? listData.total : results.length,
+				per_page:
+					typeof listData.per_page === "number"
+						? listData.per_page
+						: results.length,
+				page: typeof listData.page === "number" ? listData.page : 1,
 			};
 		}
 	}
 
 	return {
-		data: {
-			results: [],
-			total: 0,
-			per_page: 0,
-			page: 1,
-		},
-		error: "List response did not contain an array-valued results field",
+		results: [],
+		total: 0,
+		per_page: 0,
+		page: 1,
 	};
 }
 
 export function normalizeListResult<T>(response: unknown): ListResult<T> {
 	if (hasResponseError(response)) {
-		const normalized = normalizeListPayload<T>(
+		const normalizedData = normalizeListPayload<T>(
 			(response as { data?: unknown }).data,
 		);
 		return {
 			...(response as ErrorEnvelope),
-			data: normalized.data,
+			data: normalizedData,
 		} as ListResult<T>;
 	}
 
 	const transformed = response as FlattenedResponse<unknown>;
-	const normalized = normalizeListPayload<T>(transformed.data);
 	return {
 		...transformed,
-		...(normalized.error === undefined ? {} : { error: normalized.error }),
-		data: normalized.data,
+		data: normalizeListPayload<T>(transformed.data),
 	} as ListResult<T>;
 }

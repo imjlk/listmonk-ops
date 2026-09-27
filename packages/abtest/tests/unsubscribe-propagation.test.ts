@@ -201,6 +201,8 @@ function createFakeListmonk(options: FakeListmonkOptions = {}) {
 			update: async () => ({ data: true }),
 		},
 	} as unknown as ListmonkClient;
+	client.subscriber.listRaw = async (options) =>
+		client.subscriber.list(options);
 
 	return {
 		client,
@@ -521,6 +523,23 @@ describe("propagateTemporaryListOptOuts", () => {
 		expect(subscriberReads).toBe(0);
 	});
 
+	test("fails closed when the client cannot return raw subscriber pages", async () => {
+		const client = {
+			list: { getById: async () => ({ data: { id: 200 } }) },
+			subscriber: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+			},
+		} as unknown as ListmonkClient;
+
+		const result = await propagateTemporaryListOptOuts(client, {
+			listId: 200,
+			sourceListIds: [SOURCE_A],
+		});
+
+		expect(result).toMatchObject({ status: "failed", safeToDelete: false });
+		expect(result.detail).toContain("does not support raw subscriber page reads");
+	});
+
 	test("keeps the list when another list-read error resembles not-found", async () => {
 		for (const response of [
 			{
@@ -547,8 +566,8 @@ describe("propagateTemporaryListOptOuts", () => {
 		}
 	});
 
-	test("rejects malformed subscriber pages through the real Listmonk client", async () => {
-		for (const malformedPage of [{}, { data: {} }]) {
+	test("rejects incomplete subscriber pages through the real Listmonk client", async () => {
+		for (const malformedPage of [{}, { data: {} }, { data: { results: [] } }]) {
 			const requestedPaths: string[] = [];
 			const server = Bun.serve({
 				port: 0,
@@ -582,7 +601,7 @@ describe("propagateTemporaryListOptOuts", () => {
 					safeToDelete: false,
 				});
 				expect(result.detail).toContain(
-					"List response did not contain an array-valued results field",
+					"incomplete subscriber page payload",
 				);
 				expect(requestedPaths).toEqual([
 					"/api/lists/200",
@@ -758,8 +777,9 @@ describe("propagateTemporaryListOptOuts", () => {
 			{ data: { results: [] } },
 			{ data: { results: [], total: "0" } },
 		]) {
+			const listPage = async () => response;
 			const client = {
-				subscriber: { list: async () => response },
+				subscriber: { list: listPage, listRaw: listPage },
 			} as unknown as ListmonkClient;
 			await expect(readTemporaryListOptOuts(client, 200)).rejects.toThrow(
 				/incomplete subscriber page payload/,

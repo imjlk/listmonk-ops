@@ -244,6 +244,9 @@ Raw SDK의 요청 생성·네트워크 오류에는 `request`나 `response`가 �
 `result.response?.status`처럼 존재 여부를 확인하세요.
 개별 생성 함수는 `@listmonk-ops/openapi/sdk`에서 import하세요.
 `createListmonkClient()`는 전체 client를 위한 편의 entrypoint로 계속 제공됩니다.
+구독자 페이지네이션에서 명시적 빈 페이지와 불완전한 응답을 구분해야 한다면
+`client.subscriber.listRaw()`를 사용하세요. 표준 list 정규화가 기본값을 채우기 전에
+원본 `results`와 `total` 필드를 유지합니다.
 
 A/B 테스트, segment drift, template registry 저장소는 버전이 지정된 JSON,
 atomic 교체, 프로세스 간 쓰기 잠금을 사용합니다. 따라서 CLI와 MCP 프로세스가
