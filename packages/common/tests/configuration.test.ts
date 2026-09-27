@@ -64,6 +64,9 @@ describe("resolveConfiguredPath", () => {
 		expect(resolveConfiguredPath("~/lm-state", { homeDirectory })).toBe(
 			join(homeDirectory, "lm-state"),
 		);
+		expect(resolveConfiguredPath("~//lm-state", { homeDirectory })).toBe(
+			join(homeDirectory, "lm-state"),
+		);
 		// Only the current user's home is expanded; ~user stays a relative name.
 		expect(resolveConfiguredPath("~other/x", { homeDirectory })).toBe(
 			join(homeDirectory, "~other", "x"),

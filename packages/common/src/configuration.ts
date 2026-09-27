@@ -75,7 +75,10 @@ export function resolveConfiguredPath(
 	const trimmed = value.trim();
 	if (trimmed === "") throw new Error("Configured path must not be blank");
 	if (trimmed === "~") return home;
-	if (trimmed.startsWith("~/")) return resolve(home, trimmed.slice(2));
+	if (trimmed.startsWith("~/")) {
+		const relativeToHome = trimmed.slice(2).replace(/^\/+/, "");
+		return resolve(home, relativeToHome);
+	}
 	return isAbsolute(trimmed)
 		? trimmed
 		: resolve(options.baseDirectory ?? home, trimmed);
