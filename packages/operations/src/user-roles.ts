@@ -1,6 +1,13 @@
 import type { ListmonkClient, UserRole } from "@listmonk-ops/openapi";
+import type { ListmonkUserRolePermission } from "./user-role-permissions";
+import {
+	isListRolePermission,
+	LISTMONK_LIST_ROLE_PERMISSIONS,
+	LISTMONK_USER_PERMISSIONS,
+	MAX_USER_ROLE_PERMISSION_ENTRIES,
+	MAX_USER_ROLE_PERMISSIONS,
+} from "./user-role-permissions";
 import { bindUserRoleReconcileOperationSpec } from "./specs";
-import { z } from "zod";
 import { jsonResourceValue, unwrapResourceResponse } from "./resource-helpers";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -11,48 +18,20 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "./operation";
+import { z } from "zod";
 
-/** Exact granular permission names exposed by Listmonk 6.2. */
-export const LISTMONK_USER_PERMISSIONS = [
-	"lists:get_all",
-	"lists:manage_all",
-	"list:manage",
-	"list:get",
-	"subscribers:get",
-	"subscribers:get_all",
-	"subscribers:manage",
-	"subscribers:import",
-	"subscribers:sql_query",
-	"tx:send",
-	"campaigns:get",
-	"campaigns:get_all",
-	"campaigns:get_analytics",
-	"campaigns:manage",
-	"campaigns:manage_all",
-	"campaigns:send",
-	"bounces:get",
-	"bounces:manage",
-	"webhooks:post_bounce",
-	"media:get",
-	"media:manage",
-	"templates:get",
-	"templates:manage",
-	"users:get",
-	"users:manage",
-	"roles:get",
-	"roles:manage",
-	"settings:get",
-	"settings:manage",
-	"settings:maintain",
-] as const;
-
-export type ListmonkUserPermission =
-	(typeof LISTMONK_USER_PERMISSIONS)[number];
-
-export const LISTMONK_USER_ROLE_PERMISSION_PRESETS = {
-	transactionalSubscriberRuntime: ["subscribers:manage", "tx:send"],
-	templateProvisioner: ["templates:get", "templates:manage"],
-} as const satisfies Record<string, readonly ListmonkUserPermission[]>;
+export {
+	LISTMONK_LIST_ROLE_PERMISSIONS,
+	LISTMONK_USER_PERMISSIONS,
+	LISTMONK_USER_ROLE_PERMISSIONS,
+	LISTMONK_USER_ROLE_PERMISSION_PRESETS,
+	MAX_USER_ROLE_PERMISSIONS,
+} from "./user-role-permissions";
+export type {
+	ListmonkListRolePermission,
+	ListmonkUserPermission,
+	ListmonkUserRolePermission,
+} from "./user-role-permissions";
 
 const PROTECTED_SUPER_ADMIN_ROLE_ID = 1;
 
@@ -60,12 +39,23 @@ function isProtectedUserRoleId(id: number): boolean {
 	return id === PROTECTED_SUPER_ADMIN_ROLE_ID;
 }
 
-const userPermissionSchema = z.enum(LISTMONK_USER_PERMISSIONS);
+// Exclude list-role permissions in the runtime schema too, so generated JSON
+// Schema and TypeScript contracts describe only permissions Listmonk accepts
+// for user roles. Reject them before any remote read so a dry run cannot plan
+// a create or update that Listmonk will refuse during apply.
+const userPermissionSchema = z
+	.enum(LISTMONK_USER_PERMISSIONS)
+	.exclude(LISTMONK_LIST_ROLE_PERMISSIONS, {
+		error: (issue) => {
+			if (!isListRolePermission(issue.input)) return undefined;
+			return `Permission ${JSON.stringify(issue.input)} belongs to Listmonk list roles; Listmonk 6.2 rejects it on user roles, so grant per-list access through a list role instead`;
+		},
+	});
 const userRoleDesiredStateSchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	permissions: z
 		.array(userPermissionSchema)
-		.max(LISTMONK_USER_PERMISSIONS.length)
+		.max(MAX_USER_ROLE_PERMISSION_ENTRIES)
 		.transform((permissions) => [...new Set(permissions)].sort()),
 });
 
@@ -158,8 +148,12 @@ type NormalizedUserRoleDesiredState = z.output<
 
 export interface UserRoleDesiredState {
 	name: string;
-	/** Empty creates or reconciles a valid no-access role. */
-	permissions: readonly ListmonkUserPermission[];
+	/**
+	 * Empty creates or reconciles a valid no-access role. List-role
+	 * permissions (`list:get`, `list:manage`) are rejected before any remote
+	 * call because Listmonk 6.2 refuses them on user roles.
+	 */
+	permissions: readonly ListmonkUserRolePermission[];
 }
 
 export interface UserRoleManifest {
@@ -285,7 +279,7 @@ function normalizeUserRoleManifestOperationError(error: unknown) {
 
 function permissionsMatch(
 	current: readonly string[],
-	desired: readonly ListmonkUserPermission[],
+	desired: readonly ListmonkUserRolePermission[],
 ): boolean {
 	const canonicalCurrent = [...new Set(current)].sort();
 	return (

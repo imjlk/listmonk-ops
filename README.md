@@ -180,6 +180,16 @@ names, actions, and apply states for an explicit retry or rollback.
 An omitted `body_source` is unmanaged because Listmonk preserves that field on
 update; provide it when the manifest should enforce visual-template source.
 
+Plans follow what Listmonk 6.2 actually stores, so an applied manifest
+re-plans as unchanged. The subject is managed for `tx` templates only, where
+Listmonk requires a non-blank one; it discards the subject of `campaign` and
+`campaign_visual` templates (each campaign sets its own). Entries that break
+either rule are rejected before any remote call, instead of planning a change
+that never converges or fails partway through an apply. Listmonk also never
+changes the type of an existing template, so a manifest that changes a type
+fails during planning, before any write; delete that template and reconcile
+again to recreate it with the new type.
+
 After applying a manifest, `syncTemplateRegistry()` can capture the resulting
 remote versions for promotion and rollback workflows. Keep release-time
 template credentials separate from runtime delivery credentials. Before
@@ -191,8 +201,12 @@ The enhanced client includes a handwritten `userRole` facade for Listmonk 6.2
 role endpoints that are absent from its upstream OpenAPI document.
 `reconcileUserRole()` and `reconcileUserRoleManifest()` plan by default;
 `ensureUserRole()` or `{ apply: true }` performs the mutation. Permission names
-are restricted to the Listmonk 6.2 vocabulary, exact-name duplicates fail
-closed, and the reserved Super Admin role (ID 1) is never managed.
+are restricted to the Listmonk 6.2 user-role vocabulary
+(`LISTMONK_USER_ROLE_PERMISSIONS`), exact-name duplicates fail closed, and the
+reserved Super Admin role (ID 1) is never managed. The per-list `list:get` and
+`list:manage` permissions belong to list roles, which Listmonk enforces by
+rejecting them on user roles, so a manifest that grants them fails validation
+before any remote call instead of failing partway through an apply.
 
 The same contract is available through `listmonk-cli user-roles reconcile` and
 the `listmonk_reconcile_user_role_manifest` MCP tool. Both default to a dry run,
@@ -698,12 +712,14 @@ listmonk-cli dashboard counts
 listmonk-cli dashboard charts
 listmonk-cli system about
 listmonk-cli system logs --lines 50
-# Credentials are recursively replaced by [redacted].
+# Credentials, including auth usernames, are recursively replaced by [redacted].
 listmonk-cli settings get
 # Every run sends a real message to the recipient.
 listmonk-cli settings test-smtp --email reader@example.com \
   --host mailpit --port 1025
-listmonk-cli system reload
+# Restarts Listmonk: running campaigns are interrupted and queued
+# transactional messages are dropped. Check for running campaigns first.
+listmonk-cli system reload --confirm
 # One-shot destructive collection: no server-side preview exists.
 listmonk-cli maintenance gc-subscribers --type orphan --confirm
 listmonk-cli maintenance gc-unconfirmed \
@@ -792,6 +808,12 @@ each blocklisted subscriber to `enabled` one at a time and leaves other
 statuses unchanged. Blocklisting already set every list subscription to
 `unsubscribed`, and unblocklisting does not restore them: re-add lists only
 with fresh consent.
+
+A campaign test send (`campaigns.test`) derives its form from the stored
+campaign, including the plain-text alternative, custom headers, and
+attachments, then applies the explicit overrides. A `--template-id`
+(`template_id`) override is sent as the query parameter Listmonk 6.2 reads, so
+the test message renders with the chosen template.
 
 Bounce reads mirror the Listmonk `/api/bounces` filters (`--campaign-id`,
 `--source`, `--order-by`, `--order`). Listmonk has no subscriber filter on
@@ -913,8 +935,8 @@ reads (`system.about`, `system.logs`), the campaign archive toggle
 (`settings.get`), the SMTP configuration test
 (`settings.test-smtp`), the one-shot maintenance collections
 (`maintenance.gc-subscribers`, `maintenance.gc-unconfirmed`,
-`maintenance.gc-analytics`), and the
-configuration reload (`system.reload`) joined the accepted stable
+`maintenance.gc-analytics`), and the confirmation-gated
+settings restart (`system.reload`) joined the accepted stable
 compatibility baseline after their observed Listmonk 6.2 response
 shapes were verified against the local stack. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone

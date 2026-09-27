@@ -11,6 +11,7 @@ import {
 type CapturedRequest = {
 	method: string;
 	pathname: string;
+	search: string;
 	body: unknown;
 };
 
@@ -30,7 +31,12 @@ describe("Listmonk v6.2 contracts", () => {
 					body = await request.json().catch(() => undefined);
 				}
 
-				requests.push({ method: request.method, pathname: url.pathname, body });
+				requests.push({
+					method: request.method,
+					pathname: url.pathname,
+					search: url.search,
+					body,
+				});
 
 				if (request.method === "GET" && url.pathname === "/api/about") {
 					return Response.json({ version: "v6.2.0", build: "test" });
@@ -150,12 +156,37 @@ describe("Listmonk v6.2 contracts", () => {
 		expect(requests[0]).toMatchObject({
 			method: "POST",
 			pathname: "/api/campaigns/7/test",
+			search: "",
 			body: {
 				content_type: "visual",
 				altbody: "Preview",
 				media: [3],
 				subscribers: ["recipient@example.com"],
 			},
+		});
+	});
+
+	test("sends the campaign test template override as a query parameter", async () => {
+		// The v6.2 handler binds the JSON form but selects the rendering
+		// template with c.FormValue("template_id"), which only sees the query
+		// string of a JSON request.
+		await client.campaign.test({
+			path: { id: 7 },
+			query: { template_id: 12 },
+			body: {
+				name: "Newsletter",
+				subject: "Preview",
+				template_id: 12,
+				body: "<p>Preview</p>",
+				subscribers: ["recipient@example.com"],
+			},
+		});
+
+		expect(requests[0]).toMatchObject({
+			method: "POST",
+			pathname: "/api/campaigns/7/test",
+			search: "?template_id=12",
+			body: { template_id: 12, subscribers: ["recipient@example.com"] },
 		});
 	});
 

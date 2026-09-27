@@ -179,6 +179,16 @@ Listmonk는 여러 template을 묶는 transaction을 제공하지 않습니다. 
 `body_source`를 생략하면 Listmonk update가 기존 값을 유지하므로 해당 필드는 관리
 대상에서 제외됩니다. Visual template source를 강제하려면 값을 명시하세요.
 
+계획은 Listmonk 6.2가 실제로 저장하는 값을 기준으로 하므로 적용한 manifest를
+다시 계획하면 unchanged로 표시됩니다. Subject는 `tx` template에서만 관리하며,
+Listmonk는 이때 비어 있지 않은 subject를 요구합니다. 반면 `campaign`과
+`campaign_visual` template의 subject는 버립니다(각 campaign이 자체 subject를
+지정). 이 규칙을 어기는 항목은 수렴하지 않거나 apply 도중 실패하는 변경을
+계획하는 대신 원격 호출 전에 거부됩니다. Listmonk는 기존 template의 type도
+변경하지 않으므로 type을 바꾸는
+manifest는 쓰기 전에 계획 단계에서 실패합니다. 해당 template을 삭제한 뒤 다시
+reconcile하여 새 type으로 생성하세요.
+
 Manifest 적용 후 `syncTemplateRegistry()`로 원격 버전을 capture하여 승격과
 rollback workflow에 사용할 수 있습니다. 릴리스 시점 template credential과
 런타임 전송 credential은 분리하세요. Transactional template을 승격하기 전에는
@@ -190,8 +200,11 @@ Enhanced client는 upstream OpenAPI 문서에 없는 Listmonk 6.2 role endpoint�
 위해 handwritten `userRole` facade를 제공합니다. `reconcileUserRole()`과
 `reconcileUserRoleManifest()`는 기본적으로 계획만 수행하고,
 `ensureUserRole()` 또는 `{ apply: true }`가 실제 변경을 수행합니다. 권한 이름은
-Listmonk 6.2 vocabulary로 제한하며, 정확한 이름 중복은 실패하고 예약된 Super
-Admin role(ID 1)은 절대 관리하지 않습니다.
+Listmonk 6.2 user role vocabulary(`LISTMONK_USER_ROLE_PERMISSIONS`)로 제한하며,
+정확한 이름 중복은 실패하고 예약된 Super Admin role(ID 1)은 절대 관리하지
+않습니다. 목록 단위 권한인 `list:get`과 `list:manage`는 list role 전용이며
+Listmonk가 user role에서 거부하므로, 이를 부여하는 manifest는 apply 도중
+실패하는 대신 원격 호출 전에 검증 단계에서 거부됩니다.
 
 같은 계약을 `listmonk-cli user-roles reconcile` CLI 명령과
 `listmonk_reconcile_user_role_manifest` MCP tool로 사용할 수 있습니다. 둘 다
@@ -687,12 +700,14 @@ listmonk-cli dashboard counts
 listmonk-cli dashboard charts
 listmonk-cli system about
 listmonk-cli system logs --lines 50
-# 자격 증명은 재귀적으로 [redacted]로 치환됩니다.
+# 인증 username을 포함한 자격 증명은 재귀적으로 [redacted]로 치환됩니다.
 listmonk-cli settings get
 # 실행할 때마다 수신자에게 실제 메시지를 보냅니다.
 listmonk-cli settings test-smtp --email reader@example.com \
   --host mailpit --port 1025
-listmonk-cli system reload
+# Listmonk를 재시작합니다. 실행 중인 캠페인이 중단되고 대기 중인
+# transactional 메시지가 유실되므로 먼저 실행 중인 캠페인을 확인하세요.
+listmonk-cli system reload --confirm
 # 일괄 파괴적 정리: 서버 측 미리보기가 없습니다.
 listmonk-cli maintenance gc-subscribers --type orphan --confirm
 listmonk-cli maintenance gc-unconfirmed \
@@ -778,6 +793,11 @@ ID로 변환합니다. Listmonk 6.2에는 일괄 차단 해제 엔드포인트�
 차단된 구독자를 한 명씩 `enabled`로 되돌리고 다른 상태는 그대로 둡니다. 차단 시
 모든 리스트 구독이 이미 `unsubscribed`로 바뀌었으며 차단 해제는 이를 복원하지
 않으므로, 리스트 재가입은 새로운 동의를 받은 경우에만 수행하세요.
+
+캠페인 테스트 발송(`campaigns.test`)은 저장된 캠페인에서 plain-text 대체
+본문, 사용자 지정 헤더, 첨부 파일을 포함한 form을 구성한 뒤 명시적 override를
+적용합니다. `--template-id`(`template_id`) override는 Listmonk 6.2가 읽는
+query parameter로 전송되므로 테스트 메시지가 선택한 template으로 렌더링됩니다.
 
 바운스 읽기는 Listmonk `/api/bounces`의 필터(`--campaign-id`,
 `--source`, `--order-by`, `--order`)를 그대로 전달합니다. 해당 엔드포인트에는
@@ -895,7 +915,7 @@ Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 (`subscribers.send-optin`), 자격 증명 무권화 설정 읽기(`settings.get`), SMTP 설정 테스트
 (`settings.test-smtp`), 일괄 유지보수 정리(`maintenance.gc-subscribers`,
 `maintenance.gc-unconfirmed`, `maintenance.gc-analytics`),
-설정 다시 불러오기(`system.reload`)는
+확인이 필요한 설정 적용 재시작(`system.reload`)은
 관찰된 Listmonk 6.2 응답 형태를 로컬 스택으로 검증한 뒤 stable 호환성
 baseline에 승인되었습니다. runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API

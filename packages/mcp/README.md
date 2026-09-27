@@ -284,7 +284,9 @@ another profile's event.
 - `listmonk_get_dashboard_counts` - Get dashboard summary counts
 - `listmonk_get_dashboard_charts` - Get dashboard chart series
 - `listmonk_get_logs` - Fetch server logs
-- `listmonk_reload_app` - Reload app config
+- `listmonk_reload_app` - Restart Listmonk to apply saved settings
+  (confirmation required; interrupts running campaigns and drops queued
+  transactional messages)
 - `listmonk_test_smtp` - Validate SMTP settings payload
 
 ## Installation

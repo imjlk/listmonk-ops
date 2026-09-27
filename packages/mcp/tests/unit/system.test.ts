@@ -26,6 +26,22 @@ describe("system operation adapter", () => {
 		});
 	});
 
+	test("publishes the reload as a confirmation-gated restart", () => {
+		const reload = systemTools.find(
+			(tool) => tool.name === "listmonk_reload_app",
+		);
+		// Listmonk 6.2 re-executes its process on reload, so the tool must
+		// not look repeatable or harmless to an MCP client.
+		expect(reload?.annotations).toMatchObject({
+			title: "Restart Listmonk to apply settings",
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: false,
+		});
+		expect(reload?.inputSchema.required).toContain("confirm");
+		expect(reload?.description).toContain("interrupting running campaigns");
+	});
+
 	test("routes reads through the shared operation result adapter", async () => {
 		const client = {
 			system: {

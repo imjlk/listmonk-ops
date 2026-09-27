@@ -256,9 +256,10 @@ describe("Template manifest CLI and MCP parity", () => {
 			schema_version: 1 as const,
 			templates: [
 				{
+					// Campaign templates carry no subject in Listmonk 6.2, so the
+					// manifest entry omits it.
 					name: templateName,
 					type: "campaign" as const,
-					subject: "Template manifest parity",
 					body: '<html><body>{{ template "content" . }}</body></html>',
 				},
 			],
@@ -307,6 +308,25 @@ describe("Template manifest CLI and MCP parity", () => {
 				dry_run: false,
 				results: [
 					{ name: templateName, action: "create", applied: true },
+				],
+			});
+
+			// The applied manifest must re-plan as unchanged against the
+			// state Listmonk actually persisted.
+			const replanResult = await client.callTool(
+				"listmonk_reconcile_template_manifest",
+				{ ...manifest, dry_run: true, confirm: true },
+			);
+			expect(
+				utils.assertSuccess<TemplateManifestResult>(
+					replanResult,
+					"Failed to re-plan the applied template manifest through MCP",
+				),
+			).toEqual({
+				schema_version: 1,
+				dry_run: true,
+				results: [
+					{ name: templateName, action: "unchanged", applied: false },
 				],
 			});
 

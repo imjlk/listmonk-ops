@@ -18977,7 +18977,7 @@
                     "type": "string"
                   },
                   "subject": {
-                    "description": "Email subject. Optional on input and defaults to `\"\"`, matching the\nruntime Zod schema's `.optional().default(\"\")`. Reconciliation of an\nexisting template with an omitted subject clears it rather than preserving\nthe prior value.",
+                    "description": "Email subject of a `tx` template, where Listmonk 6.2 requires a\nnon-blank value. Optional on input and defaults to `\"\"`, matching the\nruntime Zod schema's `.optional().default(\"\")`. Listmonk 6.2 discards\nthe subject of `campaign` and `campaign_visual` templates, whose subject\nis set per campaign, so reconciliation rejects a non-empty subject for\nthose types, never diffs their stored one, and rejects a blank one for\n`tx`.",
                     "type": "string"
                   },
                   "type": {
@@ -38130,7 +38130,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "reloaded": {
-                    "description": "Whether Listmonk acknowledged the configuration reload.",
+                    "description": "Whether Listmonk acknowledged the restart request before re-executing.",
                     "type": "boolean"
                   }
                 },
@@ -38146,7 +38146,7 @@
             "additionalProperties": false,
             "properties": {
               "reloaded": {
-                "description": "Whether Listmonk acknowledged the configuration reload.",
+                "description": "Whether Listmonk acknowledged the restart request before re-executing.",
                 "type": "boolean"
               }
             },
@@ -38161,8 +38161,8 @@
       },
       "effects": [
         {
-          "action": "recover",
-          "destructive": false,
+          "action": "restart",
+          "destructive": true,
           "kind": "maintenance",
           "preview": false,
           "resource": "system"
@@ -38172,13 +38172,13 @@
       "mcpName": "listmonk_reload_app",
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "resource": "system",
       "retry": {
-        "kind": "safe",
-        "reason": "The reload is a repeatable configuration refresh; Listmonk acknowledges every attempt with the same success."
+        "kind": "unsafe",
+        "reason": "Every request restarts the Listmonk process again, interrupting running campaigns and dropping queued transactional messages. The acknowledgement is sent before the restart, so a lost response does not mean the restart failed."
       },
       "verb": "reload"
     },
@@ -39495,7 +39495,7 @@
         "input": {
           "components": {
             "schemas": {
-              "ListmonkUserPermission": {
+              "ListmonkUserRolePermission": {
                 "oneOf": [
                   {
                     "const": "bounces:get"
@@ -39520,12 +39520,6 @@
                   },
                   {
                     "const": "campaigns:send"
-                  },
-                  {
-                    "const": "list:get"
-                  },
-                  {
-                    "const": "list:manage"
                   },
                   {
                     "const": "lists:get_all"
@@ -39597,7 +39591,7 @@
                   },
                   "permissions": {
                     "items": {
-                      "$ref": "#/components/schemas/ListmonkUserPermission"
+                      "$ref": "#/components/schemas/ListmonkUserRolePermission"
                     },
                     "maxItems": 30,
                     "type": "array"

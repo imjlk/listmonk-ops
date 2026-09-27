@@ -21208,7 +21208,8 @@
     {
       "agent": {
         "avoidWhen": [
-          "A single template should be inspected without a full manifest."
+          "A single template should be inspected without a full manifest.",
+          "An existing template must change type — Listmonk 6.2 never updates a template type, so planning fails; delete and recreate that template instead."
         ],
         "prerequisites": [
           "templates.list"
@@ -21245,7 +21246,7 @@
                     "type": "string"
                   },
                   "subject": {
-                    "description": "Email subject. Optional on input and defaults to `\"\"`, matching the\nruntime Zod schema's `.optional().default(\"\")`. Reconciliation of an\nexisting template with an omitted subject clears it rather than preserving\nthe prior value.",
+                    "description": "Email subject of a `tx` template, where Listmonk 6.2 requires a\nnon-blank value. Optional on input and defaults to `\"\"`, matching the\nruntime Zod schema's `.optional().default(\"\")`. Listmonk 6.2 discards\nthe subject of `campaign` and `campaign_visual` templates, whose subject\nis set per campaign, so reconciliation rejects a non-empty subject for\nthose types, never diffs their stored one, and rejects a blank one for\n`tx`.",
                     "type": "string"
                   },
                   "type": {
@@ -42503,18 +42504,22 @@
     {
       "agent": {
         "avoidWhen": [
-          "No settings changed since the last reload."
+          "A campaign is running — the restart interrupts it, which is why Listmonk's own settings save skips its automatic restart while campaigns run.",
+          "Transactional messages were accepted moments ago — messages still queued in memory are dropped by the restart.",
+          "No settings changed since the last restart."
         ],
         "prerequisites": [
-          "settings.get"
+          "settings.get",
+          "campaigns.list"
         ],
         "related": [
           "settings.get",
-          "system.about"
+          "system.about",
+          "campaigns.list"
         ],
-        "retryGuidance": "Repeat safely; the reload is a refresh, not a mutation.",
+        "retryGuidance": "Do not repeat blindly: every request restarts Listmonk again. After a lost response, wait until system.about answers before deciding whether another restart is still needed.",
         "useWhen": [
-          "Settings were updated and must take effect without restarting the instance."
+          "Saved settings must take effect, no campaign is running, and transactional sending can pause for the restart."
         ],
         "verifyWith": [
           "system.about"
@@ -42549,7 +42554,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "reloaded": {
-                    "description": "Whether Listmonk acknowledged the configuration reload.",
+                    "description": "Whether Listmonk acknowledged the restart request before re-executing.",
                     "type": "boolean"
                   }
                 },
@@ -42565,7 +42570,7 @@
             "additionalProperties": false,
             "properties": {
               "reloaded": {
-                "description": "Whether Listmonk acknowledged the configuration reload.",
+                "description": "Whether Listmonk acknowledged the restart request before re-executing.",
                 "type": "boolean"
               }
             },
@@ -42578,11 +42583,11 @@
           "stage": "normalized"
         }
       },
-      "description": "Reload the Listmonk app configuration without a restart. Safe to repeat; settings mutations only take effect after a reload.",
+      "description": "Restart the Listmonk process so saved settings take effect. Listmonk 6.2 re-executes itself shortly after acknowledging, interrupting running campaigns and dropping transactional messages still queued in memory; each request restarts it again.",
       "effects": [
         {
-          "action": "recover",
-          "destructive": false,
+          "action": "restart",
+          "destructive": true,
           "kind": "maintenance",
           "preview": false,
           "resource": "system"
@@ -42591,7 +42596,7 @@
       "id": "system.reload",
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "projection": {
@@ -42607,12 +42612,12 @@
       },
       "resource": "system",
       "retry": {
-        "kind": "safe",
-        "reason": "The reload is a repeatable configuration refresh; Listmonk acknowledges every attempt with the same success."
+        "kind": "unsafe",
+        "reason": "Every request restarts the Listmonk process again, interrupting running campaigns and dropping queued transactional messages. The acknowledgement is sent before the restart, so a lost response does not mean the restart failed."
       },
       "since": "0.17.0",
       "stability": "stable",
-      "title": "Reload app configuration",
+      "title": "Restart Listmonk to apply settings",
       "verb": "reload"
     },
     {
@@ -43039,7 +43044,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens) recursively replaced by [redacted].",
+      "description": "Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) recursively replaced by [redacted].",
       "effects": [
         {
           "kind": "read",
@@ -44214,7 +44219,8 @@
       "agent": {
         "avoidWhen": [
           "A single role should be inspected without a full manifest.",
-          "The protected Super Admin role is the intended target."
+          "The protected Super Admin role is the intended target.",
+          "Per-list access is needed — Listmonk 6.2 grants list:get and list:manage only through list roles, so a user-role manifest carrying them is rejected before any remote call."
         ],
         "prerequisites": [],
         "related": [],
@@ -44228,7 +44234,7 @@
         "input": {
           "components": {
             "schemas": {
-              "ListmonkUserPermission": {
+              "ListmonkUserRolePermission": {
                 "oneOf": [
                   {
                     "const": "bounces:get"
@@ -44253,12 +44259,6 @@
                   },
                   {
                     "const": "campaigns:send"
-                  },
-                  {
-                    "const": "list:get"
-                  },
-                  {
-                    "const": "list:manage"
                   },
                   {
                     "const": "lists:get_all"
@@ -44330,7 +44330,7 @@
                   },
                   "permissions": {
                     "items": {
-                      "$ref": "#/components/schemas/ListmonkUserPermission"
+                      "$ref": "#/components/schemas/ListmonkUserRolePermission"
                     },
                     "maxItems": 30,
                     "type": "array"

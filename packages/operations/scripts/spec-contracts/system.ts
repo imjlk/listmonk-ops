@@ -9,7 +9,7 @@ export interface SystemAboutOutput {
 }
 
 export interface SystemReloadOutput {
-	/** Whether Listmonk acknowledged the configuration reload. */
+	/** Whether Listmonk acknowledged the restart request before re-executing. */
 	reloaded: boolean;
 }
 

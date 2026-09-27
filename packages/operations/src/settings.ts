@@ -33,12 +33,12 @@ export type SettingsDocument = z.output<typeof settingsGetOutputSchema>;
 export const SETTINGS_REDACTED_VALUE = "[redacted]";
 
 /**
- * Field names whose values are credentials. Matched exactly
- * (case-insensitive) and as substrings, so namespaced settings keys
- * like "bounce.sendgrid_key" or "upload.s3.aws_secret_access_key"
- * redact without enumerating every prefix. OAuth client ids and other
- * non-secret identifiers stay visible because operators need them to
- * correlate configurations.
+ * Field names whose values are credentials, matched case-insensitively
+ * against a key's last dotted segment. The nested Listmonk 6.2 document
+ * (`"bounce.forwardemail": { "key": … }`) and a flattened key
+ * (`"bounce.forwardemail.key"`) therefore redact alike. OAuth client ids
+ * and other non-secret identifiers stay visible because operators need
+ * them to correlate configurations.
  */
 const CREDENTIAL_FIELD_NAMES = new Set([
 	"key",
@@ -55,6 +55,11 @@ const CREDENTIAL_FIELD_NAMES = new Set([
 	"secret",
 ]);
 
+/**
+ * Credential fragments matched anywhere in a key, so namespaced settings
+ * keys like "bounce.sendgrid_key" or "upload.s3.aws_secret_access_key"
+ * redact without enumerating every prefix.
+ */
 const CREDENTIAL_SUBSTRINGS = [
 	"password",
 	"secret",
@@ -64,21 +69,25 @@ const CREDENTIAL_SUBSTRINGS = [
 	"forwardemail_key",
 	"private_key",
 	"token",
-	// Postmark's server token is used as a webhook basic-auth credential
-	// even though its field is only username-shaped.
-	"postmark_username",
+	// Auth usernames are credential halves. Listmonk 6.2 returns the
+	// `username` of every SMTP server, messenger, and bounce mailbox and of
+	// the nested `bounce.postmark` webhook block unmasked, yet Postmark uses
+	// its server token as that username and SES SMTP usernames derive from
+	// IAM access keys.
+	"username",
 ] as const;
 
 function isCredentialFieldName(name: string): boolean {
 	const lowered = name.toLowerCase();
-	if (CREDENTIAL_FIELD_NAMES.has(lowered)) return true;
+	const lastSegment = lowered.slice(lowered.lastIndexOf(".") + 1);
+	if (CREDENTIAL_FIELD_NAMES.has(lastSegment)) return true;
 	return CREDENTIAL_SUBSTRINGS.some((needle) => lowered.includes(needle));
 }
 
 /**
  * Recursively replace credential-bearing fields. Arrays are walked so the
- * SMTP pool's per-entry passwords and any messenger credentials are
- * covered; non-object scalars pass through untouched.
+ * per-entry credentials of the SMTP pool, messengers, and bounce mailboxes
+ * are covered; non-object scalars pass through untouched.
  */
 export function redactSettingsCredentials(value: unknown): unknown {
 	if (Array.isArray(value)) {
@@ -129,7 +138,7 @@ export const getSettingsOperation = defineOperation({
 	id: "settings.get",
 	title: "Read installation settings (redacted)",
 	description:
-		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens) recursively replaced by [redacted].",
+		"Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) recursively replaced by [redacted].",
 	inputSchema: z.object({}),
 	outputSchema: settingsGetOutputSchema,
 	safety: readResourceSafety,

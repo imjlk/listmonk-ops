@@ -60,6 +60,11 @@ describe("campaign preview and test operations", () => {
 				body: "<p>Stored body</p>",
 				altbody: "Stored plain-text alternative",
 				headers: [{ "X-Campaign": "stored" }],
+				// Listmonk 6.2 keeps a deleted attachment with a null id.
+				media: [
+					{ id: 3, filename: "brochure.pdf" },
+					{ id: null, filename: "deleted.png" },
+				],
 			},
 		}));
 		const test = mock(async () => ({ data: true }));
@@ -83,8 +88,11 @@ describe("campaign preview and test operations", () => {
 		});
 
 		expect(test).toHaveBeenCalledTimes(1);
-		const form = (test.mock.calls[0]?.[0] as { body: Record<string, unknown> })
-			.body;
+		const request = test.mock.calls[0]?.[0] as {
+			body: Record<string, unknown>;
+			query?: unknown;
+		};
+		const form = request.body;
 		// The stored campaign supplies the required form fields; the caller
 		// only overrides the subject, and the recipients ride the observed
 		// `subscribers` key the upstream schema does not model.
@@ -93,15 +101,53 @@ describe("campaign preview and test operations", () => {
 			subject: "Override",
 			lists: [1, 2],
 			content_type: "richtext",
+			template_id: 1,
 			messenger: "email",
 			from_email: "No Reply <noreply@yoursite.com>",
 			body: "<p>Stored body</p>",
 			// The endpoint rebinds the campaign form, so the derived form
-			// carries the stored plain-text alternative and custom headers
-			// the test message must preserve.
+			// carries the stored plain-text alternative, custom headers, and
+			// live attachments the test message must preserve.
 			altbody: "Stored plain-text alternative",
 			headers: [{ "X-Campaign": "stored" }],
+			media: [3],
 			subscribers: ["reader@example.com"],
+		});
+		// Without an override the handler renders the stored template.
+		expect(request).not.toHaveProperty("query");
+	});
+
+	test("sends a template override as the query parameter 6.2 reads", async () => {
+		const getById = mock(async () => ({
+			data: {
+				id: 1,
+				name: "Test campaign",
+				subject: "Welcome",
+				lists: [{ id: 1 }],
+				template_id: 1,
+				body: "<p>Stored body</p>",
+			},
+		}));
+		const test = mock(async () => ({ data: true }));
+
+		await invokeTestCampaignOperation(
+			campaignContext({
+				getById: getById as CampaignClient["campaign"]["getById"],
+				test: test as unknown as CampaignClient["campaign"]["test"],
+			}),
+			{ id: 1, subscribers: ["reader@example.com"], template_id: 9 },
+		);
+
+		// c.FormValue("template_id") sees only the query string of a JSON
+		// request, so the body copy alone would render template 1.
+		expect(test).toHaveBeenCalledWith({
+			path: { id: 1 },
+			query: { template_id: 9 },
+			body: expect.objectContaining({
+				template_id: 9,
+				media: [],
+				subscribers: ["reader@example.com"],
+			}),
 		});
 	});
 

@@ -63,6 +63,51 @@ export interface TemplateOperationContext {
 
 const templateTypeSchema = z.enum(["campaign", "campaign_visual", "tx"]);
 
+type TemplateType = z.output<typeof templateTypeSchema>;
+
+/**
+ * Listmonk 6.2 persists a template subject only for `tx` templates. Its
+ * create and update handlers blank the subject of `campaign` and
+ * `campaign_visual` templates (campaign subjects live on each campaign), and
+ * the update query then stores the template's previous name as its subject.
+ * Reconciliation therefore manages the subject of `tx` templates only.
+ */
+function isTemplateSubjectManaged(type: TemplateType): boolean {
+	return type === "tx";
+}
+
+/**
+ * Why Listmonk 6.2 cannot persist a desired subject as given, if it cannot.
+ * A campaign-type subject is discarded, and a blank tx subject is rejected by
+ * validateTemplate on both create and update, so either entry would plan a
+ * change that never converges or fails partway through an apply. Both are
+ * rejected before any remote read instead.
+ */
+function templateSubjectIssue(template: {
+	type: TemplateType;
+	subject: string;
+}): string | undefined {
+	if (!isTemplateSubjectManaged(template.type)) {
+		return template.subject === ""
+			? undefined
+			: `Template subject is only supported for tx templates: Listmonk 6.2 discards the subject of ${template.type} templates, whose subject is set per campaign. Remove "subject" from this entry`;
+	}
+	return template.subject.trim() === ""
+		? "Template subject is required for tx templates: Listmonk 6.2 rejects a transactional template without one"
+		: undefined;
+}
+
+function addTemplateSubjectIssue(
+	template: { type: TemplateType; subject: string },
+	context: z.RefinementCtx,
+	path: (string | number)[],
+): void {
+	const message = templateSubjectIssue(template);
+	if (message !== undefined) {
+		context.addIssue({ code: "custom", message, path });
+	}
+}
+
 const templateSchema = z.looseObject({
 	id: z.number().int().positive().optional(),
 	created_at: z.string().optional(),
@@ -114,6 +159,13 @@ const templateCreateOutputSchema = z.object({
 	created: z.boolean(),
 });
 
+/** One exact-name desired state whose subject Listmonk 6.2 can persist. */
+const templateDesiredStateSchema = createTemplateInputSchema.superRefine(
+	(template, context) => {
+		addTemplateSubjectIssue(template, context, ["subject"]);
+	},
+);
+
 /**
  * Create fields valid inside a reconcile manifest. The idempotency key is
  * deliberately excluded: the reconcile flow drives unkeyed creates and its
@@ -162,6 +214,11 @@ const templateManifestSchema = z
 				});
 			}
 			names.add(template.name);
+			addTemplateSubjectIssue(template, context, [
+				"templates",
+				index,
+				"subject",
+			]);
 		}
 	});
 
@@ -619,6 +676,7 @@ async function planTemplateFromCandidates(
 		await client.template.getById({ path: { id: existingId } }),
 		"Failed to load current template for reconcile",
 	);
+	assertTemplateTypeUnchanged(current, desired);
 	if (templateMatchesDesiredState(current, desired)) {
 		return {
 			name: desired.name,
@@ -640,7 +698,7 @@ export async function planTemplateReconcile(
 	context: TemplateOperationContext,
 	input: TemplateDesiredState,
 ): Promise<TemplateReconcileResult> {
-	const desired = createTemplateInputSchema.parse(input);
+	const desired = templateDesiredStateSchema.parse(input);
 	const candidates = await listTemplatesForReconcile(context.client);
 	return planTemplateFromCandidates(context, desired, candidates);
 }
@@ -686,7 +744,7 @@ export async function reconcileTemplate(
 	input: TemplateDesiredState,
 	options: TemplateReconcileOptions = {},
 ): Promise<TemplateReconcileResult> {
-	const desired = createTemplateInputSchema.parse(input);
+	const desired = templateDesiredStateSchema.parse(input);
 	const candidates = await listTemplatesForReconcile(context.client);
 	const plan = await planTemplateFromCandidates(context, desired, candidates);
 	if (options.apply !== true || plan.action === "unchanged") {
@@ -708,6 +766,11 @@ export async function ensureTemplate(
  * before the first remote mutation. Remote writes are not transactional; an
  * apply failure exposes completed entries through TemplateManifestApplyError
  * so callers can reconcile the partial remote state.
+ *
+ * Plans follow Listmonk 6.2 persistence so an applied manifest re-plans as
+ * unchanged: a subject is managed for tx templates only (required there,
+ * while campaign-type entries must omit it), and a type change fails during
+ * planning because Listmonk never updates an existing template's type.
  */
 export async function reconcileTemplateManifest(
 	context: TemplateOperationContext,
@@ -786,6 +849,22 @@ async function listTemplatesForReconcile(
 	return data.results ?? [];
 }
 
+/**
+ * Listmonk 6.2 never updates a template's type: its update query has no type
+ * column. A type change can only be applied by deleting and recreating the
+ * template, so planning fails instead of reporting an update that can never
+ * converge.
+ */
+function assertTemplateTypeUnchanged(
+	current: Template,
+	desired: z.output<typeof createTemplateInputSchema>,
+): void {
+	if (current.type === desired.type) return;
+	throw new Error(
+		`Template reconcile cannot change ${JSON.stringify(desired.name)} from type ${JSON.stringify(current.type ?? "unknown")} to ${JSON.stringify(desired.type)}: Listmonk 6.2 never updates a template type, so delete the template and reconcile again to recreate it`,
+	);
+}
+
 function templateMatchesDesiredState(
 	template: Template,
 	desired: z.output<typeof createTemplateInputSchema>,
@@ -793,7 +872,10 @@ function templateMatchesDesiredState(
 	return (
 		template.name === desired.name &&
 		template.type === desired.type &&
-		(template.subject ?? "") === desired.subject &&
+		// Only a tx subject is persisted as sent; Listmonk rewrites a campaign
+		// template's subject to its previous name on every update.
+		(!isTemplateSubjectManaged(desired.type) ||
+			(template.subject ?? "") === desired.subject) &&
 		// Listmonk 6.2 validates syntax without rewriting the body before it
 		// persists the supplied value, so body remains an exact managed field.
 		(template.body ?? "") === desired.body &&

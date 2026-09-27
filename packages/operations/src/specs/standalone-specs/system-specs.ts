@@ -117,13 +117,22 @@ export function bindSystemAboutOperationSpec(): typeof systemAboutOperationSpec 
 	return systemAboutOperationSpec;
 }
 
+/**
+ * Listmonk 6.2 applies settings by restarting itself: POST /api/admin/reload
+ * acknowledges, then re-executes the process after 500ms (cmd/admin.go
+ * ReloadApp, cmd/init.go awaitReload). The restart closes the campaign
+ * manager, so running campaigns are interrupted and transactional messages
+ * still queued in memory are dropped although /api/tx already accepted
+ * them. Unlike the settings save, which skips its automatic restart while a
+ * campaign runs, this endpoint restarts unconditionally.
+ */
 export const systemReloadOperationSpec = defineOperationSpec({
 	id: "system.reload",
 	resource: "system",
 	verb: "reload",
-	title: "Reload app configuration",
+	title: "Restart Listmonk to apply settings",
 	description:
-		"Reload the Listmonk app configuration without a restart. Safe to repeat; settings mutations only take effect after a reload.",
+		"Restart the Listmonk process so saved settings take effect. Listmonk 6.2 re-executes itself shortly after acknowledging, interrupting running campaigns and dropping transactional messages still queued in memory; each request restarts it again.",
 	contract: {
 		input: emptyInputContract,
 		output: systemReloadOutputContract,
@@ -132,26 +141,31 @@ export const systemReloadOperationSpec = defineOperationSpec({
 		{
 			kind: "maintenance",
 			resource: "system",
-			action: "recover",
-			destructive: false,
+			action: "restart",
+			destructive: true,
 			preview: false,
 		},
 	],
-	policy: { confirmation: "never", audit: "required", dryRun: false },
+	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "safe",
+		kind: "unsafe",
 		reason:
-			"The reload is a repeatable configuration refresh; Listmonk acknowledges every attempt with the same success.",
+			"Every request restarts the Listmonk process again, interrupting running campaigns and dropping queued transactional messages. The acknowledgement is sent before the restart, so a lost response does not mean the restart failed.",
 	},
 	agent: {
 		useWhen: [
-			"Settings were updated and must take effect without restarting the instance.",
+			"Saved settings must take effect, no campaign is running, and transactional sending can pause for the restart.",
 		],
-		avoidWhen: ["No settings changed since the last reload."],
-		prerequisites: ["settings.get"],
+		avoidWhen: [
+			"A campaign is running — the restart interrupts it, which is why Listmonk's own settings save skips its automatic restart while campaigns run.",
+			"Transactional messages were accepted moments ago — messages still queued in memory are dropped by the restart.",
+			"No settings changed since the last restart.",
+		],
+		prerequisites: ["settings.get", "campaigns.list"],
 		verifyWith: ["system.about"],
-		related: ["settings.get", "system.about"],
-		retryGuidance: "Repeat safely; the reload is a refresh, not a mutation.",
+		related: ["settings.get", "system.about", "campaigns.list"],
+		retryGuidance:
+			"Do not repeat blindly: every request restarts Listmonk again. After a lost response, wait until system.about answers before deciding whether another restart is still needed.",
 	},
 	projection: {
 		mcpName: "listmonk_reload_app",

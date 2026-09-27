@@ -285,7 +285,7 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 
 		await renderReconcileTemplateManifest(cliContext, {
 			schema_version: 1,
-			templates: [{ name: "Sign-in code", type: "tx", body: "<p>OTP</p>" }],
+			templates: [{ name: "Sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" }],
 			dry_run: true,
 		});
 
@@ -303,7 +303,7 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 
 		await renderReconcileTemplateManifest(cliContext, {
 			schema_version: 1,
-			templates: [{ name: "Sign-in code", type: "tx", body: "<p>OTP</p>" }],
+			templates: [{ name: "Sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" }],
 			dry_run: false,
 		});
 

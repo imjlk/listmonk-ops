@@ -34,6 +34,9 @@ The overlay currently:
   `scheduled` (unschedule);
 - documents the `archive_slug` field that `PUT /campaigns/{id}/archive` reads
   (and clears when it is sent empty);
+- moves the campaign test send's `template_id` override from an unused form
+  field to the query parameter the tagged handler reads (`c.FormValue` sees
+  only the query string of a JSON request);
 - aligns transactional messages with the tagged `TxMessage` model, including
   recipient arrays, subscriber mode, subject, headers, and `altbody`.
 

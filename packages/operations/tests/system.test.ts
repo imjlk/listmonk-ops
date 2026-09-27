@@ -3,11 +3,14 @@ import { describe, expect, mock, test } from "bun:test";
 import {
 	invokeReadSystemAboutOperation,
 	invokeReadSystemLogsOperation,
+	invokeReloadSystemOperation,
+	reloadSystemOperation,
 	systemOperationCatalog,
 	systemOperations,
 	getSystemOperationByMcpName,
 	invokeSystemOperationByMcpName,
 } from "../src/system";
+import { getOperationExecutionPolicy } from "../src/execution-policy";
 import { OperationExecutionError } from "../src/operation";
 
 type SystemClient = Pick<ListmonkClient, "system">;
@@ -23,13 +26,15 @@ describe("shared system operations", () => {
 		expect(systemOperations).toHaveLength(3);
 		expect(systemOperationCatalog.id).toBe("system");
 		for (const operation of systemOperations) {
-			// The reload refreshes runtime configuration, so it is a
-			// repeatable non-read-only maintenance write.
+			// Listmonk 6.2 applies settings by re-executing its process, which
+			// interrupts running campaigns and drops queued transactional
+			// messages, so every reload is a destructive, non-idempotent
+			// restart.
 			if (operation.id === "system.reload") {
 				expect(operation.safety).toEqual({
 					readOnlyHint: false,
-					destructiveHint: false,
-					idempotentHint: true,
+					destructiveHint: true,
+					idempotentHint: false,
 					openWorldHint: true,
 				});
 			} else {
@@ -48,6 +53,50 @@ describe("shared system operations", () => {
 			systemOperations[2],
 		);
 		expect(getSystemOperationByMcpName("listmonk_unknown")).toBe(undefined);
+	});
+
+	test("declares the reload as a confirmation-gated, unsafe-to-repeat restart", async () => {
+		expect(reloadSystemOperation.spec).toMatchObject({
+			title: "Restart Listmonk to apply settings",
+			effects: [
+				{
+					kind: "maintenance",
+					resource: "system",
+					action: "restart",
+					destructive: true,
+					preview: false,
+				},
+			],
+			policy: { confirmation: "required", audit: "required", dryRun: false },
+			retry: { kind: "unsafe" },
+		});
+		expect(reloadSystemOperation.description).toContain(
+			"interrupting running campaigns",
+		);
+		expect(getOperationExecutionPolicy(reloadSystemOperation)).toEqual({
+			confirmationRequired: true,
+			auditRequired: true,
+			dryRunSupported: false,
+		});
+
+		const reload = mock(async () => ({ data: true }));
+		await expect(
+			invokeReloadSystemOperation(
+				systemContext({ reload: reload as SystemClient["system"]["reload"] }),
+				{},
+			),
+		).resolves.toEqual({ reloaded: true });
+		expect(reload).toHaveBeenCalledTimes(1);
+
+		const refused = mock(async () => ({ data: false }));
+		await expect(
+			invokeReloadSystemOperation(
+				systemContext({ reload: refused as SystemClient["system"]["reload"] }),
+				{},
+			),
+		).rejects.toThrow(
+			"Failed to request a Listmonk restart: Listmonk returned a negative acknowledgement",
+		);
 	});
 
 	test("reads the build identity as observed", async () => {

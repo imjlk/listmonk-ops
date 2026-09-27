@@ -904,7 +904,7 @@ Contract maturity: `stable`; effects: `write:template`; confirmation: `required`
 
 Use when: A versioned template manifest must be planned or applied.
 
-Avoid when: A single template should be inspected without a full manifest.
+Avoid when: A single template should be inspected without a full manifest. An existing template must change type — Listmonk 6.2 never updates a template type, so planning fails; delete and recreate that template instead.
 
 Prerequisites: `templates.list`
 
@@ -1766,19 +1766,19 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
-## Reload app configuration (`system.reload`)
+## Restart Listmonk to apply settings (`system.reload`)
 
-Contract maturity: `stable`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `maintenance:restart:destructive`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Settings were updated and must take effect without restarting the instance.
+Use when: Saved settings must take effect, no campaign is running, and transactional sending can pause for the restart.
 
-Avoid when: No settings changed since the last reload.
+Avoid when: A campaign is running — the restart interrupts it, which is why Listmonk's own settings save skips its automatic restart while campaigns run. Transactional messages were accepted moments ago — messages still queued in memory are dropped by the restart. No settings changed since the last restart.
 
-Prerequisites: `settings.get`
+Prerequisites: `settings.get`, `campaigns.list`
 
 Verify with: `system.about`
 
-Retry guidance: Repeat safely; the reload is a refresh, not a mutation.
+Retry guidance: Do not repeat blindly: every request restarts Listmonk again. After a lost response, wait until system.about answers before deciding whether another restart is still needed.
 
 ## Toggle the campaign archive page (`campaigns.archive`)
 
@@ -1912,7 +1912,7 @@ Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required
 
 Use when: A versioned least-privilege user-role manifest must be planned or applied.
 
-Avoid when: A single role should be inspected without a full manifest. The protected Super Admin role is the intended target.
+Avoid when: A single role should be inspected without a full manifest. The protected Super Admin role is the intended target. Per-list access is needed — Listmonk 6.2 grants list:get and list:manage only through list roles, so a user-role manifest carrying them is rejected before any remote call.
 
 Prerequisites: none
 

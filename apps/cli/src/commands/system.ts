@@ -46,7 +46,9 @@ export async function renderSystemReload(
 	context: SystemCliContext,
 ): Promise<void> {
 	const result = await invokeReloadSystemOperation(context, {});
-	context.output.success("Listmonk app configuration reloaded");
+	context.output.success(
+		"Listmonk restart requested; saved settings apply once it is back up",
+	);
 	context.output.json(result);
 }
 
@@ -57,7 +59,10 @@ export async function handleSystemReloadCommand({
 		const client = await getListmonkClient(args);
 		await renderSystemReload({ client, output: getOutput() });
 	} catch (error) {
-		throw createSystemCommandError("Failed to reload app configuration", error);
+		throw createSystemCommandError(
+			"Failed to request a Listmonk restart",
+			error,
+		);
 	}
 }
 
@@ -111,7 +116,8 @@ export async function handleSystemLogsCommand({
 
 export default defineGroup({
 	name: "system",
-	description: "Read Listmonk server identity, diagnostics, and reload",
+	description:
+		"Read Listmonk server identity and diagnostics, or restart it to apply settings",
 	commands: [
 		defineCommand({
 			name: "about",
@@ -134,7 +140,8 @@ export default defineGroup({
 		defineCommand({
 			name: "reload",
 			operationId: "system.reload",
-			description: "Reload app configuration without a restart",
+			description:
+				"Restart Listmonk to apply saved settings; interrupts running campaigns and drops queued transactional messages",
 			options: {},
 			handler: handleSystemReloadCommand,
 		}),

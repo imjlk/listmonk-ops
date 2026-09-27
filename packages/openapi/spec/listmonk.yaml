@@ -1692,17 +1692,16 @@ paths:
           required: true
           schema:
             type: integer
+        - in: query
+          name: template_id
+          description: template to render the test message with instead of the campaign's own; the handler reads it only from the query string
+          required: false
+          schema:
+            type: integer
       requestBody:
         required: true
-        description: template id
+        description: campaign form, attachments, and test recipients
         content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                template_id:
-                  description: template id
-                  type: integer
           application/json:
             schema:
               $ref: "#/components/schemas/CampaignRequest"

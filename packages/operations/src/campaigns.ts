@@ -1173,12 +1173,30 @@ export async function previewCampaign(
 }
 
 /**
+ * Attachment ids of a stored campaign, as its real send attaches them. The
+ * 6.2 test handler attaches only the `media` ids sent with the request, so
+ * the derived test form must carry them. Deleting a media item leaves a
+ * null id in the campaign's media list, which the send query skips too.
+ */
+function campaignAttachmentIds(campaign: Campaign): number[] {
+	return (campaign.media ?? [])
+		.map((entry) => (entry as { id?: unknown }).id)
+		.filter(
+			(id): id is number =>
+				typeof id === "number" && Number.isSafeInteger(id) && id > 0,
+		);
+}
+
+/**
  * Deliver the campaign to a bounded set of existing-subscriber emails.
  * The observed Listmonk 6.2 endpoint rebinds the campaign form from the
  * request and requires the recipient array under the `subscribers` key,
  * so the executor derives the form from the stored campaign — including
- * the plain-text alternative and custom headers, which the endpoint
- * would otherwise drop — and overlays the caller's explicit overrides.
+ * the plain-text alternative, custom headers, and attachments, which the
+ * endpoint would otherwise drop — and overlays the caller's explicit
+ * overrides. The handler picks the rendering template with
+ * `c.FormValue("template_id")`, which sees only the query string of a JSON
+ * request, so a template override also travels as that query parameter.
  * Unknown emails are rejected remotely.
  */
 export async function sendTestCampaign(
@@ -1208,10 +1226,14 @@ export async function sendTestCampaign(
 		body: input.body ?? stored.body ?? "",
 		altbody: stored.altbody ?? undefined,
 		headers: stored.headers ?? [],
+		media: campaignAttachmentIds(stored),
 		subscribers: input.subscribers,
 	};
 	const response = await ctx.client.campaign.test({
 		path: { id: input.id },
+		...(input.template_id === undefined
+			? {}
+			: { query: { template_id: input.template_id } }),
 		body: form,
 	});
 	requireAcknowledgement(response, "Failed to send campaign test message");

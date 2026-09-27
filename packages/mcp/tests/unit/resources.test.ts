@@ -189,7 +189,7 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 			request("listmonk_reconcile_template_manifest", {
 				schema_version: 1,
 				templates: [
-					{ name: "Sign-in code", type: "tx", body: "<p>OTP</p>" },
+					{ name: "Sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" },
 				],
 				dry_run: true,
 			}),
@@ -236,8 +236,8 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 			request("listmonk_reconcile_template_manifest", {
 				schema_version: 1,
 				templates: [
-					{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
-					{ name: "Password reset code", type: "tx", body: "<p>Reset</p>" },
+					{ name: "Account sign-in code", type: "tx", subject: "Your sign-in code", body: "<p>OTP</p>" },
+					{ name: "Password reset code", type: "tx", subject: "Reset your password", body: "<p>Reset</p>" },
 				],
 				dry_run: false,
 			}),

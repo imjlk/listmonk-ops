@@ -1524,14 +1524,14 @@ Read the recent Listmonk server log lines as recorded by the running instance.
 
 ## `system.reload`
 
-Reload the Listmonk app configuration without a restart. Safe to repeat; settings mutations only take effect after a reload.
+Restart the Listmonk process so saved settings take effect. Listmonk 6.2 re-executes itself shortly after acknowledging, interrupting running campaigns and dropping transactional messages still queued in memory; each request restarts it again.
 
 - Resource / verb: `system.reload`
 - MCP tool: `listmonk_reload_app`
 - Contract source: input `typescript`, output `typescript`
-- Effects: `maintenance:recover:recoverable`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `safe`
+- Effects: `maintenance:restart:destructive`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `unsafe`
 - Stability: `stable` since `0.17.0`
 
 ## `campaigns.archive`
@@ -1560,7 +1560,7 @@ Resend the double opt-in confirmation email to one subscriber. Every run sends a
 
 ## `settings.get`
 
-Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens) recursively replaced by [redacted].
+Read the Listmonk installation settings with every credential-bearing field (passwords, secrets, API keys, tokens, and auth usernames) recursively replaced by [redacted].
 
 - Resource / verb: `settings.get`
 - MCP tool: `listmonk_get_settings`

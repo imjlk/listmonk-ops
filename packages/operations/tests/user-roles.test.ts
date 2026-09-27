@@ -1,9 +1,17 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
+import type { UserRoleDesiredState } from "../src/user-roles";
+import { MAX_USER_ROLE_PERMISSION_ENTRIES } from "../src/user-role-permissions";
+import { userRoleManifestReconcileInputContract } from "../src/specs/contract-schemas";
 import {
 	ensureUserRole,
+	invokeReconcileUserRoleManifestOperation,
+	LISTMONK_LIST_ROLE_PERMISSIONS,
 	LISTMONK_USER_PERMISSIONS,
 	LISTMONK_USER_ROLE_PERMISSION_PRESETS,
+	LISTMONK_USER_ROLE_PERMISSIONS,
+	MAX_USER_ROLE_PERMISSIONS,
+	OperationInputError,
 	reconcileUserRole,
 	reconcileUserRoleManifest,
 	UserRoleManifestApplyError,
@@ -16,6 +24,15 @@ function userRoleContext(
 ): { client: UserRoleClient } {
 	return { client: { userRole: methods } as UserRoleClient };
 }
+
+function acceptUserRolePermission(
+	permission: UserRoleDesiredState["permissions"][number],
+): UserRoleDesiredState["permissions"][number] {
+	return permission;
+}
+
+// @ts-expect-error Per-list permissions are only valid on Listmonk list roles.
+acceptUserRolePermission("list:get");
 
 describe("declarative user role reconciliation", () => {
 	test("plans and applies an exact-name least-privilege update", async () => {
@@ -69,6 +86,31 @@ describe("declarative user role reconciliation", () => {
 				name: "Transactional runtime",
 				permissions: ["subscribers:manage", "tx:send"],
 			},
+		});
+	});
+
+	test("deduplicates full permission sets within the accepted input limit", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0, per_page: 0, page: 1 },
+		}));
+		const context = userRoleContext({
+			list: list as UserRoleClient["userRole"]["list"],
+		});
+		const permissions = [
+			...LISTMONK_USER_ROLE_PERMISSIONS,
+			LISTMONK_USER_ROLE_PERMISSIONS[0],
+			LISTMONK_USER_ROLE_PERMISSIONS[1],
+		];
+
+		expect(permissions).toHaveLength(MAX_USER_ROLE_PERMISSION_ENTRIES);
+		await expect(
+			reconcileUserRoleManifest(context, {
+				schema_version: 1,
+				roles: [{ name: "Full access", permissions }],
+			}),
+		).resolves.toMatchObject({
+			apply: false,
+			results: [{ name: "Full access", action: "create", applied: false }],
 		});
 	});
 
@@ -209,9 +251,108 @@ describe("declarative user role reconciliation", () => {
 
 	test("publishes the complete Listmonk 6.2 permission vocabulary and safe presets", () => {
 		expect(LISTMONK_USER_PERMISSIONS).toHaveLength(30);
+		expect(LISTMONK_LIST_ROLE_PERMISSIONS).toEqual(["list:get", "list:manage"]);
+		expect(LISTMONK_USER_ROLE_PERMISSIONS).toHaveLength(
+			MAX_USER_ROLE_PERMISSIONS,
+		);
+		// Listmonk 6.2 permissions.json: the only names validateUserRole accepts.
+		expect(LISTMONK_USER_ROLE_PERMISSIONS).toEqual([
+			"lists:get_all",
+			"lists:manage_all",
+			"subscribers:get",
+			"subscribers:get_all",
+			"subscribers:manage",
+			"subscribers:import",
+			"subscribers:sql_query",
+			"tx:send",
+			"campaigns:get",
+			"campaigns:get_all",
+			"campaigns:get_analytics",
+			"campaigns:manage",
+			"campaigns:manage_all",
+			"campaigns:send",
+			"bounces:get",
+			"bounces:manage",
+			"webhooks:post_bounce",
+			"media:get",
+			"media:manage",
+			"templates:get",
+			"templates:manage",
+			"users:get",
+			"users:manage",
+			"roles:get",
+			"roles:manage",
+			"settings:get",
+			"settings:manage",
+			"settings:maintain",
+		]);
 		expect(LISTMONK_USER_ROLE_PERMISSION_PRESETS).toEqual({
 			transactionalSubscriberRuntime: ["subscribers:manage", "tx:send"],
 			templateProvisioner: ["templates:get", "templates:manage"],
 		});
+	});
+
+	test("publishes only valid user-role permissions in the input contract", () => {
+		const contract = JSON.stringify(userRoleManifestReconcileInputContract);
+		expect(contract).not.toContain('"const":"list:get"');
+		expect(contract).not.toContain('"const":"list:manage"');
+		expect(contract).toContain('"maxItems":30');
+	});
+
+	test("rejects list-role permissions before any remote call", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0, per_page: 0, page: 1 },
+		}));
+		const create = mock(async () => ({ data: { id: 5 } }));
+		const update = mock(async () => ({ data: { id: 5 } }));
+		const context = userRoleContext({
+			list: list as UserRoleClient["userRole"]["list"],
+			create: create as unknown as UserRoleClient["userRole"]["create"],
+			update: update as unknown as UserRoleClient["userRole"]["update"],
+		});
+
+		for (const permission of LISTMONK_LIST_ROLE_PERMISSIONS) {
+			const message = `Permission "${permission}" belongs to Listmonk list roles; Listmonk 6.2 rejects it on user roles, so grant per-list access through a list role instead`;
+			// Direct helpers surface the ZodError, whose message is the
+			// JSON-serialized issue list with escaped quotes.
+			const directMessage = new RegExp(
+				`${permission}\\W+ belongs to Listmonk list roles`,
+			);
+			const manifest = {
+				schema_version: 1 as const,
+				roles: [
+					{ name: "Template provisioner", permissions: ["templates:get"] as const },
+					{
+						name: "Newsletter editor",
+						permissions: ["campaigns:manage", permission],
+					},
+				],
+			};
+
+			await expect(reconcileUserRoleManifest(context, manifest)).rejects.toThrow(
+				directMessage,
+			);
+			await expect(
+				reconcileUserRoleManifest(context, manifest, { apply: true }),
+			).rejects.toThrow(directMessage);
+			await expect(
+				ensureUserRole(context, {
+					name: "Newsletter editor",
+					permissions: [permission],
+				}),
+			).rejects.toThrow(directMessage);
+
+			const failure = await invokeReconcileUserRoleManifestOperation(context, {
+				...manifest,
+				dry_run: false,
+			}).catch((error: unknown) => error);
+			expect(failure).toBeInstanceOf(OperationInputError);
+			expect((failure as Error).message).toBe(
+				`Invalid parameter roles.1.permissions.1: ${message}`,
+			);
+		}
+		expect(list).not.toHaveBeenCalled();
+		expect(create).not.toHaveBeenCalled();
+		expect(update).not.toHaveBeenCalled();
 	});
 });

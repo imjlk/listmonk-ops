@@ -2572,7 +2572,7 @@ export type CreateCampaignContentByIdResponse = CreateCampaignContentByIdRespons
 
 export type TestCampaignByIdData = {
     /**
-     * template id
+     * campaign form, attachments, and test recipients
      */
     body: CampaignRequest;
     path: {
@@ -2581,7 +2581,12 @@ export type TestCampaignByIdData = {
          */
         id: number;
     };
-    query?: never;
+    query?: {
+        /**
+         * template to render the test message with instead of the campaign's own; the handler reads it only from the query string
+         */
+        template_id?: number;
+    };
     url: '/campaigns/{id}/test';
 };
 
