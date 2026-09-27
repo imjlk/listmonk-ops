@@ -51,3 +51,47 @@ test("diagnostic and intermediate artifacts have bounded retention", () => {
 		"release-assets/checksums.txt",
 	);
 });
+
+test("the local stack pins every service image to an explicit tag", () => {
+	// Renovate does not manage docker-compose.yml, so a floating tag would
+	// silently change the CI integration stack.
+	const compose = Bun.YAML.parse(read("docker-compose.yml")) as {
+		services: Record<string, { image?: unknown }>;
+	};
+	const services = Object.entries(compose.services);
+	expect(services.length).toBeGreaterThan(0);
+	for (const [name, service] of services) {
+		expect(service.image, name).toMatch(
+			/^[^\s:@]+:\w[\w.-]*(@sha256:[a-f0-9]{64})?$/,
+		);
+		expect(service.image, name).not.toMatch(/:latest$/);
+	}
+});
+
+test("every CI job has a bounded timeout", () => {
+	// Without timeout-minutes a hung step holds a runner for GitHub's six-hour
+	// default. Both jobs usually finish in about seven minutes.
+	const workflow = Bun.YAML.parse(read(".github/workflows/ci.yml")) as {
+		jobs: Record<string, { "timeout-minutes"?: unknown }>;
+	};
+	const jobs = Object.entries(workflow.jobs);
+	expect(jobs.map(([name]) => name)).toEqual(
+		expect.arrayContaining(["build-and-test", "local-stack-smoke"]),
+	);
+	for (const [name, job] of jobs) {
+		const timeout = job["timeout-minutes"];
+		expect(Number.isInteger(timeout), name).toBe(true);
+		expect(timeout as number, name).toBeGreaterThanOrEqual(10);
+		expect(timeout as number, name).toBeLessThanOrEqual(30);
+	}
+	// A timeout cancels the job rather than failing it, so diagnostics must
+	// also run on cancellation to explain a hung local-stack run.
+	for (const step of [
+		"Upload smoke artifacts on failure",
+		"Dump compose logs on failure",
+	]) {
+		expect(read(".github/workflows/ci.yml")).toContain(
+			`- name: ${step}\n        if: failure() || cancelled()\n`,
+		);
+	}
+});

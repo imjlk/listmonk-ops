@@ -19,6 +19,7 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -58,6 +59,7 @@ jobs:
 
   local-stack-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -112,7 +114,7 @@ jobs:
         run: bun run test:e2e
 
       - name: Upload smoke artifacts on failure
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: local-stack-smoke
@@ -120,5 +122,5 @@ jobs:
           retention-days: 7
 
       - name: Dump compose logs on failure
-        if: failure()
+        if: failure() || cancelled()
         run: docker compose logs --tail=200

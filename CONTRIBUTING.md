@@ -40,6 +40,18 @@ Check the release plan locally if needed:
 bun run release:plan
 ```
 
+Both scripts call the Sampo CLI, which `bun install` does not provide. CI uses
+`cargo install sampo --version 0.21.0 --locked`. Without it, add
+`.sampo/changesets/<name>.md` by hand, for example:
+
+```md
+---
+npm/@listmonk-ops/cli: patch (Fixed)
+---
+
+Describe the user-facing change.
+```
+
 Renovate PRs are the exception:
 
 - Renovate opens dependency PRs automatically.
@@ -53,19 +65,29 @@ PR validation:
 - `CI`
 - `Sampo Changeset Check`
 
-After merge to `main`:
+After a merge to `main`:
 
-1. `.github/workflows/sampo-release-publish.yml` runs.
-2. It applies `sampo release`.
-3. It builds with Bun.
-4. It publishes npm packages with OIDC trusted publishing.
-5. It pushes the release commit and tags after publish succeeds.
+1. `CI` runs on `main`. `.github/workflows/sampo-release-publish.yml` starts
+   through `workflow_run` only when that CI run succeeds for this repository
+   (not a fork), and it checks out the exact commit CI tested.
+2. While changesets are pending, Sampo opens or refreshes the `sampo/release`
+   PR ("chore(release): publish packages") with the version bumps and
+   changelogs. Nothing is published at this step.
+3. Merge the release PR when the accumulated changes are ready to ship.
+4. After CI succeeds on that merge, the workflow builds the workspaces, runs
+   `bun run check` and `bun run test`, publishes the npm packages with OIDC
+   trusted publishing and provenance, and pushes the package version tags.
+
+A maintainer can also start the workflow manually (`workflow_dispatch`). That
+skips the CI-success gate, but the build, check, and test steps still run
+before anything is published.
 
 CLI release binaries:
 
 - `.github/workflows/cli-github-release.yml` builds the scoped
-  `@listmonk-ops/cli-v*` tag on tag pushes or explicit dispatches.
-- Sampo explicitly dispatches that workflow after publishing a new CLI tag;
+  `@listmonk-ops/cli-v*` tag on tag pushes or explicit dispatches and attaches
+  the platform archives with a SHA-256 `checksums.txt`.
+- The release workflow dispatches it after Sampo publishes a new CLI tag;
   tags created with `GITHUB_TOKEN` do not start another workflow by themselves.
 
 ## Local Development
@@ -169,7 +191,8 @@ If you need the local Listmonk stack:
 
 ```bash
 docker compose up -d
-./setup-smtp.sh
+./setup-smtp.sh               # waits until Listmonk is healthy
+bun run stack:bootstrap-auth  # API user + token in /tmp/listmonk-ops-api-token
 ```
 
 Optional checks:
@@ -187,9 +210,10 @@ explicitly authorized remote target.
 
 ## After Merge
 
-This repository creates a bot-authored release commit on `main` after a successful publish.
+Every merge adds a commit to `main`, including the bot-authored release commit
+when the `sampo/release` PR is merged; publishing afterwards only adds tags.
 
-That means your local branch can fall behind `origin/main` even if your PR was just merged.
+That means your local `main` falls behind `origin/main` as soon as your PR is merged.
 
 Before starting the next task, update locally:
 

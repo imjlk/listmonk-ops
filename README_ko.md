@@ -50,9 +50,23 @@ bun install
 # 2) 로컬 Listmonk 스택 기동
 docker compose up -d
 
-# 3) Mailpit SMTP 설정 적용
+# 3) Mailpit SMTP 설정 적용 (Listmonk가 healthy 상태가 될 때까지 대기)
 ./setup-smtp.sh
+
+# 4) 로컬 API 사용자와 토큰 준비
+bun run stack:bootstrap-auth
+
+# 5) CLI가 이 토큰을 쓰도록 설정하고 연결 확인
+export LISTMONK_API_TOKEN_FILE=/tmp/listmonk-ops-api-token
+bun run cli -- status
 ```
+
+`stack:bootstrap-auth`는 loopback이 아닌 URL을 거부합니다. 아직 유효한 캐시 토큰은
+그대로 쓰고, 그렇지 않으면 로컬 관리자 계정으로 로그인해 관리용 `api-admin` API
+사용자를 다시 만듭니다. 토큰은 `/tmp/listmonk-ops-api-token`에 `0600` 권한으로
+저장됩니다(경로는 `LISTMONK_TEST_TOKEN_FILE`로 변경). CLI와 MCP 서버의 기본값이
+`http://localhost:9000/api`와 `api-admin` 사용자명이므로, 로컬 스택에서는 토큰
+파일만 지정하면 됩니다.
 
 로컬 접근 주소:
 - Listmonk Admin: `http://localhost:9000/admin`
@@ -386,6 +400,12 @@ curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/ins
 curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash -s -- --version 0.3.0
 ```
 
+설치 전에 스크립트가 릴리즈의 `checksums.txt`를 내려받아 `sha256sum` 또는
+`shasum -a 256`으로 아카이브의 SHA-256 다이제스트를 비교합니다.
+`checksums.txt`가 없거나, 아카이브 항목이 없거나, 값이 일치하지 않거나, 두 도구가
+모두 없으면 아무것도 설치하지 않습니다. 모든 CLI 릴리즈가 `checksums.txt`를
+게시하므로 검증을 건너뛰는 옵션은 없습니다.
+
 ## MCP 런타임 Endpoint 오버라이드
 
 `listmonk-mcp`는 런타임 플래그를 지원하므로 로컬 Docker Listmonk 없이도 실행할 수 있습니다.
@@ -703,7 +723,7 @@ listmonk-cli bounces list --campaign-id 42 --source api \
   --order-by created_at --order desc
 listmonk-cli bounces get --id 7
 listmonk-cli bounces delete --id 7 --confirm
-listmonk-cli bounces subscriber --subscriber-id 7
+listmonk-cli bounces list-subscriber --subscriber-id 7
 listmonk-cli bounces delete-subscriber --subscriber-id 7 --confirm
 
 # 하나의 제한된 배치를 미리보기한 뒤, 정확히 그 id들만 삭제합니다.

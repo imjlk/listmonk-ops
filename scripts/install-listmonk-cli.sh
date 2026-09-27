@@ -8,6 +8,8 @@ REQUESTED_VERSION="${LISTMONK_CLI_VERSION:-latest}"
 print_help() {
 	cat <<'EOF'
 Install listmonk-cli from GitHub Releases.
+The archive must match the release's SHA-256 checksums.txt; otherwise
+nothing is installed.
 
 Usage:
   install-listmonk-cli.sh [--version <tag-or-version>] [--repo <owner/repo>] [--install-dir <path>]
@@ -102,18 +104,75 @@ resolve_latest_tag() {
 		| head -n 1
 }
 
-download_from_tag() {
+release_asset_url() {
 	local tag="$1"
-	local out="$2"
+	local name="$2"
 	local encoded_tag="${tag//%/%25}"
 	encoded_tag="${encoded_tag//@/%40}"
 	encoded_tag="${encoded_tag//\//%2F}"
-	local url="https://github.com/${REPO}/releases/download/${encoded_tag}/${asset_name}"
-	if curl -fsSL "$url" -o "$out"; then
+	echo "https://github.com/${REPO}/releases/download/${encoded_tag}/${name}"
+}
+
+download_from_tag() {
+	local tag="$1"
+	local out="$2"
+	if curl -fsSL "$(release_asset_url "$tag" "$asset_name")" -o "$out"; then
 		echo "$tag"
 		return 0
 	fi
 	return 1
+}
+
+to_lower() {
+	printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+# Hash from stdin so the output never carries an escaped file name.
+sha256_of() {
+	local digest
+	if command -v sha256sum >/dev/null 2>&1; then
+		digest="$(sha256sum <"$1")" || return 1
+	elif command -v shasum >/dev/null 2>&1; then
+		digest="$(shasum -a 256 <"$1")" || return 1
+	else
+		echo "Neither sha256sum nor shasum is available to verify ${asset_name}; refusing to install" >&2
+		return 1
+	fi
+	to_lower "${digest%% *}"
+}
+
+# Every release publishes checksums.txt (`sha256sum *.tar.gz`). Fail closed:
+# never install an archive that is not listed there with a matching digest.
+verify_archive_checksum() {
+	local tag="$1"
+	local archive="$2"
+	local checksums="$tmp_dir/checksums.txt"
+	local expected=""
+	local actual=""
+	local digest name
+
+	if ! curl -fsSL "$(release_asset_url "$tag" checksums.txt)" -o "$checksums"; then
+		echo "Could not download checksums.txt for ${REPO}@${tag}; refusing to install an unverified ${asset_name}" >&2
+		return 1
+	fi
+	while read -r digest name _ || [[ -n "${digest:-}" ]]; do
+		name="${name%$'\r'}"
+		if [[ "$name" == "$asset_name" || "$name" == "*$asset_name" ]]; then
+			expected="$(to_lower "$digest")"
+			break
+		fi
+		digest=""
+	done <"$checksums"
+	if [[ ! "$expected" =~ ^[0-9a-f]{64}$ ]]; then
+		echo "checksums.txt for ${REPO}@${tag} has no SHA-256 entry for ${asset_name}; refusing to install" >&2
+		return 1
+	fi
+	actual="$(sha256_of "$archive")" || return 1
+	if [[ "$actual" != "$expected" ]]; then
+		echo "Checksum mismatch for ${asset_name} from ${REPO}@${tag}: expected ${expected}, got ${actual}; refusing to install" >&2
+		return 1
+	fi
+	echo "Verified ${asset_name} SHA-256 against checksums.txt"
 }
 
 tmp_dir="$(mktemp -d)"
@@ -149,6 +208,8 @@ else
 		exit 1
 	fi
 fi
+
+verify_archive_checksum "$resolved_tag" "$archive_path" || exit 1
 
 mkdir -p "$INSTALL_DIR"
 tar -xzf "$archive_path" -C "$tmp_dir"

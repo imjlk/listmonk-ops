@@ -50,9 +50,24 @@ bun install
 # 2) Start local Listmonk stack
 docker compose up -d
 
-# 3) Configure SMTP for Mailpit
+# 3) Configure SMTP for Mailpit (waits until Listmonk is healthy)
 ./setup-smtp.sh
+
+# 4) Provision the local API user and token
+bun run stack:bootstrap-auth
+
+# 5) Point the CLI at that token and check the connection
+export LISTMONK_API_TOKEN_FILE=/tmp/listmonk-ops-api-token
+bun run cli -- status
 ```
+
+`stack:bootstrap-auth` refuses non-loopback URLs. It keeps a still-valid cached
+token; otherwise it signs in with the local admin credentials and recreates
+the managed `api-admin` API user. The token is written to
+`/tmp/listmonk-ops-api-token` with mode `0600` (override the path with
+`LISTMONK_TEST_TOKEN_FILE`). The CLI and MCP server default to
+`http://localhost:9000/api` and the `api-admin` username, so the token file is
+the only setting they need for the local stack.
 
 Local endpoints:
 - Listmonk Admin: `http://localhost:9000/admin`
@@ -394,6 +409,12 @@ Optional version pin:
 curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash -s -- --version 0.3.0
 ```
 
+Before installing, the script downloads the release's `checksums.txt` and
+compares the archive's SHA-256 digest using `sha256sum` or `shasum -a 256`.
+It installs nothing when `checksums.txt` is missing, does not list the archive,
+or does not match, or when neither tool is available. Every CLI release
+publishes `checksums.txt`; there is no option to skip the check.
+
 ## MCP Runtime Endpoint Override
 
 `listmonk-mcp` supports runtime flags, so local Docker Listmonk is not required.
@@ -713,7 +734,7 @@ listmonk-cli bounces list --campaign-id 42 --source api \
   --order-by created_at --order desc
 listmonk-cli bounces get --id 7
 listmonk-cli bounces delete --id 7 --confirm
-listmonk-cli bounces subscriber --subscriber-id 7
+listmonk-cli bounces list-subscriber --subscriber-id 7
 listmonk-cli bounces delete-subscriber --subscriber-id 7 --confirm
 
 # Preview one bounded batch, then delete exactly the echoed ids.
