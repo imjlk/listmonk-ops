@@ -14,9 +14,9 @@
  * `./client/index.js` for a directory. `bundler` consumers resolve both forms.
  *
  * Runtime JavaScript is never touched; esbuild bundles it into self-contained
- * entry files. Declaration maps are left as emitted: specifiers only grow, so
- * no line moves and only mappings after a specifier on its own line, such as a
- * closing semicolon, shift. Declaration names keep their columns.
+ * entry files. Rewriting a specifier shifts generated columns in declaration
+ * maps, so the sourceMappingURL comments are removed. Published packages list
+ * JavaScript and declarations explicitly and omit the now-stale maps.
  */
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -265,8 +265,20 @@ export function resolveDeclarationSpecifier(
 export interface DeclarationRewrite {
 	text: string;
 	rewritten: number;
+	declarationMapReferenceRemoved: boolean;
 	/** Relative specifiers that name no emitted file. */
 	unresolved: string[];
+}
+
+function stripDeclarationMapReference(source: string): {
+	text: string;
+	removed: boolean;
+} {
+	const text = source.replace(
+		/(^|\r?\n)\/\/[#@] sourceMappingURL=[^\r\n]*\.d\.(?:[cm]?ts)\.map[ \t]*(?:\r?\n)?$/,
+		"$1",
+	);
+	return { text, removed: text !== source };
 }
 
 export function rewriteDeclarationSource(
@@ -296,7 +308,13 @@ export function rewriteDeclarationSource(
 		}
 	}
 	parts.push(source.slice(cursor));
-	return { text: parts.join(""), rewritten, unresolved };
+	const result = stripDeclarationMapReference(parts.join(""));
+	return {
+		text: result.text,
+		rewritten,
+		declarationMapReferenceRemoved: result.removed,
+		unresolved,
+	};
 }
 
 export function isFile(path: string): boolean {
@@ -323,12 +341,13 @@ export interface DirectoryRewrite {
 	files: number;
 	rewrittenFiles: number;
 	specifiers: number;
+	declarationMapReferencesRemoved: number;
 }
 
 /**
  * Rewrites the relative specifiers of every declaration file below a
- * directory in place. Nothing is written when any specifier names a file that
- * was not emitted.
+ * directory in place and strips references to stale declaration maps. Nothing
+ * is written when any specifier names a file that was not emitted.
  */
 export function rewriteDeclarationDirectory(
 	directory: string,
@@ -341,20 +360,25 @@ export function rewriteDeclarationDirectory(
 	const updates: Array<{ path: string; text: string }> = [];
 	const unresolved: string[] = [];
 	let specifiers = 0;
+	let rewrittenFiles = 0;
+	let declarationMapReferencesRemoved = 0;
 	for (const path of files) {
-		const result = rewriteDeclarationSource(
-			readFileSync(path, "utf8"),
-			path,
-			fileExists,
-		);
+		const source = readFileSync(path, "utf8");
+		const result = rewriteDeclarationSource(source, path, fileExists);
 		unresolved.push(
 			...result.unresolved.map(
 				(specifier) => `${relative(directory, path)}: "${specifier}"`,
 			),
 		);
-		if (result.rewritten > 0) {
+		if (result.text !== source) {
 			updates.push({ path, text: result.text });
+		}
+		if (result.rewritten > 0) {
+			rewrittenFiles += 1;
 			specifiers += result.rewritten;
+		}
+		if (result.declarationMapReferenceRemoved) {
+			declarationMapReferencesRemoved += 1;
 		}
 	}
 	if (unresolved.length > 0) {
@@ -365,7 +389,12 @@ export function rewriteDeclarationDirectory(
 	for (const { path, text } of updates) {
 		writeFileSync(path, text);
 	}
-	return { files: files.length, rewrittenFiles: updates.length, specifiers };
+	return {
+		files: files.length,
+		rewrittenFiles,
+		specifiers,
+		declarationMapReferencesRemoved,
+	};
 }
 
 if (import.meta.main) {
@@ -379,7 +408,7 @@ if (import.meta.main) {
 	for (const directory of directories) {
 		const result = rewriteDeclarationDirectory(resolve(directory));
 		console.log(
-			`[declarations] ${directory}: added extensions to ${result.specifiers} relative specifiers in ${result.rewrittenFiles} of ${result.files} declaration files`,
+			`[declarations] ${directory}: added extensions to ${result.specifiers} relative specifiers in ${result.rewrittenFiles} of ${result.files} declaration files; stripped ${result.declarationMapReferencesRemoved} stale map references`,
 		);
 	}
 }

@@ -29,6 +29,27 @@ function manifest(fields: Partial<WorkspaceManifest>): WorkspaceManifest {
 }
 
 describe("published exports maps", () => {
+	test("rewritten declarations are packaged without stale maps", () => {
+		const rewritten = [...readWorkspaces().values()].filter(({ manifest }) =>
+			(manifest.scripts?.build ?? "").includes(
+				"bun ../../scripts/rewrite-declaration-specifiers.ts dist",
+			),
+		);
+		expect(rewritten.map(({ manifest }) => manifest.name).sort()).toEqual([
+			"@listmonk-ops/abtest",
+			"@listmonk-ops/automation",
+			"@listmonk-ops/common",
+			"@listmonk-ops/openapi",
+			"@listmonk-ops/operations",
+		]);
+		for (const { manifest } of rewritten) {
+			expect(manifest.files?.filter((path) => path.startsWith("dist/"))).toEqual([
+				"dist/**/*.js",
+				"dist/**/*.d.ts",
+			]);
+		}
+	});
+
 	test("every published entry point resolves its declarations first", () => {
 		expect(published.flatMap((entry) => exportsMapProblems(entry))).toEqual(
 			[],

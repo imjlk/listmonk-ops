@@ -35,6 +35,7 @@ export interface WorkspaceManifest {
 	main?: string;
 	types?: string;
 	exports?: unknown;
+	files?: string[];
 	scripts?: Record<string, string>;
 	dependencies?: DependencyMap;
 	optionalDependencies?: DependencyMap;

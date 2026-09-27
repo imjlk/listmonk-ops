@@ -139,7 +139,12 @@ describe("declaration specifier resolution", () => {
 
 describe("declaration source rewriting", () => {
 	const declaration = join(DIST, "index.d.ts");
-	const exists = fileSet("client.d.ts", "generated/index.d.ts", "types.gen.d.ts");
+	const exists = fileSet(
+		"audience.d.ts",
+		"client.d.ts",
+		"generated/index.d.ts",
+		"types.gen.d.ts",
+	);
 
 	test("rewrites relative specifiers in place and preserves quotes", () => {
 		const source = [
@@ -178,6 +183,19 @@ describe("declaration source rewriting", () => {
 		);
 		expect(result.unresolved).toEqual(["./removed"]);
 	});
+
+	test("removes stale declaration map references", () => {
+		const result = rewriteDeclarationSource(
+			'export type Audience = import("./audience").Audience;\n//# sourceMappingURL=index.d.ts.map\n',
+			declaration,
+			exists,
+		);
+		expect(result.text).toBe(
+			'export type Audience = import("./audience.js").Audience;\n',
+		);
+		expect(result.rewritten).toBe(1);
+		expect(result.declarationMapReferenceRemoved).toBe(true);
+	});
 });
 
 describe("declaration directory rewriting", () => {
@@ -200,9 +218,11 @@ describe("declaration directory rewriting", () => {
 	test("rewrites every declaration file once and leaves other files", () => {
 		withDist(
 			{
-				"index.d.ts": 'export * from "./client";\nexport * from "./specs";\n',
+				"index.d.ts": 'export * from "./client";\nexport * from "./specs";\n//# sourceMappingURL=index.d.ts.map\n',
 				"index.js": 'export * from "./client";\n',
-				"client.d.ts": 'export type { Spec } from "./specs/spec";\n',
+				"client.d.ts": 'export type { Spec } from "./specs/spec";\n//# sourceMappingURL=client.d.ts.map\n',
+				"index.d.ts.map": "{}",
+				"client.d.ts.map": "{}",
 				"specs/index.d.ts": 'export * from "./spec";\n',
 				"specs/spec.d.ts": 'export type Spec = import("..").Client;\n',
 			},
@@ -211,11 +231,15 @@ describe("declaration directory rewriting", () => {
 					files: 4,
 					rewrittenFiles: 4,
 					specifiers: 5,
+					declarationMapReferencesRemoved: 2,
 				});
 				const read = (path: string) =>
 					readFileSync(join(directory, path), "utf8");
 				expect(read("index.d.ts")).toBe(
 					'export * from "./client.js";\nexport * from "./specs/index.js";\n',
+				);
+				expect(read("client.d.ts")).toBe(
+					'export type { Spec } from "./specs/spec.js";\n',
 				);
 				expect(read("specs/spec.d.ts")).toBe(
 					'export type Spec = import("../index.js").Client;\n',
@@ -226,6 +250,7 @@ describe("declaration directory rewriting", () => {
 					files: 4,
 					rewrittenFiles: 0,
 					specifiers: 0,
+					declarationMapReferencesRemoved: 0,
 				});
 			},
 		);

@@ -24,7 +24,8 @@
 		}
 	},
 	"files": [
-		"dist",
+		"dist/**/*.js",
+		"dist/**/*.d.ts",
 		"generated/specs/*.md",
 		"generated/specs/operations-spec.json",
 		"README.md"
