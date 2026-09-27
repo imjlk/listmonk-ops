@@ -1724,6 +1724,11 @@ describe("template registry active version", () => {
 		holdFirstRead = true;
 		const sync = syncTemplateRegistry(client, { templateIds: [45, 46] });
 		await firstReadRequested;
+		const registry = JSON.parse(
+			await readFile(templateStorePath, "utf8"),
+		) as { captureSequence: number };
+		registry.captureSequence = 10;
+		await writeFile(templateStorePath, `${JSON.stringify(registry)}\n`, "utf8");
 		await promoteTemplateVersion(client, 46, previousVersion);
 		remote.get(46)!.name = "After promotion edit";
 		remote.get(46)!.body = "<p>v3</p>";
@@ -1738,17 +1743,17 @@ describe("template registry active version", () => {
 		expect(history.versions.map((version) => version.captureOrder)).toEqual([
 			1,
 			2,
-			4,
+			11,
 		]);
 		const store = JSON.parse(await readFile(templateStorePath, "utf8")) as {
 			captureSequence: number;
 		};
 		expect(registrySequenceAtRead).toBe(2);
-		expect(store.captureSequence).toBe(4);
+		expect(store.captureSequence).toBe(11);
 		const sequenceStore = JSON.parse(
 			await readFile(`${templateStorePath}.capture-sequence.json`, "utf8"),
 		) as { captureSequence: number };
-		expect(sequenceStore.captureSequence).toBe(4);
+		expect(sequenceStore.captureSequence).toBe(11);
 		const activeVersion = history.versions.find(
 			(version) => version.versionId === history.activeVersionId,
 		);

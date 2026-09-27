@@ -180,11 +180,7 @@ function migrateLegacyTemplateCaptureOrders(
 	const legacyVersions = records
 		.flatMap((record) => record.versions)
 		.filter((version) => version.captureOrder === undefined)
-		.sort(
-			(left, right) =>
-				left.capturedAt.localeCompare(right.capturedAt) ||
-				left.versionId.localeCompare(right.versionId),
-		);
+		.sort(compareTemplateVersions);
 	if (legacyVersions.length === 0) {
 		return;
 	}
@@ -195,12 +191,7 @@ function migrateLegacyTemplateCaptureOrders(
 	const ordered = records
 		.flatMap((record) => record.versions)
 		.filter((version) => version.captureOrder !== undefined)
-		.sort(
-			(left, right) =>
-				(left.captureOrder ?? 0) - (right.captureOrder ?? 0) ||
-				left.capturedAt.localeCompare(right.capturedAt) ||
-				left.versionId.localeCompare(right.versionId),
-		);
+		.sort(compareTemplateVersions);
 	for (const version of legacyVersions) {
 		const nextVersionIndex = ordered.findIndex(
 			(candidate) =>
@@ -642,9 +633,9 @@ async function captureTemplateRegistry(
 				createTemplateCaptureReadLockStore(storeDefinition, templateId),
 				async (lockState) => {
 					let stamp = await reserveTemplateCaptureRead(
-					sequenceStore,
-					captureSequenceHighWater,
-				);
+						sequenceStore,
+						captureSequenceHighWater,
+					);
 					const latestRegistry = await readJsonFileStore(storeDefinition);
 					const latestCaptureSequence =
 						getTemplateRegistryCaptureSequenceHighWater(latestRegistry);
