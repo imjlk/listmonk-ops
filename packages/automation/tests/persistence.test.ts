@@ -2547,6 +2547,53 @@ describe("template registry active version", () => {
 		expect(remote.writes).toEqual(["<p>v1</p>"]);
 	});
 
+	test("matches a remote-hash pin from history against Listmonk's stored rewrite", async () => {
+		await useTemporaryStores();
+		const { remote, client } = createListmonkTemplateRemote(34, "<p>v1</p>");
+		// Captured by an older Listmonk that kept campaign-template subjects.
+		remote.subject = "Legacy one";
+		await syncTemplateRegistry(client, { templateIds: [34] });
+		remote.subject = "Legacy two";
+		await editAndSync(remote, client, 34, "<p>v2</p>");
+		remote.subject = "Legacy three";
+		await editAndSync(remote, client, 34, "<p>v3</p>");
+		const [v1, v2] = (await getTemplateRegistryHistory(34)).versions;
+		if (!v1 || !v2) {
+			throw new Error("Expected three stored versions");
+		}
+
+		// Rolling back writes v2, and Listmonk stores the name as its subject,
+		// so the live hash is no longer v2's stored hash...
+		expect((await rollbackTemplateVersion(client, 34)).versionId).toBe(
+			v2.versionId,
+		);
+		expect(remote.subject).toBe(remote.name);
+
+		// ...yet a pin taken from history for the version believed live still
+		// matches the untouched template, on rollback and on promotion.
+		expect(
+			await rollbackTemplateVersion(client, 34, {
+				expectedRemoteHash: v2.hash,
+			}),
+		).toMatchObject({ versionId: v1.versionId, rolledBack: true });
+		expect(
+			await promoteTemplateVersion(client, 34, v2.versionId, {
+				expectedRemoteHash: v1.hash,
+			}),
+		).toMatchObject({ promoted: true });
+
+		// A real change still conflicts with the same kind of pin.
+		remote.body = "<p>edited</p>";
+		await expect(
+			promoteTemplateVersion(client, 34, v1.versionId, {
+				expectedRemoteHash: v2.hash,
+			}),
+		).rejects.toThrow(/remote hash mismatch/);
+		await expect(
+			rollbackTemplateVersion(client, 34, { expectedRemoteHash: v2.hash }),
+		).rejects.toThrow(/remote hash mismatch/);
+	});
+
 	test("refuses to write a version whose missing body_source Listmonk would keep", async () => {
 		await useTemporaryStores();
 		const { remote, client } = createListmonkTemplateRemote(32, "<p>v1</p>");
