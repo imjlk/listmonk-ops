@@ -33,6 +33,11 @@ describe("MCP Server Integration", () => {
 		expect(toolNames).toContain("listmonk_create_subscriber");
 		expect(toolNames).toContain("listmonk_update_subscriber");
 		expect(toolNames).toContain("listmonk_delete_subscriber");
+		expect(toolNames).toContain("listmonk_blocklist_subscribers");
+		expect(toolNames).toContain("listmonk_send_optin");
+		expect(toolNames).not.toContain("listmonk_delete_subscribers_by_query");
+		expect(toolNames).not.toContain("listmonk_blocklist_subscribers_by_query");
+		expect(toolNames).not.toContain("listmonk_send_subscriber_optin");
 
 		// Template tools
 		expect(toolNames).toContain("listmonk_get_templates");
@@ -44,7 +49,7 @@ describe("MCP Server Integration", () => {
 		// Settings tools
 		expect(toolNames).toContain("listmonk_health_check");
 		expect(toolNames).toContain("listmonk_get_settings");
-		expect(toolNames).toContain("listmonk_update_settings");
+		expect(toolNames).not.toContain("listmonk_update_settings");
 		expect(toolNames).toContain("listmonk_get_dashboard_counts");
 		expect(toolNames).toContain("listmonk_get_dashboard_charts");
 		expect(toolNames).toContain("listmonk_get_logs");
