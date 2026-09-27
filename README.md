@@ -79,6 +79,11 @@ CLI/OpenAPI client use token-based auth:
 export LISTMONK_API_URL="http://localhost:9000/api"
 export LISTMONK_USERNAME="api-admin"
 export LISTMONK_API_TOKEN="<your-token>"
+# Optional: per-attempt request deadline in ms (1-2147483647, default 30000).
+# It covers the response body, so a stalled download fails instead of hanging.
+export LISTMONK_TIMEOUT="30000"
+# Optional: retries for idempotent reads after 5xx/network errors (0-10, default 3)
+export LISTMONK_RETRIES="3"
 # Optional: suppress A/B statistical console logs in automation
 export LISTMONK_OPS_ABTEST_SILENT="1"
 # Optional: override shared CLI/MCP state files
@@ -109,6 +114,13 @@ export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
 
 You can create/manage tokens in the Listmonk admin UI.
+
+`LISTMONK_TIMEOUT` and `LISTMONK_RETRIES` apply to both the CLI and the MCP
+server and are validated strictly: values such as `30s` or `abc` fail with an
+error that names the variable instead of silently disabling requests. Writes
+(`POST`/`PUT`/`PATCH`/`DELETE`) are never retried and never follow redirects,
+so point `LISTMONK_API_URL` at the final Listmonk origin rather than at a
+redirecting proxy.
 
 ### Declarative template provisioning
 

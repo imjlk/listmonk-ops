@@ -72,8 +72,7 @@ describe("bounded Listmonk readiness probes", () => {
 				url: "https://example.test/api/about", kind: "authentication", timeoutMs: 100,
 				fetch: async () => new Response(body),
 			});
-			expect(result.state).not.toBe("ok");
-			expect(result.http_status).toBe(200);
+			expect(result).toEqual({ state: "invalid_response", http_status: 200 });
 		}
 	});
 

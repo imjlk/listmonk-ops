@@ -4,6 +4,7 @@ import {
 	configToHeaders,
 	createConfig,
 	type ListmonkConfig,
+	resolveListmonkTransportOptions,
 	validateConfig,
 } from "../config";
 import type {
@@ -34,8 +35,6 @@ import {
 import {
 	createHealthCheckUrl,
 	createResilientFetch,
-	DEFAULT_RETRIES,
-	DEFAULT_TIMEOUT_MS,
 	type FetchFn,
 } from "./transport";
 
@@ -52,11 +51,12 @@ function createResolvedClientConfiguration(options: {
 	timeout?: number;
 	retries?: number;
 }): ResolvedClientConfiguration {
+	const transport = resolveListmonkTransportOptions(options);
 	return {
 		baseUrl: options.baseUrl,
 		headers: options.headers,
-		timeout: options.timeout ?? DEFAULT_TIMEOUT_MS,
-		retries: options.retries ?? DEFAULT_RETRIES,
+		timeout: transport.timeout,
+		retries: transport.retries,
 	};
 }
 

@@ -23,6 +23,7 @@ import {
 	createClient,
 	createListmonkClient,
 	createListmonkClientFromEnv,
+	ListmonkRedirectError,
 	transformResponse,
 } from "./src/client/index";
 
@@ -38,6 +39,7 @@ export {
 	createClient,
 	createListmonkClient,
 	createListmonkClientFromEnv,
+	ListmonkRedirectError,
 	transformResponse,
 };
 
