@@ -683,7 +683,8 @@ async function loadCampaignForWrite(
  * every attachment, and omitted `attribs` overwrite the stored ones. Carry
  * the stored values forward unless the caller sets them. Pass `stored` when
  * the caller already read the campaign, so the body is built from the same
- * snapshot its checks validated.
+ * snapshot its checks validated; a snapshot whose `id` is missing or differs
+ * from `id` is rejected rather than written onto another campaign.
  */
 export async function buildCampaignUpdateBody(
 	client: Pick<ListmonkClient, "campaign">,
@@ -691,9 +692,9 @@ export async function buildCampaignUpdateBody(
 	changes: Omit<z.output<typeof updateCampaignInputSchema>, "id">,
 	stored?: z.output<typeof campaignSchema>,
 ): Promise<CampaignUpdateBody> {
-	if (stored?.id !== undefined && stored.id !== id) {
+	if (stored !== undefined && stored.id !== id) {
 		throw new Error(
-			`Campaign snapshot mismatch: the stored snapshot is for campaign ${stored.id}, but the update targets campaign ${id}`,
+			`Campaign snapshot mismatch: the stored snapshot is for campaign ${stored.id ?? "<missing id>"}, but the update targets campaign ${id}`,
 		);
 	}
 	const current =
