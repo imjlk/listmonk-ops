@@ -1,6 +1,12 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { formatListmonkErrorResponse } from "./listmonk-errors";
 import type { AbTest } from "./types";
+import {
+	describeRetainedTemporaryList,
+	propagateTemporaryListsOptOuts,
+	resolveOptOutSourceListIds,
+	type TemporaryListOptOutPropagation,
+} from "./unsubscribe-propagation";
 
 /**
  * Lifecycle planning and execution for A/B test cancellation and cleanup.
@@ -25,7 +31,10 @@ import type { AbTest } from "./types";
  *
  * Temporary lists are only deleted once no remaining backing campaign
  * references them, so an in-flight or partially-failed cancel cannot detach
- * a list a still-running campaign needs.
+ * a list a still-running campaign needs. Before a list is deleted, its
+ * unsubscribed memberships are carried to the test's source lists (see
+ * `unsubscribe-propagation.ts`); a list whose opt-outs cannot be carried is
+ * kept.
  *
  * Campaign names are never overwritten. The previous code renamed every
  * campaign to the same `A/B Test Completed - ...` string, which destroyed
@@ -55,6 +64,12 @@ export interface CancelPlan {
 	 * campaign IDs, not list IDs.
 	 */
 	campaignsBlockingListDeletion: number[];
+	/**
+	 * Source audience lists that receive a temporary list's opt-outs before
+	 * the list is deleted. A plan without them keeps every temporary list
+	 * that holds opt-outs.
+	 */
+	optOutSourceListIds?: number[];
 }
 
 export interface CancelExecutionResult {
@@ -100,6 +115,12 @@ export interface CancelExecutionResult {
 	 * "stop is not authoritative".
 	 */
 	hadFetchFailures: boolean;
+	/**
+	 * Opt-out propagation for every list the plan was cleared to delete. A
+	 * list whose opt-outs could not be carried to the source lists is kept
+	 * and reported as a `failed` list result.
+	 */
+	optOutPropagation: TemporaryListOptOutPropagation[];
 }
 
 export interface PlanCancelOptions {
@@ -244,6 +265,7 @@ export function planCancelAbTest(
 		campaignActions,
 		listActions,
 		campaignsBlockingListDeletion: survivingCampaignIds,
+		optOutSourceListIds: resolveOptOutSourceListIds(test),
 	};
 }
 
@@ -269,8 +291,9 @@ export function errorEnvelopeMessage(response: unknown): string | undefined {
 
 /**
  * Whether a fetch error should be treated as "resource already gone"
- * (idempotent success). Listmonk returns 404 with a JSON body for missing
- * campaigns and lists.
+ * (idempotent success). Listmonk 6.2 answers a missing campaign or list
+ * with HTTP 400 and a "Campaign not found" / "List not found" body (see
+ * {@link isListmonkNotFoundAnswer}); a 404 is also accepted.
  *
  * Prefers the structured HTTP status carried by OpenAPI client errors
  * (their `response.status`); falls back to the error message text only when
@@ -283,7 +306,7 @@ export function isNotFoundError(error: unknown): boolean {
 		if (response && typeof response === "object" && "status" in response) {
 			const status = (response as { status?: unknown }).status;
 			if (typeof status === "number") {
-				return status === 404;
+				return status === 404 || isListmonkNotFoundAnswer(error);
 			}
 		}
 	}
@@ -305,12 +328,47 @@ export function isNotFoundError(error: unknown): boolean {
 }
 
 /**
+ * Whether a client error envelope is Listmonk 6.2's answer for a campaign
+ * or list that no longer exists: HTTP 400 with the body
+ * `{"message": "Campaign not found"}` or `"List not found"` (probed on
+ * 6.2.0; Listmonk uses 404 only for media). Any other 400, such as
+ * "Only active campaigns can be cancelled", is a real failure. A cleanup
+ * retry needs this to step past campaigns an earlier attempt deleted.
+ */
+export function isListmonkNotFoundAnswer(response: unknown): boolean {
+	if (response === null || typeof response !== "object") {
+		return false;
+	}
+	const httpResponse = (response as { response?: unknown }).response;
+	const status =
+		httpResponse !== null && typeof httpResponse === "object"
+			? (httpResponse as { status?: unknown }).status
+			: undefined;
+	if (status !== 400) {
+		return false;
+	}
+	const body = (response as { error?: unknown }).error;
+	let message = "";
+	if (typeof body === "string") {
+		message = body;
+	} else if (
+		body !== null &&
+		typeof body === "object" &&
+		typeof (body as { message?: unknown }).message === "string"
+	) {
+		message = (body as { message: string }).message;
+	}
+	return /^(?:campaign|list) not found\.?$/i.test(message.trim());
+}
+
+/**
  * Execute a cancel plan against Listmonk. Each campaign and list action is
  * attempted independently; a single failure does not abort the rest, but it
  * is recorded in the result so the caller can decide whether to retry or
  * mark the test as reconcile-required.
  *
- * Lists are only deleted when no surviving campaign still references them.
+ * Lists are only deleted when no surviving campaign still references them
+ * and their opt-outs are confirmed on the plan's source lists.
  */
 export async function executeCancelPlan(
 	client: ListmonkClient,
@@ -400,6 +458,18 @@ export async function executeCancelPlan(
 	}
 
 	const anySurvivingReference = survivingListReferences.size > 0;
+	// Deleting a list erases its unsubscribed memberships, so carry them to
+	// the source lists first; a list whose opt-outs are not confirmed there
+	// is kept and reported as failed so the stop can be retried.
+	const optOutPropagation = anySurvivingReference
+		? []
+		: await propagateTemporaryListsOptOuts(client, {
+				listIds: plan.listActions.map((action) => action.listId),
+				sourceListIds: plan.optOutSourceListIds ?? [],
+			});
+	const propagationByListId = new Map(
+		optOutPropagation.map((propagation) => [propagation.listId, propagation]),
+	);
 	const listResults: CancelExecutionResult["listResults"] = await Promise.all(
 		plan.listActions.map(async (action) => {
 			// If any campaign survived (left, unobservable, or failed to
@@ -410,6 +480,17 @@ export async function executeCancelPlan(
 					listId: action.listId,
 					outcome: "skipped_active_reference" as const,
 					detail: "one or more campaigns survived cancel; list retained",
+				};
+			}
+			const propagation = propagationByListId.get(action.listId);
+			if (propagation?.safeToDelete !== true) {
+				return {
+					listId: action.listId,
+					outcome: "failed" as const,
+					detail:
+						propagation === undefined
+							? `temporary list ${action.listId} kept: its opt-outs were not checked`
+							: describeRetainedTemporaryList(propagation),
 				};
 			}
 			try {
@@ -469,6 +550,7 @@ export async function executeCancelPlan(
 		hadFailures,
 		// executeCancelPlan does not fetch statuses; only cancelAbTest does.
 		hadFetchFailures: false,
+		optOutPropagation,
 	};
 }
 

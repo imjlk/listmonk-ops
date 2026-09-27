@@ -10,7 +10,7 @@ Advanced A/B testing capabilities for Listmonk email campaigns with statistical 
 - **Statistical Analysis**: Z-test based significance testing with confidence intervals
 - **Automated Winner Deployment**: Automatic deployment of winning variant to holdout group
 - **Real-time Results**: Live campaign performance tracking and analysis
-- **Resource Management**: Automatic cleanup of temporary lists and campaign tagging
+- **Resource Management**: Automatic cleanup of temporary lists and campaign tagging, carrying recipients' opt-outs to the source lists before a temporary list is deleted
 
 ## Installation
 
@@ -690,6 +690,64 @@ planning documents and are the reason some planned behavior had to change.
   (`POST /campaigns/{id}/test`), not general audience targeting. General
   campaigns target lists via `lists`. This package does not implement direct
   subscriber-UUID targeting through `subscribers`.
+
+### Unsubscribes and temporary lists
+
+- The public unsubscribe link
+  (`POST /subscription/{campaignUUID}/{subscriberUUID}`) runs
+  `unsubscribe-by-campaign`, which marks the membership `unsubscribed` only
+  on the campaign's lists. Variant and winner campaigns target temporary
+  private lists, so the recipient stays subscribed to the source lists, and
+  private lists are not shown on the subscription preferences page.
+- `DELETE /lists/{id}` cascades the list's memberships, erasing those
+  opt-outs, and clears the list from campaigns that referenced it, so their
+  unsubscribe links stop recording anything.
+- `GET /subscribers?list_id=<id>&subscription_status=unsubscribed` returns
+  the subscribers whose membership on that list is unsubscribed, with every
+  membership (`id`, `subscription_status`) in `lists`. For an API user
+  without access to the list, Listmonk replaces the filter with the user's
+  other lists, or with none, instead of rejecting it. Cleanup first reads the
+  list itself: an already-missing list is treated as cleaned, while a
+  permission or other read failure keeps it before any subscriber scan. The
+  handwritten client exposes `subscriber.listRaw` for callers that need to
+  validate the original pagination fields before tolerant list normalization.
+- `PUT /subscribers/lists` with `action: "unsubscribe"` updates only
+  existing memberships, answers `true` even when nothing changed, and
+  silently skips target lists the API user cannot manage (it is rejected
+  only when the user may manage none of them).
+- A deleted campaign answers `GET`, `DELETE`, and status updates with HTTP
+  400 and `{"message": "Campaign not found"}`, and a deleted list answers
+  `GET` with `"List not found"`, not 404; deleting an already-deleted list
+  returns `{"data": true}`.
+
+Before a temporary variant or holdout list is deleted (stop, delete,
+provisioning rollback, `cleanupHoldoutTest`, `cleanup`), its opt-outs are
+carried to the test's source lists: the audience snapshot's list ids plus
+`baseConfig.lists`. `propagateTemporaryListOptOuts` pages the list's
+unsubscribed members and fails closed unless every row carries that
+membership, unsubscribes them from the source lists they still belong to,
+and re-reads to confirm. It reports `safeToDelete: false` with a reason
+when a read, write, or confirmation fails, or when the test records no
+source lists, and the caller keeps the list because it is the only record
+of those opt-outs. Stop then fails as non-authoritative and names each kept
+list, delete throws and keeps the local record, a rollback leaves the list
+out of `deletedListIds`, and `cleanupHoldoutTest`/`cleanup` return every
+list's result (pass `options.sourceListIds`; without it, a list holding
+opt-outs is kept). Re-running any of them is safe: already
+unsubscribed memberships are skipped, and campaigns an earlier attempt
+deleted are recognized by the 400 answer above.
+
+The CLI, MCP, and `createTest` all require at least one source list, so a
+test without one only comes from a malformed or externally edited record.
+Its opt-outs are not guessed onto every list the subscriber belongs to, or
+turned into a blocklist entry, because either would unsubscribe people
+from lists they never opted out of; the list is kept for an operator.
+
+Lists that are not deleted keep their opt-outs without copying them: a
+completed test keeps its lists, and a stop keeps them while a cancelled or
+finished campaign still references them. Carry those opt-outs over, for
+example with `propagateTemporaryListOptOuts`, before removing such a list
+by hand.
 
 ## Deterministic provisioning (stage 2)
 

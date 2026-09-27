@@ -14,6 +14,7 @@ import {
 	SqliteConversionEventStore,
 } from "./conversion-events";
 import { cancelAbTest } from "./lifecycle";
+import { describeRetainedTemporaryList } from "./unsubscribe-propagation";
 import { AbTestNotFoundError } from "./errors";
 import type {
 	AbTest,
@@ -186,6 +187,13 @@ export function createAbTestExecutors(
 			}
 			if (result.hadFetchFailures) {
 				reasons.push("campaign status could not be verified");
+			}
+			// Name the temporary lists kept because their opt-outs could not
+			// be carried to the source lists, so the operator knows why.
+			for (const propagation of result.optOutPropagation) {
+				if (!propagation.safeToDelete) {
+					reasons.push(describeRetainedTemporaryList(propagation));
+				}
 			}
 			throw new Error(
 				`A/B test ${testId} stop is non-authoritative: ${reasons.join("; ")}; inspect remote resources before retrying`,

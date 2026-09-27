@@ -1,5 +1,6 @@
 import { generateAssignmentSeed } from "./assignment";
 import { createHash } from "node:crypto";
+import { resolveOptOutSourceListIds } from "./unsubscribe-propagation";
 import type {
 	ListmonkAbTestIntegration,
 	ProvisionedAbTestResources,
@@ -731,6 +732,7 @@ export class AbTestService {
 				testId: test.id,
 				campaignIds: [],
 				testListIds: [],
+				sourceListIds: resolveOptOutSourceListIds(test),
 			};
 
 			try {
@@ -985,6 +987,9 @@ export class AbTestService {
 						: []),
 				],
 				listIds,
+				// Opt-outs recorded on the temporary lists are carried here
+				// before the lists are deleted.
+				sourceListIds: resolveOptOutSourceListIds(test),
 			});
 		}
 

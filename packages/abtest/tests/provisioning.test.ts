@@ -316,10 +316,18 @@ describe("deleteTestResources retry safety", () => {
 				},
 			},
 			list: {
+				getById: async ({ path }: { path: { list_id: number } }) => ({
+					data: { id: path.list_id },
+				}),
 				delete: async ({ path }: { path: { list_id: number } }) => {
 					deletedLists.push(path.list_id);
 					return { data: true };
 				},
+			},
+			// No subscriber unsubscribed from either temporary list.
+			subscriber: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+				listRaw: async () => ({ data: { results: [], total: 0 } }),
 			},
 		} as unknown as ListmonkClient;
 
@@ -361,6 +369,67 @@ describe("deleteTestResources retry safety", () => {
 
 		expect(transitions).toEqual([{ id: 3, status: "cancelled" }]);
 		expect(deletedCampaigns).toEqual([3]);
+	});
+
+	test("steps past campaigns Listmonk 6.2 reports as not found with HTTP 400", async () => {
+		// A retry after an earlier attempt deleted the campaigns: Listmonk 6.2
+		// answers the fetch with 400 "Campaign not found", not 404.
+		const deletedLists: number[] = [];
+		const client = {
+			campaign: {
+				getById: async () => ({
+					error: { message: "Campaign not found" },
+					response: { status: 400 },
+				}),
+				delete: async () => {
+					throw new Error("an already-deleted campaign must not be deleted");
+				},
+			},
+			list: {
+				getById: async ({ path }: { path: { list_id: number } }) => ({
+					data: { id: path.list_id },
+				}),
+				delete: async ({ path }: { path: { list_id: number } }) => {
+					deletedLists.push(path.list_id);
+					return { data: true };
+				},
+			},
+			subscriber: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+				listRaw: async () => ({ data: { results: [], total: 0 } }),
+			},
+		} as unknown as ListmonkClient;
+
+		await new ListmonkAbTestIntegration(client).deleteTestResources({
+			campaignIds: [1, 2],
+			listIds: [10, 11],
+		});
+
+		expect(deletedLists).toEqual([11, 10]);
+	});
+
+	test("still fails on other HTTP 400 answers to the campaign fetch", async () => {
+		const deleteList = mock(async () => ({ data: true }));
+		const client = {
+			campaign: {
+				getById: async () => ({
+					error: { message: "Invalid campaign ID" },
+					response: { status: 400 },
+				}),
+			},
+			list: { delete: deleteList },
+			subscriber: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+			},
+		} as unknown as ListmonkClient;
+
+		await expect(
+			new ListmonkAbTestIntegration(client).deleteTestResources({
+				campaignIds: [1],
+				listIds: [10],
+			}),
+		).rejects.toThrow("Failed to fetch campaign 1");
+		expect(deleteList).not.toHaveBeenCalled();
 	});
 });
 

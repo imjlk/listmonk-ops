@@ -18,6 +18,17 @@ export type { AbTestExecutors } from "./factory";
 // Export factory function
 export { createAbTestExecutors } from "./factory";
 export { ListmonkAbTestIntegration } from "./listmonk-integration";
+// Every cleanup path carries opt-outs recorded on a temporary A/B list to the
+// test's source lists before deleting the list; these are the building blocks.
+export {
+	propagateTemporaryListOptOuts,
+	propagateTemporaryListsOptOuts,
+	readTemporaryListOptOuts,
+	resolveOptOutSourceListIds,
+	type TemporaryListOptOut,
+	type TemporaryListOptOutPropagation,
+	type TemporaryListOptOutPropagationStatus,
+} from "./unsubscribe-propagation";
 // Export the fail-closed metrics error so consumers can catch it with
 // instanceof when getTestResults/analyzeAbTest cannot reach Listmonk.
 export {

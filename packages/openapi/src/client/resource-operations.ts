@@ -97,6 +97,12 @@ export function createSubscriberOperations(
 			},
 			sdkOptions,
 		),
+		async listRaw(
+			options?: Omit<t.GetSubscribersData, "url" | "body" | "path">,
+		) {
+			const result = await getSubscribers({ ...sdkOptions, ...options });
+			return (await transformResponse(result)) as CrudResult<unknown>;
+		},
 		async patch(options: Omit<t.PatchSubscriberByIdData, "url">) {
 			const result = await patchSubscriberById({ ...sdkOptions, ...options });
 			return (await transformResponse(result)) as CrudResult<Subscriber>;
