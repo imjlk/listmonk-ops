@@ -169,14 +169,20 @@ export interface CampaignOperations
 	preview(options: {
 		path: { id: number };
 	}): Promise<FlattenedResponse<string>>;
-	updatePreview(options: {
-		path: { id: number };
-		body: { template_id?: number; body?: string };
-	}): Promise<FlattenedResponse<boolean>>;
-	previewText(options: {
-		path: { id: number };
-		body: { template_id?: number; body?: string };
-	}): Promise<FlattenedResponse<string>>;
+	/**
+	 * Renders the campaign with the submitted fields instead of the stored
+	 * ones and resolves to the rendered body. Nothing is saved.
+	 */
+	updatePreview(
+		options: CampaignPreviewParams,
+	): Promise<FlattenedResponse<string>>;
+	/**
+	 * Same Listmonk 6.2 handler as `updatePreview`; the body is plain text
+	 * only when `content_type` is `plain`.
+	 */
+	previewText(
+		options: CampaignPreviewParams,
+	): Promise<FlattenedResponse<string>>;
 	updateStatus(options: {
 		path: { id: number };
 		body: { status: CampaignStatusTransition };
@@ -288,6 +294,31 @@ export type CampaignArchiveEcho = NonNullable<
 export type CampaignTestParams = Omit<t.TestCampaignByIdData, "url"> & {
 	body: Omit<t.TestCampaignByIdData["body"], "subscribers"> & {
 		subscribers: string[];
+	};
+};
+
+/**
+ * Form fields that the Listmonk 6.2 preview handler reads with
+ * `c.FormValue` on `POST /campaigns/{id}/preview` and `/text`. The
+ * generated calls send them form-urlencoded; a JSON body would be ignored.
+ * The render uses these in place of the stored body and content type even
+ * when they are omitted; nothing is saved.
+ */
+export type CampaignPreviewParams = {
+	path: { id: number };
+	body: {
+		/** Content to render; omitting it renders an empty body. */
+		body?: string;
+		/**
+		 * Format of `body`. When omitted, markdown is not converted and
+		 * plain text is served as HTML.
+		 */
+		content_type?: NonNullable<t.Campaign["content_type"]>;
+		/**
+		 * Template to render with. Omitted or below 1 uses the campaign's
+		 * template; visual content ignores it.
+		 */
+		template_id?: number;
 	};
 };
 
