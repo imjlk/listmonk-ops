@@ -104,7 +104,7 @@ const optionalBooleanSchema = z.preprocess((value) => {
 const contentOverridesSchema = z.object({
 	subject: z.string().optional(),
 	body: z.string().optional(),
-	sendTime: z.string().datetime().optional(),
+	sendTime: z.iso.datetime().optional(),
 	senderName: z.string().optional(),
 	senderEmail: z.string().optional(),
 });
@@ -157,8 +157,8 @@ const abTestSchema = z.object({
 	status: abTestStatusSchema,
 	metrics: z.array(metricSchema),
 	winnerVariantId: z.string().optional(),
-	createdAt: z.string().datetime(),
-	updatedAt: z.string().datetime(),
+	createdAt: z.iso.datetime(),
+	updatedAt: z.iso.datetime(),
 	baseConfig: z.object({
 		subject: z.string(),
 		body: z.string(),
@@ -204,9 +204,9 @@ const abTestSchema = z.object({
 	assignmentManifest: assignmentManifestSchema.optional(),
 	// Stage 3 orchestration fields.
 		durationHours: z.number().positive().optional(),
-		launchAt: z.string().datetime().optional(),
-		startedAt: z.string().datetime().optional(),
-		endsAt: z.string().datetime().optional(),
+		launchAt: z.iso.datetime().optional(),
+		startedAt: z.iso.datetime().optional(),
+		endsAt: z.iso.datetime().optional(),
 		minimumTestSampleSize: z.number().int().positive().optional(),
 		assignmentProvenance: z
 			.enum(["manifest_v1", "legacy_unavailable"])
@@ -371,7 +371,7 @@ const createAbTestInputSchema = z.object({
 			.number()
 			.positive("duration_hours must be greater than 0"),
 	),
-	launch_at: z.string().datetime().optional(),
+	launch_at: z.iso.datetime().optional(),
 	auto_launch: optionalBooleanSchema,
 	auto_deploy_winner: optionalBooleanSchema,
 	ignore_sample_size_warnings: optionalBooleanSchema,
@@ -650,7 +650,7 @@ const recordAbTestConversionInputObjectSchema = z.object({
 	event: z.string().trim().min(1),
 	value: z.number().nonnegative().optional(),
 	currency: z.string().regex(/^[A-Z]{3}$/).optional(),
-	occurred_at: z.string().datetime({ offset: true }),
+	occurred_at: z.iso.datetime({ offset: true }),
 });
 
 const recordAbTestConversionInputSchema = recordAbTestConversionInputObjectSchema.superRefine(
