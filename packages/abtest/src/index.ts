@@ -5,7 +5,11 @@ export {
 	resolveWinnerDeployment,
 	WINNER_DEPLOYMENT_STATUSES,
 } from "./abtest-service";
-export { AbTestInvalidStatusError } from "./errors";
+export {
+	AbTestCleanupError,
+	AbTestInvalidStatusError,
+	AbTestOptOutProgressError,
+} from "./errors";
 // Export command classes
 export {
 	AnalyzeAbTestCommand,

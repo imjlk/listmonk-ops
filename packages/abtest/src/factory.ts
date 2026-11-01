@@ -23,7 +23,7 @@ import {
 	syncAbTestOptOuts,
 	type AbTestOptOutSyncResult,
 } from "./optout-sync";
-import { AbTestNotFoundError } from "./errors";
+import { AbTestNotFoundError, AbTestOptOutProgressError } from "./errors";
 import type {
 	AbTest,
 	AbTestQueryParams,
@@ -176,7 +176,8 @@ export function createAbTestExecutors(
 		// and ignored remote status.
 		const result = await cancelAbTest(listmonkClient, test);
 		// Record what the stop carried, and the lists it deleted, so later
-		// syncs skip both. A stop that throws below commits none of it.
+		// syncs skip both. A stop that fails below keeps this record: it
+		// throws AbTestOptOutProgressError, which a stored write commits.
 		recordTemporaryListOptOutPropagation(test, {
 			propagations: result.optOutPropagation,
 			removedListIds: result.listResults
@@ -222,7 +223,7 @@ export function createAbTestExecutors(
 					reasons.push(describeRetainedTemporaryList(propagation));
 				}
 			}
-			throw new Error(
+			throw new AbTestOptOutProgressError(
 				`A/B test ${testId} stop is non-authoritative: ${reasons.join("; ")}; inspect remote resources before retrying`,
 			);
 		}

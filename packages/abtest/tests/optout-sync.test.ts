@@ -7,6 +7,7 @@ import {
 	invokeDeleteAbTestOperation,
 	invokeGetAbTestOperation,
 	invokeListAbTestsOperation,
+	invokeStopAbTestOperation,
 	invokeTickAbTestsOperation,
 } from "../src/operations";
 import {
@@ -563,6 +564,113 @@ describe("deleting a terminal test carries its opt-outs and keeps tracking its l
 			[202, "missing"],
 		]);
 		expect(await loadStoredAbTests(storePath)).toEqual([]);
+	});
+});
+
+describe("a failed stop or delete keeps the opt-outs it carried", () => {
+	/**
+	 * Both variants were scheduled, so a stop or delete removes their
+	 * campaigns. Variant B's list holds two opt-outs: subscriber 15 (source
+	 * list 1 only) is carried, but subscriber 14 also belongs to source list
+	 * 2, which the API user cannot manage, so the list is kept and the
+	 * attempt fails.
+	 */
+	function seedPartialFailure(status: "scheduled" | "completed") {
+		const fake = createFakeListmonk({ unmanageableListIds: [SOURCE_B] });
+		fake.addLists(SOURCE_A, SOURCE_B, 200, 201, 202);
+		fake.addCampaign(100, status === "completed" ? "finished" : "scheduled", [200]);
+		fake.addCampaign(101, status === "completed" ? "finished" : "scheduled", [201]);
+		fake.addSubscriber(15, { [SOURCE_A]: "confirmed", 201: "unconfirmed" });
+		fake.addSubscriber(14, {
+			[SOURCE_A]: "confirmed",
+			[SOURCE_B]: "confirmed",
+			201: "unconfirmed",
+		});
+		fake.unsubscribeViaCampaign(101, 15);
+		fake.unsubscribeViaCampaign(101, 14);
+		return fake;
+	}
+
+	/** Subscriber 15 re-subscribes, then the permission problem is fixed. */
+	function resubscribeAndFix(fake: FakeListmonk) {
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(15, SOURCE_A);
+		fake.options.unmanageableListIds = [];
+	}
+
+	test("stop", async () => {
+		const storePath = await createStorePath();
+		const fake = seedPartialFailure("scheduled");
+		await saveStoredAbTests([makeTest({ status: "scheduled" })], storePath);
+		const context = { client: fake.client, storePath };
+
+		await expect(
+			invokeStopAbTestOperation(context, { test_id: "test_optout" }),
+		).rejects.toThrow(/were recorded so a retry does not carry them again/);
+		const [afterFailure] = await loadStoredAbTests(storePath);
+		expect(afterFailure?.status).toBe("scheduled");
+		expect(afterFailure?.optOutSync).toMatchObject({
+			settledSubscriberIds: [15],
+			missingListIds: [200, 202],
+		});
+
+		resubscribeAndFix(fake);
+		const stopped = await invokeStopAbTestOperation(context, {
+			test_id: "test_optout",
+		});
+
+		expect(stopped.test.status).toBe("cancelled");
+		expect(fake.membership(15, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(14, SOURCE_B)).toBe("unsubscribed");
+		expect(fake.hasList(201)).toBe(false);
+	});
+
+	test("delete of an active test", async () => {
+		const storePath = await createStorePath();
+		const fake = seedPartialFailure("scheduled");
+		await saveStoredAbTests([makeTest({ status: "scheduled" })], storePath);
+		const context = { client: fake.client, storePath };
+
+		await expect(
+			invokeDeleteAbTestOperation(context, { test_id: "test_optout" }),
+		).rejects.toThrow(/temporary list 201 kept to preserve its opt-outs/);
+		const [afterFailure] = await loadStoredAbTests(storePath);
+		expect(afterFailure?.optOutSync).toMatchObject({
+			settledSubscriberIds: [15],
+			missingListIds: [200, 202],
+		});
+
+		resubscribeAndFix(fake);
+		expect(
+			await invokeDeleteAbTestOperation(context, { test_id: "test_optout" }),
+		).toEqual({ deleted: true });
+
+		expect(fake.membership(15, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(14, SOURCE_B)).toBe("unsubscribed");
+		expect(await loadStoredAbTests(storePath)).toEqual([]);
+	});
+
+	test("delete of a terminal test", async () => {
+		const storePath = await createStorePath();
+		const fake = seedPartialFailure("completed");
+		await saveStoredAbTests([completedTest({ winnerCampaignId: undefined })], storePath);
+		const context = { client: fake.client, storePath };
+
+		await expect(
+			invokeDeleteAbTestOperation(context, { test_id: "test_optout" }),
+		).rejects.toThrow(/was not deleted because the opt-outs on its temporary lists/);
+		const [afterFailure] = await loadStoredAbTests(storePath);
+		expect(afterFailure?.deletedAt).toBeUndefined();
+		expect(afterFailure?.optOutSync?.settledSubscriberIds).toEqual([15]);
+		expect(afterFailure?.optOutSync?.syncedAt).toBeUndefined();
+
+		resubscribeAndFix(fake);
+		expect(
+			await invokeDeleteAbTestOperation(context, { test_id: "test_optout" }),
+		).toEqual({ deleted: true });
+
+		expect(fake.membership(15, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(14, SOURCE_B)).toBe("unsubscribed");
 	});
 });
 

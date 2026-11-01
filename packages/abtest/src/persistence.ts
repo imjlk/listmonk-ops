@@ -10,7 +10,11 @@ import {
 } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { isAudienceEligibilityPolicyVersion } from "./audience";
-import { AbTestInvalidStatusError, AbTestNotFoundError } from "./errors";
+import {
+	AbTestInvalidStatusError,
+	AbTestNotFoundError,
+	AbTestOptOutProgressError,
+} from "./errors";
 export { AbTestConflictError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { resolveConversionStorePath } from "./conversion-events";
@@ -844,16 +848,28 @@ export async function withStoredAbTestExecutors<Result>(
 
 	let actionStarted = false;
 	let actionCompleted = false;
+	// A stop or delete that failed after recording the opt-outs it carried:
+	// its record is committed and the failure raised afterwards.
+	let recordedFailure: AbTestOptOutProgressError | undefined;
+	let committed: Result | undefined;
 	try {
-		return await updateJsonFileStore(store, async (persisted) => {
+		committed = await updateJsonFileStore(store, async (persisted) => {
 			const executors = createHydratedExecutors(
 				client,
 				persisted.tests,
 				options.storePath,
 			);
 			actionStarted = true;
-			const result = await action(executors);
-			actionCompleted = true;
+			let result: Result | undefined;
+			try {
+				result = await action(executors);
+				actionCompleted = true;
+			} catch (error) {
+				if (!(error instanceof AbTestOptOutProgressError)) {
+					throw error;
+				}
+				recordedFailure = error;
+			}
 			return commitJsonFileStoreUpdate(
 				{
 					version: 2,
@@ -887,4 +903,11 @@ export async function withStoredAbTestExecutors<Result>(
 			error,
 		);
 	}
+	if (recordedFailure !== undefined) {
+		throw new AbTestWriteTransactionError(
+			`The A/B test operation failed; the opt-outs it carried and the temporary lists it deleted, if any, were recorded so a retry does not carry them again. Listmonk may contain partial changes; inspect remote resources before retrying. Cause: ${recordedFailure.message}`,
+			recordedFailure,
+		);
+	}
+	return committed as Result;
 }

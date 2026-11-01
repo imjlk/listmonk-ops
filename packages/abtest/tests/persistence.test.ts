@@ -11,6 +11,7 @@ import {
 	saveStoredAbTests,
 	withStoredAbTestExecutors,
 } from "../src/persistence";
+import { AbTestOptOutProgressError } from "../src/errors";
 import { lockHypothesis } from "../src/hypothesis";
 import type { AbTest } from "../src/types";
 
@@ -150,6 +151,40 @@ describe("A/B test persistence", () => {
 			"remote operation failed",
 		);
 		expect(await readFile(storePath, "utf8")).toBe(before);
+	});
+
+	test("commits the opt-out record of a failed stop or delete before raising it", async () => {
+		const storePath = await createStorePath();
+		await saveStoredAbTests([createTest("one")], storePath);
+
+		let transactionError: unknown;
+		try {
+			await withStoredAbTestExecutors(
+				client,
+				{ mode: "write", storePath },
+				async (executors) => {
+					const test = await executors.abTestService.getTest("one");
+					if (test === null) {
+						throw new Error("missing fixture");
+					}
+					test.optOutSync = { settledSubscriberIds: [11] };
+					throw new AbTestOptOutProgressError("list 201 kept");
+				},
+			);
+		} catch (error) {
+			transactionError = error;
+		}
+
+		expect(transactionError).toBeInstanceOf(AbTestWriteTransactionError);
+		expect((transactionError as Error).message).toContain(
+			"were recorded so a retry does not carry them again",
+		);
+		expect((transactionError as Error).message).toContain("list 201 kept");
+		expect((transactionError as Error).cause).toBeInstanceOf(
+			AbTestOptOutProgressError,
+		);
+		const [stored] = await loadStoredAbTests(storePath);
+		expect(stored?.optOutSync).toEqual({ settledSubscriberIds: [11] });
 	});
 
 	test("rejects an unsupported store version without overwriting it", async () => {

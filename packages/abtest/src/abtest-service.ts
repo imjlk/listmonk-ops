@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { resolveOptOutSourceListIds } from "./unsubscribe-propagation";
 import {
 	describeOptOutSyncFailures,
+	recordTemporaryListOptOutPropagation,
 	resolveTrackedTemporaryListIds,
 } from "./optout-sync";
 import type {
@@ -41,7 +42,12 @@ import type {
 	TestValidationResult,
 	Variant,
 } from "./types";
-import { AbTestConflictError, AbTestInvalidStatusError } from "./errors";
+import {
+	AbTestCleanupError,
+	AbTestConflictError,
+	AbTestInvalidStatusError,
+	AbTestOptOutProgressError,
+} from "./errors";
 import { getAbTestAttributionDeadline } from "./conversion-events";
 import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
 
@@ -1010,7 +1016,9 @@ export class AbTestService {
 	 * unsubscribe links keep recording opt-outs on those lists, so its
 	 * opt-outs are carried first and, while any of its lists still exists, its
 	 * record is retained (hidden) for the opt-out sync instead of dropped.
-	 * Either way a failure throws and keeps the test.
+	 * Either way a failure keeps the test and throws
+	 * `AbTestOptOutProgressError` after recording the opt-outs the attempt
+	 * carried and the lists it deleted.
 	 */
 	async deleteTest(testId: string): Promise<boolean> {
 		const test = this.tests.get(testId);
@@ -1032,20 +1040,33 @@ export class AbTestService {
 			if (test.holdoutListId !== undefined) {
 				listIds.push(test.holdoutListId);
 			}
-			await this.listmonkIntegration.deleteTestResources({
-				campaignIds: [
-					...test.campaignMappings.map((m) => m.campaignId),
-					...(test.winnerCampaignId !== undefined
-						? [test.winnerCampaignId]
-						: []),
-				],
-				listIds,
-				// Opt-outs recorded on the temporary lists are carried here
-				// before the lists are deleted; ones an earlier sync carried
-				// are skipped.
-				sourceListIds: resolveOptOutSourceListIds(test),
-				settledSubscriberIds: test.optOutSync?.settledSubscriberIds,
-			});
+			try {
+				await this.listmonkIntegration.deleteTestResources({
+					campaignIds: [
+						...test.campaignMappings.map((m) => m.campaignId),
+						...(test.winnerCampaignId !== undefined
+							? [test.winnerCampaignId]
+							: []),
+					],
+					listIds,
+					// Opt-outs recorded on the temporary lists are carried here
+					// before the lists are deleted; ones an earlier sync carried
+					// are skipped.
+					sourceListIds: resolveOptOutSourceListIds(test),
+					settledSubscriberIds: test.optOutSync?.settledSubscriberIds,
+				});
+			} catch (error) {
+				if (!(error instanceof AbTestCleanupError)) {
+					throw error;
+				}
+				// Keep the test, but record the opt-outs this attempt carried
+				// and the lists it deleted so the retry skips them.
+				recordTemporaryListOptOutPropagation(test, {
+					propagations: error.optOutPropagation,
+					removedListIds: error.deletedListIds,
+				});
+				throw new AbTestOptOutProgressError(error.message, { cause: error });
+			}
 		} else if (
 			this.listmonkIntegration &&
 			TERMINAL_STATUSES.has(test.status) &&
@@ -1053,13 +1074,15 @@ export class AbTestService {
 		) {
 			const { result, state } =
 				await this.listmonkIntegration.syncTestOptOuts(test);
-			if (!result.ok) {
-				throw new Error(
-					`A/B test ${testId} was not deleted because the opt-outs on its temporary lists could not be carried to its source lists: ${describeOptOutSyncFailures(result)}; retry the delete once fixed`,
-				);
-			}
+			// Recorded even when the delete fails below, so the opt-outs
+			// this attempt did carry are not carried again.
 			if (state !== undefined) {
 				test.optOutSync = state;
+			}
+			if (!result.ok) {
+				throw new AbTestOptOutProgressError(
+					`A/B test ${testId} was not deleted because the opt-outs on its temporary lists could not be carried to its source lists: ${describeOptOutSyncFailures(result)}; retry the delete once fixed`,
+				);
 			}
 			if (resolveTrackedTemporaryListIds(test).length > 0) {
 				this.retireTest(test);
