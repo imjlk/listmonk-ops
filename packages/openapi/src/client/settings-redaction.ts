@@ -227,12 +227,21 @@ export function hasRedactedSettingsPlaceholder(value: string): boolean {
 	}
 }
 
-/** Read a document the way the JSON request body will carry it. */
+/**
+ * Read a document the way the JSON request body will carry it. A value JSON
+ * cannot serialize, such as a cyclic one, is read as written instead, so the
+ * guard raises nothing but placeholder errors and the request still fails in
+ * the client's own serializer.
+ */
 function toJsonDocument(document: unknown): unknown {
-	const serialized = JSON.stringify(document, (_key, value: unknown) =>
-		typeof value === "bigint" ? value.toString() : value,
-	);
-	return serialized === undefined ? undefined : JSON.parse(serialized);
+	try {
+		const serialized = JSON.stringify(document, (_key, value: unknown) =>
+			typeof value === "bigint" ? value.toString() : value,
+		);
+		return serialized === undefined ? undefined : JSON.parse(serialized);
+	} catch {
+		return document;
+	}
 }
 
 function appendKeyToPath(path: string, key: string): string {
@@ -250,6 +259,7 @@ export function findRedactedSettingsPlaceholderPaths(
 	document: unknown,
 ): string[] {
 	const paths: string[] = [];
+	const visited = new WeakSet<object>();
 	const pending: Array<{ path: string; value: unknown }> = [
 		{ path: "", value: toJsonDocument(document) },
 	];
@@ -259,7 +269,10 @@ export function findRedactedSettingsPlaceholderPaths(
 			if (hasRedactedSettingsPlaceholder(value)) paths.push(path || "(root)");
 			continue;
 		}
-		if (value === null || typeof value !== "object") continue;
+		if (value === null || typeof value !== "object" || visited.has(value)) {
+			continue;
+		}
+		visited.add(value);
 		const children = Array.isArray(value)
 			? value.map((entry, position) => ({
 					path: `${path}[${position}]`,

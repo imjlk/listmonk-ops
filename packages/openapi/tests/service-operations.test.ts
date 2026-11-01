@@ -156,6 +156,14 @@ describe("Service operation factories", () => {
 		});
 		expect(cssUpdated.data).toBe(true);
 		expect(settingsUpdateRequests).toBe(2);
+
+		// A body JSON cannot serialize passes the guard and fails in the
+		// client's serializer as an error result, without a request.
+		const cyclicBody: Record<string, unknown> = { "app.site_name": "Lists" };
+		cyclicBody.self = cyclicBody;
+		const cyclicUpdate = await settings.update({ body: cyclicBody });
+		expect(cyclicUpdate.error).toBeDefined();
+		expect(settingsUpdateRequests).toBe(2);
 	});
 
 	test("createSettingsOperations rejects redacted SMTP test credentials before sending", async () => {

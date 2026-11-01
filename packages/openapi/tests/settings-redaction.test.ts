@@ -126,6 +126,22 @@ describe("settings write placeholder guard", () => {
 		);
 	});
 
+	test("reads a document JSON cannot serialize as written", () => {
+		const redacted: Record<string, unknown> = {
+			smtp: [{ password: SETTINGS_REDACTED_VALUE }],
+		};
+		redacted.self = redacted;
+		const clean: Record<string, unknown> = { "app.site_name": "Mailing list" };
+		clean.self = clean;
+
+		expect(findRedactedSettingsPlaceholderPaths(redacted)).toEqual([
+			"smtp[0].password",
+		]);
+		expect(() =>
+			assertNoRedactedSettingsPlaceholders(clean, "update"),
+		).not.toThrow();
+	});
+
 	test("passes a clean document through unchanged", () => {
 		const document = {
 			"app.root_url": "https://lists.example.com",
