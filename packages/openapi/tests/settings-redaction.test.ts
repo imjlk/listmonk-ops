@@ -62,6 +62,14 @@ describe("settings write placeholder guard", () => {
 		}
 	});
 
+	test("keeps reading encoded text after characters that lowercase longer", () => {
+		// "İ" lowercases to two code units. The encoded assignment must still
+		// be found before the marker after three decoding passes.
+		const shifted = "İİİ?token%2525253D[redacted]";
+		expect(hasRedactedSettingsPlaceholder(shifted.slice(3))).toBe(true);
+		expect(hasRedactedSettingsPlaceholder(shifted)).toBe(true);
+	});
+
 	test("walks nested arrays and objects in document order", () => {
 		const document = {
 			"app.site_name": "Mailing list",

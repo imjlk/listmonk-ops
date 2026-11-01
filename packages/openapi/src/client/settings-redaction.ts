@@ -39,7 +39,16 @@ const MAX_PLACEHOLDER_DECODE_DEPTH = 3;
 const MAX_PARAMETER_NAME_TAIL = 256;
 
 /** An encoded authority start right before an encoded marker. */
-const ENCODED_AUTHORITY_START = /(?:%3a|:)(?:%2f|\/){2}$/;
+const ENCODED_AUTHORITY_START = /(?:%3a|:)(?:%2f|\/){2}$/i;
+
+/**
+ * Whether `value` has the ASCII `needle` (lowercase) at `index`, ignoring
+ * case. Only the compared slice is lowercased: lowercasing the whole value
+ * can change its length (e.g. "İ") and shift every later index.
+ */
+function hasTextAt(value: string, index: number, needle: string): boolean {
+	return value.slice(index, index + needle.length).toLowerCase() === needle;
+}
 
 interface ParameterAssignment {
 	index: number;
@@ -101,7 +110,6 @@ function isAuthoritySlash(character: string | undefined): boolean {
  * credential-named parameter.
  */
 function hasPlaceholderMarker(value: string): boolean {
-	const lower = value.toLowerCase();
 	let afterSeparator = 0;
 	let afterPairSeparator = 0;
 	let afterAnySeparator = 0;
@@ -119,12 +127,15 @@ function hasPlaceholderMarker(value: string): boolean {
 			) {
 				return true;
 			}
-		} else if (lower.startsWith(ENCODED_REDACTED_VALUE, index)) {
+		} else if (
+			value[index] === "%" &&
+			hasTextAt(value, index, ENCODED_REDACTED_VALUE)
+		) {
 			const end = index + ENCODED_REDACTED_VALUE.length;
 			if (
-				(lower.startsWith("%40", end) &&
+				(hasTextAt(value, end, "%40") &&
 					ENCODED_AUTHORITY_START.test(
-						lower.slice(Math.max(0, index - 9), index),
+						value.slice(Math.max(0, index - 9), index),
 					)) ||
 				isCredentialAssignment(value, assignment)
 			) {
@@ -163,13 +174,16 @@ function hasPlaceholderMarker(value: string): boolean {
 			}
 		} else if (
 			character === "%" &&
-			/^%(?:3f|26|23|3b)$/.test(lower.slice(index, index + 3))
+			/^%(?:3f|26|23|3b)$/i.test(value.slice(index, index + 3))
 		) {
 			afterAnySeparator = index + 3;
 		}
 
 		const isLiteralAssignment = character === "=";
-		if (isLiteralAssignment || lower.startsWith("%3d", index)) {
+		if (
+			isLiteralAssignment ||
+			(character === "%" && hasTextAt(value, index, "%3d"))
+		) {
 			// A parameter name never contains a literal "=", so no reading
 			// reaches back past the previous one.
 			assignment = {
