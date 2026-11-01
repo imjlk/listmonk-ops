@@ -97,9 +97,11 @@ test("published MCP and CLI load the same profile and expose the same secret-fre
 		LISTMONK_API_TOKEN: "wrong-secret",
 		LISTMONK_USERNAME: "wrong-user",
 	};
+	// With HOME replaced, a version-manager shim found as `bun` on PATH (for
+	// example mise) cannot read its trust state, so both run the Bun running this.
 	const child = Bun.spawn(
 		[
-			"bun",
+			process.execPath,
 			"src/index.ts",
 			"config",
 			"show",
@@ -115,7 +117,7 @@ test("published MCP and CLI load the same profile and expose the same secret-fre
 	expect(code).toBe(0);
 	expect(stderr).toBe("");
 	const transport = new StdioClientTransport({
-		command: "bun",
+		command: process.execPath,
 		args: [
 			"./bin/listmonk-mcp.js",
 			"--stdio",

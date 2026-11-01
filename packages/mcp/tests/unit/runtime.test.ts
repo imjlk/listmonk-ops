@@ -378,9 +378,11 @@ describe("mcp runtime entrypoint", () => {
 		delete env.LISTMONK_OPS_ABTEST_SILENT;
 		delete env.LISTMONK_OPS_CONFIG;
 		delete env.LISTMONK_OPS_PROFILE;
+		// With HOME replaced, a version-manager shim found as `bun` on PATH (for
+		// example mise) cannot read its trust state, so run the Bun running this.
 		const proc = Bun.spawn({
 			cmd: [
-				"bun",
+				process.execPath,
 				"./bin/listmonk-mcp.js",
 				"--stdio",
 				"--listmonk-url",

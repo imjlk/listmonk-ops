@@ -25,8 +25,10 @@ test("CLI and MCP authenticate to local Listmonk with the same token-file profil
 		LISTMONK_USERNAME: "ignored",
 		LISTMONK_API_TOKEN: "ignored",
 	};
+	// With HOME replaced, a version-manager shim found as `bun` on PATH (for
+	// example mise) cannot read its trust state, so both run the Bun running this.
 	const transport = new StdioClientTransport({
-		command: "bun",
+		command: process.execPath,
 		args: ["src/index.ts", "--stdio", "--config", configFile, "--profile=local"],
 		cwd: join(projectRoot, "packages/mcp"),
 		env,
@@ -36,7 +38,7 @@ test("CLI and MCP authenticate to local Listmonk with the same token-file profil
 	try {
 		const child = Bun.spawn(
 			[
-				"bun",
+				process.execPath,
 				"src/index.ts",
 				"status",
 				"--check",
