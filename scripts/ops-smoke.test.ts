@@ -53,18 +53,18 @@ beforeAll(async () => {
 	await symlink(process.execPath, join(bunDirectory, "bun"));
 	// Build missing workspace dependencies here, with the caller's HOME: the
 	// build tools resolve through PATH too (`ttsc` is a `node` script).
-	const build = Bun.spawn(["bash", runtimeDepsScript], {
-		cwd: root,
-		env: { ...process.env, PATH: smokePath() },
-		stdout: "pipe",
-		stderr: "pipe",
-	});
-	const [stdout, stderr, exitCode] = await Promise.all([
-		new Response(build.stdout).text(),
-		new Response(build.stderr).text(),
-		build.exited,
-	]);
-	expect(exitCode, `${stdout}\n${stderr}`).toBe(0);
+	const build = await childResult(
+		Bun.spawn(["bash", runtimeDepsScript], {
+			cwd: root,
+			env: { ...process.env, PATH: smokePath() },
+			stdout: "pipe",
+			stderr: "pipe",
+		}),
+	);
+	expect(
+		build.exitCode,
+		`bash ${runtimeDepsScript} exited with ${build.exitCode}\n${build.output}`,
+	).toBe(0);
 }, BUILD_TIMEOUT_MS);
 
 afterAll(() => rm(bunDirectory, { recursive: true, force: true }));
@@ -85,6 +85,18 @@ function smokePath(...stubDirectories: string[]): string {
 	return [...stubDirectories, bunDirectory, process.env.PATH ?? ""]
 		.filter((entry) => entry !== "")
 		.join(delimiter);
+}
+
+/** Drains a child's piped stdout and stderr and waits for it to exit. */
+async function childResult(
+	child: Pick<Bun.Subprocess<"ignore", "pipe", "pipe">, "stdout" | "stderr" | "exited">,
+) {
+	const [stdout, stderr, exitCode] = await Promise.all([
+		new Response(child.stdout).text(),
+		new Response(child.stderr).text(),
+		child.exited,
+	]);
+	return { stdout, stderr, exitCode, output: `${stdout}\n${stderr}` };
 }
 
 async function temporaryDirectory(): Promise<string> {
@@ -235,17 +247,7 @@ function startSmoke(directory: string, env: Record<string, string>) {
 		stdout: "pipe",
 		stderr: "pipe",
 	});
-	const result = Promise.all([
-		new Response(child.stdout).text(),
-		new Response(child.stderr).text(),
-		child.exited,
-	]).then(([stdout, stderr, exitCode]) => ({
-		stdout,
-		stderr,
-		exitCode,
-		output: `${stdout}\n${stderr}`,
-	}));
-	return { child, result };
+	return { child, result: childResult(child) };
 }
 
 function runSmoke(directory: string, env: Record<string, string>) {
