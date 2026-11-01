@@ -37,8 +37,8 @@ export {
 	type TemporaryListOptOutPropagationStatus,
 } from "./unsubscribe-propagation";
 // Temporary lists that are kept (completed tests, lists a stop keeps, and
-// deleted terminal tests' lists) keep receiving opt-outs; the A/B tick
-// carries them with these.
+// deleted terminal tests' lists) keep receiving opt-outs; the A/B tick and
+// abtest.sync-optouts carry them with these.
 export {
 	isOptOutSyncDue,
 	isOptOutSyncTracked,
@@ -172,6 +172,7 @@ export {
 	invokeRecommendAbTestSampleSizeOperation,
 	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
+	invokeSyncAbTestOptOutsOperation,
 	invokeTickAbTestsOperation,
 } from "./operations";
 export type {

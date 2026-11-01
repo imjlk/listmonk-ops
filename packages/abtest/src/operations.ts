@@ -23,6 +23,7 @@ import {
 	bindAbTestRecommendSampleSizeOperationSpec,
 	bindAbTestRunOperationSpec,
 	bindAbTestStopOperationSpec,
+	bindAbTestSyncOptOutsOperationSpec,
 	bindAbTestTickOperationSpec,
 } from "@listmonk-ops/operations/specs";
 import { z } from "zod";
@@ -509,6 +510,20 @@ const exportAssignmentInputSchema = z.object({
 		.trim()
 		.min(1)
 		.describe("A/B test ID whose assignment manifest to export"),
+});
+
+const syncAbTestOptOutsInputSchema = z.object({
+	test_id: z
+		.string()
+		.trim()
+		.min(1)
+		.optional()
+		.describe(
+			"Sync one test, including a deleted test whose record is retained for the sync; omit to sync every tracked test",
+		),
+	dry_run: optionalBooleanSchema.describe(
+		"Report what would be carried without writing anything",
+	),
 });
 
 const optOutSyncListResultSchema = z.object({
@@ -1148,6 +1163,22 @@ export async function executeReconcileAbTestOperation(
 	};
 }
 
+export async function executeSyncAbTestOptOutsOperation(
+	context: AbTestOperationContext,
+	input: z.output<typeof syncAbTestOptOutsInputSchema>,
+): Promise<SyncAbTestOptOutsOperationOutput> {
+	const dryRun = input.dry_run === true;
+	// A real run records carried opt-outs in the same store transaction as
+	// the Listmonk writes; a dry run only reads.
+	const results = await withStoredOperation<AbTestOptOutSyncResult[]>(
+		context,
+		dryRun ? "read" : "write",
+		(executors) =>
+			executors.syncAbTestOptOuts({ testId: input.test_id, dryRun }),
+	);
+	return serializeOptOutSync(results, dryRun);
+}
+
 export async function executeExportAbTestAssignmentOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof exportAssignmentInputSchema>,
@@ -1452,6 +1483,24 @@ export const exportAbTestAssignmentOperation = defineOperation({
 	execute: executeExportAbTestAssignmentOperation,
 });
 
+export const syncAbTestOptOutsOperation = defineOperation({
+	id: "abtest.sync-optouts",
+	title: "Sync A/B test opt-outs",
+	description:
+		"Carry opt-outs recorded on A/B test temporary lists, including the lists of completed, stopped, and deleted tests, to each test's source lists, confirm them, and record each carried opt-out so it is never carried again",
+	inputSchema: syncAbTestOptOutsInputSchema,
+	outputSchema: optOutSyncOutputSchema,
+	// It unsubscribes people from the source lists, which only fresh consent
+	// reverses; repeats converge because carried opt-outs are recorded.
+	safety: destructiveSafety,
+	mcp: {
+		name: "listmonk_abtest_sync_optouts",
+		legacySuccessText: (output) => jsonValue(output),
+	},
+	spec: bindAbTestSyncOptOutsOperationSpec(),
+	execute: executeSyncAbTestOptOutsOperation,
+});
+
 export const abTestOperations = [
 	listAbTestsOperation,
 	getAbTestOperation,
@@ -1467,6 +1516,7 @@ export const abTestOperations = [
 	tickAbTestsOperation,
 	reconcileAbTestOperation,
 	exportAbTestAssignmentOperation,
+	syncAbTestOptOutsOperation,
 ] as const;
 
 export const abTestOperationCatalog = defineOperationCatalog({
@@ -1786,6 +1836,30 @@ export async function invokeExportAbTestAssignmentOperation(
 		});
 }
 
+export async function invokeSyncAbTestOptOutsOperation(
+	context: AbTestOperationContext,
+	input: unknown,
+): Promise<SyncAbTestOptOutsOperationOutput> {
+	const parsedInput = parseOperationInput(
+		syncAbTestOptOutsOperation.inputSchema,
+		input,
+	);
+	return executeSyncAbTestOptOutsOperation(context, parsedInput)
+		.then((output) =>
+			parseOperationOutput(
+				syncAbTestOptOutsOperation.id,
+				syncAbTestOptOutsOperation.outputSchema,
+				output,
+			),
+		)
+		.catch((error) => {
+			throw normalizeOperationExecutionError(
+				syncAbTestOptOutsOperation.id,
+				error,
+			);
+		});
+}
+
 export type AbTestOperationInvocation =
 	| { operation: typeof listAbTestsOperation; output: ListAbTestsOperationOutput }
 	| { operation: typeof getAbTestOperation; output: GetAbTestOperationOutput }
@@ -1815,6 +1889,10 @@ export type AbTestOperationInvocation =
 	| {
 			operation: typeof exportAbTestAssignmentOperation;
 			output: ExportAbTestAssignmentOperationOutput;
+	  }
+	| {
+			operation: typeof syncAbTestOptOutsOperation;
+			output: SyncAbTestOptOutsOperationOutput;
 	  };
 
 export async function invokeAbTestOperationByMcpName(
@@ -1897,6 +1975,11 @@ export async function invokeAbTestOperationByMcpName(
 					context,
 					input,
 				),
+			};
+		case syncAbTestOptOutsOperation.mcp.name:
+			return {
+				operation: syncAbTestOptOutsOperation,
+				output: await invokeSyncAbTestOptOutsOperation(context, input),
 			};
 		default:
 			return undefined;

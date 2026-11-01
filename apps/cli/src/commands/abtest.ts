@@ -29,6 +29,7 @@ import {
 	invokeRecommendAbTestSampleSizeOperation,
 	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
+	invokeSyncAbTestOptOutsOperation,
 	invokeTickAbTestsOperation,
 	validateHypothesisMetadata,
 	validateStoredAbTestStore,
@@ -357,6 +358,14 @@ async function invokeCliExportAbTestAssignment(
 ): Promise<ExportAbTestAssignmentOperationOutput> {
 	const client = await getListmonkClient(args);
 	return invokeExportAbTestAssignmentOperation({ client }, input);
+}
+
+async function invokeCliSyncAbTestOptOuts(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<SyncAbTestOptOutsOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeSyncAbTestOptOutsOperation({ client }, input);
 }
 
 /**
@@ -1165,6 +1174,52 @@ export default defineGroup({
 				} catch (error) {
 					throw new Error(
 						`Failed to reconcile A/B tests: ${toErrorMessage(error)}`,
+					);
+				}
+			},
+		}),
+		defineCommand({
+			name: "sync-optouts",
+			operationId: "abtest.sync-optouts",
+			description:
+				"Carry opt-outs from A/B temporary lists to their tests' source lists",
+			options: {
+				"test-id": option(z.string().trim().min(1).optional(), {
+					description:
+						"Test ID, including a deleted test still tracked for opt-outs (omit to sync every tracked test)",
+				}),
+				"dry-run": option(z.coerce.boolean().default(false), {
+					description: "Report what would be carried without writing anything",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const result = await invokeCliSyncAbTestOptOuts(args, {
+						test_id: flags["test-id"],
+						dry_run: flags["dry-run"],
+					});
+					const failures = formatOptOutSyncWarnings(result);
+					for (const failure of failures) {
+						getOutput().warning(failure);
+					}
+					if (failures.length === 0) {
+						getOutput().success(
+							result.dry_run
+								? `Dry run: checked opt-outs for ${result.checked} A/B test(s)`
+								: `Synced opt-outs for ${result.checked} A/B test(s)`,
+						);
+					}
+					getOutput().json(result);
+					// Keep the structured result on stdout and report opt-outs
+					// that could not be carried through the exit code, so a
+					// scheduler notices.
+					if (result.failed > 0) {
+						process.exitCode = 1;
+					}
+					return result;
+				} catch (error) {
+					throw new Error(
+						`Failed to sync A/B test opt-outs: ${toErrorMessage(error)}`,
 					);
 				}
 			},

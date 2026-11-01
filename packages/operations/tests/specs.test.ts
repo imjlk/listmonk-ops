@@ -4,6 +4,7 @@ import {
 	abTestDeployWinnerOperationSpec,
 	abTestLaunchOperationSpec,
 	abTestStopOperationSpec,
+	abTestSyncOptOutsOperationSpec,
 	assertRuntimeOperationContracts,
 	assertRuntimeOperationProjection,
 	bridgedOperationSpecsById,
@@ -244,6 +245,7 @@ describe("email operations specification", () => {
 			"abtest.tick",
 			"abtest.reconcile",
 			"abtest.export-assignment",
+			"abtest.sync-optouts",
 			"bounces.list",
 			"bounces.get",
 			"bounces.delete",
@@ -265,8 +267,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(137);
-		expect(new Set(operationIds).size).toBe(137);
+		expect(operationIds).toHaveLength(138);
+		expect(new Set(operationIds).size).toBe(138);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -276,7 +278,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(136);
+		).toHaveLength(137);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -698,6 +700,18 @@ describe("email operations specification", () => {
 		expect(operationsById.get("abtest.tick")?.effects).toContainEqual(
 			optOutSuppression,
 		);
+		expect(abTestSyncOptOutsOperationSpec.effects).toEqual([
+			{ ...optOutSuppression, preview: true },
+			{ kind: "write", resource: "experiment", reversible: false, preview: true },
+		]);
+		expect(abTestSyncOptOutsOperationSpec.policy).toEqual({
+			confirmation: "required",
+			audit: "required",
+			dryRun: true,
+		});
+		expect(abTestSyncOptOutsOperationSpec.retry).toMatchObject({
+			kind: "safe",
+		});
 		expect(abTestStopOperationSpec.retry).toMatchObject({
 			kind: "reconcile",
 			idempotent: true,

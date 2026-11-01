@@ -228,6 +228,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	abTestExportOutputContract: NormalizedContractSchema;
 	abTestDeleteOutputContract: NormalizedContractSchema;
 	abTestDeployWinnerOutputContract: NormalizedContractSchema;
+	abTestSyncOptOutsInputContract: NormalizedContractSchema;
+	abTestSyncOptOutsOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -586,5 +588,9 @@ export const abTestExportAssignmentInputContract = contracts.abTestExportAssignm
 export const abTestExportOutputContract = contracts.abTestExportOutputContract;
 export const abTestDeleteOutputContract = contracts.abTestDeleteOutputContract;
 export const abTestDeployWinnerOutputContract = contracts.abTestDeployWinnerOutputContract;
+export const abTestSyncOptOutsInputContract =
+	contracts.abTestSyncOptOutsInputContract;
+export const abTestSyncOptOutsOutputContract =
+	contracts.abTestSyncOptOutsOutputContract;
 
 export const controlConfigurationOutputContract = contracts.controlConfigurationOutputContract;

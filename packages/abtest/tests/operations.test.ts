@@ -18,6 +18,7 @@ import {
 	invokeRecommendAbTestSampleSizeOperation,
 	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
+	invokeSyncAbTestOptOutsOperation,
 	invokeTickAbTestsOperation,
 	invokeExportAbTestAssignmentOperation,
 	listAbTestsOperation,
@@ -98,7 +99,7 @@ afterEach(async () => {
 
 describe("A/B test operation registry", () => {
 	test("publishes all lifecycle tools with object schemas and safety metadata", () => {
-		expect(abTestOperations).toHaveLength(14);
+		expect(abTestOperations).toHaveLength(15);
 		expect(abTestOperations.map((operation) => operation.mcp.name)).toEqual([
 			"listmonk_abtest_list",
 			"listmonk_abtest_get",
@@ -114,6 +115,7 @@ describe("A/B test operation registry", () => {
 			"listmonk_abtest_tick",
 			"listmonk_abtest_reconcile",
 			"listmonk_abtest_export_assignment",
+			"listmonk_abtest_sync_optouts",
 		]);
 		for (const operation of abTestOperations) {
 			expect(operation.inputJsonSchema.type).toBe("object");
@@ -147,6 +149,17 @@ describe("A/B test operation registry", () => {
 					operation.mcp.name === "listmonk_abtest_deploy_winner",
 			)?.safety.idempotentHint,
 		).toBe(true);
+		// Unsubscribing people needs confirmation; repeats converge.
+		expect(
+			abTestOperations.find(
+				(operation) => operation.mcp.name === "listmonk_abtest_sync_optouts",
+			)?.safety,
+		).toEqual({
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+			openWorldHint: true,
+		});
 	});
 
 	test("filters and serializes persisted tests through the shared invoker", async () => {
@@ -344,6 +357,9 @@ test("uses shared input diagnostics across every named invoker", async () => {
 			await expect(
 				invokeExportAbTestAssignmentOperation(context, { test_id: 123 }),
 			).rejects.toThrow();
+			await expect(
+				invokeSyncAbTestOptOutsOperation(context, { dry_run: "not-boolean" }),
+			).rejects.toThrow("Invalid parameter dry_run");
 	});
 
 test("preserves typed not-found errors for lifecycle transitions", async () => {

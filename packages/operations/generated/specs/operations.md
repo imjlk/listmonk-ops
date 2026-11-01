@@ -1450,6 +1450,18 @@ Export the subscriber assignment manifest for a test with deterministic provisio
 - Retry: `safe`
 - Stability: `stable` since `0.10.0`
 
+## `abtest.sync-optouts`
+
+Carry opt-outs recorded on A/B test temporary lists, including the lists of completed, stopped, and deleted tests, to each test's source lists, confirm them, and record each carried opt-out so it is never carried again
+
+- Resource / verb: `experiment.sync-optouts`
+- MCP tool: `listmonk_abtest_sync_optouts`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `suppression:audience, write:experiment`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `stable` since `0.21.0`
+
 ## `bounces.list`
 
 Get recorded bounce events from Listmonk with optional campaign, source, and ordering filters

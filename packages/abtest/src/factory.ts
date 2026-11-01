@@ -240,11 +240,11 @@ export function createAbTestExecutors(
 				`A/B test ${testId} cancelled with retained lists: ${retained.join(", ")}`,
 			);
 			// A retained list keeps recording opt-outs; one that could not be
-			// carried now is retried by the A/B tick.
+			// carried now is retried by the A/B tick and abtest sync-optouts.
 			for (const propagation of result.optOutPropagation) {
 				if (propagation.status === "failed" || propagation.status === "blocked") {
 					console.warn(
-						`A/B test ${testId}: opt-outs on retained temporary list ${propagation.listId} were not carried yet: ${propagation.detail ?? "they were not confirmed on the source lists"}; the A/B tick retries them`,
+						`A/B test ${testId}: opt-outs on retained temporary list ${propagation.listId} were not carried yet: ${propagation.detail ?? "they were not confirmed on the source lists"}; the A/B tick or abtest sync-optouts retries them`,
 					);
 				}
 			}

@@ -22,7 +22,7 @@ afterEach(async () => {
 
 describe("MCP A/B test operation adapter", () => {
 	test("publishes the shared lifecycle metadata", () => {
-		expect(abtestTools).toHaveLength(14);
+		expect(abtestTools).toHaveLength(15);
 		const listTool = abtestTools.find(
 			(tool) => tool.name === "listmonk_abtest_list",
 		);
@@ -87,6 +87,22 @@ describe("MCP A/B test operation adapter", () => {
 		expect(exportTool?.outputSchema?.properties?.manifest).toMatchObject({
 			type: "object",
 		});
+		// Carrying opt-outs unsubscribes people, so it needs confirmation;
+		// repeats skip what was already carried.
+		const syncTool = abtestTools.find(
+			(tool) => tool.name === "listmonk_abtest_sync_optouts",
+		);
+		expect(syncTool?.annotations).toMatchObject({
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+		});
+		expect(syncTool?.inputSchema.required).toEqual(["confirm"]);
+		expect(Object.keys(syncTool?.inputSchema.properties ?? {}).sort()).toEqual([
+			"confirm",
+			"dry_run",
+			"test_id",
+		]);
 		expect(tickTool?.outputSchema?.properties).toHaveProperty("opt_out_sync");
 	});
 

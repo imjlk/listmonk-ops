@@ -387,6 +387,16 @@ export interface AbTestTickOutput {
 	opt_out_sync?: AbTestSyncOptOutsOutput;
 }
 
+export interface AbTestSyncOptOutsInput {
+	/**
+	 * Sync one test, including a deleted test whose record is retained for
+	 * the sync; omit to sync every tracked test.
+	 */
+	test_id?: NonEmptyString;
+	/** Report what would be carried without writing anything. */
+	dry_run?: boolean;
+}
+
 /**
  * - `missing`: the temporary list was deleted; nothing to carry.
  * - `no_opt_outs`: nobody unsubscribed from it.

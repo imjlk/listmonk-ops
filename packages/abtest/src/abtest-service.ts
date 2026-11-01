@@ -1081,7 +1081,7 @@ export class AbTestService {
 			}
 			if (!result.ok) {
 				throw new AbTestOptOutProgressError(
-					`A/B test ${testId} was not deleted because the opt-outs on its temporary lists could not be carried to its source lists: ${describeOptOutSyncFailures(result)}; retry the delete once fixed`,
+					`A/B test ${testId} was not deleted because the opt-outs on its temporary lists could not be carried to its source lists: ${describeOptOutSyncFailures(result)}; retry the delete or run abtest sync-optouts once fixed`,
 				);
 			}
 			if (resolveTrackedTemporaryListIds(test).length > 0) {

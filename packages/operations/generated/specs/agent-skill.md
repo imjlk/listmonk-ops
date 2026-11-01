@@ -1646,7 +1646,7 @@ Contract maturity: `stable`; effects: `write:experiment, delivery:bulk:immediate
 
 Use when: Non-terminal A/B tests must be advanced by one lifecycle step. Opt-outs recorded on kept A/B temporary lists must be carried to the source lists on a schedule.
 
-Avoid when: No A/B test is active and none keeps temporary lists that are due for an opt-out sync.
+Avoid when: One test's opt-outs must be carried right now; use abtest.sync-optouts.
 
 Prerequisites: `abtest.list`
 
@@ -1681,6 +1681,20 @@ Prerequisites: `abtest.get`
 Verify with: none
 
 Retry guidance: Retry is safe; the export is read-only.
+
+## Sync A/B test opt-outs (`abtest.sync-optouts`)
+
+Contract maturity: `stable`; effects: `suppression:audience, write:experiment`; confirmation: `required`; retry: `safe`.
+
+Use when: Recipients unsubscribed from A/B variant or winner emails and must stop receiving campaigns sent to the tests' source lists. Opt-outs on a completed, stopped, or deleted A/B test's kept temporary lists must be carried before the next campaign to its source lists.
+
+Avoid when: The opt-outs only need inspecting; run it with dry_run instead.
+
+Prerequisites: `abtest.list`
+
+Verify with: `subscribers.get`
+
+Retry guidance: Retry identical transient failures directly; carried opt-outs are recorded and skipped, and a dry run reports what is still pending.
 
 ## List bounces (`bounces.list`)
 

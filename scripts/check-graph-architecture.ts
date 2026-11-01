@@ -408,6 +408,12 @@ const abTestOperationDefinitions = [
 		"invokeExportAbTestAssignmentOperation",
 		"executeExportAbTestAssignmentOperation",
 	],
+	[
+		"sync opt-outs",
+		"invokeCliSyncAbTestOptOuts",
+		"invokeSyncAbTestOptOutsOperation",
+		"executeSyncAbTestOptOutsOperation",
+	],
 ] as const;
 
 const abTestOperationContracts: readonly CallPathContract[] =

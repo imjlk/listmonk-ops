@@ -37321,6 +37321,298 @@
         "input": {
           "components": {
             "schemas": {
+              "AbTestSyncOptOutsInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "description": "Report what would be carried without writing anything.",
+                    "type": "boolean"
+                  },
+                  "test_id": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Sync one test, including a deleted test whose record is retained for\nthe sync; omit to sync every tracked test."
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "description": "Report what would be carried without writing anything.",
+                "type": "boolean"
+              },
+              "test_id": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Sync one test, including a deleted test whose record is retained for\nthe sync; omit to sync every tracked test."
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "AbTestOptOutSyncListResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "carried": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Opt-outs this run unsubscribed from at least one source list."
+                  },
+                  "detail": {
+                    "type": "string"
+                  },
+                  "list_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "opted_out": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Subscribers whose membership on the temporary list is unsubscribed."
+                  },
+                  "pending": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Opt-outs a dry run would carry, or that remain after a failure."
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/AbTestOptOutSyncListStatus"
+                  }
+                },
+                "required": [
+                  "list_id",
+                  "status",
+                  "opted_out",
+                  "carried",
+                  "pending"
+                ],
+                "type": "object"
+              },
+              "AbTestOptOutSyncListStatus": {
+                "description": "- `missing`: the temporary list was deleted; nothing to carry.\n- `no_opt_outs`: nobody unsubscribed from it.\n- `up_to_date`: every opt-out is already carried.\n- `propagated`: this run carried `carried` opt-outs and confirmed them.\n- `pending`: dry run only; `pending` opt-outs would be carried.\n- `blocked`: it holds opt-outs but the test records no source lists.\n- `failed`: reading, carrying, or confirming failed; retried next time.",
+                "oneOf": [
+                  {
+                    "const": "blocked"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "missing"
+                  },
+                  {
+                    "const": "no_opt_outs"
+                  },
+                  {
+                    "const": "pending"
+                  },
+                  {
+                    "const": "propagated"
+                  },
+                  {
+                    "const": "up_to_date"
+                  }
+                ]
+              },
+              "AbTestOptOutSyncTestResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "description": "The test was deleted; its record is retained for the opt-out sync.",
+                    "type": "boolean"
+                  },
+                  "detail": {
+                    "description": "Why the sync stopped before checking every list, if it did.",
+                    "type": "string"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestOptOutSyncListResult"
+                    },
+                    "type": "array"
+                  },
+                  "source_list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/AbTestStatus"
+                  },
+                  "test_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "test_id",
+                  "status",
+                  "deleted",
+                  "source_list_ids",
+                  "lists"
+                ],
+                "type": "object"
+              },
+              "AbTestStatus": {
+                "oneOf": [
+                  {
+                    "const": "analyzing"
+                  },
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "cancelling"
+                  },
+                  {
+                    "const": "completed"
+                  },
+                  {
+                    "const": "deploying"
+                  },
+                  {
+                    "const": "draft"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "inconclusive"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "scheduled"
+                  },
+                  {
+                    "const": "testing"
+                  }
+                ]
+              },
+              "AbTestSyncOptOutsOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "checked": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Tests whose temporary lists were checked."
+                  },
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Tests with a failed or blocked list."
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestOptOutSyncTestResult"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "dry_run",
+                  "checked",
+                  "failed",
+                  "results"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "checked": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Tests whose temporary lists were checked."
+              },
+              "dry_run": {
+                "type": "boolean"
+              },
+              "failed": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Tests with a failed or blocked list."
+              },
+              "results": {
+                "items": {
+                  "$ref": "#/components/schemas/AbTestOptOutSyncTestResult"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "dry_run",
+              "checked",
+              "failed",
+              "results"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "suppression",
+          "preview": true,
+          "resource": "subscriber",
+          "reversible": false,
+          "scope": "audience"
+        },
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "experiment",
+          "reversible": false
+        }
+      ],
+      "id": "abtest.sync-optouts",
+      "mcpName": "listmonk_abtest_sync_optouts",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "resource": "experiment",
+      "retry": {
+        "kind": "safe",
+        "reason": "Each opt-out is carried with Listmonk's unsubscribe list action, which only updates existing memberships, then confirmed and recorded as settled, so a repeat skips it; a repeat after an unrecorded run re-checks the same opt-outs and only unsubscribes memberships that are still subscribed."
+      },
+      "verb": "sync-optouts"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "BounceListInput": {
                 "additionalProperties": false,
                 "properties": {

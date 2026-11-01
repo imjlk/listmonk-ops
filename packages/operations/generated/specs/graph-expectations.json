@@ -3243,6 +3243,33 @@
     {
       "edges": [
         {
+          "from": "packages/abtest/src/operations.ts#syncAbTestOptOutsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestSyncOptOutsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestSyncOptOutsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestSyncOptOutsOperationSpec:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeSyncAbTestOptOutsOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeSyncAbTestOptOutsOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestSyncOptOutsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestSyncOptOutsOperationSpec:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeSyncAbTestOptOutsOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeSyncAbTestOptOutsOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#syncAbTestOptOutsOperation:variable"
+      },
+      "operationId": "abtest.sync-optouts"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/bounces.ts#listBouncesOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesListOperationSpec:function"

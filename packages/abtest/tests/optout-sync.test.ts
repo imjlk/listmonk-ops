@@ -8,6 +8,7 @@ import {
 	invokeGetAbTestOperation,
 	invokeListAbTestsOperation,
 	invokeStopAbTestOperation,
+	invokeSyncAbTestOptOutsOperation,
 	invokeTickAbTestsOperation,
 } from "../src/operations";
 import {
@@ -19,6 +20,7 @@ import {
 	syncAbTestOptOuts,
 } from "../src/optout-sync";
 import {
+	AbTestNotFoundError,
 	loadStoredAbTests,
 	saveStoredAbTests,
 	withStoredAbTestExecutors,
@@ -702,6 +704,108 @@ describe("a failed stop or delete keeps the opt-outs it carried", () => {
 
 		expect(fake.membership(15, SOURCE_A)).toBe("unconfirmed");
 		expect(fake.membership(14, SOURCE_B)).toBe("unsubscribed");
+	});
+});
+
+describe("abtest.sync-optouts", () => {
+	test("syncs one test, persists the record, and a dry run only reads", async () => {
+		const storePath = await createStorePath();
+		const fake = createFakeListmonk();
+		seedAbTestAudience(fake);
+		fake.unsubscribeViaCampaign(100, 11);
+		fake.unsubscribeViaCampaign(101, 14);
+		await saveStoredAbTests(
+			[completedTest(), completedTest({ id: "test_other", holdoutListId: undefined, testListMappings: [] })],
+			storePath,
+		);
+		const context = { client: fake.client, storePath };
+
+		const before = await readFile(storePath, "utf8");
+		const preview = await invokeSyncAbTestOptOutsOperation(context, {
+			test_id: "test_optout",
+			dry_run: true,
+		});
+		expect(preview).toMatchObject({ dry_run: true, checked: 1, failed: 0 });
+		expect(
+			preview.results[0]?.lists.map((list) => [list.list_id, list.status, list.pending]),
+		).toEqual([
+			[200, "pending", 1],
+			[201, "pending", 1],
+			[202, "no_opt_outs", 0],
+		]);
+		expect(fake.unsubscribes).toEqual([]);
+		expect(await readFile(storePath, "utf8")).toBe(before);
+
+		const synced = await invokeSyncAbTestOptOutsOperation(context, {
+			test_id: "test_optout",
+		});
+		expect(synced).toMatchObject({ dry_run: false, checked: 1, failed: 0 });
+		expect(fake.membership(11, SOURCE_A)).toBe("unsubscribed");
+		expect(fake.membership(14, SOURCE_A)).toBe("unsubscribed");
+		const stored = (await loadStoredAbTests(storePath)).find(
+			(candidate) => candidate.id === "test_optout",
+		);
+		expect(stored?.optOutSync?.settledSubscriberIds).toEqual([11, 14]);
+	});
+
+	test("reports lists it could not carry and counts the test as failed", async () => {
+		const storePath = await createStorePath();
+		const fake = createFakeListmonk({ unmanageableListIds: [SOURCE_B] });
+		seedAbTestAudience(fake);
+		fake.unsubscribeViaCampaign(100, 11);
+		await saveStoredAbTests([completedTest()], storePath);
+
+		const result = await invokeSyncAbTestOptOutsOperation(
+			{ client: fake.client, storePath },
+			{},
+		);
+
+		expect(result).toMatchObject({ checked: 1, failed: 1 });
+		expect(result.results[0]?.lists[0]).toMatchObject({
+			list_id: 200,
+			status: "failed",
+			pending: 1,
+		});
+		expect(result.results[0]?.lists[0]?.detail).toContain(
+			"still subscribed to source lists 1, 2",
+		);
+		const [stored] = await loadStoredAbTests(storePath);
+		expect(stored?.optOutSync?.syncedAt).toBeUndefined();
+	});
+
+	test("syncs a deleted test's retained record by id", async () => {
+		const storePath = await createStorePath();
+		const fake = createFakeListmonk();
+		seedAbTestAudience(fake);
+		await saveStoredAbTests([completedTest()], storePath);
+		const context = { client: fake.client, storePath };
+		await invokeDeleteAbTestOperation(context, { test_id: "test_optout" });
+
+		fake.advanceClock(DAY);
+		fake.unsubscribeViaCampaign(300, 13);
+		const result = await invokeSyncAbTestOptOutsOperation(context, {
+			test_id: "test_optout",
+		});
+
+		expect(result).toMatchObject({ checked: 1, failed: 0 });
+		expect(result.results[0]).toMatchObject({
+			test_id: "test_optout",
+			status: "completed",
+			deleted: true,
+		});
+		expect(fake.membership(13, SOURCE_B)).toBe("unsubscribed");
+	});
+
+	test("rejects an unknown test", async () => {
+		const storePath = await createStorePath();
+		await saveStoredAbTests([], storePath);
+
+		await expect(
+			invokeSyncAbTestOptOutsOperation(
+				{ client: createFakeListmonk().client, storePath },
+				{ test_id: "missing" },
+			),
+		).rejects.toMatchObject({ cause: expect.any(AbTestNotFoundError) });
 	});
 });
 

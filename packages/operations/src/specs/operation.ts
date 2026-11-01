@@ -97,7 +97,8 @@ export type OperationSpecVerb =
 	| "stop"
 	| "recommend-sample-size"
 	| "run"
-	| "export-assignment";
+	| "export-assignment"
+	| "sync-optouts";
 
 export type OperationSpecLifecycle =
 	| {
