@@ -55,20 +55,22 @@ describe("Service operation factories", () => {
 		const settings = createSettingsOperations({ client });
 
 		await expect(
-			settings.update({ body: { smtp: { password: "[redacted]" } } }),
-		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+			settings.update({ body: { smtp: [{ password: "[redacted]" }] } }),
+		).rejects.toThrow(
+			'Cannot update settings: smtp[0].password still holds the "[redacted]" placeholder',
+		);
 		expect(settingsUpdateRequests).toBe(0);
 		await expect(
 			settings.update({
 				body: { server: { url: "https://[redacted]@smtp.example.com" } },
 			}),
-		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		).rejects.toThrow("Cannot update settings: server.url still holds");
 		expect(settingsUpdateRequests).toBe(0);
 		await expect(
 			settings.update({
 				body: { server: { url: "https:\\\\[redacted]@smtp.example.com" } },
 			}),
-		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		).rejects.toThrow("Cannot update settings: server.url still holds");
 		expect(settingsUpdateRequests).toBe(0);
 		await expect(
 			settings.update({
@@ -77,7 +79,7 @@ describe("Service operation factories", () => {
 						"https://app.example/login?redirect=https%3A%2F%2F%5Bredacted%5D%40host",
 				},
 			}),
-		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		).rejects.toThrow("Cannot update settings: redirect still holds");
 		expect(settingsUpdateRequests).toBe(0);
 		await expect(
 			settings.update({
@@ -86,7 +88,7 @@ describe("Service operation factories", () => {
 						"https://app.example/login?redirect=https%3A%2F%2Fhost%2Fcb%3Ftoken%3D%5Bredacted%5D",
 				},
 			}),
-		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		).rejects.toThrow("Cannot update settings: redirect still holds");
 		expect(settingsUpdateRequests).toBe(0);
 		await expect(
 			settings.update({
@@ -95,7 +97,7 @@ describe("Service operation factories", () => {
 						"https://app.example/login?redirect=https%253A%252F%252F%5Bredacted%5D%2540inner%ZZ",
 				},
 			}),
-		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		).rejects.toThrow("Cannot update settings: redirect still holds");
 		expect(settingsUpdateRequests).toBe(0);
 		await expect(
 			settings.update({
@@ -104,7 +106,7 @@ describe("Service operation factories", () => {
 						"https://app.example/login?redirect=https%253A%252F%252Fhost%252F%ED%A0%80%253Ftoken%253D%5Bredacted%5D",
 				},
 			}),
-		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		).rejects.toThrow("Cannot update settings: redirect still holds");
 		expect(settingsUpdateRequests).toBe(0);
 		await expect(
 			settings.update({
@@ -112,7 +114,7 @@ describe("Service operation factories", () => {
 					redirect: "https://app.example/callback?clientsecret=[redacted]",
 				},
 			}),
-		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		).rejects.toThrow("Cannot update settings: redirect still holds");
 		expect(settingsUpdateRequests).toBe(0);
 		await expect(
 			settings.update({
@@ -121,7 +123,17 @@ describe("Service operation factories", () => {
 						"https://app.example/callback?awsaccesskeyid=[redacted]&awssecretaccesskey=[redacted]",
 				},
 			}),
-		).rejects.toThrow('Cannot update settings with "[redacted]" placeholders');
+		).rejects.toThrow("Cannot update settings: redirect still holds");
+		expect(settingsUpdateRequests).toBe(0);
+		// The redactor reads "sig%26" as the credential name "sig&", so a
+		// placeholder after it must be refused rather than saved.
+		await expect(
+			settings.update({
+				body: {
+					"app.logo_url": "https://media.example.com/logo.png?sig%26=[redacted]",
+				},
+			}),
+		).rejects.toThrow("Cannot update settings: app.logo_url still holds");
 		expect(settingsUpdateRequests).toBe(0);
 
 		const updated = await settings.update({
@@ -156,7 +168,9 @@ describe("Service operation factories", () => {
 			settings.testSmtp({
 				body: { email: "ops@example.com", server: { password: "[redacted]" } },
 			}),
-		).rejects.toThrow('Cannot test SMTP settings with "[redacted]" placeholders');
+		).rejects.toThrow(
+			'Cannot test SMTP settings: server.password still holds the "[redacted]" placeholder',
+		);
 		expect(settingsTestSmtpRequests).toBe(0);
 
 		const tested = await settings.testSmtp({

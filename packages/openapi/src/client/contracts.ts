@@ -370,9 +370,19 @@ interface TransactionalOperations {
 
 interface SettingsOperations {
 	get(): Promise<FlattenedResponse<t.Settings>>;
+	/**
+	 * Save the whole settings document. Throws a
+	 * `RedactedSettingsPlaceholderError` naming the offending keys, before
+	 * any request, when a value still holds the "[redacted]" placeholder of
+	 * a redacted settings read.
+	 */
 	update(options: {
 		body: Record<string, unknown>;
 	}): Promise<FlattenedResponse<boolean>>;
+	/**
+	 * Send a test message through one SMTP server. Rejects redaction
+	 * placeholders before any request, like `update`.
+	 */
 	testSmtp(options: {
 		body: Record<string, unknown>;
 	}): Promise<FlattenedResponse<boolean>>;
