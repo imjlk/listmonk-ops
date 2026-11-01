@@ -562,20 +562,49 @@ async function unsubscribeOptOutsFromSourceLists(
 	}
 }
 
-type TemporaryListOptOutRead =
+/**
+ * The outcome of reading one temporary list, shared by the propagation and
+ * its dry-run preview so both classify a list the same way:
+ *
+ * - `missing`: Listmonk reports the list deleted;
+ * - `failed`: the list or its opt-outs could not be read;
+ * - `no_opt_outs`: nobody unsubscribed from it;
+ * - `blocked`: it holds opt-outs but no source list is known;
+ * - `read`: its opt-outs, the ones not settled by an earlier run, and the
+ *   unsettled ones that still have a source membership to carry to.
+ */
+type TemporaryListOptOutClassification =
 	| { kind: "missing" }
 	| { kind: "failed"; detail: string }
-	| { kind: "read"; optOuts: TemporaryListOptOut[] };
+	| { kind: "no_opt_outs" }
+	| {
+			kind: "blocked";
+			optedOutCount: number;
+			unsettledCount: number;
+			detail: string;
+	  }
+	| {
+			kind: "read";
+			optOuts: TemporaryListOptOut[];
+			unsettled: TemporaryListOptOut[];
+			pending: TemporaryListOptOut[];
+	  };
 
 /**
- * Verify that the list exists and is readable, then read its opt-outs.
- * Never throws: a missing list and every failure are returned as results.
+ * Verify that the list exists and is readable, read its opt-outs, and
+ * classify them. Never throws: a missing list and every failure are
+ * returned as results. `sourceListIds` must already be normalized.
  */
-async function readListOptOutsFailClosed(
+async function classifyTemporaryListOptOuts(
 	client: ListmonkClient,
-	listId: number,
-	readOptions: { pageSize?: number },
-): Promise<TemporaryListOptOutRead> {
+	input: {
+		listId: number;
+		sourceListIds: readonly number[];
+		settled: ReadonlySet<number>;
+		pageSize?: number;
+	},
+): Promise<TemporaryListOptOutClassification> {
+	const { listId, sourceListIds, settled } = input;
 	const readability = await probeListReadability(client, listId);
 	if (readability.status === "not_found") {
 		return { kind: "missing" };
@@ -586,21 +615,50 @@ async function readListOptOutsFailClosed(
 			detail: `its opt-outs could not be verified because list ${listId} could not be read: ${readability.detail}`,
 		};
 	}
+	let optOuts: TemporaryListOptOut[];
 	try {
-		return {
-			kind: "read",
-			optOuts: await readTemporaryListOptOuts(client, listId, readOptions),
-		};
+		optOuts = await readTemporaryListOptOuts(client, listId, {
+			pageSize: input.pageSize,
+		});
 	} catch (error) {
 		return {
 			kind: "failed",
 			detail: `its opt-outs could not be read: ${describeError(error)}`,
 		};
 	}
+	if (optOuts.length === 0) {
+		return { kind: "no_opt_outs" };
+	}
+	const unsettled = optOuts.filter(
+		(optOut) => !settled.has(optOut.subscriberId),
+	);
+	if (sourceListIds.length === 0) {
+		return {
+			kind: "blocked",
+			optedOutCount: optOuts.length,
+			unsettledCount: unsettled.length,
+			detail: `${optOuts.length} subscriber(s) unsubscribed from it, but the test records no source lists to carry the opt-outs to; unsubscribe them from the lists they were drawn from, then remove them from list ${listId} and retry`,
+		};
+	}
+	return {
+		kind: "read",
+		optOuts,
+		unsettled,
+		pending: unsettled.filter(
+			(optOut) =>
+				resolvePendingSourceListIds(optOut, sourceListIds).length > 0,
+		),
+	};
 }
 
-function describeMissingSourceLists(listId: number, optedOut: number): string {
-	return `${optedOut} subscriber(s) unsubscribed from it, but the test records no source lists to carry the opt-outs to; unsubscribe them from the lists they were drawn from, then remove them from list ${listId} and retry`;
+/** The source lists to carry to: positive, unique, and not the list itself. */
+function resolveCarrySourceListIds(
+	listId: number,
+	sourceListIds: readonly number[],
+): number[] {
+	return normalizeListIds(sourceListIds).filter(
+		(sourceListId) => sourceListId !== listId,
+	);
 }
 
 /**
@@ -623,70 +681,66 @@ export async function propagateTemporaryListOptOuts(
 	},
 ): Promise<TemporaryListOptOutPropagation> {
 	const { listId } = input;
-	const sourceListIds = normalizeListIds(input.sourceListIds).filter(
-		(sourceListId) => sourceListId !== listId,
-	);
+	const sourceListIds = resolveCarrySourceListIds(listId, input.sourceListIds);
 	const settled = new Set(input.settledSubscriberIds ?? []);
-	const readOptions = { pageSize: input.pageSize };
-	const read = await readListOptOutsFailClosed(client, listId, readOptions);
-	if (read.kind === "missing") {
-		return {
-			listId,
-			status: "no_opt_outs",
-			safeToDelete: true,
-			listMissing: true,
-			optedOutCount: 0,
-			propagatedCount: 0,
-			pendingCount: 0,
-			settledSubscriberIds: [],
-			sourceListIds,
-		};
+	const classification = await classifyTemporaryListOptOuts(client, {
+		listId,
+		sourceListIds,
+		settled,
+		pageSize: input.pageSize,
+	});
+	switch (classification.kind) {
+		case "missing":
+			return {
+				listId,
+				status: "no_opt_outs",
+				safeToDelete: true,
+				listMissing: true,
+				optedOutCount: 0,
+				propagatedCount: 0,
+				pendingCount: 0,
+				settledSubscriberIds: [],
+				sourceListIds,
+			};
+		case "failed":
+			return {
+				listId,
+				status: "failed",
+				safeToDelete: false,
+				optedOutCount: 0,
+				propagatedCount: 0,
+				pendingCount: 0,
+				settledSubscriberIds: [],
+				sourceListIds,
+				detail: classification.detail,
+			};
+		case "no_opt_outs":
+			return {
+				listId,
+				status: "no_opt_outs",
+				safeToDelete: true,
+				optedOutCount: 0,
+				propagatedCount: 0,
+				pendingCount: 0,
+				settledSubscriberIds: [],
+				sourceListIds,
+			};
+		case "blocked":
+			return {
+				listId,
+				status: "blocked",
+				safeToDelete: false,
+				optedOutCount: classification.optedOutCount,
+				propagatedCount: 0,
+				pendingCount: classification.unsettledCount,
+				settledSubscriberIds: [],
+				sourceListIds,
+				detail: classification.detail,
+			};
+		case "read":
+			break;
 	}
-	if (read.kind === "failed") {
-		return {
-			listId,
-			status: "failed",
-			safeToDelete: false,
-			optedOutCount: 0,
-			propagatedCount: 0,
-			pendingCount: 0,
-			settledSubscriberIds: [],
-			sourceListIds,
-			detail: read.detail,
-		};
-	}
-	const optOuts = read.optOuts;
-	if (optOuts.length === 0) {
-		return {
-			listId,
-			status: "no_opt_outs",
-			safeToDelete: true,
-			optedOutCount: 0,
-			propagatedCount: 0,
-			pendingCount: 0,
-			settledSubscriberIds: [],
-			sourceListIds,
-		};
-	}
-	const unsettled = optOuts.filter(
-		(optOut) => !settled.has(optOut.subscriberId),
-	);
-	if (sourceListIds.length === 0) {
-		return {
-			listId,
-			status: "blocked",
-			safeToDelete: false,
-			optedOutCount: optOuts.length,
-			propagatedCount: 0,
-			pendingCount: unsettled.length,
-			settledSubscriberIds: [],
-			sourceListIds,
-			detail: describeMissingSourceLists(listId, optOuts.length),
-		};
-	}
-	const pending = unsettled.filter(
-		(optOut) => resolvePendingSourceListIds(optOut, sourceListIds).length > 0,
-	);
+	const { optOuts, unsettled, pending } = classification;
 	const pendingIds = new Set(pending.map((optOut) => optOut.subscriberId));
 	// Opt-outs with nothing left to carry are settled as read.
 	const settledAsRead = unsettled
@@ -711,7 +765,9 @@ export async function propagateTemporaryListOptOuts(
 			sourceListIds,
 			input.chunkSize,
 		);
-		const reread = await readTemporaryListOptOuts(client, listId, readOptions);
+		const reread = await readTemporaryListOptOuts(client, listId, {
+			pageSize: input.pageSize,
+		});
 		// Settled opt-outs are not re-checked: a person who re-subscribed to
 		// a source list after an earlier carry must not fail the confirmation.
 		const confirmed = reread.filter(
@@ -767,8 +823,8 @@ export async function propagateTemporaryListOptOuts(
 
 /**
  * Report what {@link propagateTemporaryListOptOuts} would carry from one
- * temporary list without writing anything: the same existence check, fail
- * closed read, settled-opt-out skip, and source-list rule.
+ * temporary list without writing anything. Both classify the list with the
+ * same read, so a dry run reports exactly what a real run would carry.
  */
 export async function previewTemporaryListOptOuts(
 	client: ListmonkClient,
@@ -780,69 +836,65 @@ export async function previewTemporaryListOptOuts(
 	},
 ): Promise<TemporaryListOptOutPreview> {
 	const { listId } = input;
-	const sourceListIds = normalizeListIds(input.sourceListIds).filter(
-		(sourceListId) => sourceListId !== listId,
-	);
-	const settled = new Set(input.settledSubscriberIds ?? []);
-	const read = await readListOptOutsFailClosed(client, listId, {
+	const sourceListIds = resolveCarrySourceListIds(listId, input.sourceListIds);
+	const classification = await classifyTemporaryListOptOuts(client, {
+		listId,
+		sourceListIds,
+		settled: new Set(input.settledSubscriberIds ?? []),
 		pageSize: input.pageSize,
 	});
-	if (read.kind === "missing") {
-		return {
-			listId,
-			status: "no_opt_outs",
-			listMissing: true,
-			optedOutCount: 0,
-			pendingCount: 0,
-			sourceListIds,
-		};
+	switch (classification.kind) {
+		case "missing":
+			return {
+				listId,
+				status: "no_opt_outs",
+				listMissing: true,
+				optedOutCount: 0,
+				pendingCount: 0,
+				sourceListIds,
+			};
+		case "failed":
+			return {
+				listId,
+				status: "failed",
+				optedOutCount: 0,
+				pendingCount: 0,
+				sourceListIds,
+				detail: classification.detail,
+			};
+		case "no_opt_outs":
+			return {
+				listId,
+				status: "no_opt_outs",
+				optedOutCount: 0,
+				pendingCount: 0,
+				sourceListIds,
+			};
+		case "blocked":
+			return {
+				listId,
+				status: "blocked",
+				optedOutCount: classification.optedOutCount,
+				pendingCount: classification.unsettledCount,
+				sourceListIds,
+				detail: classification.detail,
+			};
+		case "read":
+			return {
+				listId,
+				status: classification.pending.length === 0 ? "up_to_date" : "pending",
+				optedOutCount: classification.optOuts.length,
+				pendingCount: classification.pending.length,
+				sourceListIds,
+			};
 	}
-	if (read.kind === "failed") {
-		return {
-			listId,
-			status: "failed",
-			optedOutCount: 0,
-			pendingCount: 0,
-			sourceListIds,
-			detail: read.detail,
-		};
-	}
-	const optOuts = read.optOuts;
-	if (optOuts.length === 0) {
-		return {
-			listId,
-			status: "no_opt_outs",
-			optedOutCount: 0,
-			pendingCount: 0,
-			sourceListIds,
-		};
-	}
-	const unsettled = optOuts.filter(
-		(optOut) => !settled.has(optOut.subscriberId),
-	);
-	if (sourceListIds.length === 0) {
-		return {
-			listId,
-			status: "blocked",
-			optedOutCount: optOuts.length,
-			pendingCount: unsettled.length,
-			sourceListIds,
-			detail: describeMissingSourceLists(listId, optOuts.length),
-		};
-	}
-	const pendingCount = findUnpropagatedOptOuts(unsettled, sourceListIds).length;
-	return {
-		listId,
-		status: pendingCount === 0 ? "up_to_date" : "pending",
-		optedOutCount: optOuts.length,
-		pendingCount,
-		sourceListIds,
-	};
 }
 
 /**
  * {@link propagateTemporaryListOptOuts} for several temporary lists, one
- * after another, in the given order.
+ * after another, in the given order. Opt-outs one list settles are skipped
+ * on the later lists, so a subscriber opted out of several of them is
+ * carried once.
  */
 export async function propagateTemporaryListsOptOuts(
 	client: ListmonkClient,
@@ -852,16 +904,20 @@ export async function propagateTemporaryListsOptOuts(
 		settledSubscriberIds?: Iterable<number>;
 	},
 ): Promise<TemporaryListOptOutPropagation[]> {
-	const settledSubscriberIds = [...(input.settledSubscriberIds ?? [])];
+	const settledSubscriberIds = new Set(input.settledSubscriberIds ?? []);
 	const results: TemporaryListOptOutPropagation[] = [];
 	for (const listId of input.listIds) {
-		results.push(
-			await propagateTemporaryListOptOuts(client, {
-				listId,
-				sourceListIds: input.sourceListIds,
-				settledSubscriberIds,
-			}),
-		);
+		const propagation = await propagateTemporaryListOptOuts(client, {
+			listId,
+			sourceListIds: input.sourceListIds,
+			settledSubscriberIds,
+		});
+		// One id at a time: a long-lived list can settle more ids than a
+		// spread call accepts.
+		for (const subscriberId of propagation.settledSubscriberIds) {
+			settledSubscriberIds.add(subscriberId);
+		}
+		results.push(propagation);
 	}
 	return results;
 }

@@ -200,6 +200,24 @@ export function mergeOptOutSyncState(
 }
 
 /**
+ * Settled ids only stop a later propagation of the same temporary lists
+ * from carrying an opt-out twice, so once Listmonk reports every temporary
+ * list of the test deleted (no opt-out can reach the test any more) they are
+ * dropped. The missing list ids stay so the lists are not read again. While
+ * a list exists its settled ids are kept, however many accumulate.
+ */
+function dropSettledIdsOnceListsAreGone(
+	test: Pick<AbTest, "testListMappings" | "holdoutListId">,
+	state: AbTestOptOutSyncState,
+): AbTestOptOutSyncState {
+	const missing = new Set(state.missingListIds ?? []);
+	return state.settledSubscriberIds.length > 0 &&
+		resolveTemporaryListIds(test).every((listId) => missing.has(listId))
+		? { ...state, settledSubscriberIds: [] }
+		: state;
+}
+
+/**
  * Record what a cleanup path's propagation settled on the test: the
  * confirmed opt-outs, the lists Listmonk reported missing, and the lists the
  * caller deleted. Leaves a test without sync state untouched when there is
@@ -230,23 +248,28 @@ export function recordTemporaryListOptOutPropagation(
 	) {
 		return;
 	}
-	test.optOutSync = mergeOptOutSyncState(test.optOutSync, {
-		settledSubscriberIds,
-		missingListIds,
-		syncedAt: input.syncedAt,
-	});
+	test.optOutSync = dropSettledIdsOnceListsAreGone(
+		test,
+		mergeOptOutSyncState(test.optOutSync, {
+			settledSubscriberIds,
+			missingListIds,
+			syncedAt: input.syncedAt,
+		}),
+	);
 }
 
 function toListResultFromPropagation(
 	propagation: TemporaryListOptOutPropagation,
 ): AbTestOptOutSyncListResult {
-	const status: AbTestOptOutSyncListStatus = propagation.listMissing
-		? "missing"
-		: propagation.status === "propagated"
-			? propagation.propagatedCount > 0
-				? "propagated"
-				: "up_to_date"
-			: propagation.status;
+	let status: AbTestOptOutSyncListStatus = propagation.status;
+	if (propagation.listMissing === true) {
+		status = "missing";
+	} else if (
+		propagation.status === "propagated" &&
+		propagation.propagatedCount === 0
+	) {
+		status = "up_to_date";
+	}
 	return {
 		listId: propagation.listId,
 		status,
@@ -307,7 +330,12 @@ export async function syncAbTestOptOuts(
 			settledSubscriberIds: settled,
 		});
 		lists.push(toListResultFromPropagation(propagation));
-		newlySettled.push(...propagation.settledSubscriberIds);
+		// Fold them in before the next list, one id at a time: a long-lived
+		// list can settle more ids than a spread call accepts.
+		for (const subscriberId of propagation.settledSubscriberIds) {
+			settled.add(subscriberId);
+			newlySettled.push(subscriberId);
+		}
 		if (propagation.listMissing === true) {
 			missingListIds.push(listId);
 		}
@@ -328,11 +356,14 @@ export async function syncAbTestOptOuts(
 	}
 	return {
 		result,
-		state: mergeOptOutSyncState(test.optOutSync, {
-			settledSubscriberIds: newlySettled,
-			missingListIds,
-			syncedAt: ok ? (options.now ?? new Date()).toISOString() : undefined,
-		}),
+		state: dropSettledIdsOnceListsAreGone(
+			test,
+			mergeOptOutSyncState(test.optOutSync, {
+				settledSubscriberIds: newlySettled,
+				missingListIds,
+				syncedAt: ok ? (options.now ?? new Date()).toISOString() : undefined,
+			}),
+		),
 	};
 }
 

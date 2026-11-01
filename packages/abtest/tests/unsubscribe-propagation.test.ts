@@ -619,6 +619,34 @@ describe("repeated propagation carries each opt-out once", () => {
 		expect(result.settledSubscriberIds).toEqual([1]);
 	});
 
+	test("carries a subscriber opted out of several lists once per run", async () => {
+		const fake = createFakeListmonk();
+		fake.addLists(SOURCE_A, 200, 201);
+		fake.addSubscriber(1, {
+			[SOURCE_A]: "confirmed",
+			200: "unsubscribed",
+			201: "unsubscribed",
+		});
+
+		const results = await propagateTemporaryListsOptOuts(fake.client, {
+			listIds: [200, 201],
+			sourceListIds: [SOURCE_A],
+		});
+
+		expect(
+			results.map((result) => [result.listId, result.settledSubscriberIds]),
+		).toEqual([
+			[200, [1]],
+			// Settled by the first list, so the second neither writes nor
+			// re-checks it.
+			[201, []],
+		]);
+		expect(fake.unsubscribes).toEqual([
+			{ ids: [1], target_list_ids: [SOURCE_A] },
+		]);
+		expect(results.every((result) => result.safeToDelete)).toBe(true);
+	});
+
 	test("reports a deleted list as missing", async () => {
 		const fake = createFakeListmonk();
 

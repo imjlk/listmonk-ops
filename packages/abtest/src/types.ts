@@ -171,7 +171,10 @@ export interface AbTest {
 export interface AbTestOptOutSyncState {
 	/**
 	 * Subscribers whose opt-out from one of the test's temporary lists was
-	 * confirmed on the source lists (carried, or with nothing to carry).
+	 * confirmed on the source lists (carried, or with nothing to carry). It
+	 * grows by one id per opt-out for as long as a temporary list exists,
+	 * because dropping an id would let a later sync unsubscribe that person
+	 * again after a re-subscribe; it is emptied once every list is gone.
 	 */
 	settledSubscriberIds: number[];
 	/** Temporary lists Listmonk reported as deleted; never read again. */

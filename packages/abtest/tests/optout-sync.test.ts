@@ -233,6 +233,28 @@ describe("syncAbTestOptOuts on kept temporary lists", () => {
 		expect(second.result.lists.map((list) => list.listId)).toEqual([200, 202]);
 	});
 
+	test("drops the settled ids once every temporary list is gone", async () => {
+		const fake = createFakeListmonk();
+		seedAbTestAudience(fake);
+		fake.unsubscribeViaCampaign(300, 13);
+		const test = completedTest();
+		const first = await syncAbTestOptOuts(fake.client, test);
+		test.optOutSync = first.state;
+		expect(test.optOutSync?.settledSubscriberIds).toEqual([13]);
+
+		for (const listId of [200, 201, 202]) {
+			fake.removeList(listId);
+		}
+		const second = await syncAbTestOptOuts(fake.client, test);
+
+		// No opt-out can reach the test any more, so nothing needs guarding;
+		// the missing lists stay recorded so they are not read again.
+		expect(second.state?.settledSubscriberIds).toEqual([]);
+		expect(second.state?.missingListIds).toEqual([200, 201, 202]);
+		test.optOutSync = second.state;
+		expect(isOptOutSyncTracked(test)).toBe(false);
+	});
+
 	test("a dry run reports pending opt-outs without writing", async () => {
 		const fake = createFakeListmonk();
 		seedAbTestAudience(fake);
