@@ -76,7 +76,6 @@ const numericIntegerInputSchema = z.union([
 ]);
 const numericPercentageSchema = z.coerce
 	.number()
-	.finite()
 	.min(0)
 	.lte(100);
 function optionalNumericInputSchema<const Schema extends z.ZodType>(
@@ -113,7 +112,7 @@ const contentOverridesSchema = z.object({
 const variantSchema = z.object({
 	id: z.string(),
 	name: z.string(),
-	percentage: z.number().finite(),
+	percentage: z.number(),
 	contentOverrides: contentOverridesSchema,
 });
 
@@ -167,10 +166,10 @@ const abTestSchema = z.object({
 		template_id: positiveIntegerSchema.optional(),
 	}),
 	testingMode: z.enum(["holdout", "full-split"]),
-	testGroupPercentage: z.number().finite(),
-	testGroupSize: z.number().finite().nonnegative(),
-	holdoutGroupSize: z.number().finite().nonnegative(),
-	confidenceThreshold: z.number().finite().positive().lt(1),
+	testGroupPercentage: z.number(),
+	testGroupSize: z.number().nonnegative(),
+	holdoutGroupSize: z.number().nonnegative(),
+	confidenceThreshold: z.number().positive().lt(1),
 	autoDeployWinner: z.boolean(),
 	campaignMappings: z.array(
 		z.object({
@@ -204,7 +203,7 @@ const abTestSchema = z.object({
 		.optional(),
 	assignmentManifest: assignmentManifestSchema.optional(),
 	// Stage 3 orchestration fields.
-		durationHours: z.number().finite().positive().optional(),
+		durationHours: z.number().positive().optional(),
 		launchAt: z.string().datetime().optional(),
 		startedAt: z.string().datetime().optional(),
 		endsAt: z.string().datetime().optional(),
@@ -231,11 +230,11 @@ const abTestSchema = z.object({
 			expectedLift: z.union([
 				z.object({
 					kind: z.literal("relative"),
-					value: z.number().finite().positive(),
+					value: z.number().positive(),
 				}),
 				z.object({
 					kind: z.literal("absolute"),
-					value: z.number().finite().positive(),
+					value: z.number().positive(),
 					unit: z.enum(["percentage_point", "currency_per_recipient"]),
 				}),
 			]),
@@ -246,8 +245,8 @@ const abTestSchema = z.object({
 			experimentScope: z.object({
 				channel: z.literal("email"),
 				experimentFamilyKey: z.string(),
-				attributionWindowHours: z.number().finite().positive(),
-				exclusionWindowHours: z.number().finite().nonnegative(),
+				attributionWindowHours: z.number().positive(),
+				exclusionWindowHours: z.number().nonnegative(),
 			}),
 			createdAt: z.string(),
 			lockedAt: z.string().optional(),
@@ -273,28 +272,28 @@ const abTestSchema = z.object({
 
 const testResultsSchema = z.object({
 	variantId: z.string(),
-	sampleSize: z.number().finite().nonnegative(),
-	opens: z.number().finite().nonnegative(),
-	clicks: z.number().finite().nonnegative(),
-	conversions: z.number().finite().nonnegative(),
-	revenue: z.number().finite().optional(),
+	sampleSize: z.number().nonnegative(),
+	opens: z.number().nonnegative(),
+	clicks: z.number().nonnegative(),
+	conversions: z.number().nonnegative(),
+	revenue: z.number().optional(),
 	currency: z.string().regex(/^[A-Z]{3}$/).optional(),
-	openRate: z.number().finite().nonnegative(),
-	clickRate: z.number().finite().nonnegative(),
-	conversionRate: z.number().finite().nonnegative(),
+	openRate: z.number().nonnegative(),
+	clickRate: z.number().nonnegative(),
+	conversionRate: z.number().nonnegative(),
 });
 
 const statisticalAnalysisSchema = z.object({
-	zScore: z.number().finite(),
-	pValue: z.number().finite(),
+	zScore: z.number(),
+	pValue: z.number(),
 	isSignificant: z.boolean(),
-	confidenceLevel: z.number().finite(),
-	sampleSize: z.number().finite().nonnegative(),
+	confidenceLevel: z.number(),
+	sampleSize: z.number().nonnegative(),
 	// Stage 4 fields — optional so existing callers stay valid.
-	correctedPValue: z.number().finite().min(0).max(1).optional(),
+	correctedPValue: z.number().min(0).max(1).optional(),
 	holmCorrected: z.boolean().optional(),
 	srmPassed: z.boolean().optional(),
-	srmPValue: z.number().finite().min(0).max(1).optional(),
+	srmPValue: z.number().min(0).max(1).optional(),
 	fixedHorizonReasonCodes: z.array(z.string()).optional(),
 });
 
@@ -307,13 +306,13 @@ const testAnalysisSchema = z.object({
 });
 
 const sampleSizeRecommendationSchema = z.object({
-	totalSubscribers: z.number().finite().nonnegative(),
-	recommendedTestPercentage: z.number().finite(),
-	minimumTestPercentage: z.number().finite(),
-	currentTestPercentage: z.number().finite(),
-	expectedSamplePerVariant: z.number().finite().nonnegative(),
-	minimumSamplePerVariant: z.number().finite().nonnegative(),
-	statisticalPower: z.number().finite(),
+	totalSubscribers: z.number().nonnegative(),
+	recommendedTestPercentage: z.number(),
+	minimumTestPercentage: z.number(),
+	currentTestPercentage: z.number(),
+	expectedSamplePerVariant: z.number().nonnegative(),
+	minimumSamplePerVariant: z.number().nonnegative(),
+	statisticalPower: z.number(),
 	warnings: z.array(z.string()),
 	recommendations: z.array(z.string()),
 });
@@ -359,10 +358,10 @@ const createAbTestInputSchema = z.object({
 	variants: z.array(createVariantInputSchema).min(2).max(3),
 	testing_mode: z.enum(["holdout", "full-split"]).optional(),
 	test_group_percentage: optionalNumericInputSchema(
-		z.coerce.number().finite().positive().lte(100),
+		z.coerce.number().positive().lte(100),
 	),
 	confidence_threshold: optionalNumericInputSchema(
-		z.coerce.number().finite().positive().lt(1),
+		z.coerce.number().positive().lt(1),
 	),
 	minimum_sample_size: optionalNumericInputSchema(
 		z.coerce.number().int().positive(),
@@ -370,7 +369,6 @@ const createAbTestInputSchema = z.object({
 	duration_hours: optionalNumericInputSchema(
 		z.coerce
 			.number()
-			.finite()
 			.positive("duration_hours must be greater than 0"),
 	),
 	launch_at: z.string().datetime().optional(),
@@ -405,11 +403,11 @@ const createAbTestInputSchema = z.object({
 			expected_lift: z.union([
 				z.object({
 					kind: z.literal("relative"),
-					value: z.number().finite().positive(),
+					value: z.number().positive(),
 				}),
 				z.object({
 					kind: z.literal("absolute"),
-					value: z.number().finite().positive(),
+					value: z.number().positive(),
 					unit: z.enum(["percentage_point", "currency_per_recipient"]),
 				}),
 			]),
@@ -422,8 +420,8 @@ const createAbTestInputSchema = z.object({
 				experiment_family_key: z
 					.string()
 					.regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/),
-				attribution_window_hours: z.number().finite().min(0),
-				exclusion_window_hours: z.number().finite().nonnegative(),
+				attribution_window_hours: z.number().min(0),
+				exclusion_window_hours: z.number().nonnegative(),
 			}),
 		})
 		.optional(),
@@ -496,7 +494,6 @@ const recommendSampleSizeInputSchema = z.object({
 	lists: z.array(numericIntegerInputSchema).min(1).describe("Target list IDs"),
 	test_group_percentage: z.coerce
 		.number()
-		.finite()
 		.min(0)
 		.lte(100),
 	variant_count: z.coerce.number().int().min(2).max(3).default(2),
@@ -651,7 +648,7 @@ const recordAbTestConversionInputObjectSchema = z.object({
 	variant_id: z.string().trim().min(1),
 	subscriber_uuid: z.string().regex(SUBSCRIBER_UUID_PATTERN),
 	event: z.string().trim().min(1),
-	value: z.number().finite().nonnegative().optional(),
+	value: z.number().nonnegative().optional(),
 	currency: z.string().regex(/^[A-Z]{3}$/).optional(),
 	occurred_at: z.string().datetime({ offset: true }),
 });
