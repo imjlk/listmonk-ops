@@ -311,13 +311,20 @@ export const abTestStopOperationSpec = defineOperationSpec({
 	verb: "stop",
 	title: "Stop A/B test",
 	description:
-		"Stop a running or scheduled A/B test, cancel or delete its backing campaigns, clean up eligible temporary lists, and transition it to cancelled",
+		"Stop a running or scheduled A/B test, cancel or delete its backing campaigns, carry its temporary lists' opt-outs to the source lists, clean up eligible temporary lists, and transition it to cancelled",
 	contract: { input: abTestIdInputContract, output: abTestGetOutputContract },
 	effects: [
 		{ kind: "write", resource: "experiment", reversible: false },
 		{ kind: "write", resource: "campaign", reversible: false },
 		{ kind: "delete", resource: "campaign", reversible: false },
 		{ kind: "delete", resource: "list", reversible: false },
+		{
+			kind: "suppression",
+			resource: "subscriber",
+			scope: "audience",
+			reversible: false,
+			preview: false,
+		},
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
@@ -357,12 +364,19 @@ export const abTestDeleteOperationSpec = defineOperationSpec({
 	verb: "delete",
 	title: "Delete A/B test",
 	description:
-		"Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists",
+		"Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists; a terminal test's opt-outs are carried to its source lists first, and its kept temporary lists stay tracked for later opt-outs",
 	contract: { input: abTestIdInputContract, output: abTestDeleteOutputContract },
 	effects: [
 		{ kind: "delete", resource: "experiment", reversible: false },
 		{ kind: "delete", resource: "campaign", reversible: false },
 		{ kind: "delete", resource: "list", reversible: false },
+		{
+			kind: "suppression",
+			resource: "subscriber",
+			scope: "audience",
+			reversible: false,
+			preview: false,
+		},
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
@@ -555,7 +569,8 @@ export const abTestTickOperationSpec = defineOperationSpec({
 	resource: "experiment",
 	verb: "tick",
 	title: "Tick A/B tests",
-	description: "Advance all non-terminal A/B tests by one step",
+	description:
+		"Advance all non-terminal A/B tests by one step and carry the opt-outs due for sync from temporary lists to their tests' source lists",
 	contract: { input: abTestTickInputContract, output: abTestTickOutputContract },
 	effects: [
 		{ kind: "write", resource: "experiment", reversible: false, preview: true },
@@ -564,6 +579,12 @@ export const abTestTickOperationSpec = defineOperationSpec({
 			resource: "campaign",
 			audience: "bulk",
 			timing: "immediate",
+		},
+		{
+			kind: "suppression",
+			resource: "subscriber",
+			scope: "audience",
+			reversible: false,
 		},
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
@@ -593,8 +614,13 @@ export const abTestTickOperationSpec = defineOperationSpec({
 			"A/B tick transitions can deploy winner campaigns externally, so every mode needs inspection; the echoed claim set bounds the retry to the originally due tests.",
 	},
 	agent: {
-		useWhen: ["Non-terminal A/B tests must be advanced by one lifecycle step."],
-		avoidWhen: ["No tests are in a non-terminal status."],
+		useWhen: [
+			"Non-terminal A/B tests must be advanced by one lifecycle step.",
+			"Opt-outs recorded on kept A/B temporary lists must be carried to the source lists on a schedule.",
+		],
+		avoidWhen: [
+			"No A/B test is active and none keeps temporary lists that are due for an opt-out sync.",
+		],
 		prerequisites: ["abtest.list"],
 		verifyWith: ["abtest.list"],
 		related: ["abtest.reconcile"],

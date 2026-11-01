@@ -37,6 +37,7 @@ import {
 	type TemporaryListOptOutPropagation,
 } from "./unsubscribe-propagation";
 import { isListmonkNotFoundAnswer } from "./lifecycle";
+import { syncAbTestOptOuts, type AbTestOptOutSyncOutcome } from "./optout-sync";
 
 export interface ProvisionedAbTestResources {
 	testId: string;
@@ -783,6 +784,8 @@ export class ListmonkAbTestIntegration {
 	async deleteTestResources(resources: {
 		/** Source audience lists that receive the temporary lists' opt-outs. */
 		sourceListIds?: readonly number[];
+		/** Opt-outs an earlier sync already carried; they are skipped. */
+		settledSubscriberIds?: readonly number[];
 		campaignIds: number[];
 		listIds: number[];
 	}): Promise<void> {
@@ -855,6 +858,7 @@ export class ListmonkAbTestIntegration {
 				{
 					listIds: [...resources.listIds].reverse(),
 					sourceListIds: resources.sourceListIds ?? [],
+					settledSubscriberIds: resources.settledSubscriberIds,
 				},
 			);
 			const deletableListIds: number[] = [];
@@ -933,6 +937,17 @@ export class ListmonkAbTestIntegration {
 			allOptOutsSafeToDelete ? listsInRollbackOrder : [],
 		);
 		return { deletedCampaignIds, deletedListIds };
+	}
+
+	/**
+	 * Carry the opt-outs on a test's kept temporary lists to its source lists
+	 * (see `optout-sync.ts`). The caller applies the returned state.
+	 */
+	async syncTestOptOuts(
+		test: AbTest,
+		options: { dryRun?: boolean; now?: Date } = {},
+	): Promise<AbTestOptOutSyncOutcome> {
+		return syncAbTestOptOuts(this.listmonkClient, test, options);
 	}
 
 	/**

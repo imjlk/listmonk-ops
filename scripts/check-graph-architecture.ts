@@ -559,6 +559,28 @@ const abTestTestContracts: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "Opt-out sync tests anchor the kept-list sync and its shared propagation",
+		path: [
+			"packages/abtest/tests/optout-sync.test.ts#packages/abtest/tests/optout-sync.test.ts:module",
+			"packages/abtest/src/optout-sync.ts#syncAbTestOptOuts:function",
+			"packages/abtest/src/unsubscribe-propagation.ts#propagateTemporaryListOptOuts:function",
+		],
+	},
+	{
+		label: "Propagation tests anchor the dry-run opt-out preview",
+		path: [
+			"packages/abtest/tests/unsubscribe-propagation.test.ts#packages/abtest/tests/unsubscribe-propagation.test.ts:module",
+			"packages/abtest/src/unsubscribe-propagation.ts#previewTemporaryListOptOuts:function",
+		],
+	},
+	{
+		label: "CLI A/B tests anchor the opt-out sync failure report",
+		path: [
+			cliAbTestInputTestModule,
+			"apps/cli/src/commands/abtest.ts#formatOptOutSyncWarnings:function",
+		],
+	},
+	{
 		label: "MCP A/B tests anchor the shared handler path",
 		path: [
 			"packages/mcp/tests/unit/abtest.test.ts#packages/mcp/tests/unit/abtest.test.ts:module",

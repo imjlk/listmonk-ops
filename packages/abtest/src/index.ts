@@ -21,14 +21,34 @@ export { ListmonkAbTestIntegration } from "./listmonk-integration";
 // Every cleanup path carries opt-outs recorded on a temporary A/B list to the
 // test's source lists before deleting the list; these are the building blocks.
 export {
+	previewTemporaryListOptOuts,
 	propagateTemporaryListOptOuts,
 	propagateTemporaryListsOptOuts,
 	readTemporaryListOptOuts,
 	resolveOptOutSourceListIds,
+	resolvePendingSourceListIds,
 	type TemporaryListOptOut,
+	type TemporaryListOptOutPreview,
 	type TemporaryListOptOutPropagation,
 	type TemporaryListOptOutPropagationStatus,
 } from "./unsubscribe-propagation";
+// Temporary lists that are kept (completed tests, lists a stop keeps, and
+// deleted terminal tests' lists) keep receiving opt-outs; the A/B tick
+// carries them with these.
+export {
+	isOptOutSyncDue,
+	isOptOutSyncTracked,
+	OPT_OUT_SYNC_INTERVAL_MS,
+	OPT_OUT_SYNC_LONG_TAIL_INTERVAL_MS,
+	OPT_OUT_SYNC_RECENT_PERIOD_MS,
+	resolveTemporaryListIds,
+	resolveTrackedTemporaryListIds,
+	syncAbTestOptOuts,
+	type AbTestOptOutSyncListResult,
+	type AbTestOptOutSyncListStatus,
+	type AbTestOptOutSyncOutcome,
+	type AbTestOptOutSyncResult,
+} from "./optout-sync";
 // Export the fail-closed metrics error so consumers can catch it with
 // instanceof when getTestResults/analyzeAbTest cannot reach Listmonk.
 export {
@@ -168,6 +188,7 @@ export type {
 	RecommendAbTestSampleSizeOperationOutput,
 	RunAbTestOperationOutput,
 	StopAbTestOperationOutput,
+	SyncAbTestOptOutsOperationOutput,
 	TestAnalysisOperationRecord,
 	TickAbTestsOperationOutput,
 } from "./operations";
@@ -186,6 +207,7 @@ export type {
 	AbTest,
 	AbTestConfig,
 	AbTestInput,
+	AbTestOptOutSyncState,
 	AbTestQueryParams,
 	AnalyzeAbTestInput,
 	CreateAbTestInput,

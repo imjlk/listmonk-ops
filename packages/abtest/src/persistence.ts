@@ -50,6 +50,12 @@ const METRIC_TYPES = new Set([
  * written by every new write. A version 1 document is read transparently:
  * the v1 tests are re-validated and the next successful write upgrades the
  * document to version 2 without re-splitting any audience.
+ *
+ * Version 2 records may also carry the optional `optOutSync` record and,
+ * for a deleted terminal test whose temporary lists still exist, a
+ * `deletedAt` marker. Such retained records stay in `tests` (readers that
+ * predate them keep them intact on rewrite) but are hidden from every A/B
+ * lookup except the opt-out sync.
  */
 export interface StoredAbTestDocument {
 	version: 2;
@@ -388,7 +394,24 @@ function isStoredAbTest(value: unknown): boolean {
 		// present so corrupt state (negative quotas, malformed cells) is
 		// rejected at the file boundary.
 		(value.stratification === undefined ||
-			isStoredStratification(value.stratification))
+			isStoredStratification(value.stratification)) &&
+		// Opt-out sync record and the retention marker of a deleted test:
+		// optional, validated when present.
+		(value.optOutSync === undefined ||
+			isStoredOptOutSyncState(value.optOutSync)) &&
+		(value.deletedAt === undefined || isValidTimestamp(value.deletedAt))
+	);
+}
+
+function isStoredOptOutSyncState(value: unknown): boolean {
+	return (
+		isRecord(value) &&
+		Array.isArray(value.settledSubscriberIds) &&
+		value.settledSubscriberIds.every(isPositiveInteger) &&
+		(value.missingListIds === undefined ||
+			(Array.isArray(value.missingListIds) &&
+				value.missingListIds.every(isPositiveInteger))) &&
+		(value.syncedAt === undefined || isValidTimestamp(value.syncedAt))
 	);
 }
 
@@ -834,7 +857,9 @@ export async function withStoredAbTestExecutors<Result>(
 			return commitJsonFileStoreUpdate(
 				{
 					version: 2,
-					tests: executors.abTestService.snapshotTests(),
+					// Includes the retained records of deleted tests, which the
+					// opt-out sync still needs.
+					tests: executors.abTestService.snapshotStoredTests(),
 				},
 				result,
 			);

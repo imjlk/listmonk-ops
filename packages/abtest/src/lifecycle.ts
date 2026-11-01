@@ -31,10 +31,11 @@ import {
  *
  * Temporary lists are only deleted once no remaining backing campaign
  * references them, so an in-flight or partially-failed cancel cannot detach
- * a list a still-running campaign needs. Before a list is deleted, its
+ * a list a still-running campaign needs. Every temporary list's
  * unsubscribed memberships are carried to the test's source lists (see
- * `unsubscribe-propagation.ts`); a list whose opt-outs cannot be carried is
- * kept.
+ * `unsubscribe-propagation.ts`), whether the list is then deleted or kept
+ * for a surviving campaign; a list whose opt-outs cannot be carried is never
+ * deleted.
  *
  * Campaign names are never overwritten. The previous code renamed every
  * campaign to the same `A/B Test Completed - ...` string, which destroyed
@@ -70,6 +71,12 @@ export interface CancelPlan {
 	 * that holds opt-outs.
 	 */
 	optOutSourceListIds?: number[];
+	/**
+	 * Opt-outs an earlier sync already carried to the source lists. They are
+	 * not carried again, so a person who re-subscribed since stays
+	 * subscribed.
+	 */
+	optOutSettledSubscriberIds?: number[];
 }
 
 export interface CancelExecutionResult {
@@ -116,9 +123,11 @@ export interface CancelExecutionResult {
 	 */
 	hadFetchFailures: boolean;
 	/**
-	 * Opt-out propagation for every list the plan was cleared to delete. A
-	 * list whose opt-outs could not be carried to the source lists is kept
-	 * and reported as a `failed` list result.
+	 * Opt-out propagation for every temporary list in the plan, whether it is
+	 * deleted or kept for a surviving campaign. A list cleared for deletion
+	 * whose opt-outs could not be carried to the source lists is kept and
+	 * reported as a `failed` list result; a kept list's failure only shows
+	 * here, and a later opt-out sync retries it.
 	 */
 	optOutPropagation: TemporaryListOptOutPropagation[];
 }
@@ -266,6 +275,13 @@ export function planCancelAbTest(
 		listActions,
 		campaignsBlockingListDeletion: survivingCampaignIds,
 		optOutSourceListIds: resolveOptOutSourceListIds(test),
+		...(test.optOutSync === undefined
+			? {}
+			: {
+					optOutSettledSubscriberIds: [
+						...test.optOutSync.settledSubscriberIds,
+					],
+				}),
 	};
 }
 
@@ -460,13 +476,14 @@ export async function executeCancelPlan(
 	const anySurvivingReference = survivingListReferences.size > 0;
 	// Deleting a list erases its unsubscribed memberships, so carry them to
 	// the source lists first; a list whose opt-outs are not confirmed there
-	// is kept and reported as failed so the stop can be retried.
-	const optOutPropagation = anySurvivingReference
-		? []
-		: await propagateTemporaryListsOptOuts(client, {
-				listIds: plan.listActions.map((action) => action.listId),
-				sourceListIds: plan.optOutSourceListIds ?? [],
-			});
+	// is kept and reported as failed so the stop can be retried. A list kept
+	// for a surviving campaign is carried too: that campaign's recipients may
+	// already have unsubscribed, and only the temporary list records it.
+	const optOutPropagation = await propagateTemporaryListsOptOuts(client, {
+		listIds: plan.listActions.map((action) => action.listId),
+		sourceListIds: plan.optOutSourceListIds ?? [],
+		settledSubscriberIds: plan.optOutSettledSubscriberIds,
+	});
 	const propagationByListId = new Map(
 		optOutPropagation.map((propagation) => [propagation.listId, propagation]),
 	);

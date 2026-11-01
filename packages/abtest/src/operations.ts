@@ -28,6 +28,7 @@ import {
 import { z } from "zod";
 import { AUDIENCE_ELIGIBILITY_POLICY_VERSIONS } from "./audience";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
+import type { AbTestOptOutSyncResult } from "./optout-sync";
 import { AbTestNotFoundError } from "./errors";
 import { withStoredAbTestExecutors } from "./persistence";
 import { getAbTestAttributionDeadline } from "./conversion-events";
@@ -510,6 +511,39 @@ const exportAssignmentInputSchema = z.object({
 		.describe("A/B test ID whose assignment manifest to export"),
 });
 
+const optOutSyncListResultSchema = z.object({
+	list_id: positiveIntegerSchema,
+	status: z.enum([
+		"missing",
+		"no_opt_outs",
+		"up_to_date",
+		"propagated",
+		"pending",
+		"blocked",
+		"failed",
+	]),
+	opted_out: z.number().int().nonnegative(),
+	carried: z.number().int().nonnegative(),
+	pending: z.number().int().nonnegative(),
+	detail: z.string().optional(),
+});
+
+const optOutSyncTestResultSchema = z.object({
+	test_id: z.string().min(1),
+	status: abTestStatusSchema,
+	deleted: z.boolean(),
+	source_list_ids: z.array(positiveIntegerSchema),
+	lists: z.array(optOutSyncListResultSchema),
+	detail: z.string().optional(),
+});
+
+const optOutSyncOutputSchema = z.object({
+	dry_run: z.boolean(),
+	checked: z.number().int().nonnegative(),
+	failed: z.number().int().nonnegative(),
+	results: z.array(optOutSyncTestResultSchema),
+});
+
 export type AbTestOperationRecord = z.output<typeof abTestSchema>;
 export type TestAnalysisOperationRecord = z.output<typeof testAnalysisSchema>;
 export type ListAbTestsOperationOutput = { tests: AbTestOperationRecord[] };
@@ -546,7 +580,15 @@ export type TickAbTestsOperationOutput = {
 	requested?: number;
 	/** Recovery passes only: echoed members that already moved on. */
 	already_done?: number;
+	/**
+	 * Sweeps only: the opt-out sync of the tests whose cadence made them
+	 * due (a preview on a dry run).
+	 */
+	opt_out_sync?: SyncAbTestOptOutsOperationOutput;
 };
+export type SyncAbTestOptOutsOperationOutput = z.output<
+	typeof optOutSyncOutputSchema
+>;
 export type ReconcileAbTestOperationOutput = {
 	reconciled: number;
 	results: Array<{
@@ -598,6 +640,32 @@ function serializeTestAnalysis(analysis: TestAnalysis): TestAnalysisOperationRec
 	return {
 		...analysis,
 		winner: analysis.winner ? serializeVariant(analysis.winner) : null,
+	};
+}
+
+function serializeOptOutSync(
+	results: readonly AbTestOptOutSyncResult[],
+	dryRun: boolean,
+): SyncAbTestOptOutsOperationOutput {
+	return {
+		dry_run: dryRun,
+		checked: results.length,
+		failed: results.filter((result) => !result.ok).length,
+		results: results.map((result) => ({
+			test_id: result.testId,
+			status: result.testStatus,
+			deleted: result.deleted,
+			source_list_ids: result.sourceListIds,
+			lists: result.lists.map((list) => ({
+				list_id: list.listId,
+				status: list.status,
+				opted_out: list.optedOutCount,
+				carried: list.carriedCount,
+				pending: list.pendingCount,
+				...(list.detail === undefined ? {} : { detail: list.detail }),
+			})),
+			...(result.detail === undefined ? {} : { detail: result.detail }),
+		})),
 	};
 }
 
@@ -1009,6 +1077,21 @@ export async function executeTickAbTestsOperation(
 						status: member.status,
 					})),
 				);
+				// After the sweep, so a test it just completed is included:
+				// carry the opt-outs of every test whose sync cadence is due
+				// (a read-only preview on a dry run). A recovery pass stays
+				// bounded to its echoed transitions and skips it.
+				const optOutSync =
+					recoverySet === undefined
+						? serializeOptOutSync(
+								await executors.syncAbTestOptOuts({
+									dryRun,
+									dueOnly: true,
+									now: new Date(tickNow),
+								}),
+								dryRun,
+							)
+						: undefined;
 				const requested = recoverySet?.length;
 				const alreadyDone =
 					recoverySet === undefined
@@ -1026,6 +1109,7 @@ export async function executeTickAbTestsOperation(
 					})),
 					requested,
 					already_done: alreadyDone,
+					...(optOutSync === undefined ? {} : { opt_out_sync: optOutSync }),
 				};
 			},
 		);
@@ -1206,7 +1290,7 @@ export const stopAbTestOperation = defineOperation({
 	id: "abtest.stop",
 	title: "Stop A/B test",
 	description:
-		"Stop a running or scheduled A/B test, cancel or delete its backing campaigns, clean up eligible temporary lists, and transition it to cancelled",
+		"Stop a running or scheduled A/B test, cancel or delete its backing campaigns, carry its temporary lists' opt-outs to the source lists, clean up eligible temporary lists, and transition it to cancelled",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
 	safety: destructiveSafety,
@@ -1222,7 +1306,7 @@ export const deleteAbTestOperation = defineOperation({
 	id: "abtest.delete",
 	title: "Delete A/B test",
 	description:
-		"Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists",
+		"Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists; a terminal test's opt-outs are carried to its source lists first, and its kept temporary lists stay tracked for later opt-outs",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ deleted: z.boolean() }),
 	safety: destructiveSafety,
@@ -1299,7 +1383,7 @@ export const tickAbTestsOperation = defineOperation({
 	id: "abtest.tick",
 	title: "Tick A/B tests",
 	description:
-		"Advance all non-terminal A/B tests by one step",
+		"Advance all non-terminal A/B tests by one step and carry the opt-outs due for sync from temporary lists to their tests' source lists",
 	inputSchema: tickAbTestsInputSchema,
 	outputSchema: z.object({
 		processed: z.number().int().nonnegative(),
@@ -1312,6 +1396,7 @@ export const tickAbTestsOperation = defineOperation({
 		),
 		requested: z.number().int().nonnegative().optional(),
 		already_done: z.number().int().nonnegative().optional(),
+		opt_out_sync: optOutSyncOutputSchema.optional(),
 	}),
 	safety: destructiveNonIdempotentSafety,
 	mcp: {

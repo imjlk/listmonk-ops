@@ -675,12 +675,29 @@ describe("email operations specification", () => {
 			kind: "reconcile",
 			idempotent: true,
 		});
+		// Stop and delete carry temporary-list opt-outs to the source lists
+		// (an audience suppression) without a preview.
+		const optOutSuppression = {
+			kind: "suppression",
+			resource: "subscriber",
+			scope: "audience",
+			reversible: false,
+		} as const;
 		expect(abTestStopOperationSpec.effects).toEqual([
 			{ kind: "write", resource: "experiment", reversible: false },
 			{ kind: "write", resource: "campaign", reversible: false },
 			{ kind: "delete", resource: "campaign", reversible: false },
 			{ kind: "delete", resource: "list", reversible: false },
+			{ ...optOutSuppression, preview: false },
 		]);
+		expect(abTestDeleteOperationSpec.effects).toContainEqual({
+			...optOutSuppression,
+			preview: false,
+		});
+		// Tick previews its opt-out sync on a dry run, like its transitions.
+		expect(operationsById.get("abtest.tick")?.effects).toContainEqual(
+			optOutSuppression,
+		);
 		expect(abTestStopOperationSpec.retry).toMatchObject({
 			kind: "reconcile",
 			idempotent: true,

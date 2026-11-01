@@ -19,8 +19,11 @@ import type { AbTest } from "./types";
  * delete, provisioning rollback, and the legacy `cleanupHoldoutTest` and
  * `cleanup`) first calls {@link propagateTemporaryListOptOuts}. The
  * segmentation rollbacks do not: they only delete lists created moments
- * earlier in the same call, before any campaign targets them. The
- * propagation:
+ * earlier in the same call, before any campaign targets them. Lists that are
+ * kept (a completed test's variant and holdout lists, or lists a stop keeps
+ * for cancelled or finished campaigns) keep recording opt-outs from those
+ * campaigns' unsubscribe links, so `optout-sync.ts` runs the same
+ * propagation on them repeatedly. The propagation:
  *
  * 1. reads the subscribers whose membership on the temporary list is
  *    `unsubscribed` (`GET /subscribers` with `list_id` and
@@ -29,13 +32,20 @@ import type { AbTest } from "./types";
  *    returned row really carries that membership. For an API user without
  *    permission on the list, Listmonk may replace the list filter with the
  *    user's other lists, or with none, instead of rejecting it;
- * 2. applies the `manageLists` `unsubscribe` action
+ * 2. skips the opt-outs the caller reports as already carried (settled), so
+ *    a person who re-subscribes to a source list after their opt-out was
+ *    carried is never unsubscribed again;
+ * 3. applies the `manageLists` `unsubscribe` action
  *    (`PUT /subscribers/lists`) to the source lists. Listmonk only updates
  *    existing memberships for this action, so it never subscribes anyone to a
- *    source list, and repeating it is harmless;
- * 3. reads the opt-outs again and confirms none of them is still subscribed
+ *    source list, and repeating it is harmless. Like `unsubscribe-by-campaign`,
+ *    which marks the memberships that exist when the person opts out, a
+ *    source membership Listmonk reports as created after the opt-out is left
+ *    alone: it is a later subscription the opt-out does not cover;
+ * 4. reads the opt-outs again and confirms none of them is still subscribed
  *    to a source list, because Listmonk silently skips target lists the API
- *    user cannot manage.
+ *    user cannot manage, and reports every opt-out it confirmed so the caller
+ *    can record it as settled.
  *
  * A temporary list is safe to delete only when it holds no opt-outs or every
  * opt-out is confirmed on the source lists. Otherwise the caller keeps the
@@ -60,10 +70,27 @@ export interface TemporaryListOptOut {
 	 * memberships, keyed by list id.
 	 */
 	membershipStatuses: ReadonlyMap<number, string>;
+	/**
+	 * When each membership was created (epoch milliseconds), keyed by list
+	 * id, for the memberships Listmonk reported a parseable
+	 * `subscription_created_at` for.
+	 */
+	membershipCreatedAt?: ReadonlyMap<number, number>;
+	/**
+	 * When the temporary-list membership last changed (epoch milliseconds),
+	 * taken as the opt-out time: `unsubscribe-by-campaign` stamps
+	 * `updated_at` when it marks the membership, and a later write to a
+	 * private temporary list's membership (a blocklist, for example) only
+	 * moves it later, which can make the opt-out cover more source
+	 * memberships, never fewer. Undefined when Listmonk did not report a
+	 * parseable time.
+	 */
+	optedOutAt?: number;
 }
 
 /**
- * - `no_opt_outs`: nobody unsubscribed from the list; it may be deleted.
+ * - `no_opt_outs`: nobody unsubscribed from the list, or the list no longer
+ *   exists (`listMissing`); it may be deleted.
  * - `propagated`: every opt-out is confirmed on the source lists; it may be
  *   deleted.
  * - `blocked`: the list holds opt-outs but no source list is known to carry
@@ -83,6 +110,11 @@ export interface TemporaryListOptOutPropagation {
 	/** Whether the temporary list can be deleted without losing an opt-out. */
 	safeToDelete: boolean;
 	/**
+	 * Set when Listmonk reports that the list no longer exists, so it can
+	 * hold no opt-outs now or later.
+	 */
+	listMissing?: true;
+	/**
 	 * Subscribers whose membership on the temporary list is unsubscribed; 0
 	 * when the opt-outs could not be read.
 	 */
@@ -93,9 +125,36 @@ export interface TemporaryListOptOutPropagation {
 	 * counted again.
 	 */
 	propagatedCount: number;
+	/**
+	 * Opt-outs still to be carried after this run: unconfirmed, not attempted
+	 * after a failed write, or blocked; 0 when the opt-outs could not be read.
+	 */
+	pendingCount: number;
+	/**
+	 * Opt-outs, other than the ones passed in as already settled, that this
+	 * run confirmed on the source lists: carried now, or with nothing left to
+	 * carry. Record them so a later run skips them.
+	 */
+	settledSubscriberIds: number[];
 	/** Source lists the opt-outs are carried to. */
 	sourceListIds: number[];
 	/** Why the list must be kept; set whenever `safeToDelete` is false. */
+	detail?: string;
+}
+
+/**
+ * Read-only counterpart of {@link TemporaryListOptOutPropagation} for dry
+ * runs: `up_to_date` when every opt-out is already carried and `pending`
+ * when `pendingCount` opt-outs would be carried.
+ */
+export interface TemporaryListOptOutPreview {
+	listId: number;
+	status: "no_opt_outs" | "up_to_date" | "pending" | "blocked" | "failed";
+	/** Set when Listmonk reports that the list no longer exists. */
+	listMissing?: true;
+	optedOutCount: number;
+	pendingCount: number;
+	sourceListIds: number[];
 	detail?: string;
 }
 
@@ -229,6 +288,8 @@ function toTemporaryListOptOut(
 		);
 	}
 	const membershipStatuses = new Map<number, string>();
+	const membershipCreatedAt = new Map<number, number>();
+	let optedOutAt: number | undefined;
 	const lists = isRecord(row) && Array.isArray(row.lists) ? row.lists : [];
 	for (const membership of lists) {
 		if (
@@ -237,6 +298,17 @@ function toTemporaryListOptOut(
 			typeof membership.subscription_status === "string"
 		) {
 			membershipStatuses.set(membership.id, membership.subscription_status);
+			const createdAt = parseListmonkTimestamp(
+				membership.subscription_created_at,
+			);
+			if (createdAt !== undefined) {
+				membershipCreatedAt.set(membership.id, createdAt);
+			}
+			if (membership.id === listId) {
+				optedOutAt = parseListmonkTimestamp(
+					membership.subscription_updated_at,
+				);
+			}
 		}
 	}
 	if (membershipStatuses.get(listId) !== UNSUBSCRIBED) {
@@ -247,7 +319,26 @@ function toTemporaryListOptOut(
 			`Listmonk returned subscriber ${subscriberId} for temporary list ${listId} without an unsubscribed membership on it, so the list_id and subscription_status filter was not applied; check that the API user may read list ${listId}`,
 		);
 	}
-	return { subscriberId, membershipStatuses };
+	return {
+		subscriberId,
+		membershipStatuses,
+		membershipCreatedAt,
+		...(optedOutAt === undefined ? {} : { optedOutAt }),
+	};
+}
+
+/**
+ * Epoch milliseconds for a Listmonk timestamp (`subscription_created_at`
+ * and `subscription_updated_at` are PostgreSQL `timestamptz` values such as
+ * `2026-10-01T12:34:56.789012+00:00`), or undefined when absent or
+ * unparseable.
+ */
+function parseListmonkTimestamp(value: unknown): number | undefined {
+	if (typeof value !== "string" || value.trim() === "") {
+		return undefined;
+	}
+	const parsed = Date.parse(value);
+	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 /**
@@ -335,23 +426,59 @@ export async function readTemporaryListOptOuts(
 }
 
 /**
- * Subscriber ids among `optOuts` that still hold a membership on one of the
- * source lists whose status is not `unsubscribed`. A subscriber who is not a
- * member of a source list needs nothing there: Listmonk 6.2 returns every
- * membership in `lists` and, for lists the API user cannot read, only masks
- * the name (keeping `id` and `subscription_status`), so a missing source list
- * means the subscriber left it or the list was deleted, not that it is hidden.
+ * Whether Listmonk reports the subscriber's membership on `listId` as
+ * created after the opt-out. Unknown times count as earlier, so a missing or
+ * unparseable timestamp never shields a membership from the opt-out.
+ */
+function isMembershipNewerThanOptOut(
+	optOut: TemporaryListOptOut,
+	listId: number,
+): boolean {
+	const createdAt = optOut.membershipCreatedAt?.get(listId);
+	return (
+		optOut.optedOutAt !== undefined &&
+		createdAt !== undefined &&
+		createdAt > optOut.optedOutAt
+	);
+}
+
+/**
+ * The source lists one opt-out still has to be carried to: lists the
+ * subscriber holds a membership on whose status is not `unsubscribed`. A
+ * subscriber who is not a member of a source list needs nothing there:
+ * Listmonk 6.2 returns every membership in `lists` and, for lists the API
+ * user cannot read, only masks the name (keeping `id` and
+ * `subscription_status`), so a missing source list means the subscriber left
+ * it or the list was deleted, not that it is hidden. A membership created
+ * after the opt-out is a later subscription that `unsubscribe-by-campaign`
+ * would not have touched either, so it is left alone.
+ */
+export function resolvePendingSourceListIds(
+	optOut: TemporaryListOptOut,
+	sourceListIds: readonly number[],
+): number[] {
+	return sourceListIds.filter((sourceListId) => {
+		const status = optOut.membershipStatuses.get(sourceListId);
+		return (
+			status !== undefined &&
+			status !== UNSUBSCRIBED &&
+			!isMembershipNewerThanOptOut(optOut, sourceListId)
+		);
+	});
+}
+
+/**
+ * Subscriber ids among `optOuts` that still have to be carried to at least
+ * one source list (see {@link resolvePendingSourceListIds}).
  */
 export function findUnpropagatedOptOuts(
 	optOuts: readonly TemporaryListOptOut[],
 	sourceListIds: readonly number[],
 ): number[] {
 	return optOuts
-		.filter((optOut) =>
-			sourceListIds.some((sourceListId) => {
-				const status = optOut.membershipStatuses.get(sourceListId);
-				return status !== undefined && status !== UNSUBSCRIBED;
-			}),
+		.filter(
+			(optOut) =>
+				resolvePendingSourceListIds(optOut, sourceListIds).length > 0,
 		)
 		.map((optOut) => optOut.subscriberId);
 }
@@ -400,16 +527,97 @@ export async function unsubscribeSubscribersFromLists(
 }
 
 /**
+ * Unsubscribe each opt-out from the source lists, leaving alone any
+ * membership Listmonk reports as created after the opt-out. Opt-outs are
+ * grouped by the lists they target, so the common case, in which every
+ * source membership predates the opt-out, stays one chunked request series
+ * against all source lists.
+ */
+async function unsubscribeOptOutsFromSourceLists(
+	client: ListmonkClient,
+	optOuts: readonly TemporaryListOptOut[],
+	sourceListIds: readonly number[],
+	chunkSize?: number,
+): Promise<void> {
+	const groups = new Map<
+		string,
+		{ listIds: number[]; subscriberIds: number[] }
+	>();
+	for (const optOut of optOuts) {
+		const listIds = sourceListIds.filter(
+			(sourceListId) => !isMembershipNewerThanOptOut(optOut, sourceListId),
+		);
+		const key = listIds.join(",");
+		const group = groups.get(key) ?? { listIds, subscriberIds: [] };
+		group.subscriberIds.push(optOut.subscriberId);
+		groups.set(key, group);
+	}
+	for (const group of groups.values()) {
+		await unsubscribeSubscribersFromLists(
+			client,
+			group.subscriberIds,
+			group.listIds,
+			chunkSize,
+		);
+	}
+}
+
+type TemporaryListOptOutRead =
+	| { kind: "missing" }
+	| { kind: "failed"; detail: string }
+	| { kind: "read"; optOuts: TemporaryListOptOut[] };
+
+/**
+ * Verify that the list exists and is readable, then read its opt-outs.
+ * Never throws: a missing list and every failure are returned as results.
+ */
+async function readListOptOutsFailClosed(
+	client: ListmonkClient,
+	listId: number,
+	readOptions: { pageSize?: number },
+): Promise<TemporaryListOptOutRead> {
+	const readability = await probeListReadability(client, listId);
+	if (readability.status === "not_found") {
+		return { kind: "missing" };
+	}
+	if (readability.status === "unreadable") {
+		return {
+			kind: "failed",
+			detail: `its opt-outs could not be verified because list ${listId} could not be read: ${readability.detail}`,
+		};
+	}
+	try {
+		return {
+			kind: "read",
+			optOuts: await readTemporaryListOptOuts(client, listId, readOptions),
+		};
+	} catch (error) {
+		return {
+			kind: "failed",
+			detail: `its opt-outs could not be read: ${describeError(error)}`,
+		};
+	}
+}
+
+function describeMissingSourceLists(listId: number, optedOut: number): string {
+	return `${optedOut} subscriber(s) unsubscribed from it, but the test records no source lists to carry the opt-outs to; unsubscribe them from the lists they were drawn from, then remove them from list ${listId} and retry`;
+}
+
+/**
  * Carry the opt-outs recorded on one temporary list to the source lists and
- * report whether the list can now be deleted. Never throws: every failure is
- * returned as a `failed` or `blocked` result so the caller keeps the list.
- * Repeating it after a partial failure is safe.
+ * report whether the list can now be deleted. Opt-outs listed in
+ * `settledSubscriberIds` were carried by an earlier run; they are neither
+ * written nor re-checked, so a person who re-subscribed to a source list
+ * since then stays subscribed. Never throws: every failure is returned as a
+ * `failed` or `blocked` result so the caller keeps the list. Repeating it
+ * after a partial failure is safe.
  */
 export async function propagateTemporaryListOptOuts(
 	client: ListmonkClient,
 	input: {
 		listId: number;
 		sourceListIds: readonly number[];
+		settledSubscriberIds?: Iterable<number>;
 		pageSize?: number;
 		chunkSize?: number;
 	},
@@ -418,43 +626,36 @@ export async function propagateTemporaryListOptOuts(
 	const sourceListIds = normalizeListIds(input.sourceListIds).filter(
 		(sourceListId) => sourceListId !== listId,
 	);
+	const settled = new Set(input.settledSubscriberIds ?? []);
 	const readOptions = { pageSize: input.pageSize };
-	const readability = await probeListReadability(client, listId);
-	if (readability.status === "not_found") {
+	const read = await readListOptOutsFailClosed(client, listId, readOptions);
+	if (read.kind === "missing") {
 		return {
 			listId,
 			status: "no_opt_outs",
 			safeToDelete: true,
+			listMissing: true,
 			optedOutCount: 0,
 			propagatedCount: 0,
+			pendingCount: 0,
+			settledSubscriberIds: [],
 			sourceListIds,
 		};
 	}
-	if (readability.status === "unreadable") {
+	if (read.kind === "failed") {
 		return {
 			listId,
 			status: "failed",
 			safeToDelete: false,
 			optedOutCount: 0,
 			propagatedCount: 0,
+			pendingCount: 0,
+			settledSubscriberIds: [],
 			sourceListIds,
-			detail: `its opt-outs could not be verified because list ${listId} could not be read: ${readability.detail}`,
+			detail: read.detail,
 		};
 	}
-	let optOuts: TemporaryListOptOut[];
-	try {
-		optOuts = await readTemporaryListOptOuts(client, listId, readOptions);
-	} catch (error) {
-		return {
-			listId,
-			status: "failed",
-			safeToDelete: false,
-			optedOutCount: 0,
-			propagatedCount: 0,
-			sourceListIds,
-			detail: `its opt-outs could not be read: ${describeError(error)}`,
-		};
-	}
+	const optOuts = read.optOuts;
 	if (optOuts.length === 0) {
 		return {
 			listId,
@@ -462,9 +663,14 @@ export async function propagateTemporaryListOptOuts(
 			safeToDelete: true,
 			optedOutCount: 0,
 			propagatedCount: 0,
+			pendingCount: 0,
+			settledSubscriberIds: [],
 			sourceListIds,
 		};
 	}
+	const unsettled = optOuts.filter(
+		(optOut) => !settled.has(optOut.subscriberId),
+	);
 	if (sourceListIds.length === 0) {
 		return {
 			listId,
@@ -472,11 +678,20 @@ export async function propagateTemporaryListOptOuts(
 			safeToDelete: false,
 			optedOutCount: optOuts.length,
 			propagatedCount: 0,
+			pendingCount: unsettled.length,
+			settledSubscriberIds: [],
 			sourceListIds,
-			detail: `${optOuts.length} subscriber(s) unsubscribed from it, but the test records no source lists to carry the opt-outs to; unsubscribe them from the lists they were drawn from, then remove them from list ${listId} and retry`,
+			detail: describeMissingSourceLists(listId, optOuts.length),
 		};
 	}
-	const pending = findUnpropagatedOptOuts(optOuts, sourceListIds);
+	const pending = unsettled.filter(
+		(optOut) => resolvePendingSourceListIds(optOut, sourceListIds).length > 0,
+	);
+	const pendingIds = new Set(pending.map((optOut) => optOut.subscriberId));
+	// Opt-outs with nothing left to carry are settled as read.
+	const settledAsRead = unsettled
+		.filter((optOut) => !pendingIds.has(optOut.subscriberId))
+		.map((optOut) => optOut.subscriberId);
 	if (pending.length === 0) {
 		return {
 			listId,
@@ -484,40 +699,55 @@ export async function propagateTemporaryListOptOuts(
 			safeToDelete: true,
 			optedOutCount: optOuts.length,
 			propagatedCount: 0,
+			pendingCount: 0,
+			settledSubscriberIds: settledAsRead,
 			sourceListIds,
 		};
 	}
 	try {
-		await unsubscribeSubscribersFromLists(
+		await unsubscribeOptOutsFromSourceLists(
 			client,
 			pending,
 			sourceListIds,
 			input.chunkSize,
 		);
-		const confirmed = await readTemporaryListOptOuts(
-			client,
-			listId,
-			readOptions,
+		const reread = await readTemporaryListOptOuts(client, listId, readOptions);
+		// Settled opt-outs are not re-checked: a person who re-subscribed to
+		// a source list after an earlier carry must not fail the confirmation.
+		const confirmed = reread.filter(
+			(optOut) => !settled.has(optOut.subscriberId),
 		);
-		const unconfirmed = findUnpropagatedOptOuts(confirmed, sourceListIds);
-		if (unconfirmed.length > 0) {
-			const stillPending = new Set(unconfirmed);
+		const unconfirmed = new Set(
+			findUnpropagatedOptOuts(confirmed, sourceListIds),
+		);
+		const settledSubscriberIds = confirmed
+			.filter((optOut) => !unconfirmed.has(optOut.subscriberId))
+			.map((optOut) => optOut.subscriberId);
+		const propagatedCount = pending.filter(
+			(optOut) => !unconfirmed.has(optOut.subscriberId),
+		).length;
+		const optedOutCount = reread.length;
+		if (unconfirmed.size > 0) {
 			return {
 				listId,
 				status: "failed",
 				safeToDelete: false,
-				optedOutCount: confirmed.length,
-				propagatedCount: pending.filter((id) => !stillPending.has(id)).length,
+				optedOutCount,
+				propagatedCount,
+				pendingCount: unconfirmed.size,
+				settledSubscriberIds,
 				sourceListIds,
-				detail: `${unconfirmed.length} opted-out subscriber(s) are still subscribed to source lists ${sourceListIds.join(", ")} after the unsubscribe; check that the API user may manage those lists`,
+				detail: `${unconfirmed.size} opted-out subscriber(s) are still subscribed to source lists ${sourceListIds.join(", ")} after the unsubscribe; check that the API user may manage those lists`,
 			};
 		}
 		return {
 			listId,
 			status: "propagated",
 			safeToDelete: true,
-			optedOutCount: confirmed.length,
-			propagatedCount: pending.length,
+			optedOutCount,
+			propagatedCount,
+			pendingCount: 0,
+			settledSubscriberIds,
 			sourceListIds,
 		};
 	} catch (error) {
@@ -527,10 +757,87 @@ export async function propagateTemporaryListOptOuts(
 			safeToDelete: false,
 			optedOutCount: optOuts.length,
 			propagatedCount: 0,
+			pendingCount: pending.length,
+			settledSubscriberIds: settledAsRead,
 			sourceListIds,
 			detail: `${pending.length} opt-out(s) could not be carried to source lists ${sourceListIds.join(", ")}: ${describeError(error)}`,
 		};
 	}
+}
+
+/**
+ * Report what {@link propagateTemporaryListOptOuts} would carry from one
+ * temporary list without writing anything: the same existence check, fail
+ * closed read, settled-opt-out skip, and source-list rule.
+ */
+export async function previewTemporaryListOptOuts(
+	client: ListmonkClient,
+	input: {
+		listId: number;
+		sourceListIds: readonly number[];
+		settledSubscriberIds?: Iterable<number>;
+		pageSize?: number;
+	},
+): Promise<TemporaryListOptOutPreview> {
+	const { listId } = input;
+	const sourceListIds = normalizeListIds(input.sourceListIds).filter(
+		(sourceListId) => sourceListId !== listId,
+	);
+	const settled = new Set(input.settledSubscriberIds ?? []);
+	const read = await readListOptOutsFailClosed(client, listId, {
+		pageSize: input.pageSize,
+	});
+	if (read.kind === "missing") {
+		return {
+			listId,
+			status: "no_opt_outs",
+			listMissing: true,
+			optedOutCount: 0,
+			pendingCount: 0,
+			sourceListIds,
+		};
+	}
+	if (read.kind === "failed") {
+		return {
+			listId,
+			status: "failed",
+			optedOutCount: 0,
+			pendingCount: 0,
+			sourceListIds,
+			detail: read.detail,
+		};
+	}
+	const optOuts = read.optOuts;
+	if (optOuts.length === 0) {
+		return {
+			listId,
+			status: "no_opt_outs",
+			optedOutCount: 0,
+			pendingCount: 0,
+			sourceListIds,
+		};
+	}
+	const unsettled = optOuts.filter(
+		(optOut) => !settled.has(optOut.subscriberId),
+	);
+	if (sourceListIds.length === 0) {
+		return {
+			listId,
+			status: "blocked",
+			optedOutCount: optOuts.length,
+			pendingCount: unsettled.length,
+			sourceListIds,
+			detail: describeMissingSourceLists(listId, optOuts.length),
+		};
+	}
+	const pendingCount = findUnpropagatedOptOuts(unsettled, sourceListIds).length;
+	return {
+		listId,
+		status: pendingCount === 0 ? "up_to_date" : "pending",
+		optedOutCount: optOuts.length,
+		pendingCount,
+		sourceListIds,
+	};
 }
 
 /**
@@ -539,14 +846,20 @@ export async function propagateTemporaryListOptOuts(
  */
 export async function propagateTemporaryListsOptOuts(
 	client: ListmonkClient,
-	input: { listIds: readonly number[]; sourceListIds: readonly number[] },
+	input: {
+		listIds: readonly number[];
+		sourceListIds: readonly number[];
+		settledSubscriberIds?: Iterable<number>;
+	},
 ): Promise<TemporaryListOptOutPropagation[]> {
+	const settledSubscriberIds = [...(input.settledSubscriberIds ?? [])];
 	const results: TemporaryListOptOutPropagation[] = [];
 	for (const listId of input.listIds) {
 		results.push(
 			await propagateTemporaryListOptOuts(client, {
 				listId,
 				sourceListIds: input.sourceListIds,
+				settledSubscriberIds,
 			}),
 		);
 	}

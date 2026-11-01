@@ -1,6 +1,10 @@
 import { generateAssignmentSeed } from "./assignment";
 import { createHash } from "node:crypto";
 import { resolveOptOutSourceListIds } from "./unsubscribe-propagation";
+import {
+	describeOptOutSyncFailures,
+	resolveTrackedTemporaryListIds,
+} from "./optout-sync";
 import type {
 	ListmonkAbTestIntegration,
 	ProvisionedAbTestResources,
@@ -221,6 +225,11 @@ export class AbTestService {
 	private static readonly MAX_VARIANTS = 3;
 	private static readonly VARIANT_LABELS = ["A", "B", "C"];
 	private tests: Map<string, AbTest> = new Map();
+	/**
+	 * Deleted terminal tests whose temporary lists still exist (`deletedAt`
+	 * is set). They are invisible to every lookup except the opt-out sync.
+	 */
+	private retiredTests: Map<string, AbTest> = new Map();
 
 	constructor(
 		private listmonkIntegration?: ListmonkAbTestIntegration,
@@ -931,6 +940,7 @@ export class AbTestService {
 	 */
 	hydrateTests(tests: AbTest[]): void {
 		this.tests.clear();
+		this.retiredTests.clear();
 
 		for (const rawTest of tests) {
 			const hydratedTest: AbTest = {
@@ -948,7 +958,11 @@ export class AbTestService {
 				})),
 			};
 
-			this.tests.set(hydratedTest.id, hydratedTest);
+			if (hydratedTest.deletedAt === undefined) {
+				this.tests.set(hydratedTest.id, hydratedTest);
+			} else {
+				this.retiredTests.set(hydratedTest.id, hydratedTest);
+			}
 		}
 	}
 
@@ -959,6 +973,45 @@ export class AbTestService {
 		return Array.from(this.tests.values());
 	}
 
+	/**
+	 * Deleted terminal tests retained only so the opt-out sync can keep
+	 * carrying opt-outs from their temporary lists.
+	 */
+	snapshotRetiredTests(): AbTest[] {
+		return Array.from(this.retiredTests.values());
+	}
+
+	/**
+	 * Every record the persistent store must keep: the tests plus the
+	 * retained records of deleted tests. Persist this rather than
+	 * {@link snapshotTests}, or a deletion would drop the opt-out record.
+	 */
+	snapshotStoredTests(): AbTest[] {
+		return [...this.snapshotTests(), ...this.snapshotRetiredTests()];
+	}
+
+	/** A retained record of a deleted test, by id. */
+	getRetiredTest(testId: string): AbTest | null {
+		return this.retiredTests.get(testId) ?? null;
+	}
+
+	/**
+	 * Drop the retained record of a deleted test, once none of its temporary
+	 * lists exists any more.
+	 */
+	pruneRetiredTest(testId: string): boolean {
+		return this.retiredTests.delete(testId);
+	}
+
+	/**
+	 * Delete a test. A non-terminal test's campaigns and temporary lists are
+	 * removed first (each list's opt-outs carried before it goes). A terminal
+	 * test keeps its campaigns and lists for delivery history, and their
+	 * unsubscribe links keep recording opt-outs on those lists, so its
+	 * opt-outs are carried first and, while any of its lists still exists, its
+	 * record is retained (hidden) for the opt-out sync instead of dropped.
+	 * Either way a failure throws and keeps the test.
+	 */
 	async deleteTest(testId: string): Promise<boolean> {
 		const test = this.tests.get(testId);
 		if (!test) {
@@ -988,13 +1041,52 @@ export class AbTestService {
 				],
 				listIds,
 				// Opt-outs recorded on the temporary lists are carried here
-				// before the lists are deleted.
+				// before the lists are deleted; ones an earlier sync carried
+				// are skipped.
 				sourceListIds: resolveOptOutSourceListIds(test),
+				settledSubscriberIds: test.optOutSync?.settledSubscriberIds,
 			});
+		} else if (
+			this.listmonkIntegration &&
+			TERMINAL_STATUSES.has(test.status) &&
+			resolveTrackedTemporaryListIds(test).length > 0
+		) {
+			const { result, state } =
+				await this.listmonkIntegration.syncTestOptOuts(test);
+			if (!result.ok) {
+				throw new Error(
+					`A/B test ${testId} was not deleted because the opt-outs on its temporary lists could not be carried to its source lists: ${describeOptOutSyncFailures(result)}; retry the delete once fixed`,
+				);
+			}
+			if (state !== undefined) {
+				test.optOutSync = state;
+			}
+			if (resolveTrackedTemporaryListIds(test).length > 0) {
+				this.retireTest(test);
+				return true;
+			}
 		}
 
 		this.tests.delete(testId);
 		return true;
+	}
+
+	/**
+	 * Move a deleted terminal test to the retained records. Its replay key
+	 * is dropped so a later create with the same key starts a new test.
+	 */
+	private retireTest(test: AbTest): void {
+		const {
+			idempotencyKey: _idempotencyKey,
+			idempotencyFingerprint: _idempotencyFingerprint,
+			pendingCreate: _pendingCreate,
+			...retained
+		} = test;
+		this.tests.delete(test.id);
+		this.retiredTests.set(test.id, {
+			...retained,
+			deletedAt: new Date().toISOString(),
+		});
 	}
 
 	async getTestByIdempotencyKey(key: string): Promise<AbTest | null> {

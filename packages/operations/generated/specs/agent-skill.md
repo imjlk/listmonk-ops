@@ -1572,7 +1572,7 @@ Retry guidance: Verify the launch with abtest.get before retrying; a recorded la
 
 ## Stop A/B test (`abtest.stop`)
 
-Contract maturity: `stable`; effects: `write:experiment, write:campaign, delete:campaign, delete:list`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `write:experiment, write:campaign, delete:campaign, delete:list, suppression:audience`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A running or scheduled A/B test must be stopped.
 
@@ -1586,7 +1586,7 @@ Retry guidance: Verify the stop with abtest.get before retrying; a completed sto
 
 ## Delete A/B test (`abtest.delete`)
 
-Contract maturity: `stable`; effects: `delete:experiment, delete:campaign, delete:list`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delete:experiment, delete:campaign, delete:list, suppression:audience`; confirmation: `required`; retry: `reconcile`.
 
 Use when: An A/B test must be permanently removed.
 
@@ -1642,11 +1642,11 @@ Retry guidance: Echo the abtest.get output's status and updatedAt fields verbati
 
 ## Tick A/B tests (`abtest.tick`)
 
-Contract maturity: `stable`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `conditional`.
+Contract maturity: `stable`; effects: `write:experiment, delivery:bulk:immediate, suppression:audience`; confirmation: `required`; retry: `conditional`.
 
-Use when: Non-terminal A/B tests must be advanced by one lifecycle step.
+Use when: Non-terminal A/B tests must be advanced by one lifecycle step. Opt-outs recorded on kept A/B temporary lists must be carried to the source lists on a schedule.
 
-Avoid when: No tests are in a non-terminal status.
+Avoid when: No A/B test is active and none keeps temporary lists that are due for an opt-out sync.
 
 Prerequisites: `abtest.list`
 

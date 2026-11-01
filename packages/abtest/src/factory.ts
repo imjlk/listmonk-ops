@@ -15,6 +15,14 @@ import {
 } from "./conversion-events";
 import { cancelAbTest } from "./lifecycle";
 import { describeRetainedTemporaryList } from "./unsubscribe-propagation";
+import {
+	isOptOutSyncDue,
+	isOptOutSyncTracked,
+	recordTemporaryListOptOutPropagation,
+	resolveTrackedTemporaryListIds,
+	syncAbTestOptOuts,
+	type AbTestOptOutSyncResult,
+} from "./optout-sync";
 import { AbTestNotFoundError } from "./errors";
 import type {
 	AbTest,
@@ -167,6 +175,20 @@ export function createAbTestExecutors(
 		// This replaces the legacy cleanup paths that renamed campaigns
 		// and ignored remote status.
 		const result = await cancelAbTest(listmonkClient, test);
+		// Record what the stop carried, and the lists it deleted, so later
+		// syncs skip both. A stop that throws below commits none of it.
+		recordTemporaryListOptOutPropagation(test, {
+			propagations: result.optOutPropagation,
+			removedListIds: result.listResults
+				.filter((r) => r.outcome === "success" || r.outcome === "not_found")
+				.map((r) => r.listId),
+			syncedAt: result.optOutPropagation.every(
+				(propagation) =>
+					propagation.status !== "failed" && propagation.status !== "blocked",
+			)
+				? new Date().toISOString()
+				: undefined,
+		});
 
 		// Hard failures (network error, permission denied, 5xx) or fetch
 		// failures (could not read a campaign's status) mean the stop is
@@ -176,13 +198,15 @@ export function createAbTestExecutors(
 			const failedCampaigns = result.campaignResults.filter(
 				(r) => r.outcome === "failed",
 			).length;
-			const failedLists = result.listResults.filter(
-				(r) => r.outcome === "failed",
-			).length;
+			const failedListIds = new Set(
+				result.listResults
+					.filter((r) => r.outcome === "failed")
+					.map((r) => r.listId),
+			);
 			const reasons: string[] = [];
 			if (result.hadFailures) {
 				reasons.push(
-					`${failedCampaigns} campaign action(s) and ${failedLists} list action(s) failed`,
+					`${failedCampaigns} campaign action(s) and ${failedListIds.size} list action(s) failed`,
 				);
 			}
 			if (result.hadFetchFailures) {
@@ -191,7 +215,10 @@ export function createAbTestExecutors(
 			// Name the temporary lists kept because their opt-outs could not
 			// be carried to the source lists, so the operator knows why.
 			for (const propagation of result.optOutPropagation) {
-				if (!propagation.safeToDelete) {
+				if (
+					!propagation.safeToDelete &&
+					failedListIds.has(propagation.listId)
+				) {
 					reasons.push(describeRetainedTemporaryList(propagation));
 				}
 			}
@@ -211,6 +238,15 @@ export function createAbTestExecutors(
 			console.warn(
 				`A/B test ${testId} cancelled with retained lists: ${retained.join(", ")}`,
 			);
+			// A retained list keeps recording opt-outs; one that could not be
+			// carried now is retried by the A/B tick.
+			for (const propagation of result.optOutPropagation) {
+				if (propagation.status === "failed" || propagation.status === "blocked") {
+					console.warn(
+						`A/B test ${testId}: opt-outs on retained temporary list ${propagation.listId} were not carried yet: ${propagation.detail ?? "they were not confirmed on the source lists"}; the A/B tick retries them`,
+					);
+				}
+			}
 		}
 
 		// Update test status to cancelled (stop is a terminal intent).
@@ -470,6 +506,79 @@ export function createAbTestExecutors(
 		return results;
 	};
 
+	/**
+	 * Carry the opt-outs on kept temporary lists to the source lists (see
+	 * `optout-sync.ts`). With `testId`, sync that test, including the
+	 * retained record of a deleted one; otherwise sync every tracked test
+	 * (or, with `dueOnly`, those whose cadence says they are due, which is
+	 * what the A/B tick runs). Each test's new state is applied in place,
+	 * so the surrounding store transaction persists it; a dry run only
+	 * reads. A retained record whose temporary lists are all gone is
+	 * dropped. One test's failure never stops the others.
+	 */
+	const syncAbTestOptOutsImpl = async (
+		options: {
+			testId?: string;
+			dryRun?: boolean;
+			dueOnly?: boolean;
+			now?: Date;
+		} = {},
+	): Promise<AbTestOptOutSyncResult[]> => {
+		const now = options.now ?? new Date();
+		let candidates: AbTest[];
+		if (options.testId !== undefined) {
+			const test =
+				(await abTestService.getTest(options.testId)) ??
+				abTestService.getRetiredTest(options.testId);
+			if (!test) {
+				throw new AbTestNotFoundError(options.testId);
+			}
+			candidates = [test];
+		} else {
+			candidates = [
+				...(await abTestService.getAllTests()),
+				...abTestService.snapshotRetiredTests(),
+			].filter((test) =>
+				options.dueOnly === true
+					? isOptOutSyncDue(test, now.getTime())
+					: isOptOutSyncTracked(test),
+			);
+		}
+		const results: AbTestOptOutSyncResult[] = [];
+		for (const test of candidates) {
+			try {
+				const { result, state } = await syncAbTestOptOuts(
+					listmonkClient,
+					test,
+					{ dryRun: options.dryRun, now },
+				);
+				if (state !== undefined) {
+					test.optOutSync = state;
+					if (
+						test.deletedAt !== undefined &&
+						resolveTrackedTemporaryListIds(test).length === 0
+					) {
+						abTestService.pruneRetiredTest(test.id);
+					}
+				}
+				results.push(result);
+			} catch (error) {
+				// The sync reports Listmonk failures per list; this only
+				// guards against an unexpected error aborting the sweep.
+				results.push({
+					testId: test.id,
+					testStatus: test.status,
+					deleted: test.deletedAt !== undefined,
+					sourceListIds: [],
+					lists: [],
+					ok: false,
+					detail: error instanceof Error ? error.message : String(error),
+				});
+			}
+		}
+		return results;
+	};
+
 	const reconcileAbTestImpl = async (
 		testId?: string,
 		repair: boolean = false,
@@ -650,6 +759,7 @@ export function createAbTestExecutors(
 			repair: boolean = false,
 			recoverySet?: ReadonlyArray<Readonly<{ testId: string }>>,
 		) => reconcileAbTestImpl(testId, repair, recoverySet),
+		syncAbTestOptOuts: syncAbTestOptOutsImpl,
 
 		// Convenience methods for common A/B test scenarios
 		createSimpleAbTest: async (params: {

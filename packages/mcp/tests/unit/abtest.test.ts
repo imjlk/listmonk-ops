@@ -87,6 +87,7 @@ describe("MCP A/B test operation adapter", () => {
 		expect(exportTool?.outputSchema?.properties?.manifest).toMatchObject({
 			type: "object",
 		});
+		expect(tickTool?.outputSchema?.properties).toHaveProperty("opt_out_sync");
 	});
 
 	test("returns structured content while preserving the legacy list text", async () => {
