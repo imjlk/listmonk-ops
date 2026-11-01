@@ -114,3 +114,31 @@ test("every CI job has a bounded timeout", () => {
 		);
 	}
 });
+
+test("every CI job restores and prepares ttsc plugins before its first ttsc run", () => {
+	// Cold source-plugin builds (@ttsc/lint, typia) take minutes per job, so
+	// each job restores the plugin cache ttsc reports and prepares it before
+	// formatting or building runs the compiler.
+	const workflow = Bun.YAML.parse(read(".github/workflows/ci.yml")) as {
+		jobs: Record<string, { steps: Array<{ name?: string; run?: string; uses?: string }> }>;
+	};
+	for (const [name, job] of Object.entries(workflow.jobs)) {
+		const stepNames = job.steps.map((step) => step.name ?? "");
+		const install = stepNames.indexOf("Install dependencies");
+		const locate = stepNames.indexOf("Locate ttsc plugin cache");
+		const restore = stepNames.indexOf("Restore ttsc plugin binaries");
+		const prepare = stepNames.indexOf("Prepare ttsc plugins");
+		const firstCompile = job.steps.findIndex((step) =>
+			/bun run (format|build|check|ops:smoke|cli)\b/.test(step.run ?? ""),
+		);
+		expect(install, name).toBeGreaterThanOrEqual(0);
+		expect([install < locate, locate < restore, restore < prepare], name).toEqual([
+			true,
+			true,
+			true,
+		]);
+		expect(prepare, name).toBeLessThan(firstCompile);
+		expect(job.steps[restore]?.uses, name).toMatch(/^actions\/cache@v\d+$/);
+		expect(job.steps[prepare]?.run, name).toBe("bunx ttsc prepare");
+	}
+});
