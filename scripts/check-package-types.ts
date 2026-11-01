@@ -11,7 +11,8 @@
  * `nodenext` module resolution modes.
  *
  * Third-party dependencies and the compilers come from the configured npm
- * registry (or the local npm cache). The check is skipped when npm or Node.js
+ * registry (or the local npm cache, refreshed once when its metadata lacks a
+ * needed version; see `npmInstall`). The check is skipped when npm or Node.js
  * is not installed.
  */
 import {
@@ -558,7 +559,7 @@ export async function checkPackageTypes(
 				toolchain,
 				toolchainEntryPoints(toolchain, declarationPackages),
 			);
-			await npmInstall(npm, projectDirectory);
+			await npmInstall(npm, projectDirectory, log);
 			const typescript = installedVersion(projectDirectory, "typescript");
 			const label = toolchain.unsupported ? `${typescript}*` : typescript;
 			for (const mode of RESOLUTION_MODES) {
