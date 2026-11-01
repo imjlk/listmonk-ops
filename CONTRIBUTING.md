@@ -143,7 +143,10 @@ runtime solely because `@hey-api/openapi-ts` imports the legacy JavaScript
 compiler API while generating code. Bun's isolated workspace linker keeps that
 runtime and its peer resolution inside the OpenAPI package. Its `build`,
 `lint`, and `typecheck` scripts still invoke `ttsc` and therefore compile with
-TypeScript 7.
+TypeScript 7: ttsc uses the nearest package's own compiler, so the package
+also declares native TypeScript 7 as the `@typescript/native` npm alias
+(`npm:typescript@7.x`), which ttsc prefers over the legacy `typescript` entry.
+Keep that alias on the same version as the root `typescript` when upgrading.
 
 For VS Code, install the recommended `samchon.ttsc` extension. The checked-in
 workspace settings use it for TypeScript format-on-save.
