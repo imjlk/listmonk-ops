@@ -1199,7 +1199,10 @@ read-only이며, 모든 MCP 도구는 `readOnlyHint`, `destructiveHint`,
 - 임의의 객체를 `PUT /api/settings`로 전달하고 Listmonk를 다시 로드하던
   `listmonk_update_settings`: MCP 대체 도구는 없습니다. 자격 증명이 가려진
   `listmonk_get_settings`로 설정을 읽고, 변경은 Listmonk 관리자 UI에서
-  하세요. `@listmonk-ops/openapi`의 `client.settings.update()`로 설정을
+  하세요. Listmonk의 SMTP 테스트는 저장된 자격 증명을 대신 쓰지 않으므로
+  `listmonk_test_smtp`는 이 읽기 결과를 복사한 서버 설정을 거부하고
+  `[redacted]`가 남아 있는 필드 이름을 알려 줍니다.
+  `@listmonk-ops/openapi`의 `client.settings.update()`로 설정을
   저장하는 코드도 가려진 읽기 결과를 그대로 다시 쓸 수 없습니다. 값 전체,
   URL userinfo, 자격 증명 파라미터 중 어디든 `[redacted]`가 남아 있으면
   클라이언트가 요청 전에 거부하고 해당 키 이름을 알려 줍니다. 각 값을 실제

@@ -1268,7 +1268,10 @@ store and confirmation gate were removed:
 - `listmonk_update_settings`, which passed any object to
   `PUT /api/settings` and reloaded Listmonk: there is no MCP replacement.
   Read settings with the redacted `listmonk_get_settings` and change them in
-  the Listmonk admin UI. Code that saves settings with
+  the Listmonk admin UI; `listmonk_test_smtp` refuses a server copied from
+  that read, naming each field that still holds `[redacted]`, because
+  Listmonk's SMTP test never falls back to the stored credentials. Code that
+  saves settings with
   `client.settings.update()` from `@listmonk-ops/openapi` cannot write a
   redacted read back either: the client refuses, before any request, a
   document in which a value still holds `[redacted]` (as the whole value, URL
