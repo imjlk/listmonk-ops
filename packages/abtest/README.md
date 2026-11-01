@@ -10,7 +10,7 @@ Advanced A/B testing capabilities for Listmonk email campaigns with statistical 
 - **Statistical Analysis**: Z-test based significance testing with confidence intervals
 - **Automated Winner Deployment**: Automatic deployment of winning variant to holdout group
 - **Real-time Results**: Live campaign performance tracking and analysis
-- **Resource Management**: Automatic cleanup of temporary lists and campaign tagging, carrying recipients' opt-outs to the source lists before a temporary list is deleted
+- **Resource Management**: Automatic cleanup of temporary lists and campaign tagging, carrying recipients' opt-outs to the source lists before a temporary list is deleted and, for lists that are kept, for as long as they exist
 
 ## Installation
 
@@ -131,8 +131,11 @@ leaves its permissions unchanged. Existing parent directories keep their
 mode because the path may be overridden into a shared directory.
 
 If a remote mutation fails, local state is not committed but Listmonk may
-contain partial resources. If the local commit fails after the remote action,
-the local state is unconfirmed. The raised `AbTestWriteTransactionError`
+contain partial resources. The one exception is a stop or delete that fails
+after carrying opt-outs: it commits the opt-outs it carried and the temporary
+lists it deleted (and nothing else) so a retry skips them, and its error says
+so. If the local commit fails after the remote action, the local state is
+unconfirmed. The raised `AbTestWriteTransactionError`
 includes reconciliation guidance; inspect Listmonk and the state file before
 retrying.
 
@@ -246,6 +249,11 @@ const analysis = await abTestExecutors.analyzeAbTest({
 if (analysis.winner && test.testing_mode === "holdout") {
   await abTestExecutors.deployWinner(testId);
 }
+
+// Carry opt-outs from kept temporary lists to the source lists now
+// (the tick does it on its own cadence; see "Opt-out sync for kept
+// temporary lists"). dryRun reports what would be carried.
+const synced = await abTestExecutors.syncAbTestOptOuts({ testId, dryRun: true });
 ```
 
 `deployWinner` only acts on an `analyzing` test, or a `completed` test whose
@@ -719,6 +727,13 @@ planning documents and are the reason some planned behavior had to change.
   400 and `{"message": "Campaign not found"}`, and a deleted list answers
   `GET` with `"List not found"`, not 404; deleting an already-deleted list
   returns `{"data": true}`.
+- Each membership in a subscriber's `lists` also carries
+  `subscription_created_at` and `subscription_updated_at`.
+  `unsubscribe-by-campaign` stamps `updated_at` only when it changes the
+  status, and the `unsubscribe` list action stamps it on every membership
+  it targets. The public subscription form re-subscribes an existing
+  `unsubscribed` membership to `unconfirmed` without touching
+  `updated_at`, and creates a missing membership with both times set.
 
 Before a temporary variant or holdout list is deleted (stop, delete,
 provisioning rollback, `cleanupHoldoutTest`, `cleanup`), its opt-outs are
@@ -743,11 +758,85 @@ Its opt-outs are not guessed onto every list the subscriber belongs to, or
 turned into a blocklist entry, because either would unsubscribe people
 from lists they never opted out of; the list is kept for an operator.
 
-Lists that are not deleted keep their opt-outs without copying them: a
-completed test keeps its lists, and a stop keeps them while a cancelled or
-finished campaign still references them. Carry those opt-outs over, for
-example with `propagateTemporaryListOptOuts`, before removing such a list
-by hand.
+### Opt-out sync for kept temporary lists
+
+Most temporary lists are never deleted: a completed test keeps its variant
+lists and the holdout list its winner campaign went to, and a stop keeps
+lists while a cancelled or finished campaign still references them. Those
+campaigns' unsubscribe links keep marking only the temporary list, days or
+weeks after the send, so their opt-outs are carried for as long as the
+lists exist (`optout-sync.ts`):
+
+- **The A/B tick** (`abtest tick`, MCP `listmonk_abtest_tick`) runs the sync
+  after its progression sweep for every tracked test: one that finished
+  provisioning, has left draft, and still has a temporary list. It syncs a
+  test at most every `OPT_OUT_SYNC_INTERVAL_MS` (an hour) while the test is
+  active and for `OPT_OUT_SYNC_RECENT_PERIOD_MS` (30 days) after it ends,
+  when nearly all opt-outs arrive, then at most every
+  `OPT_OUT_SYNC_LONG_TAIL_INTERVAL_MS` (a day) for as long as a list exists,
+  because Listmonk unsubscribe links never expire. The hourly cadence keeps
+  the store lock and Listmonk load small while staying well inside the
+  CAN-SPAM 10-business-day deadline; the daily long tail bounds the cost of
+  old tests without ever dropping them. A test whose last sync failed is
+  retried on the next tick. A dry-run tick previews the sync with reads
+  only, a recovery pass (`recovery_set`) skips it, and the output reports
+  it as `opt_out_sync`; the CLI warns about every list it could not carry.
+- **`abtest.sync-optouts`** (CLI `abtest sync-optouts`, MCP
+  `listmonk_abtest_sync_optouts`) runs it on demand, ignoring the cadence,
+  for one test (`test_id`, including a deleted test's retained record) or
+  every tracked test. `dry_run` reports what would be carried without
+  writing. Like every operation that unsubscribes people it needs
+  confirmation (CLI `--confirm`, MCP `confirm: true`), including for a dry
+  run, and the CLI exits 1 when a list could not be carried so a scheduler
+  notices. Schedule it, or rely on the tick, if tests are advanced only
+  with `abtest run` and `abtest deploy-winner`.
+- **Stop** carries the opt-outs of the lists it keeps as well as of the
+  lists it deletes, and records the lists it deleted.
+- **Deleting a terminal test** carries its opt-outs first and fails closed:
+  the test is kept and the error names each list that could not be carried.
+  If any temporary list still exists, the record is then retained with
+  `deletedAt` instead of dropped. `abtest.list`, `abtest.get`, reconcile,
+  and the tick's progression no longer see it, its replay key is released,
+  and the tick and `abtest.sync-optouts` keep carrying its opt-outs. It is
+  dropped once Listmonk reports every temporary list deleted, so deleting
+  the lists in Listmonk is what ends the tracking; it also makes those
+  campaigns' unsubscribe links record nothing.
+- **A stop or delete that fails part-way** still records the opt-outs it
+  carried and the temporary lists it deleted before raising its error
+  (`AbTestOptOutProgressError`, surfaced by the stored transaction as an
+  `AbTestWriteTransactionError` that says the progress was recorded), so
+  the retry, however much later, skips them.
+
+Repeated syncs must not undo a person's later choice, so two rules apply on
+top of the propagation described above, in every path that carries
+opt-outs:
+
+- Each opt-out whose carry is confirmed is recorded in
+  `AbTest.optOutSync.settledSubscriberIds` and skipped afterwards, by stop
+  and delete as well. A person who re-subscribes to a source list after
+  their opt-out was carried stays subscribed. The record, not a timestamp,
+  decides this, because the public subscription form re-subscribes without
+  changing `updated_at`.
+- Like `unsubscribe-by-campaign`, which marks the memberships that exist
+  when the person opts out, a source membership whose
+  `subscription_created_at` is later than the temporary-list membership's
+  `subscription_updated_at` (the opt-out time) is left alone. When Listmonk
+  reports no times, the opt-out covers every source membership.
+
+`AbTest.optOutSync` also records `missingListIds`, the temporary lists
+Listmonk reported deleted, which are never read again, and `syncedAt`,
+which advances only when every remaining list was confirmed. The settled
+ids grow by one per opt-out while any list exists and are dropped once
+every temporary list is gone. The record is
+schema-validated in the store and written in the same transaction as the
+Listmonk writes; a sync that fails to commit is safe to repeat because it
+only unsubscribes memberships that are still subscribed.
+
+The first tick after upgrading carries the backlog of opt-outs that earlier
+versions left on kept lists, for every tracked test. A test whose record an
+earlier version already deleted cannot be synced: carry its opt-outs by
+hand, for example with `propagateTemporaryListOptOuts`, before removing its
+lists.
 
 ## Deterministic provisioning (stage 2)
 

@@ -913,7 +913,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 137 public shared operations now include a `spec` descriptor. Specs define
+All 138 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -922,8 +922,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 137 contracts are standalone TypeScript/Typia product contracts. The
-existing 136 remain `stable`; `abtest.conversion.record` is experimental. The
+All 138 contracts are standalone TypeScript/Typia product contracts. The
+existing 137 remain `stable`; `abtest.conversion.record` is experimental. The
 stable set includes the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and
@@ -1414,6 +1414,8 @@ listmonk-cli abtest run --test-id <id> \
   --expected-updated-at <updatedAt-from-get> --confirm
 listmonk-cli abtest tick --dry-run true --confirm
 listmonk-cli abtest tick --confirm
+listmonk-cli abtest sync-optouts --dry-run --confirm
+listmonk-cli abtest sync-optouts --test-id <id> --confirm
 listmonk-cli abtest reconcile --test-id <id>
 listmonk-cli abtest reconcile --all --repair --confirm
 ```
@@ -1422,7 +1424,11 @@ Creating with `--auto-launch true` starts the backing campaigns immediately;
 review that flag as a sending operation before using it in automation.
 
 `abtest tick` advances every non-terminal test one lifecycle step (for
-cron/systemd timers). Use `--dry-run true` to preview without mutating.
+cron/systemd timers), then carries the opt-outs due for sync from the tests'
+temporary lists to their source lists (see "Opt-outs survive cleanup" below).
+Use `--dry-run true` to preview both without mutating. `abtest sync-optouts`
+carries those opt-outs on demand for one test or every tracked test, and
+exits with status 1 when a list could not be carried.
 `abtest run` progresses a single test. Copy `status` and `updatedAt` from the
 preceding `abtest get` result into its revision options so an intervening tick
 cannot invalidate the approved state silently. `abtest reconcile` reports
@@ -1478,6 +1484,7 @@ listmonk_abtest_deploy_winner
 listmonk_abtest_run
 listmonk_abtest_tick
 listmonk_abtest_reconcile
+listmonk_abtest_sync_optouts
 ```
 
 ### A/B test correctness hardening
@@ -1529,12 +1536,24 @@ send results. Summary of the current behavior:
   Listmonk confirms that it has already been removed; permission or API errors
   keep the list. A list whose opt-outs cannot be carried, including one from
   a test that records no source lists, is kept: stop and delete fail with the
-  list and the reason so they can be retried, and a rollback keeps the list
+  list and the reason so they can be retried, after recording the opt-outs
+  they did carry so the retry skips them, and a rollback keeps the list
   mapped.
-  Lists that are not deleted (completed tests, or lists a stop keeps for
-  cancelled campaigns) keep their opt-outs without copying them, so carry
-  those over before removing such a list by hand. An unsubscribe link whose
-  campaign or list was removed no longer records anything.
+  Lists that are not deleted (a completed test's variant lists and the
+  holdout list its winner went to, and lists a stop keeps for cancelled or
+  finished campaigns) keep receiving opt-outs from those campaigns, so they
+  are synced as well: `abtest tick` carries them at most hourly while a test
+  runs and for 30 days after it ends, then at most daily for as long as the
+  list exists; `abtest sync-optouts` (MCP `listmonk_abtest_sync_optouts`)
+  carries them on demand, with `--dry-run` to preview; stop carries the
+  lists it keeps too; and deleting a terminal test carries them first, then
+  keeps a hidden record of the test so its lists keep being synced until
+  they are deleted in Listmonk. Each carried opt-out is recorded and never
+  carried again, so a person who later re-subscribes to a source list stays
+  subscribed, and a source membership created after the opt-out is left
+  alone. The first tick after upgrading carries the backlog that earlier
+  versions left on kept lists. An unsubscribe link whose campaign or list
+  was removed no longer records anything.
 - **Confidence threshold honored**: the stored `confidenceThreshold` drives
   alpha so the significance decision and reported confidence level match.
 - **Statistical hardening**: Holm-Bonferroni correction for A/B/C (3+

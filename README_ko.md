@@ -894,7 +894,7 @@ GET이며 자동 재시도하지 않습니다. `not_checked`는 자격 증명이
 `readiness.listmonk`가 true가 되지 않습니다. 대상 URL의 인라인 자격 증명,
 쿼리 문자열, 프래그먼트는 결과에서 제거합니다.
 
-137개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+138개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -903,7 +903,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-137개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 136개는
+138개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 137개는
 `stable`이며 `abtest.conversion.record`는 experimental입니다. 안정 계약에는
 바운스 패밀리(`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
@@ -1345,6 +1345,8 @@ listmonk-cli abtest run --test-id <id> \
   --expected-updated-at <get의-updatedAt> --confirm
 listmonk-cli abtest tick --dry-run true --confirm
 listmonk-cli abtest tick --confirm
+listmonk-cli abtest sync-optouts --dry-run --confirm
+listmonk-cli abtest sync-optouts --test-id <id> --confirm
 listmonk-cli abtest reconcile --test-id <id>
 listmonk-cli abtest reconcile --all --repair --confirm
 ```
@@ -1352,8 +1354,12 @@ listmonk-cli abtest reconcile --all --repair --confirm
 `--auto-launch true`로 생성하면 backing campaign이 즉시 시작됩니다. 자동화에서
 사용하기 전에 발송 작업으로 검토하세요.
 
-`abtest tick`은 모든 비종료 테스트를 한 단계씩 진행합니다 (cron/systemd
-timer용). `--dry-run true`로 상태 변경 없이 미리보기할 수 있습니다.
+`abtest tick`은 모든 비종료 테스트를 한 단계씩 진행한 뒤(cron/systemd
+timer용), 동기화 시점이 된 테스트의 임시 list에 기록된 수신 거부를 원본 list로
+옮깁니다(아래 "정리 시 수신 거부 보존" 참고). `--dry-run true`로 두 작업 모두
+상태 변경 없이 미리보기할 수 있습니다. `abtest sync-optouts`는 테스트 하나 또는
+추적 중인 모든 테스트의 수신 거부를 즉시 옮기며, 옮기지 못한 list가 있으면
+종료 코드 1로 끝납니다.
 `abtest run`은 단일 테스트를 진행합니다. 직전 `abtest get` 결과의 `status`와
 `updatedAt`을 revision 옵션에 복사하면 중간에 실행된 tick이 승인 상태를
 조용히 무효화하지 못합니다. `abtest reconcile`은 로컬 드리프트를 보고하고
@@ -1406,6 +1412,7 @@ listmonk_abtest_deploy_winner
 listmonk_abtest_run
 listmonk_abtest_tick
 listmonk_abtest_reconcile
+listmonk_abtest_sync_optouts
 ```
 
 ### A/B 테스트 정확성 하드닝
@@ -1451,11 +1458,21 @@ A/B 테스트 도메인은 발송 결과를 왜곡할 수 있는 여러 정확�
   조회 결과가 비어 있어도 list 자체를 읽을 수 있거나 이미 삭제된 list임을
   확인한 경우에만 안전하게 처리합니다. 권한 부족이나 조회 오류는 빈 결과로
   간주하지 않습니다. 수신 거부를 옮기지 못한 list는(원본 list가 기록되지 않은
-  테스트 포함) 삭제하지 않고 남깁니다. stop과 delete는 해당 list와 이유를 담아
-  실패하므로 재시도할 수 있고, rollback은 list 매핑을 유지합니다. 삭제되지 않는
-  list(완료된 테스트나 stop이 cancelled campaign 때문에 보존한 list)는 수신 거부
-  기록을 유지하지만 원본 list로 복사하지 않으므로, 이런 list를 직접 삭제하기 전에
-  먼저 옮기세요.
+  테스트 포함) 삭제하지 않고 남깁니다. stop과 delete는 이미 옮긴 수신 거부를
+  기록한 뒤 해당 list와 이유를 담아 실패하므로, 재시도는 기록된 수신 거부를
+  건너뛰고 나머지만 옮깁니다. rollback은 list 매핑을 유지합니다. 삭제되지 않는
+  list(완료된 테스트의 variant list와 winner가 발송된 holdout list, stop이
+  cancelled·finished campaign 때문에 보존한 list)에도 해당 campaign의 수신 거부가
+  계속 기록되므로 함께 동기화합니다. `abtest tick`은 테스트가 진행 중일 때와
+  종료 후 30일 동안은 최대 1시간에 한 번, 그 뒤에는 list가 남아 있는 한 최대
+  하루에 한 번 옮깁니다. `abtest sync-optouts`(MCP
+  `listmonk_abtest_sync_optouts`)는 즉시 옮기며 `--dry-run`으로 미리볼 수
+  있습니다. stop은 보존하는 list의 수신 거부도 옮기고, 종료된 테스트를 삭제하면
+  먼저 수신 거부를 옮긴 뒤 숨겨진 기록을 남겨 Listmonk에서 list가 삭제될 때까지
+  계속 동기화합니다. 옮긴 수신 거부는 기록해 두고 다시 옮기지 않으므로, 나중에
+  원본 list를 다시 구독한 사람은 구독 상태로 남고, 수신 거부 이후에 생긴 원본
+  list 멤버십도 건드리지 않습니다. 업그레이드 후 첫 tick은 이전 버전이 보존한
+  list에 쌓인 수신 거부를 한꺼번에 옮깁니다.
   campaign이나 list가 삭제된 뒤의 수신 거부 링크는 아무것도 기록하지 않습니다.
 - **신뢰도 임계값 반영**: 저장된 `confidenceThreshold`로 alpha를 계산하여
   유의성 판정과 결과에 반영합니다.
