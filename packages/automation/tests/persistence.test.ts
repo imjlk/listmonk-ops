@@ -2557,7 +2557,9 @@ describe("template registry active version", () => {
 		await editAndSync(remote, client, 34, "<p>v2</p>");
 		remote.subject = "Legacy three";
 		await editAndSync(remote, client, 34, "<p>v3</p>");
-		const [v1, v2] = (await getTemplateRegistryHistory(34)).versions;
+		const history = await getTemplateRegistryHistory(34);
+		expect(history.versions).toHaveLength(3);
+		const [v1, v2] = history.versions;
 		if (!v1 || !v2) {
 			throw new Error("Expected three stored versions");
 		}
@@ -2592,6 +2594,9 @@ describe("template registry active version", () => {
 		await expect(
 			rollbackTemplateVersion(client, 34, { expectedRemoteHash: v2.hash }),
 		).rejects.toThrow(/remote hash mismatch/);
+		// Both pins conflicted before writing, so the edit is still live.
+		expect(remote.body).toBe("<p>edited</p>");
+		expect(remote.writes).toEqual(["<p>v2</p>", "<p>v1</p>", "<p>v2</p>"]);
 	});
 
 	test("refuses to write a version whose missing body_source Listmonk would keep", async () => {
