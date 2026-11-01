@@ -44,8 +44,8 @@ const server = Bun.serve({
 	},
 });
 
-afterAll(() => {
-	server.stop(true);
+afterAll(async () => {
+	await server.stop(true);
 	rmSync(home, { recursive: true, force: true });
 });
 

@@ -75,8 +75,8 @@ describe("Listmonk v6.2 contracts", () => {
 		});
 	});
 
-	afterEach(() => {
-		server.stop(true);
+	afterEach(async () => {
+		await server.stop(true);
 	});
 
 	test("exports the renamed v6.2 raw operations", () => {

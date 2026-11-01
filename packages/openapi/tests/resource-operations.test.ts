@@ -27,8 +27,8 @@ describe("Resource operation factories", () => {
 		});
 	});
 
-	afterEach(() => {
-		server.stop(true);
+	afterEach(async () => {
+		await server.stop(true);
 	});
 
 	test("createMediaOperations resolves the generated getMedia method", async () => {

@@ -74,7 +74,7 @@ test("MCP observes token-file rotation between calls and does not reuse an old t
 		expect(JSON.stringify(reconcile)).toContain("not found");
 		expect(authenticatedCalls).toBe(2);
 	} finally {
-		backend.stop(true);
+		await backend.stop(true);
 		if (previousTransactionalStore === undefined) delete process.env.LISTMONK_OPS_TRANSACTIONAL_STORE;
 		else process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = previousTransactionalStore;
 	}

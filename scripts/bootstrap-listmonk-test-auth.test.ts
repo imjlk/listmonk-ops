@@ -7,7 +7,7 @@ const bootstrap = resolve(import.meta.dir, "bootstrap-listmonk-test-auth.ts");
 
 function ipv6LoopbackAvailable(): boolean {
 	try {
-		Bun.serve({ hostname: "::1", port: 0, fetch: () => new Response() }).stop(
+		void Bun.serve({ hostname: "::1", port: 0, fetch: () => new Response() }).stop(
 			true,
 		);
 		return true;
@@ -88,7 +88,7 @@ describe("local test-auth bootstrap target guard", () => {
 					"test-token\n",
 				);
 			} finally {
-				server.stop(true);
+				await server.stop(true);
 				await rm(directory, { recursive: true, force: true });
 			}
 		},
