@@ -256,6 +256,37 @@ describe("syncAbTestOptOuts on kept temporary lists", () => {
 		expect(isOptOutSyncTracked(test)).toBe(false);
 	});
 
+	test("a dry run counts a subscriber opted out of several lists once, like a real run", async () => {
+		const fake = createFakeListmonk();
+		fake.addLists(SOURCE_A, 200, 201, 202);
+		fake.addSubscriber(17, {
+			[SOURCE_A]: "confirmed",
+			200: "unsubscribed",
+			202: "unsubscribed",
+		});
+		const test = completedTest();
+
+		const preview = await syncAbTestOptOuts(fake.client, test, {
+			dryRun: true,
+		});
+		const real = await syncAbTestOptOuts(fake.client, test);
+
+		const pendingByList = (outcome: typeof preview) =>
+			outcome.result.lists.map((list) => [list.listId, list.pendingCount]);
+		expect(pendingByList(preview)).toEqual([
+			[200, 1],
+			[201, 0],
+			[202, 0],
+		]);
+		expect(
+			real.result.lists.map((list) => [list.listId, list.carriedCount]),
+		).toEqual([
+			[200, 1],
+			[201, 0],
+			[202, 0],
+		]);
+	});
+
 	test("a dry run reports pending opt-outs without writing", async () => {
 		const fake = createFakeListmonk();
 		seedAbTestAudience(fake);

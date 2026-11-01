@@ -679,6 +679,8 @@ describe("repeated propagation carries each opt-out once", () => {
 			status: "pending",
 			optedOutCount: 2,
 			pendingCount: 1,
+			// A real run would carry 1 and record it; 2 was already settled.
+			wouldSettleSubscriberIds: [1],
 			sourceListIds: [SOURCE_A, SOURCE_B],
 		});
 		expect(fake.unsubscribes).toEqual([]);
@@ -692,6 +694,64 @@ describe("repeated propagation carries each opt-out once", () => {
 				})
 			).status,
 		).toBe("up_to_date");
+	});
+
+	test("previews every list outcome the way a real run classifies it", async () => {
+		const fake = createFakeListmonk();
+		fake.addLists(SOURCE_A, 200, 201);
+		fake.addSubscriber(1, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const preview = (listId: number, sourceListIds: number[]) =>
+			previewTemporaryListOptOuts(fake.client, { listId, sourceListIds });
+
+		expect(await preview(404, [SOURCE_A])).toEqual({
+			listId: 404,
+			status: "no_opt_outs",
+			listMissing: true,
+			optedOutCount: 0,
+			pendingCount: 0,
+			wouldSettleSubscriberIds: [],
+			sourceListIds: [SOURCE_A],
+		});
+		expect(await preview(201, [SOURCE_A])).toMatchObject({
+			status: "no_opt_outs",
+			optedOutCount: 0,
+			pendingCount: 0,
+		});
+		expect(await preview(201, [SOURCE_A])).not.toHaveProperty("listMissing");
+		expect(await preview(200, [])).toMatchObject({
+			status: "blocked",
+			optedOutCount: 1,
+			pendingCount: 1,
+			wouldSettleSubscriberIds: [],
+		});
+		expect((await preview(200, [])).detail).toContain(
+			"records no source lists",
+		);
+		expect(fake.unsubscribes).toEqual([]);
+
+		const unreadable = {
+			subscriber: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+				listRaw: async () => ({ data: { results: [], total: 0 } }),
+			},
+			list: {
+				getById: async () => ({
+					error: { message: "permission denied" },
+					response: { status: 403 },
+				}),
+			},
+		} as unknown as ListmonkClient;
+		const failed = await previewTemporaryListOptOuts(unreadable, {
+			listId: 200,
+			sourceListIds: [SOURCE_A],
+		});
+		expect(failed).toMatchObject({
+			status: "failed",
+			optedOutCount: 0,
+			pendingCount: 0,
+			wouldSettleSubscriberIds: [],
+		});
+		expect(failed.detail).toContain("HTTP 403: permission denied");
 	});
 
 	test("resolves the source lists one opt-out still needs", () => {

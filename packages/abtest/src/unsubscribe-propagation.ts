@@ -154,6 +154,12 @@ export interface TemporaryListOptOutPreview {
 	listMissing?: true;
 	optedOutCount: number;
 	pendingCount: number;
+	/**
+	 * The opt-outs a successful run would record as settled (every one not
+	 * already settled), so a preview of several lists can skip them on the
+	 * later lists exactly as a real run does.
+	 */
+	wouldSettleSubscriberIds: number[];
 	sourceListIds: number[];
 	detail?: string;
 }
@@ -851,6 +857,7 @@ export async function previewTemporaryListOptOuts(
 				listMissing: true,
 				optedOutCount: 0,
 				pendingCount: 0,
+				wouldSettleSubscriberIds: [],
 				sourceListIds,
 			};
 		case "failed":
@@ -859,6 +866,7 @@ export async function previewTemporaryListOptOuts(
 				status: "failed",
 				optedOutCount: 0,
 				pendingCount: 0,
+				wouldSettleSubscriberIds: [],
 				sourceListIds,
 				detail: classification.detail,
 			};
@@ -868,6 +876,7 @@ export async function previewTemporaryListOptOuts(
 				status: "no_opt_outs",
 				optedOutCount: 0,
 				pendingCount: 0,
+				wouldSettleSubscriberIds: [],
 				sourceListIds,
 			};
 		case "blocked":
@@ -876,6 +885,7 @@ export async function previewTemporaryListOptOuts(
 				status: "blocked",
 				optedOutCount: classification.optedOutCount,
 				pendingCount: classification.unsettledCount,
+				wouldSettleSubscriberIds: [],
 				sourceListIds,
 				detail: classification.detail,
 			};
@@ -885,6 +895,9 @@ export async function previewTemporaryListOptOuts(
 				status: classification.pending.length === 0 ? "up_to_date" : "pending",
 				optedOutCount: classification.optOuts.length,
 				pendingCount: classification.pending.length,
+				wouldSettleSubscriberIds: classification.unsettled.map(
+					(optOut) => optOut.subscriberId,
+				),
 				sourceListIds,
 			};
 	}

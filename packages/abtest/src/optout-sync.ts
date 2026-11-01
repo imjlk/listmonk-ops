@@ -313,15 +313,17 @@ export async function syncAbTestOptOuts(
 	const missingListIds: number[] = [];
 	for (const listId of resolveTrackedTemporaryListIds(test)) {
 		if (options.dryRun === true) {
-			lists.push(
-				toListResultFromPreview(
-					await previewTemporaryListOptOuts(client, {
-						listId,
-						sourceListIds,
-						settledSubscriberIds: settled,
-					}),
-				),
-			);
+			const preview = await previewTemporaryListOptOuts(client, {
+				listId,
+				sourceListIds,
+				settledSubscriberIds: settled,
+			});
+			lists.push(toListResultFromPreview(preview));
+			// A real run settles these before the next list, so the preview
+			// of the next list skips them the same way.
+			for (const subscriberId of preview.wouldSettleSubscriberIds) {
+				settled.add(subscriberId);
+			}
 			continue;
 		}
 		const propagation = await propagateTemporaryListOptOuts(client, {
