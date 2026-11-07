@@ -42,5 +42,5 @@ test("server health honors programmatic file targets without audit, outbox or re
 		severity: "healthy",
 		check_passed: true,
 	});
-	expect(readdirSync(dir)).toEqual(["sequence.json", "webhook.json"]);
+	expect(readdirSync(dir).sort()).toEqual(["sequence.json", "webhook.json"]);
 });

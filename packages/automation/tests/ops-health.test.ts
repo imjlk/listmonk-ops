@@ -185,7 +185,7 @@ describe("consolidated read-only ops health", () => {
   expect(report).toMatchObject({ severity: "unknown", complete: false, check_passed: false });
   expect(report.components[0]?.severity).toBe("healthy");
   expect(report.components[1]?.findings[0]?.code).toBe("missing_store");
-  expect(await readdir(dir)).toEqual(["sequences.json", "webhooks.json"]);
+  expect((await readdir(dir)).sort()).toEqual(["sequences.json", "webhooks.json"]);
  });
  test("missing collections, invalid versions/timestamps/status and malformed JSON are unavailable", async () => {
   for (const raw of [{ version: 1 }, { ...sequence(), version: 99 }, sequence([enrollment("future-status")]), sequence([], [worker("invalid")])]) {
@@ -241,7 +241,7 @@ describe("consolidated read-only ops health", () => {
   expect(JSON.stringify(direct)).not.toContain("123");
   const after = await Promise.all([sequencePath, webhookPath].map(async (path) => ({ bytes: await readFile(path), mtime: (await stat(path)).mtimeMs })));
   expect(after).toEqual(before);
-  expect(await readdir(dir)).toEqual(["sequences.json", "webhooks.json"]);
+  expect((await readdir(dir)).sort()).toEqual(["sequences.json", "webhooks.json"]);
   for (const component of direct.components) for (const finding of component.findings) for (const action of finding.next_actions) {
    expect(action.mode).toBe("read");
  expect(action.operation_id === undefined || action.operation_id === "ops.health").toBe(true);
