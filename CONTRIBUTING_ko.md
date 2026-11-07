@@ -143,7 +143,10 @@ bun run check
 직접 import하기 때문입니다. Bun의 isolated workspace linker가 이 런타임과
 peer 해석을 OpenAPI 패키지 안에 격리합니다. 이 패키지의 `build`, `lint`,
 `typecheck` 명령은 계속 `ttsc`를 호출하므로 실제 컴파일은 TypeScript 7로
-수행합니다.
+수행합니다. ttsc는 가장 가까운 패키지의 컴파일러를 사용하므로, 이 패키지는
+네이티브 TypeScript 7을 `@typescript/native` npm alias(`npm:typescript@7.x`)로
+함께 선언하며 ttsc는 구형 `typescript` 항목보다 이 alias를 우선합니다.
+업그레이드할 때는 이 alias를 루트 `typescript`와 같은 버전으로 유지하세요.
 
 VS Code에서는 추천 확장인 `samchon.ttsc`를 설치하세요. 저장소의 워크스페이스
 설정은 TypeScript 저장 시 포맷에 이 확장을 사용합니다.
