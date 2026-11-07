@@ -213,6 +213,7 @@ export type {
 	AbTestConfig,
 	AbTestInput,
 	AbTestOptOutSyncState,
+	AbTestOptOutSourceSettlement,
 	AbTestQueryParams,
 	AnalyzeAbTestInput,
 	CreateAbTestInput,

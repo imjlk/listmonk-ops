@@ -50,6 +50,7 @@ export type OperationSpecVerb =
 	| "reload"
 	| "about"
 	| "status"
+ | "health"
 	| "doctor"
 	| "quota"
 	| "webhook-status"

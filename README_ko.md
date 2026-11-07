@@ -897,7 +897,7 @@ GET이며 자동 재시도하지 않습니다. `not_checked`는 자격 증명이
 `readiness.listmonk`가 true가 되지 않습니다. 대상 URL의 인라인 자격 증명,
 쿼리 문자열, 프래그먼트는 결과에서 제거합니다.
 
-138개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+139개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -906,8 +906,8 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-138개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 137개는
-`stable`이며 `abtest.conversion.record`는 experimental입니다. 안정 계약에는
+139개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 137개는
+`stable`이며 `abtest.conversion.record`와 `ops.health`는 experimental입니다. 안정 계약에는
 바운스 패밀리(`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), 캠페인 프리뷰/테스트 발송/애널리틱스
@@ -1485,7 +1485,17 @@ A/B 테스트 도메인은 발송 결과를 왜곡할 수 있는 여러 정확�
   먼저 수신 거부를 옮긴 뒤 숨겨진 기록을 남겨 Listmonk에서 list가 삭제될 때까지
   계속 동기화합니다. 옮긴 수신 거부는 기록해 두고 다시 옮기지 않으므로, 나중에
   원본 list를 다시 구독한 사람은 구독 상태로 남고, 수신 거부 이후에 생긴 원본
-  list 멤버십도 건드리지 않습니다. 업그레이드 후 첫 tick은 이전 버전이 보존한
+  list 멤버십도 건드리지 않습니다.
+  원본 list를 공유하는 테스트는 구독자/list별 비공개 체크포인트로 이전
+  수신 거부의 중복 적용을 막습니다. 체크포인트는 로컬 시계가 아니라 실제로
+  확인한 Listmonk 멤버십/수신 거부 시각을 사용하며, 무변경 동기화로 갱신하지
+  않으므로 더 최신 수신 거부는 계속 반영합니다. 시각이 없거나 원본별 근거가
+  없는 구버전 기록은 재동의를 덮어쓰지 않고 운영자 확인이 필요한 실패로
+  처리합니다. stop/delete도 공유 원본 정리 전에 같은 동기화를 사용합니다.
+  다른 기존 테스트의 임시 list가 해당 원본을 참조하는 동안 체크포인트를
+  보존할 수 있으며 CLI/MCP 테스트 응답에는 포함하지 않습니다. 원자적인
+  동의 잠금은 아니므로 동시 원격 변경은 다시 확인해야 합니다.
+  업그레이드 후 첫 tick은 이전 버전이 보존한
   list에 쌓인 수신 거부를 한꺼번에 옮깁니다.
   campaign이나 list가 삭제된 뒤의 수신 거부 링크는 아무것도 기록하지 않습니다.
 - **신뢰도 임계값 반영**: 저장된 `confidenceThreshold`로 alpha를 계산하여
@@ -1681,6 +1691,24 @@ rollback은 대상을 추측하지 않고 실패합니다. 먼저 `templates-syn
 템플릿 promote는 `--expected-remote-hash`로
 optimistic concurrency를 지원합니다. MCP/CLI operation 출력은 더 이상
 절대 파일시스템 경로를 노출하지 않습니다.
+
+### 통합 운영 조치 필요 상태 (읽기 전용)
+
+```bash
+listmonk-cli ops health --format json
+listmonk-cli ops health --scope sequences --at 2026-11-07T00:00:00Z --worker-stale-ms 90000 --scan-limit 1000 --check --format json
+# MCP: listmonk_ops_health({ scope: "all", at: "2026-11-07T00:00:00Z", scan_limit: 1000 })
+```
+
+공유 `ops.health`는 **기존 로컬 시퀀스/웹훅 파일만** 조사합니다. 인증/네트워크 호출, 잠금, 파일 생성·복구, 스키마 초기화, 작업 claim, 재시도·재생, 회로 초기화, 워커 시작 또는 실제 전송을 하지 않습니다. CLI/MCP가 동일한 수집기를 사용하며 MCP의 명시적 저장소/백엔드 설정도 반영합니다. MCP 시작 시 기존 설정 검증은 유지됩니다. `--scope all|sequences|webhooks`의 기본값은 둘 다이며, 사용하지 않거나 없는 범위 내 저장소를 빈 정상 저장소로 간주하지 않고 **unknown**으로 표시합니다.
+
+심볼릭 링크가 아닌 일반 파일만 **4 MiB**까지 읽고, 각 컬렉션을 저장 순서 앞부분부터 `scan_limit`개(기본 1000, 최대 10000) 조사합니다. `coverage`에 전체/조사/잘림을 따로 표시하며 잘린 개수는 하한값입니다. `complete`는 조사 완전성이지 전송 가능성 보장이 아닙니다. 필수 메타데이터 오류·버전 불일치·누락·과대·읽기 오류·읽는 중 변경은 unavailable입니다. 전체 페이로드/리비전 토폴로지를 검증하지 않습니다. 기존 Postgres 상태 경로가 스키마를 초기화하므로 Postgres는 **unsupported/unknown**이며, 다른 파일로 우회하거나 정상으로 판정하지 않습니다. 수집기는 해당 저장소 객체/쿼리를 만들지 않습니다.
+
+심각도 우선순위는 `critical > unknown > warning > healthy`입니다. 모호한 시퀀스 결과, 엔진 재시도 한도에 도달한 실패, 웹훅 exhausted/DLQ, 신선한 워커 없이 관찰된 활성/사용 가능 대상의 기한 도래 후보를 표시합니다. 만료·누락된 실행 리스, 보존된 실패, 열린 회로와 비활성·누락 대상은 이유 및 **읽기 전용** 후속 명령과 함께 표시합니다. 기한 도래는 예약 후보 수일 뿐, 실행 가능한 단계·고정 리비전 유효성·동의·미래 전송 예측이 아닙니다. 일시정지된 정의는 활성 후보로 세지 않습니다. 웹훅 리스 만료만으로 원격 수신 성공 여부를 알 수 없습니다.
+
+단일 비교 시각을 `--at`으로 고정할 수 있지만 과거 저장소 스냅샷을 재현하는 것은 아닙니다. heartbeat 나이가 임계값과 같으면 신선하고 초과하면 오래된 상태입니다. 미래 heartbeat와 비어 있는 큐만으로 워커 생존을 증명하지 않습니다. 신선한 워커가 있으면 보존된 stale/failed 워커 기록만으로 생존 실패 경보를 내지 않습니다. 구독자 식별자/컨텍스트, URL/비밀값, 이벤트/메시지 본문, 워커 ID, 원시 오류는 출력하지 않습니다. 저장소별 독립 관찰이므로 **원자적·교차 저장소 상태/승인/전송 보장이 없습니다**. 안전한 후속 명령은 제한된 health 재조회 또는 오프라인 작업 카탈로그 조회뿐입니다. 기존 status 명령은 다른 CLI 설정에서 Postgres를 초기화할 수 있어 제안하지 않습니다. 사용할 수 없는 소스는 오프라인 카탈로그만 제안합니다.
+
+일반 조회는 결과 심각도와 무관하게 0으로 종료합니다. `--check`는 JSON 보고서를 유지하면서 범위 내 모든 구성요소가 완전하고 healthy인 경우만 0, 나머지는 **1**로 종료합니다. 잘못된 인수는 기존 CLI 검증 오류를 사용합니다. 읽기 전용 어댑터는 감사 기록이나 라이프사이클 이벤트를 쓰지 않습니다. SMTP/공급자/Listmonk 연결 검사 기능이 아닙니다.
 
 ## 서명형 Outbound Event Webhook
 

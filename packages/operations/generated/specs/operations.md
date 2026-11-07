@@ -1210,6 +1210,18 @@ Generate a metrics and deliverability summary for an operations window
 - Retry: `safe`
 - Stability: `stable` since `0.9.0`
 
+## `ops.health`
+
+Inspect bounded file-backed sequence and webhook evidence without recovery or remote mutations
+
+- Resource / verb: `control.health`
+- MCP tool: `listmonk_ops_health`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:control`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
+
 ## `ops.campaign.deliverability-guard`
 
 Evaluate campaign deliverability metrics and optionally pause a breached campaign

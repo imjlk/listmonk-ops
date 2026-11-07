@@ -640,8 +640,9 @@ function serializeVariant(variant: AbTest["variants"][number]): z.output<
 }
 
 function serializeAbTest(test: AbTest): AbTestOperationRecord {
+	const { optOutSync: _privateOptOutProgress, ...publicTest } = test;
 	return {
-		...test,
+		...publicTest,
 		createdAt: toIsoString(test.createdAt),
 		updatedAt: toIsoString(test.updatedAt),
 		variants: test.variants.map(serializeVariant),

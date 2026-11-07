@@ -954,7 +954,7 @@ export class ListmonkAbTestIntegration {
 	 */
 	async syncTestOptOuts(
 		test: AbTest,
-		options: { dryRun?: boolean; now?: Date } = {},
+		options: { dryRun?: boolean; now?: Date; relatedTests?: readonly AbTest[] } = {},
 	): Promise<AbTestOptOutSyncOutcome> {
 		return syncAbTestOptOuts(this.listmonkClient, test, options);
 	}

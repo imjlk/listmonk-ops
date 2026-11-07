@@ -1,8 +1,13 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import type { AbTest, AbTestOptOutSyncState } from "./types";
+import type {
+	AbTest,
+	AbTestOptOutSyncState,
+	AbTestOptOutSourceSettlement,
+} from "./types";
 import { TERMINAL_STATUSES } from "./types";
 import {
 	previewTemporaryListOptOuts,
+	parseOptOutTimestampMicros,
 	propagateTemporaryListOptOuts,
 	resolveOptOutSourceListIds,
 	type TemporaryListOptOutPreview,
@@ -140,6 +145,13 @@ export function isOptOutSyncTracked(test: AbTest): boolean {
 	);
 }
 
+/** Source history is only useful while another existing test can still expose an older opt-out. */
+export function hasRelatedTrackedOptOutSources(test: AbTest, tests: readonly AbTest[]): boolean {
+	const sources = new Set(resolveOptOutSourceListIds(test));
+	return tests.some((entry) => entry.id !== test.id && resolveTrackedTemporaryListIds(entry).length > 0 &&
+  resolveOptOutSourceListIds(entry).some((id) => sources.has(id)));
+}
+
 /**
  * Minimum time between automatic syncs of a test: hourly while it is active
  * and during the recent period after it ends (its terminal transition is
@@ -182,6 +194,7 @@ export function mergeOptOutSyncState(
 		settledSubscriberIds?: Iterable<number>;
 		missingListIds?: Iterable<number>;
 		syncedAt?: string;
+  sourceSettlements?: readonly AbTestOptOutSourceSettlement[];
 	},
 ): AbTestOptOutSyncState {
 	const missingListIds = sortedUniqueIds([
@@ -189,6 +202,18 @@ export function mergeOptOutSyncState(
 		...(update.missingListIds ?? []),
 	]);
 	const syncedAt = update.syncedAt ?? current?.syncedAt;
+	const checkpoints = new Map<string, AbTestOptOutSourceSettlement>();
+	for (const entry of [
+		...(current?.sourceSettlements ?? []),
+		...(update.sourceSettlements ?? []),
+	]) {
+		const key = `${entry.subscriberId}:${entry.sourceListId}`;
+		const prior = checkpoints.get(key);
+		if (!prior || entry.through === null || (prior.through !== null && (parseOptOutTimestampMicros(entry.through) ?? -1n) > (parseOptOutTimestampMicros(prior.through) ?? -1n))) checkpoints.set(key, entry);
+	}
+	const sourceSettlements = [...checkpoints.values()].sort(
+	 (a, b) => a.subscriberId - b.subscriberId || a.sourceListId - b.sourceListId,
+ );
 	return {
 		settledSubscriberIds: sortedUniqueIds([
 			...(current?.settledSubscriberIds ?? []),
@@ -196,6 +221,7 @@ export function mergeOptOutSyncState(
 		]),
 		...(missingListIds.length > 0 ? { missingListIds } : {}),
 		...(syncedAt === undefined ? {} : { syncedAt }),
+		...(update.sourceSettlements !== undefined || current?.sourceSettlements !== undefined ? { sourceSettlements } : {}),
 	};
 }
 
@@ -304,10 +330,35 @@ function toListResultFromPreview(
 export async function syncAbTestOptOuts(
 	client: ListmonkClient,
 	test: AbTest,
-	options: { dryRun?: boolean; now?: Date } = {},
+	options: { dryRun?: boolean; now?: Date; relatedTests?: readonly AbTest[] } = {},
 ): Promise<AbTestOptOutSyncOutcome> {
 	const sourceListIds = resolveOptOutSourceListIds(test);
-	const settled = new Set(test.optOutSync?.settledSubscriberIds ?? []);
+	const related = (options.relatedTests ?? []).filter(
+		(entry) => entry.id !== test.id,
+	);
+	const sourceSettlements = [
+		...(test.optOutSync?.sourceSettlements ?? []),
+		...related.flatMap((entry) => entry.optOutSync?.sourceSettlements ?? []),
+	];
+	const legacySourceSettlements = related.flatMap((entry) => {
+		if (entry.optOutSync?.sourceSettlements !== undefined) return [];
+		return (entry.optOutSync?.settledSubscriberIds ?? []).flatMap(
+			(subscriberId) =>
+				resolveOptOutSourceListIds(entry).map((sourceListId) => ({
+					subscriberId,
+					sourceListId,
+				})),
+		);
+	});
+	const newlyConfirmedSources: AbTestOptOutSourceSettlement[] = [];
+	const previouslySettled = new Set(
+		test.optOutSync?.settledSubscriberIds ?? [],
+	);
+	const onSourceUnsubscribed = options.dryRun ? undefined : (subscriberId: number, sourceListId: number, remoteThrough: string | undefined) => {
+  // Previously settled rows must not refresh a checkpoint after later consent.
+  if (!previouslySettled.has(subscriberId)) newlyConfirmedSources.push({ subscriberId, sourceListId, through: remoteThrough ?? null });
+ };
+	const settled = new Set(previouslySettled);
 	const lists: AbTestOptOutSyncListResult[] = [];
 	const newlySettled: number[] = [];
 	const missingListIds: number[] = [];
@@ -317,6 +368,8 @@ export async function syncAbTestOptOuts(
 				listId,
 				sourceListIds,
 				settledSubscriberIds: settled,
+				sourceSettlements,
+				legacySourceSettlements,
 			});
 			lists.push(toListResultFromPreview(preview));
 			// A real run settles these before the next list, so the preview
@@ -330,6 +383,9 @@ export async function syncAbTestOptOuts(
 			listId,
 			sourceListIds,
 			settledSubscriberIds: settled,
+			sourceSettlements,
+			legacySourceSettlements,
+			onSourceUnsubscribed,
 		});
 		lists.push(toListResultFromPropagation(propagation));
 		// Fold them in before the next list, one id at a time: a long-lived
@@ -362,6 +418,7 @@ export async function syncAbTestOptOuts(
 			test,
 			mergeOptOutSyncState(test.optOutSync, {
 				settledSubscriberIds: newlySettled,
+				sourceSettlements: newlyConfirmedSources,
 				missingListIds,
 				syncedAt: ok ? (options.now ?? new Date()).toISOString() : undefined,
 			}),

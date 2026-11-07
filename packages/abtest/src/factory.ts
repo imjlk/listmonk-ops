@@ -19,6 +19,7 @@ import {
 	isOptOutSyncDue,
 	isOptOutSyncTracked,
 	recordTemporaryListOptOutPropagation,
+	hasRelatedTrackedOptOutSources,
 	resolveTrackedTemporaryListIds,
 	syncAbTestOptOuts,
 	type AbTestOptOutSyncResult,
@@ -174,6 +175,17 @@ export function createAbTestExecutors(
 		// deletes temporary lists when no campaign still references them.
 		// This replaces the legacy cleanup paths that renamed campaigns
 		// and ignored remote status.
+		const relatedTests = [
+			...(await abTestService.getAllTests()),
+			...abTestService.snapshotRetiredTests(),
+		];
+		if (hasRelatedTrackedOptOutSources(test, relatedTests)) {
+			const outcome = await syncAbTestOptOuts(listmonkClient, test, {
+				relatedTests,
+			});
+			if (outcome.state) test.optOutSync = outcome.state;
+			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Shared-source opt-outs must be reconciled before stopping ${testId}`);
+		}
 		const result = await cancelAbTest(listmonkClient, test);
 		// Record what the stop carried, and the lists it deleted, so later
 		// syncs skip both. A stop that fails below keeps this record: it
@@ -551,13 +563,21 @@ export function createAbTestExecutors(
 				const { result, state } = await syncAbTestOptOuts(
 					listmonkClient,
 					test,
-					{ dryRun: options.dryRun, now },
+					{
+						dryRun: options.dryRun,
+						now,
+						relatedTests: [
+							...(await abTestService.getAllTests()),
+							...abTestService.snapshotRetiredTests(),
+						],
+					},
 				);
 				if (state !== undefined) {
 					test.optOutSync = state;
 					if (
 						test.deletedAt !== undefined &&
-						resolveTrackedTemporaryListIds(test).length === 0
+						resolveTrackedTemporaryListIds(test).length === 0 &&
+      !hasRelatedTrackedOptOutSources(test, [...(await abTestService.getAllTests()), ...abTestService.snapshotRetiredTests()])
 					) {
 						abTestService.pruneRetiredTest(test.id);
 					}
@@ -575,6 +595,15 @@ export function createAbTestExecutors(
 					ok: false,
 					detail: error instanceof Error ? error.message : String(error),
 				});
+			}
+		}
+		if (!options.dryRun) {
+			const all = [
+				...(await abTestService.getAllTests()),
+				...abTestService.snapshotRetiredTests(),
+			];
+			for (const retired of abTestService.snapshotRetiredTests()) {
+				if (resolveTrackedTemporaryListIds(retired).length === 0 && !hasRelatedTrackedOptOutSources(retired, all)) abTestService.pruneRetiredTest(retired.id);
 			}
 		}
 		return results;

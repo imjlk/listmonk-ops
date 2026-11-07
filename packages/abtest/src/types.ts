@@ -168,6 +168,13 @@ export interface AbTest {
  * it is confirmed, so later syncs skip it and a person who re-subscribes to a
  * source list afterwards stays subscribed.
  */
+export interface AbTestOptOutSourceSettlement {
+	subscriberId: number;
+	sourceListId: number;
+ /** Remote opt-out/subscription timestamps through which an unsubscribe was read-confirmed. */
+	through: string | null;
+}
+
 export interface AbTestOptOutSyncState {
 	/**
 	 * Subscribers whose opt-out from one of the test's temporary lists was
@@ -177,6 +184,8 @@ export interface AbTestOptOutSyncState {
 	 * again after a re-subscribe; it is emptied once every list is gone.
 	 */
 	settledSubscriberIds: number[];
+	/** Source-scoped read-confirmed checkpoints, shared across test records; never public recipient output. */
+	sourceSettlements?: AbTestOptOutSourceSettlement[];
 	/** Temporary lists Listmonk reported as deleted; never read again. */
 	missingListIds?: number[];
 	/** ISO time every remaining temporary list was last confirmed. */

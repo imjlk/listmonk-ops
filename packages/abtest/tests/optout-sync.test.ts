@@ -312,6 +312,221 @@ describe("syncAbTestOptOuts on kept temporary lists", () => {
 	});
 });
 
+describe("shared-source opt-out chronology", () => {
+ const base = Date.parse("2026-09-01T00:00:00Z");
+ function fixture(options = {}) {
+  const fake = createFakeListmonk(options);
+  fake.addLists(SOURCE_A, SOURCE_B, 200, 201);
+  fake.addCampaign(100, "finished", [200]);
+		fake.addCampaign(101, "finished", [201]);
+  fake.addSubscriber(777, { [SOURCE_A]: "confirmed", [SOURCE_B]: "confirmed", 200: "confirmed", 201: "confirmed" });
+  const a = completedTest({ id: "a", baseConfig: { subject: "A", body: "A", lists: [SOURCE_A] },
+   campaignMappings: [{ variantId: "variant-a", campaignId: 100 }], testListMappings: [{ variantId: "variant-a", listId: 200 }], holdoutListId: undefined, winnerCampaignId: undefined });
+  const b = completedTest({ ...a, id: "b", baseConfig: { ...a.baseConfig }, campaignMappings: [{ variantId: "variant-a", campaignId: 101 }], testListMappings: [{ variantId: "variant-a", listId: 201 }] });
+  return { fake, a, b };
+ }
+ const now = (offset: number) => new Date(base + offset);
+ test("an older other-test opt-out cannot revoke reconsent, including after persistence reload and dry run", async () => {
+  const { fake, a, b } = fixture();
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(101, 777);
+  fake.advanceClock(1000);
+		a.optOutSync = (await syncAbTestOptOuts(fake.client, a, { now: now(3000) })).state;
+  fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+  const storePath = await createStorePath();
+		await saveStoredAbTests([a, b], storePath);
+  const before = await readFile(storePath, "utf8");
+		const writes = fake.unsubscribes.length;
+  const preview = await invokeSyncAbTestOptOutsOperation({ client: fake.client, storePath }, { test_id: "b", dry_run: true });
+  expect(preview.failed).toBe(0);
+		expect(preview.results[0]?.lists[0]?.pending).toBe(0);
+  expect(await readFile(storePath, "utf8")).toBe(before);
+  const result = await invokeSyncAbTestOptOutsOperation({ client: fake.client, storePath }, { test_id: "b" });
+  expect(result.failed).toBe(0);
+		expect(fake.unsubscribes.length).toBe(writes);
+  expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+  for (const output of [result, await invokeGetAbTestOperation({ client: fake.client, storePath }, { test_id: "a" }), await invokeListAbTestsOperation({ client: fake.client, storePath }, {})]) {
+   expect(JSON.stringify(output)).not.toContain("sourceSettlements");
+   expect(JSON.stringify(output)).not.toContain("settledSubscriberIds");
+   expect(JSON.stringify(output)).not.toContain("777");
+  }
+ });
+ test("a genuinely newer opt-out still propagates; no-op syncs do not extend old checkpoints", async () => {
+  const { fake, a, b } = fixture();
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a, { now: now(1000) })).state;
+  const original = structuredClone(a.optOutSync?.sourceSettlements);
+  fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(101, 777);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a, { now: now(4000) })).state;
+  expect(a.optOutSync?.sourceSettlements).toEqual(original);
+  const outcome = await syncAbTestOptOuts(fake.client, b, { now: now(5000), relatedTests: [a] });
+  expect(outcome.result.ok).toBe(true);
+		expect(fake.membership(777, SOURCE_A)).toBe("unsubscribed");
+  expect(outcome.result.lists[0]?.carriedCount).toBe(1);
+ });
+ test("a partial source-list confirmation also protects later consent on that source within the same test", async () => {
+  const { fake, a } = fixture({ unmanageableListIds: [SOURCE_B] });
+  a.baseConfig.lists = [SOURCE_A, SOURCE_B];
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+  const failed = await syncAbTestOptOuts(fake.client, a);
+  expect(failed.result.ok).toBe(false);
+		a.optOutSync = failed.state;
+  expect(a.optOutSync?.settledSubscriberIds).toEqual([]);
+  expect(a.optOutSync?.sourceSettlements?.map((point) => point.sourceListId)).toEqual([SOURCE_A]);
+  fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+		fake.options.unmanageableListIds = [];
+  expect((await syncAbTestOptOuts(fake.client, a)).result.ok).toBe(true);
+  expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+  expect(fake.membership(777, SOURCE_B)).toBe("unsubscribed");
+  expect(fake.unsubscribes.at(-1)?.target_list_ids).toEqual([SOURCE_B]);
+ });
+ test.each([false, true])("retains PostgreSQL microseconds when comparing a newer opt-out: %s", async (newer) => {
+  const { fake, a, b } = fixture();
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+		fake.unsubscribeViaCampaign(101, 777);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a)).state;
+  a.optOutSync!.sourceSettlements![0]!.through = "2026-09-01T00:00:01.000001Z";
+  fake.resubscribeViaForm(777, SOURCE_A);
+  const read = fake.client.subscriber.listRaw.bind(fake.client.subscriber);
+  fake.client.subscriber.listRaw = async (input) => {
+   const response = await read(input);
+   if (response.data) for (const subscriber of response.data.results) {
+    for (const membership of subscriber.lists ?? []) {
+     if (membership.id === 201) membership.subscription_updated_at = newer ? "2026-09-01T00:00:01.000002Z" : "2026-09-01T00:00:01.000000Z";
+    }
+   }
+   return response;
+  };
+  const writes = fake.unsubscribes.length;
+  expect((await syncAbTestOptOuts(fake.client, b, { relatedTests: [a] })).result.ok).toBe(true);
+  expect(fake.membership(777, SOURCE_A)).toBe(newer ? "unsubscribed" : "unconfirmed");
+  expect(fake.unsubscribes.length).toBe(writes + (newer ? 1 : 0));
+ });
+ test("local clock skew never broadens remotely confirmed chronology", async () => {
+  const { fake, a, b } = fixture();
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a, { now: new Date("2099-01-01T00:00:00Z") })).state;
+  expect(Date.parse(a.optOutSync?.sourceSettlements?.[0]?.through ?? "")).toBe(now(1000).getTime());
+  fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(101, 777);
+  expect((await syncAbTestOptOuts(fake.client, b, { relatedTests: [a] })).result.ok).toBe(true);
+  expect(fake.membership(777, SOURCE_A)).toBe("unsubscribed");
+ });
+ test("settling an absent or newly-created source membership creates no blanket subscriber exemption", async () => {
+  const { fake, a, b } = fixture();
+  fake.addSubscriber(777, { 200: "confirmed", 201: "confirmed" });
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+  fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a, { now: now(3000) })).state;
+  expect(a.optOutSync?.sourceSettlements).toEqual([]);
+  expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+  fake.advanceClock(2000);
+		fake.unsubscribeViaCampaign(101, 777);
+  expect((await syncAbTestOptOuts(fake.client, b, { relatedTests: [a] })).result.ok).toBe(true);
+  expect(fake.membership(777, SOURCE_A)).toBe("unsubscribed");
+ });
+ test("progress covers only actually confirmed source lists, not other lists or newly-created memberships", async () => {
+  const { fake, a, b } = fixture();
+  b.baseConfig.lists = [SOURCE_A, SOURCE_B];
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+		fake.unsubscribeViaCampaign(101, 777);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a, { now: now(1000) })).state;
+  fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+  const outcome = await syncAbTestOptOuts(fake.client, b, { now: now(3000), relatedTests: [a] });
+  expect(outcome.result.ok).toBe(true);
+  expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+  expect(fake.membership(777, SOURCE_B)).toBe("unsubscribed");
+  expect(fake.unsubscribes.at(-1)?.target_list_ids).toEqual([SOURCE_B]);
+  expect(a.optOutSync?.sourceSettlements?.map((point) => point.sourceListId)).toEqual([SOURCE_A]);
+ });
+ test("a read-confirmed source unsubscribe without any timestamps stays explicitly unknown across tests", async () => {
+  const { fake, a, b } = fixture({ omitMembershipTimestamps: true });
+  fake.unsubscribeViaCampaign(100, 777);
+		fake.unsubscribeViaCampaign(101, 777);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a)).state;
+  expect(a.optOutSync?.sourceSettlements).toEqual([{ subscriberId: 777, sourceListId: SOURCE_A, through: null }]);
+  fake.resubscribeViaForm(777, SOURCE_A);
+  expect((await syncAbTestOptOuts(fake.client, a)).result.ok).toBe(true);
+  const writes = fake.unsubscribes.length;
+  expect((await syncAbTestOptOuts(fake.client, b, { relatedTests: [a] })).result.ok).toBe(false);
+  expect(fake.unsubscribes.length).toBe(writes);
+  expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+ });
+ test.each(["missing opt-out time", "legacy checkpoint"])("uncertain %s fails closed without overwriting consent", async (kind) => {
+  const { fake, a, b } = fixture();
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+		fake.unsubscribeViaCampaign(101, 777);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a, { now: now(1000) })).state;
+  fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+  if (kind === "missing opt-out time") fake.options.omitMembershipTimestamps = true;
+  else delete a.optOutSync?.sourceSettlements;
+  const writes = fake.unsubscribes.length;
+  const outcome = await syncAbTestOptOuts(fake.client, b, { now: now(3000), relatedTests: [a] });
+  expect(outcome.result.ok).toBe(false);
+  expect(outcome.result.lists[0]?.detail).toContain("fresh consent was not overwritten");
+  expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+  expect(fake.unsubscribes.length).toBe(writes);
+ });
+ test.each(["stop", "delete"])("%s reconciles shared-source history before legacy cleanup", async (action) => {
+  await createStorePath();
+		const { fake, a, b } = fixture();
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+		fake.unsubscribeViaCampaign(101, 777);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a, { now: now(1000) })).state;
+  fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+  b.status = "scheduled";
+		fake.addCampaign(101, "scheduled", [201]);
+  const executors = createAbTestExecutors(fake.client, join(tempDir!, "conversions.sqlite"));
+  executors.abTestService.hydrateTests([a, b]);
+  const writes = fake.unsubscribes.length;
+  if (action === "stop") await executors.stopAbTest("b");
+  else await executors.abTestService.deleteTest("b");
+  expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+  expect(fake.unsubscribes.length).toBe(writes);
+ });
+ test("retains source history after its own lists vanish until every related replay source is gone", async () => {
+  await createStorePath();
+		const { fake, a, b } = fixture();
+  fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+		fake.unsubscribeViaCampaign(101, 777);
+  a.optOutSync = (await syncAbTestOptOuts(fake.client, a, { now: now(1000) })).state;
+  fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+		fake.removeList(200);
+  const executors = createAbTestExecutors(fake.client, join(tempDir!, "conversions.sqlite"));
+		executors.abTestService.hydrateTests([a, b]);
+  await executors.abTestService.deleteTest("a");
+  expect(executors.abTestService.snapshotRetiredTests().map((entry) => entry.id)).toEqual(["a"]);
+  await executors.syncAbTestOptOuts({ testId: "b", now: now(3000) });
+  expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+  fake.removeList(201);
+		await executors.syncAbTestOptOuts({ testId: "b", now: now(4000) });
+  expect(executors.abTestService.snapshotRetiredTests()).toEqual([]);
+ });
+});
+
 describe("automatic opt-out sync cadence", () => {
 	const base = Date.parse("2026-10-01T00:00:00.000Z");
 
@@ -815,6 +1030,7 @@ describe("persisted opt-out sync records", () => {
 		const optOutSync = {
 			settledSubscriberIds: [11, 13],
 			missingListIds: [201],
+   sourceSettlements: [{ subscriberId: 11, sourceListId: SOURCE_A, through: "2026-10-01T00:00:00.000Z" }],
 			syncedAt: "2026-10-01T00:00:00.000Z",
 		};
 		await saveStoredAbTests(
@@ -844,6 +1060,8 @@ describe("persisted opt-out sync records", () => {
 		["a missing settled list", { optOutSync: { syncedAt: "2026-10-01T00:00:00.000Z" } }],
 		["a fractional missing list", { optOutSync: { settledSubscriberIds: [], missingListIds: [1.5] } }],
 		["an unparseable sync time", { optOutSync: { settledSubscriberIds: [], syncedAt: "soon" } }],
+  ["an invalid source checkpoint ID", { optOutSync: { settledSubscriberIds: [], sourceSettlements: [{ subscriberId: -1, sourceListId: 1, through: "2026-10-01T00:00:00.000Z" }] } }],
+  ["an invalid source checkpoint time", { optOutSync: { settledSubscriberIds: [], sourceSettlements: [{ subscriberId: 11, sourceListId: 1, through: "soon" }] } }],
 		["an unparseable deletion time", { deletedAt: "not-a-time" }],
 	])("rejects %s at the store boundary", async (_label, fields) => {
 		const storePath = await createStorePath();

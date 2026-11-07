@@ -415,7 +415,10 @@ function isStoredOptOutSyncState(value: unknown): boolean {
 		(value.missingListIds === undefined ||
 			(Array.isArray(value.missingListIds) &&
 				value.missingListIds.every(isPositiveInteger))) &&
-		(value.syncedAt === undefined || isValidTimestamp(value.syncedAt))
+		(value.syncedAt === undefined || isValidTimestamp(value.syncedAt)) &&
+  (value.sourceSettlements === undefined || (Array.isArray(value.sourceSettlements) &&
+   value.sourceSettlements.every((entry) => isRecord(entry) && isPositiveInteger(entry.subscriberId) &&
+    isPositiveInteger(entry.sourceListId) && (entry.through === null || isValidTimestamp(entry.through)))))
 	);
 }
 

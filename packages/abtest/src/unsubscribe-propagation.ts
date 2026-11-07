@@ -1,3 +1,4 @@
+import type { AbTestOptOutSourceSettlement } from "./types";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { formatListmonkError, listmonkResponseStatus } from "./listmonk-errors";
 import type { AbTest } from "./types";
@@ -76,6 +77,8 @@ export interface TemporaryListOptOut {
 	 * `subscription_created_at` for.
 	 */
 	membershipCreatedAt?: ReadonlyMap<number, number>;
+	membershipUpdatedAt?: ReadonlyMap<number, string>;
+	optedOutTimestamp?: string;
 	/**
 	 * When the temporary-list membership last changed (epoch milliseconds),
 	 * taken as the opt-out time: `unsubscribe-by-campaign` stamps
@@ -86,6 +89,8 @@ export interface TemporaryListOptOut {
 	 * parseable time.
 	 */
 	optedOutAt?: number;
+	/** Source lists already covered by another test, not synthetic remote status. */
+	settledSourceListIds?: ReadonlySet<number>;
 }
 
 /**
@@ -295,6 +300,8 @@ function toTemporaryListOptOut(
 	}
 	const membershipStatuses = new Map<number, string>();
 	const membershipCreatedAt = new Map<number, number>();
+	const membershipUpdatedAt = new Map<number, string>();
+	let optedOutTimestamp: string | undefined;
 	let optedOutAt: number | undefined;
 	const lists = isRecord(row) && Array.isArray(row.lists) ? row.lists : [];
 	for (const membership of lists) {
@@ -310,7 +317,13 @@ function toTemporaryListOptOut(
 			if (createdAt !== undefined) {
 				membershipCreatedAt.set(membership.id, createdAt);
 			}
+			const rawUpdatedAt = membership.subscription_updated_at;
+			const updatedAt = typeof rawUpdatedAt === "string" && parseOptOutTimestampMicros(rawUpdatedAt) !== undefined
+				? rawUpdatedAt
+				: undefined;
+			if (updatedAt !== undefined) membershipUpdatedAt.set(membership.id, updatedAt);
 			if (membership.id === listId) {
+				optedOutTimestamp = updatedAt;
 				optedOutAt = parseListmonkTimestamp(
 					membership.subscription_updated_at,
 				);
@@ -329,8 +342,20 @@ function toTemporaryListOptOut(
 		subscriberId,
 		membershipStatuses,
 		membershipCreatedAt,
+		membershipUpdatedAt,
+		...(optedOutTimestamp === undefined ? {} : { optedOutTimestamp }),
 		...(optedOutAt === undefined ? {} : { optedOutAt }),
 	};
+}
+
+/** PostgreSQL membership timestamps retain microseconds; Date.parse alone truncates them. */
+export function parseOptOutTimestampMicros(value: string): bigint | undefined {
+	const milliseconds = Date.parse(value);
+	if (!Number.isFinite(milliseconds)) return undefined;
+	const fraction = /\.(\d+)(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.exec(value)?.[1] ?? "";
+ // Unknown finer-than-Postgres precision must not be treated as equal evidence.
+	if (fraction.length > 6 && /[1-9]/.test(fraction.slice(6))) return undefined;
+	return BigInt(milliseconds) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3, 6));
 }
 
 /**
@@ -440,6 +465,7 @@ function isMembershipNewerThanOptOut(
 	optOut: TemporaryListOptOut,
 	listId: number,
 ): boolean {
+	if (optOut.settledSourceListIds?.has(listId)) return true;
 	const createdAt = optOut.membershipCreatedAt?.get(listId);
 	return (
 		optOut.optedOutAt !== undefined &&
@@ -606,6 +632,58 @@ type TemporaryListOptOutClassification =
 			pending: TemporaryListOptOut[];
 	  };
 
+interface SourceSettlementEvidence {
+	alreadySettled?: Pick<ReadonlySet<number>, "has">;
+	sourceSettlements?: readonly AbTestOptOutSourceSettlement[];
+	legacySourceSettlements?: readonly { subscriberId: number; sourceListId: number }[];
+	onSourceUnsubscribed?: (subscriberId: number, sourceListId: number, through: string | undefined) => void;
+}
+
+function reconcileSourceSettlements(optOuts: TemporaryListOptOut[], sourceListIds: readonly number[], evidence: SourceSettlementEvidence): TemporaryListOptOut[] {
+	const checkpoints = new Map<string, bigint>();
+	const unknown = new Set<string>();
+	const legacy = new Set(
+		evidence.legacySourceSettlements?.map(
+			(entry) => `${entry.subscriberId}:${entry.sourceListId}`,
+		),
+	);
+	for (const entry of evidence.sourceSettlements ?? []) {
+		const key = `${entry.subscriberId}:${entry.sourceListId}`;
+		const through = entry.through === null
+			? undefined
+			: parseOptOutTimestampMicros(entry.through);
+		if (through === undefined) unknown.add(key);
+		else if (!checkpoints.has(key) || through > checkpoints.get(key)!) checkpoints.set(key, through);
+	}
+	return optOuts.map((optOut) => {
+  // Previously confirmed recipients are deliberately never re-checked after reconsent.
+  if (evidence.alreadySettled?.has(optOut.subscriberId)) return optOut;
+  const settledSourceListIds = new Set<number>();
+  for (const sourceListId of sourceListIds) {
+   const status = optOut.membershipStatuses.get(sourceListId);
+   if (status === UNSUBSCRIBED) {
+    // Only remote event timestamps establish chronology, never the local clock.
+    const knownTimes = [optOut.optedOutTimestamp, optOut.membershipUpdatedAt?.get(sourceListId)].filter((value): value is string => value !== undefined);
+    const through = knownTimes.reduce<string | undefined>((latest, time) => latest === undefined || parseOptOutTimestampMicros(time)! > parseOptOutTimestampMicros(latest)! ? time : latest, undefined);
+    evidence.onSourceUnsubscribed?.(optOut.subscriberId, sourceListId, through);
+    continue;
+   }
+   if (status === undefined) continue;
+   const key = `${optOut.subscriberId}:${sourceListId}`;
+   const through = checkpoints.get(key);
+   if (unknown.has(key) || (through === undefined && legacy.has(key))) {
+    throw new Error("Shared-source settlement has no chronology; fresh consent was not overwritten and requires operator reconciliation");
+   }
+   if (through !== undefined) {
+    const optOutTime = optOut.optedOutTimestamp === undefined ? undefined : parseOptOutTimestampMicros(optOut.optedOutTimestamp);
+    if (optOutTime === undefined) throw new Error("Cannot reconcile shared-source opt-outs without parseable timestamps; fresh consent was not overwritten");
+    if (optOutTime <= through) settledSourceListIds.add(sourceListId);
+   }
+  }
+  return { ...optOut, settledSourceListIds };
+ });
+}
+
 /**
  * Verify that the list exists and is readable, read its opt-outs, and
  * classify them. Never throws: a missing list and every failure are
@@ -618,7 +696,7 @@ async function classifyTemporaryListOptOuts(
 		sourceListIds: readonly number[];
 		settled: ReadonlySet<number>;
 		pageSize?: number;
-	},
+	} & SourceSettlementEvidence,
 ): Promise<TemporaryListOptOutClassification> {
 	const { listId, sourceListIds, settled } = input;
 	const readability = await probeListReadability(client, listId);
@@ -633,9 +711,9 @@ async function classifyTemporaryListOptOuts(
 	}
 	let optOuts: TemporaryListOptOut[];
 	try {
-		optOuts = await readTemporaryListOptOuts(client, listId, {
+		optOuts = reconcileSourceSettlements(await readTemporaryListOptOuts(client, listId, {
 			pageSize: input.pageSize,
-		});
+		}), sourceListIds, { ...input, alreadySettled: input.settled });
 	} catch (error) {
 		return {
 			kind: "failed",
@@ -694,7 +772,7 @@ export async function propagateTemporaryListOptOuts(
 		settledSubscriberIds?: Iterable<number>;
 		pageSize?: number;
 		chunkSize?: number;
-	},
+	} & SourceSettlementEvidence,
 ): Promise<TemporaryListOptOutPropagation> {
 	const { listId } = input;
 	const sourceListIds = resolveCarrySourceListIds(listId, input.sourceListIds);
@@ -704,6 +782,9 @@ export async function propagateTemporaryListOptOuts(
 		sourceListIds,
 		settled,
 		pageSize: input.pageSize,
+		sourceSettlements: input.sourceSettlements,
+		legacySourceSettlements: input.legacySourceSettlements,
+		onSourceUnsubscribed: input.onSourceUnsubscribed,
 	});
 	switch (classification.kind) {
 		case "missing":
@@ -788,7 +869,7 @@ export async function propagateTemporaryListOptOuts(
 			sourceListIds,
 			input.chunkSize,
 			async (chunk) => {
-				reread = await readTemporaryListOptOuts(client, listId, { pageSize: input.pageSize });
+				reread = reconcileSourceSettlements(await readTemporaryListOptOuts(client, listId, { pageSize: input.pageSize }), sourceListIds, { ...input, alreadySettled: { has: (id) => settled.has(id) || newlySettled.has(id) } });
 				const chunkIds = new Set(chunk);
 				for (const optOut of reread) {
 					if (chunkIds.has(optOut.subscriberId) && resolvePendingSourceListIds(optOut, sourceListIds).length === 0) {
@@ -863,7 +944,7 @@ export async function previewTemporaryListOptOuts(
 		sourceListIds: readonly number[];
 		settledSubscriberIds?: Iterable<number>;
 		pageSize?: number;
-	},
+	} & SourceSettlementEvidence,
 ): Promise<TemporaryListOptOutPreview> {
 	const { listId } = input;
 	const sourceListIds = resolveCarrySourceListIds(listId, input.sourceListIds);
@@ -872,6 +953,9 @@ export async function previewTemporaryListOptOuts(
 		sourceListIds,
 		settled: new Set(input.settledSubscriberIds ?? []),
 		pageSize: input.pageSize,
+		sourceSettlements: input.sourceSettlements,
+		legacySourceSettlements: input.legacySourceSettlements,
+		onSourceUnsubscribed: input.onSourceUnsubscribed,
 	});
 	switch (classification.kind) {
 		case "missing":

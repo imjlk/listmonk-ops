@@ -4,6 +4,7 @@ import { resolveOptOutSourceListIds } from "./unsubscribe-propagation";
 import {
 	describeOptOutSyncFailures,
 	recordTemporaryListOptOutPropagation,
+	hasRelatedTrackedOptOutSources,
 	resolveTrackedTemporaryListIds,
 } from "./optout-sync";
 import type {
@@ -1026,6 +1027,17 @@ export class AbTestService {
 			return false;
 		}
 
+		const relatedTests = [
+			...this.tests.values(),
+			...this.retiredTests.values(),
+		];
+		if (this.listmonkIntegration && !TERMINAL_STATUSES.has(test.status) && hasRelatedTrackedOptOutSources(test, relatedTests)) {
+			const outcome = await this.listmonkIntegration.syncTestOptOuts(test, {
+				relatedTests,
+			});
+			if (outcome.state) test.optOutSync = outcome.state;
+			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Shared-source opt-outs must be reconciled before deleting ${testId}`);
+		}
 		// Cleanup Listmonk resources for any test that has remote campaigns.
 		// Use deleteTestResources which is status-aware: it cancels running or
 		// paused campaigns before deleting (Listmonk v6.2.0 rejects DELETE on
@@ -1073,7 +1085,7 @@ export class AbTestService {
 			resolveTrackedTemporaryListIds(test).length > 0
 		) {
 			const { result, state } =
-				await this.listmonkIntegration.syncTestOptOuts(test);
+				await this.listmonkIntegration.syncTestOptOuts(test, { relatedTests });
 			// Recorded even when the delete fails below, so the opt-outs
 			// this attempt did carry are not carried again.
 			if (state !== undefined) {
@@ -1090,6 +1102,10 @@ export class AbTestService {
 			}
 		}
 
+		if (test.optOutSync?.sourceSettlements?.length && hasRelatedTrackedOptOutSources(test, relatedTests)) {
+			this.retireTest(test);
+			return true;
+		}
 		this.tests.delete(testId);
 		return true;
 	}

@@ -82,6 +82,7 @@ import {
 import {
 	opsSegmentDriftOperationSpec,
 	opsDailyDigestOperationSpec,
+	opsHealthOperationSpec,
 	opsDeliverabilityGuardOperationSpec,
 	opsSubscriberHygieneOperationSpec,
 	opsTemplateRegistrySyncOperationSpec,
@@ -144,6 +145,7 @@ export const standaloneOperationSpecs = [
 	mediaUploadOperationSpec,
 	opsSegmentDriftOperationSpec,
 	opsDailyDigestOperationSpec,
+	opsHealthOperationSpec,
 	opsDeliverabilityGuardOperationSpec,
 	opsSubscriberHygieneOperationSpec,
 	opsTemplateRegistrySyncOperationSpec,
