@@ -61,7 +61,10 @@ The first-party compiler workflow pins TypeScript 7 and uses `ttsc`,
 toolchain. `packages/openapi` intentionally keeps a nested TypeScript 5.9
 dependency because `@hey-api/openapi-ts` still imports the legacy compiler API
 during generation. Do not remove or upgrade that compatibility dependency as
-part of routine TypeScript 7 maintenance.
+part of routine TypeScript 7 maintenance. Because ttsc builds with the nearest
+package's own TypeScript, that package also declares native TypeScript 7 as the
+`@typescript/native` npm alias (`npm:typescript@7.x`); keep that alias on the
+same version as the root `typescript` when upgrading.
 
 Run commands from the repository root unless noted otherwise:
 

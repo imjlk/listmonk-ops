@@ -322,7 +322,7 @@ describe("propagateTemporaryListOptOuts", () => {
 					"/api/subscribers",
 				]);
 			} finally {
-				server.stop(true);
+				await server.stop(true);
 			}
 		}
 	});
@@ -358,7 +358,7 @@ describe("propagateTemporaryListOptOuts", () => {
 				optedOutCount: 0,
 			});
 		} finally {
-			server.stop(true);
+			await server.stop(true);
 		}
 	});
 

@@ -1,7 +1,10 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
+import { OperationExecutionError } from "../src/operation";
 import {
+	assertNoRedactedSettingsPlaceholders,
 	invokeTestSmtpOperation,
+	RedactedSettingsPlaceholderError,
 	redactSettingsCredentials,
 	redactUrlCredentials,
 	SETTINGS_REDACTED_VALUE,
@@ -929,6 +932,111 @@ describe("settings URL credential redaction", () => {
 	});
 });
 
+/** The key paths of the guard's rejection, or none when it accepts. */
+function redactedPlaceholderPaths(document: unknown): readonly string[] {
+	try {
+		assertNoRedactedSettingsPlaceholders(document, "update");
+		return [];
+	} catch (error) {
+		if (error instanceof RedactedSettingsPlaceholderError) return error.paths;
+		throw error;
+	}
+}
+
+/** Leaf paths, in the guard's notation, whose values the redactor changed. */
+function rewrittenLeafPaths(
+	original: unknown,
+	redacted: unknown,
+	path = "",
+): string[] {
+	if (
+		original !== null &&
+		redacted !== null &&
+		typeof original === "object" &&
+		typeof redacted === "object"
+	) {
+		return Object.entries(redacted).flatMap(([key, entry]) =>
+			rewrittenLeafPaths(
+				(original as Record<string, unknown>)[key],
+				entry,
+				Array.isArray(redacted)
+					? `${path}[${key}]`
+					: path === ""
+						? key
+						: `${path}.${key}`,
+			),
+		);
+	}
+	return Object.is(original, redacted) ? [] : [path];
+}
+
+describe("settings write placeholder guard", () => {
+	test("names every value a redacted read rewrites when it is written back", () => {
+		for (const document of [
+			listmonk62SettingsDocument(),
+			listmonk62SettingsDocumentWithUrlCredentials(),
+		]) {
+			const redacted = redactSettingsCredentials(document);
+			const rewritten = rewrittenLeafPaths(document, redacted);
+
+			expect(rewritten).toContain("smtp[0].password");
+			expect(redactedPlaceholderPaths(redacted)).toEqual(rewritten);
+		}
+		expect(
+			rewrittenLeafPaths(
+				listmonk62SettingsDocumentWithUrlCredentials(),
+				redactSettingsCredentials(listmonk62SettingsDocumentWithUrlCredentials()),
+			),
+		).toEqual(
+			expect.arrayContaining([
+				"app.root_url",
+				"app.logo_url",
+				"security.trusted_urls[0]",
+				"upload.s3.public_url",
+				"smtp[2].host",
+				"messengers[0].root_url",
+				"bounce.mailboxes[0].host",
+			]),
+		);
+	});
+
+	test("recognizes every URL credential the redactor replaces", () => {
+		const values = [
+			"https://stage-user:stage-basic-pass@lists.example.com",
+			"https://user:correct horse battery@lists.example.com/admin",
+			"https://gw-user:gw/pass@sms.example.com/send",
+			"https://gw-user:gw-pass@sms.example.com:80a/send?token=t",
+			"https://sms.example.com/send?apiKey=a&X-Api-Key=b&page=2",
+			"https://bucket.s3.amazonaws.com/a.png?X-Amz-Security-Token=a&X-Amz-Signature=b",
+			"https://id.example.com/cb#access_token=abc&token_type=Bearer",
+			"https://sms.example/send?token=correct horse battery&to=1",
+			"https://hooks.example.com/in?q=a;%74oken=b",
+			"https://example.test/?token=https://secret.example/path",
+			"Visit https://x.test/g?token=abc then https://y.test/page",
+			"token=abc&channel=sms",
+			"(https://x.test/g?token=abc)",
+			"https://app.example.com/login?next=https%3A%2F%2Fuser%3Apass%40inner.example.com",
+			"https://app.example.com/cb?redirect=https%253A%252F%252Fhost%252Fcb%253Ftoken%253Dsecret",
+			"https://media.example.com/logo.png?sig%26=secret",
+		];
+		for (const value of values) {
+			const redacted = redactUrlCredentials(value);
+			expect(redacted).not.toBe(value);
+			expect(redactedPlaceholderPaths({ "app.root_url": redacted })).toEqual([
+				"app.root_url",
+			]);
+		}
+		// Mentions the redactor leaves alone stay writable.
+		for (const value of [
+			"https://cdn.example.com/logo.png?label=[redacted]",
+			"/* Include the literal [redacted] marker in this documentation example */",
+		]) {
+			expect(redactUrlCredentials(value)).toBe(value);
+			expect(redactedPlaceholderPaths({ "app.root_url": value })).toEqual([]);
+		}
+	});
+});
+
 describe("settings get operation", () => {
 	test("reads the document through the redacting executor", async () => {
 		const get = mock(async () => ({
@@ -1041,6 +1149,46 @@ describe("settings test-smtp operation", () => {
 				{ email: "not-an-email", server: { host: "mailpit", port: 1025 } },
 			),
 		).rejects.toThrow();
+		expect(testSmtp).not.toHaveBeenCalled();
+	});
+
+	test("rejects a server copied from a redacted read before any request, whatever the client", async () => {
+		const get = mock(async () => ({
+			data: listmonk62SettingsDocumentWithUrlCredentials(),
+		}));
+		// A bare client without the OpenAPI wrapper's guard: the shared
+		// operation itself must refuse the round trip.
+		const testSmtp = mock(async () => ({ data: ["sent"] }));
+		const context = settingsContext({
+			get: get as unknown as SettingsClient["settings"]["get"],
+			testSmtp: testSmtp as unknown as SettingsClient["settings"]["testSmtp"],
+		});
+		const { settings } = await invokeGetSettingsOperation(context, {});
+		const [postmark, , relay] = settings.smtp as unknown[];
+
+		for (const [server, paths] of [
+			[postmark, ["server.username", "server.password"]],
+			[relay, ["server.host", "server.username", "server.password"]],
+		] as const) {
+			const error = await invokeTestSmtpOperation(context, {
+				email: "ops@example.com",
+				server,
+			}).catch((caught: unknown) => caught);
+
+			expect(error).toBeInstanceOf(OperationExecutionError);
+			expect((error as OperationExecutionError).operationId).toBe(
+				"settings.test-smtp",
+			);
+			const cause = (error as OperationExecutionError).cause;
+			expect(cause).toBeInstanceOf(RedactedSettingsPlaceholderError);
+			expect((cause as RedactedSettingsPlaceholderError).paths).toEqual(paths);
+			expect((error as Error).message).toBe(
+				new RedactedSettingsPlaceholderError("test SMTP", paths).message,
+			);
+			expect((error as Error).message).toContain(
+				"never falls back to the stored ones",
+			);
+		}
 		expect(testSmtp).not.toHaveBeenCalled();
 	});
 });

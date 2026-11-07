@@ -11,14 +11,23 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
-import { afterEach, describe, expect, test } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	test,
+} from "bun:test";
 
 const root = resolve(import.meta.dir, "..");
 const smokeScript = resolve(import.meta.dir, "ops-smoke.sh");
+const runtimeDepsScript = resolve(import.meta.dir, "ensure-runtime-deps.sh");
 const REMOTE_URL = "https://listmonk.example.invalid/api";
 const USERNAME = "smoke-user";
 const TOKEN = "smoke-token";
 const SMOKE_TIMEOUT_MS = 60_000;
+const BUILD_TIMEOUT_MS = 300_000;
 
 type RecordedRequest = {
 	method: string;
@@ -36,11 +45,59 @@ const EMPTY_PAGE = { results: [], total: 0, per_page: 20, page: 1 };
 
 const cleanups: (() => Promise<void> | void)[] = [];
 
+/** Holds only `bun`, a link to the Bun running these tests; see smokePath. */
+let bunDirectory = "";
+
+beforeAll(async () => {
+	bunDirectory = await mkdtemp(join(tmpdir(), "listmonk-ops-smoke-bun-"));
+	await symlink(process.execPath, join(bunDirectory, "bun"));
+	// Build missing workspace dependencies here, with the caller's HOME: the
+	// build tools resolve through PATH too (`ttsc` is a `node` script).
+	const build = await childResult(
+		Bun.spawn(["bash", runtimeDepsScript], {
+			cwd: root,
+			env: { ...process.env, PATH: smokePath() },
+			stdout: "pipe",
+			stderr: "pipe",
+		}),
+	);
+	expect(
+		build.exitCode,
+		`bash ${runtimeDepsScript} exited with ${build.exitCode}\n${build.output}`,
+	).toBe(0);
+}, BUILD_TIMEOUT_MS);
+
+afterAll(() => rm(bunDirectory, { recursive: true, force: true }));
+
 afterEach(async () => {
 	for (const cleanup of cleanups.splice(0).reverse()) {
 		await cleanup();
 	}
 });
+
+/**
+ * PATH for a smoke run: the test's stub directories, then `bun`, then the
+ * caller's PATH. The script runs `bun` many times, also through `bun run`
+ * scripts, and a version-manager shim found on PATH instead (for example
+ * mise) reads its trust state from the real HOME, which every run replaces.
+ */
+function smokePath(...stubDirectories: string[]): string {
+	return [...stubDirectories, bunDirectory, process.env.PATH ?? ""]
+		.filter((entry) => entry !== "")
+		.join(delimiter);
+}
+
+/** Drains a child's piped stdout and stderr and waits for it to exit. */
+async function childResult(
+	child: Pick<Bun.Subprocess<"ignore", "pipe", "pipe">, "stdout" | "stderr" | "exited">,
+) {
+	const [stdout, stderr, exitCode] = await Promise.all([
+		new Response(child.stdout).text(),
+		new Response(child.stderr).text(),
+		child.exited,
+	]);
+	return { stdout, stderr, exitCode, output: `${stdout}\n${stderr}` };
+}
 
 async function temporaryDirectory(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "listmonk-ops-smoke-test-"));
@@ -180,7 +237,7 @@ function startSmoke(directory: string, env: Record<string, string>) {
 	const child = Bun.spawn(["bash", smokeScript], {
 		cwd: root,
 		env: {
-			PATH: process.env.PATH ?? "",
+			PATH: smokePath(),
 			HOME: join(directory, "home"),
 			TMPDIR: join(directory, "tmp"),
 			LISTMONK_OPS_SMOKE_LOG_DIR: join(directory, "logs"),
@@ -190,17 +247,7 @@ function startSmoke(directory: string, env: Record<string, string>) {
 		stdout: "pipe",
 		stderr: "pipe",
 	});
-	const result = Promise.all([
-		new Response(child.stdout).text(),
-		new Response(child.stderr).text(),
-		child.exited,
-	]).then(([stdout, stderr, exitCode]) => ({
-		stdout,
-		stderr,
-		exitCode,
-		output: `${stdout}\n${stderr}`,
-	}));
-	return { child, result };
+	return { child, result: childResult(child) };
 }
 
 function runSmoke(directory: string, env: Record<string, string>) {
@@ -228,7 +275,7 @@ describe("ops smoke local target isolation", () => {
 			);
 			await chmod(join(stubs, "curl"), 0o755);
 			const env = {
-				PATH: `${stubs}${delimiter}${process.env.PATH ?? ""}`,
+				PATH: smokePath(stubs),
 				CURL_LOG: curlLog,
 				LISTMONK_API_URL: REMOTE_URL,
 				LISTMONK_API_TOKEN: "remote-token",
@@ -545,7 +592,7 @@ describe("ops smoke full-mode fixture cleanup", () => {
 				usernames.map(async (username) =>
 					runSmoke(await temporaryDirectory(), {
 						...fullSmoke(local.url, username),
-						PATH: `${stubDirectory}${delimiter}${process.env.PATH ?? ""}`,
+						PATH: smokePath(stubDirectory),
 						LISTMONK_OPS_SMOKE_LOG_DIR: join(stubDirectory, "logs"),
 					}),
 				),

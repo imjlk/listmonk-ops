@@ -7,7 +7,7 @@ const bootstrap = resolve(import.meta.dir, "bootstrap-listmonk-test-auth.ts");
 
 function ipv6LoopbackAvailable(): boolean {
 	try {
-		Bun.serve({ hostname: "::1", port: 0, fetch: () => new Response() }).stop(
+		void Bun.serve({ hostname: "::1", port: 0, fetch: () => new Response() }).stop(
 			true,
 		);
 		return true;
@@ -16,9 +16,13 @@ function ipv6LoopbackAvailable(): boolean {
 	}
 }
 
-/** Run the bootstrap with a minimal environment: no GITHUB_ENV or operator shell. */
+/**
+ * Run the bootstrap with a minimal environment: no GITHUB_ENV or operator shell.
+ * It runs under the Bun running these tests, not `bun` from PATH: a
+ * version-manager shim there reads its trust state from the real HOME.
+ */
 async function runBootstrap(directory: string, apiUrl: string) {
-	const child = Bun.spawn(["bun", bootstrap], {
+	const child = Bun.spawn([process.execPath, bootstrap], {
 		env: {
 			PATH: process.env.PATH ?? "",
 			HOME: directory,
@@ -88,7 +92,7 @@ describe("local test-auth bootstrap target guard", () => {
 					"test-token\n",
 				);
 			} finally {
-				server.stop(true);
+				await server.stop(true);
 				await rm(directory, { recursive: true, force: true });
 			}
 		},

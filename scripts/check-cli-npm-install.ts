@@ -8,7 +8,8 @@
  * installed `listmonk-cli` bin without contacting Listmonk.
  *
  * Third-party dependencies still come from the configured npm registry (or the
- * local npm cache). The check is skipped when npm is not installed.
+ * local npm cache, refreshed once when its metadata lacks a needed version; see
+ * `npmInstall`). The check is skipped when npm is not installed.
  */
 import {
 	existsSync,
@@ -231,10 +232,58 @@ function log(message: string): void {
 	console.log(`[cli-npm-install] ${message}`);
 }
 
-/** Installs a throwaway project's dependencies with npm, as a consumer would. */
+/** How npm treats cached registry metadata during an install. */
+export type NpmMetadataPolicy = "--prefer-offline" | "--prefer-online";
+
+/** The `npm install` command line for a throwaway project. */
+export function npmInstallCommand(
+	npm: string,
+	metadata: NpmMetadataPolicy,
+): string[] {
+	return [
+		npm,
+		"install",
+		"--no-audit",
+		"--no-fund",
+		metadata,
+		"--ignore-scripts",
+		"--loglevel=error",
+	];
+}
+
+const ANSI_ESCAPE = /\u001b\[[\d;]*m/g;
+// npm 7+ prints `npm error code ETARGET` (`npm ERR!` before npm 10), followed
+// by `npm error notarget No matching version found for <package>@<range>.`
+const NPM_ETARGET_ERROR = /^npm (?:error|ERR!) (?:code ETARGET|notarget)\b/m;
+
+/**
+ * Whether a failed `--prefer-offline` install should run once more with
+ * `--prefer-online`. With `--prefer-offline`, npm trusts its cached packument
+ * for a dependency, so metadata cached before that dependency published the
+ * version a range needs (for example while an AWS SDK release is rolling out)
+ * fails with ETARGET although the registry serves the version. A timeout, a
+ * signal, or any other failure is reported without a retry.
+ */
+export function shouldRetryWithFreshMetadata(
+	result: Pick<CommandResult, "exitCode" | "signal" | "timedOut" | "stderr">,
+): boolean {
+	return (
+		result.exitCode !== 0 &&
+		result.signal === null &&
+		!result.timedOut &&
+		NPM_ETARGET_ERROR.test(result.stderr.replace(ANSI_ESCAPE, ""))
+	);
+}
+
+/**
+ * Installs a throwaway project's dependencies with npm, as a consumer would.
+ * The install prefers cached registry metadata and retries once with fresh
+ * metadata when the cache lacks a version that a range needs.
+ */
 export async function npmInstall(
 	npm: string,
 	projectDirectory: string,
+	report: (message: string) => void = log,
 ): Promise<void> {
 	// `bun run` exports npm lifecycle variables, including a local prefix that
 	// points at this repository; keep only the caller's own npm configuration.
@@ -243,20 +292,29 @@ export async function npmInstall(
 			([key]) => !NPM_LIFECYCLE_VARIABLE.test(key),
 		),
 	);
+	const options = { cwd: projectDirectory, env: npmEnvironment };
 	const install = await runCommand(
-		[
-			npm,
-			"install",
-			"--no-audit",
-			"--no-fund",
-			"--prefer-offline",
-			"--ignore-scripts",
-			"--loglevel=error",
-		],
-		{ cwd: projectDirectory, env: npmEnvironment },
+		npmInstallCommand(npm, "--prefer-offline"),
+		options,
 	);
-	if (install.exitCode !== 0) {
+	if (install.exitCode === 0) {
+		return;
+	}
+	if (!shouldRetryWithFreshMetadata(install)) {
 		throw commandFailure("npm install", install);
+	}
+	report(
+		"npm install found no version matching a requested range in cached registry metadata (ETARGET); retrying once with --prefer-online",
+	);
+	const retry = await runCommand(
+		npmInstallCommand(npm, "--prefer-online"),
+		options,
+	);
+	if (retry.exitCode !== 0) {
+		throw commandFailure(
+			"npm install --prefer-online (retry after ETARGET)",
+			retry,
+		);
 	}
 }
 

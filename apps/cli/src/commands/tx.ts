@@ -244,7 +244,7 @@ export default defineGroup({
 				"template-id": option(positiveIntegerIdSchema, {
 					description: "Template ID",
 				}),
-				"subscriber-email": option(z.string().trim().email().optional(), {
+				"subscriber-email": option(z.string().trim().check(z.email()).optional(), {
 					description: "Recipient subscriber email",
 				}),
 				"subscriber-id": option(positiveIntegerIdSchema.optional(), {

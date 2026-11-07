@@ -1,6 +1,8 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	assertNoRedactedSettingsPlaceholders,
 	isSettingsCredentialQueryParameter,
+	RedactedSettingsPlaceholderError,
 	SETTINGS_REDACTED_VALUE,
 } from "@listmonk-ops/openapi";
 import {
@@ -33,7 +35,11 @@ const settingsGetOutputSchema = z.object({
 
 export type SettingsDocument = z.output<typeof settingsGetOutputSchema>;
 
-export { SETTINGS_REDACTED_VALUE };
+export {
+	assertNoRedactedSettingsPlaceholders,
+	RedactedSettingsPlaceholderError,
+	SETTINGS_REDACTED_VALUE,
+};
 
 /**
  * Field names whose values are credentials, matched case-insensitively
@@ -1238,11 +1244,18 @@ export type SettingsTestSmtpOutput = z.output<typeof testSmtpOutputSchema>;
  * the server log-buffer lines; the shared contract pins `sent` and
  * passes the lines through. Every run sends a real message, so the
  * retry classification stays honestly unsafe.
+ *
+ * A server configuration copied from a redacted `settings.get` read still
+ * carries "[redacted]" in its username, password, or URL userinfo, and
+ * Listmonk's test never falls back to the stored credentials. The input is
+ * rejected before any request, naming the offending fields, whatever client
+ * the surface supplies.
  */
 export async function sendSmtpTest(
 	{ client }: SettingsOperationContext,
 	input: z.output<typeof testSmtpInputSchema>,
 ): Promise<SettingsTestSmtpOutput> {
+	assertNoRedactedSettingsPlaceholders(input, "test SMTP");
 	const { server, email } = input;
 	const response = await client.settings.testSmtp({
 		body: {

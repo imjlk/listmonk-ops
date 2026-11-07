@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	liveTemplateMatchesRemoteHashPin,
 	normalizeTemplateSnapshotForWrite,
 	resolveTemplateLiveVersion,
 	selectTemplateRollbackTarget,
@@ -123,6 +124,34 @@ describe("normalizeTemplateSnapshotForWrite", () => {
 	});
 });
 
+// The history-hash pin matching Listmonk's subject rewrite needs real
+// content hashes, so persistence.test.ts covers it end to end.
+describe("liveTemplateMatchesRemoteHashPin", () => {
+	test("matches the exact live hash a sync reported", () => {
+		expect(
+			liveTemplateMatchesRemoteHashPin(templateRecord("v4"), "hash-z", "hash-z"),
+		).toBe(true);
+		expect(liveTemplateMatchesRemoteHashPin(undefined, "hash-z", "hash-z")).toBe(
+			true,
+		);
+	});
+
+	test("conflicts when the pinned version does not hold the live content", () => {
+		// hash-a is a stored version's hash, but the live content changed.
+		expect(
+			liveTemplateMatchesRemoteHashPin(templateRecord("v4"), "hash-z", "hash-a"),
+		).toBe(false);
+		// A pin naming no stored version cannot match other live content.
+		expect(
+			liveTemplateMatchesRemoteHashPin(templateRecord("v4"), "hash-a", "hash-y"),
+		).toBe(false);
+		// Without a registry record, only the exact live hash matches.
+		expect(liveTemplateMatchesRemoteHashPin(undefined, "hash-z", "hash-a")).toBe(
+			false,
+		);
+	});
+});
+
 describe("selectTemplateRollbackTarget", () => {
 	test("targets the version captured immediately before the live one", () => {
 		expect(
@@ -180,6 +209,20 @@ describe("selectTemplateRollbackTarget", () => {
 		expect(() =>
 			selectTemplateRollbackTarget(templateRecord("v4"), "hash-z", "v2"),
 		).toThrow("Rollback target v2 is no longer the previous version of template 7");
+	});
+
+	test("tells a missing base version from a missing predecessor", () => {
+		// A drift pin bases the rollback on the stored active version.
+		expect(() =>
+			selectTemplateRollbackTarget(templateRecord("gone"), "hash-z", "v4"),
+		).toThrow(
+			"Template 7 base version gone for the rollback is not in its registry history",
+		);
+		expect(() =>
+			selectTemplateRollbackTarget(templateRecord(undefined), "hash-z", "v4"),
+		).toThrow(
+			"Template 7 base version (none) for the rollback is not in its registry history",
+		);
 	});
 
 	test("conflicts a pinned target that is not the live version's predecessor", () => {

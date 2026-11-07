@@ -41,6 +41,8 @@ import {
 	MAX_USER_ROLE_MANIFEST_ROLES,
 	reconcileTemplateManifestOperation,
 	reconcileUserRoleManifestOperation,
+	createSubscriberOperation,
+	updateSubscriberOperation,
 	subscriberOperations,
 	mediaOperations,
 	ensureTemplate,
@@ -893,6 +895,38 @@ describe("shared CRUD resource operations", () => {
 			),
 		).rejects.toBeInstanceOf(OperationInputError);
 		expect(campaignUpdate).not.toHaveBeenCalled();
+	});
+
+	test("trims subscriber emails before validating them", async () => {
+		const createSubscriber = mock(async () => ({
+			data: { id: 11, email: "padded@example.com" },
+		}));
+		const context = subscriberContext({
+			create:
+				createSubscriber as unknown as SubscriberClient["subscriber"]["create"],
+		});
+
+		await expect(
+			invokeCreateSubscriberOperation(context, {
+				email: "  padded@example.com\t",
+			}),
+		).resolves.toMatchObject({ created: true, subscriber: { id: 11 } });
+		expect(createSubscriber).toHaveBeenCalledWith({
+			body: expect.objectContaining({ email: "padded@example.com" }),
+		});
+		await expect(
+			invokeCreateSubscriberOperation(context, { email: "  not-an-email  " }),
+		).rejects.toBeInstanceOf(OperationInputError);
+		expect(createSubscriber).toHaveBeenCalledTimes(1);
+		for (const operation of [
+			createSubscriberOperation,
+			updateSubscriberOperation,
+		]) {
+			expect(operation.inputJsonSchema.properties?.email).toMatchObject({
+				type: "string",
+				format: "email",
+			});
+		}
 	});
 
 	test("merges current template fields before updating", async () => {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -1090,6 +1090,38 @@ describe("automation persistence", () => {
 			"Invalid segment drift store: expected schema version 1",
 		);
 		expect(await readFile(segmentStorePath, "utf8")).toBe(unsupportedStore);
+	});
+
+	test("fails a template sync on an unreadable registry before reading Listmonk", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		await writeFile(templateStorePath, '{"version":2,"templates":{}}\n');
+		let reads = 0;
+		const captureFailures: unknown[] = [];
+		const client = {
+			template: {
+				list: async () => {
+					reads += 1;
+					return { data: { results: [{ id: 1 }] } };
+				},
+				getById: async () => {
+					reads += 1;
+					return { data: { id: 1, name: "Unread", type: "campaign" } };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		for (const templateIds of [[1], undefined]) {
+			await expect(
+				syncTemplateRegistry(client, {
+					templateIds,
+					onCaptureError: (failure) => {
+						captureFailures.push(failure);
+					},
+				}),
+			).rejects.toThrow("expected schema version 1");
+		}
+		expect(reads).toBe(0);
+		expect(captureFailures).toEqual([]);
 	});
 
 	test("rejects a malformed persisted snapshot timestamp", async () => {
@@ -2210,6 +2242,43 @@ describe("template registry active version", () => {
 		);
 	});
 
+	test("orders syncs within one millisecond by their reserved capture order", async () => {
+		await useTemporaryStores();
+		const { remote, client } = createTemplateRemote(56, "<p>v1</p>");
+		// Every read below happens within the same wall-clock millisecond, so
+		// only the reserved capture order tells the observations apart.
+		setSystemTime(new Date("2026-09-27T03:00:00.000Z"));
+		try {
+			await syncTemplateRegistry(client, { templateIds: [56] });
+			remote.body = "<p>v2</p>";
+			await syncTemplateRegistry(client, { templateIds: [56] });
+			remote.body = "<p>v3</p>";
+			await syncTemplateRegistry(client, { templateIds: [56] });
+		} finally {
+			setSystemTime();
+		}
+
+		const history = await getTemplateRegistryHistory(56);
+		expect(
+			new Set(history.versions.map((version) => version.capturedAt)).size,
+		).toBe(1);
+		expect(
+			history.versions.map((version) => [
+				version.captureOrder,
+				version.snapshot.body,
+			]),
+		).toEqual([
+			[1, "<p>v1</p>"],
+			[2, "<p>v2</p>"],
+			[3, "<p>v3</p>"],
+		]);
+		// A tied timestamp does not make a later read look stale.
+		expect(history.activeVersionId).toBe(versionIdFor(history, "<p>v3</p>"));
+		const rolled = await rollbackTemplateVersion(client, 56);
+		expect(rolled.versionId).toBe(versionIdFor(history, "<p>v2</p>"));
+		expect(remote.body).toBe("<p>v2</p>");
+	});
+
 	test("seeds a missing capture counter from the registry high-water mark", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		const { remote, client } = createTemplateRemote(48, "<p>v1</p>");
@@ -2476,6 +2545,58 @@ describe("template registry active version", () => {
 			promoted: false,
 		});
 		expect(remote.writes).toEqual(["<p>v1</p>"]);
+	});
+
+	test("matches a remote-hash pin from history against Listmonk's stored rewrite", async () => {
+		await useTemporaryStores();
+		const { remote, client } = createListmonkTemplateRemote(34, "<p>v1</p>");
+		// Captured by an older Listmonk that kept campaign-template subjects.
+		remote.subject = "Legacy one";
+		await syncTemplateRegistry(client, { templateIds: [34] });
+		remote.subject = "Legacy two";
+		await editAndSync(remote, client, 34, "<p>v2</p>");
+		remote.subject = "Legacy three";
+		await editAndSync(remote, client, 34, "<p>v3</p>");
+		const history = await getTemplateRegistryHistory(34);
+		expect(history.versions).toHaveLength(3);
+		const [v1, v2] = history.versions;
+		if (!v1 || !v2) {
+			throw new Error("Expected three stored versions");
+		}
+
+		// Rolling back writes v2, and Listmonk stores the name as its subject,
+		// so the live hash is no longer v2's stored hash...
+		expect((await rollbackTemplateVersion(client, 34)).versionId).toBe(
+			v2.versionId,
+		);
+		expect(remote.subject).toBe(remote.name);
+
+		// ...yet a pin taken from history for the version believed live still
+		// matches the untouched template, on rollback and on promotion.
+		expect(
+			await rollbackTemplateVersion(client, 34, {
+				expectedRemoteHash: v2.hash,
+			}),
+		).toMatchObject({ versionId: v1.versionId, rolledBack: true });
+		expect(
+			await promoteTemplateVersion(client, 34, v2.versionId, {
+				expectedRemoteHash: v1.hash,
+			}),
+		).toMatchObject({ promoted: true });
+
+		// A real change still conflicts with the same kind of pin.
+		remote.body = "<p>edited</p>";
+		await expect(
+			promoteTemplateVersion(client, 34, v1.versionId, {
+				expectedRemoteHash: v2.hash,
+			}),
+		).rejects.toThrow(/remote hash mismatch/);
+		await expect(
+			rollbackTemplateVersion(client, 34, { expectedRemoteHash: v2.hash }),
+		).rejects.toThrow(/remote hash mismatch/);
+		// Both pins conflicted before writing, so the edit is still live.
+		expect(remote.body).toBe("<p>edited</p>");
+		expect(remote.writes).toEqual(["<p>v2</p>", "<p>v1</p>", "<p>v2</p>"]);
 	});
 
 	test("refuses to write a version whose missing body_source Listmonk would keep", async () => {

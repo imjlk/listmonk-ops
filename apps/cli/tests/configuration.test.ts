@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Subprocesses here get a temporary HOME, so the source CLI runs under the Bun
+// running these tests: a version-manager shim found as `bun` on PATH (for
+// example mise) reads its trust state from the real HOME.
 const cliDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const directories: string[] = [];
 afterEach(async () => {
@@ -25,7 +28,7 @@ test("CLI config show exposes selected sources and isolated state without readin
 		"--format=json",
 	];
 	const child = Bun.spawn(
-		binary ? [binary, ...args] : ["bun", "src/index.ts", ...args],
+		binary ? [binary, ...args] : [process.execPath, "src/index.ts", ...args],
 		{
 			cwd: cliDirectory,
 			env: {
@@ -71,7 +74,7 @@ test("local transactional inspection remains available when the selected token f
 		"--format=json",
 	];
 	const child = Bun.spawn(
-		binary ? [binary, ...args] : ["bun", "src/index.ts", ...args],
+		binary ? [binary, ...args] : [process.execPath, "src/index.ts", ...args],
 		{
 			cwd: cliDirectory,
 			env: { ...process.env, HOME: home },
@@ -93,7 +96,7 @@ test("help remains available with an invalid configuration file", async () => {
 	const binary = process.env.CLI_TEST_EXECUTABLE?.trim();
 	const args = ["--help"];
 	const child = Bun.spawn(
-		binary ? [binary, ...args] : ["bun", "src/index.ts", ...args],
+		binary ? [binary, ...args] : [process.execPath, "src/index.ts", ...args],
 		{
 			cwd: cliDirectory,
 			env: { ...process.env, HOME: home },
