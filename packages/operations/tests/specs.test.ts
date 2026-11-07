@@ -4,6 +4,7 @@ import {
 	abTestDeployWinnerOperationSpec,
 	abTestLaunchOperationSpec,
 	abTestStopOperationSpec,
+	abTestSyncOptOutsOperationSpec,
 	assertRuntimeOperationContracts,
 	assertRuntimeOperationProjection,
 	bridgedOperationSpecsById,
@@ -246,6 +247,7 @@ describe("email operations specification", () => {
 			"abtest.tick",
 			"abtest.reconcile",
 			"abtest.export-assignment",
+			"abtest.sync-optouts",
 			"bounces.list",
 			"bounces.get",
 			"bounces.delete",
@@ -267,8 +269,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(140);
-		expect(new Set(operationIds).size).toBe(140);
+		expect(operationIds).toHaveLength(141);
+		expect(new Set(operationIds).size).toBe(141);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -278,7 +280,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(136);
+		).toHaveLength(137);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -677,12 +679,41 @@ describe("email operations specification", () => {
 			kind: "reconcile",
 			idempotent: true,
 		});
+		// Stop and delete carry temporary-list opt-outs to the source lists
+		// (an audience suppression) without a preview.
+		const optOutSuppression = {
+			kind: "suppression",
+			resource: "subscriber",
+			scope: "audience",
+			reversible: false,
+		} as const;
 		expect(abTestStopOperationSpec.effects).toEqual([
 			{ kind: "write", resource: "experiment", reversible: false },
 			{ kind: "write", resource: "campaign", reversible: false },
 			{ kind: "delete", resource: "campaign", reversible: false },
 			{ kind: "delete", resource: "list", reversible: false },
+			{ ...optOutSuppression, preview: false },
 		]);
+		expect(abTestDeleteOperationSpec.effects).toContainEqual({
+			...optOutSuppression,
+			preview: false,
+		});
+		// Tick previews its opt-out sync on a dry run, like its transitions.
+		expect(operationsById.get("abtest.tick")?.effects).toContainEqual(
+			optOutSuppression,
+		);
+		expect(abTestSyncOptOutsOperationSpec.effects).toEqual([
+			{ ...optOutSuppression, preview: true },
+			{ kind: "write", resource: "experiment", reversible: false, preview: true },
+		]);
+		expect(abTestSyncOptOutsOperationSpec.policy).toEqual({
+			confirmation: "required",
+			audit: "required",
+			dryRun: true,
+		});
+		expect(abTestSyncOptOutsOperationSpec.retry).toMatchObject({
+			kind: "safe",
+		});
 		expect(abTestStopOperationSpec.retry).toMatchObject({
 			kind: "reconcile",
 			idempotent: true,

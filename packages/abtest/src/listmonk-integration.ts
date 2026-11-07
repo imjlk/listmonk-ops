@@ -35,8 +35,11 @@ import {
 	propagateTemporaryListOptOuts,
 	propagateTemporaryListsOptOuts,
 	type TemporaryListOptOutPropagation,
+	type OptOutSourceConfirmed,
 } from "./unsubscribe-propagation";
 import { isListmonkNotFoundAnswer } from "./lifecycle";
+import { syncAbTestOptOuts, type AbTestOptOutSyncOutcome } from "./optout-sync";
+import { AbTestCleanupError } from "./errors";
 
 export interface ProvisionedAbTestResources {
 	testId: string;
@@ -778,11 +781,17 @@ export class ListmonkAbTestIntegration {
 	 * Each temporary list's opt-outs are carried to `sourceListIds` before
 	 * the list is deleted. A list whose opt-outs are not confirmed there is
 	 * kept and reported as a failure, so the caller keeps its local record
-	 * and a retry resumes the propagation.
+	 * and a retry resumes the propagation. A failure throws
+	 * `AbTestCleanupError` with the propagation of every list checked and
+	 * the lists deleted, so the caller can record that progress.
 	 */
 	async deleteTestResources(resources: {
 		/** Source audience lists that receive the temporary lists' opt-outs. */
 		sourceListIds?: readonly number[];
+		/** Opt-outs an earlier sync already carried; they are skipped. */
+		settledSubscriberIds?: readonly number[];
+		sourceSettlements?: Parameters<typeof propagateTemporaryListsOptOuts>[1]["sourceSettlements"];
+		onSourceUnsubscribed?: OptOutSourceConfirmed;
 		campaignIds: number[];
 		listIds: number[];
 	}): Promise<void> {
@@ -846,15 +855,20 @@ export class ListmonkAbTestIntegration {
 
 		// Only delete lists if no campaign errors — a surviving campaign
 		// may still reference its audience list.
+		let optOutPropagation: TemporaryListOptOutPropagation[] = [];
+		const deletedListIds: number[] = [];
 		if (errors.length === 0) {
 			// Deleting a list erases its unsubscribed memberships, so carry
 			// them to the source lists first and keep any list where that
 			// could not be confirmed.
-			const optOutPropagation = await propagateTemporaryListsOptOuts(
+			optOutPropagation = await propagateTemporaryListsOptOuts(
 				this.listmonkClient,
 				{
 					listIds: [...resources.listIds].reverse(),
 					sourceListIds: resources.sourceListIds ?? [],
+					settledSubscriberIds: resources.settledSubscriberIds,
+					sourceSettlements: resources.sourceSettlements,
+					onSourceUnsubscribed: resources.onSourceUnsubscribed,
 				},
 			);
 			const deletableListIds: number[] = [];
@@ -879,6 +893,7 @@ export class ListmonkAbTestIntegration {
 							`Failed to delete list ${listId}: ${formatListmonkErrorResponse(deleteResult)}`,
 						);
 					}
+					deletedListIds.push(listId);
 				} catch (error) {
 					errors.push(error instanceof Error ? error.message : String(error));
 				}
@@ -886,8 +901,11 @@ export class ListmonkAbTestIntegration {
 		}
 
 		if (errors.length > 0) {
-			throw new Error(
+			// Carry the progress so the caller can record the opt-outs this
+			// attempt carried and the lists it deleted before failing.
+			throw new AbTestCleanupError(
 				`Failed to cleanup some Listmonk resources for test deletion (${errors.length} failure(s)): ${errors.join("; ")}`,
+				{ optOutPropagation, deletedListIds },
 			);
 		}
 	}
@@ -933,6 +951,17 @@ export class ListmonkAbTestIntegration {
 			allOptOutsSafeToDelete ? listsInRollbackOrder : [],
 		);
 		return { deletedCampaignIds, deletedListIds };
+	}
+
+	/**
+	 * Carry the opt-outs on a test's kept temporary lists to its source lists
+	 * (see `optout-sync.ts`). The caller applies the returned state.
+	 */
+	async syncTestOptOuts(
+		test: AbTest,
+		options: { dryRun?: boolean; now?: Date; relatedTests?: readonly AbTest[] } = {},
+	): Promise<AbTestOptOutSyncOutcome> {
+		return syncAbTestOptOuts(this.listmonkClient, test, options);
 	}
 
 	/**

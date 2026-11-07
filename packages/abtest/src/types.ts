@@ -148,6 +148,48 @@ export interface AbTest {
 	startedAt?: string;
 	/** ISO timestamp when the test is due to end (startedAt + durationHours). */
 	endsAt?: string;
+	/**
+	 * Opt-outs on this test's temporary lists already carried to its source
+	 * lists, maintained by every path that carries them (see
+	 * `optout-sync.ts`). Optional so records written before it still load.
+	 */
+	optOutSync?: AbTestOptOutSyncState;
+	/**
+	 * Set when an operator deleted a terminal test whose temporary lists
+	 * still exist. The record is retained, hidden from list and get, only so
+	 * opt-outs that later reach those lists keep being carried; it is
+	 * dropped once every temporary list is gone.
+	 */
+	deletedAt?: string;
+}
+
+/**
+ * Per-test record of the opt-out sync. Carrying an opt-out is recorded once
+ * it is confirmed, so later syncs skip it and a person who re-subscribes to a
+ * source list afterwards stays subscribed.
+ */
+export interface AbTestOptOutSourceSettlement {
+	subscriberId: number;
+	sourceListId: number;
+ /** Remote opt-out/subscription timestamps through which an unsubscribe was read-confirmed. */
+	through: string | null;
+}
+
+export interface AbTestOptOutSyncState {
+	/**
+	 * Subscribers whose opt-out from one of the test's temporary lists was
+	 * confirmed on the source lists (carried, or with nothing to carry). It
+	 * grows by one id per opt-out for as long as a temporary list exists,
+	 * because dropping an id would let a later sync unsubscribe that person
+	 * again after a re-subscribe; it is emptied once every list is gone.
+	 */
+	settledSubscriberIds: number[];
+	/** Source-scoped read-confirmed checkpoints, shared across test records; never public recipient output. */
+	sourceSettlements?: AbTestOptOutSourceSettlement[];
+	/** Temporary lists Listmonk reported as deleted; never read again. */
+	missingListIds?: number[];
+	/** ISO time every remaining temporary list was last confirmed. */
+	syncedAt?: string;
 }
 
 export interface Variant {

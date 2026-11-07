@@ -17,310 +17,24 @@ import {
 	ListmonkAbTestIntegration,
 	type ProvisionedAbTestResources,
 } from "../src/listmonk-integration";
-import type { AbTest, AbTestConfig } from "../src/types";
+import type { AbTestConfig } from "../src/types";
 import {
 	findUnpropagatedOptOuts,
+	previewTemporaryListOptOuts,
 	propagateTemporaryListOptOuts,
 	propagateTemporaryListsOptOuts,
 	readTemporaryListOptOuts,
 	resolveOptOutSourceListIds,
+	resolvePendingSourceListIds,
 	unsubscribeSubscribersFromLists,
 } from "../src/unsubscribe-propagation";
-
-type MembershipStatus = "unconfirmed" | "confirmed" | "unsubscribed";
-
-interface FakeListmonkOptions {
-	/** An API user without permission on the list: Listmonk drops the filter. */
-	ignoreListFilter?: boolean;
-	/** Listmonk serves at most this many rows per page. */
-	pageCap?: number;
-	failOptOutRead?: boolean;
-	failUnsubscribe?: boolean;
-	/** Subscribers whose unsubscribe request fails (to model partial propagation). */
-	failUnsubscribeSubscriberIds?: number[];
-	/** Target lists the unsubscribe action silently skips (no manage permission). */
-	unmanageableListIds?: number[];
-}
-
-/**
- * In-memory Listmonk 6.2 slice: `subscriber_lists` rows, the campaign
- * unsubscribe query, and the list-deletion cascade that erases memberships.
- */
-function createFakeListmonk(options: FakeListmonkOptions = {}) {
-	const lists = new Set<number>();
-	const subscriberIds = new Set<number>();
-	const memberships = new Map<number, Map<number, MembershipStatus>>();
-	const campaigns = new Map<number, { status: string; lists: number[] }>();
-	const reads: Array<Record<string, unknown>> = [];
-	const unsubscribes: Array<{ ids: number[]; target_list_ids: number[] }> =
-		[];
-	const deletedLists: number[] = [];
-
-	// Listmonk 6.2 answers a missing campaign with 400, not 404.
-	const campaignNotFound = () => ({
-		error: { message: "Campaign not found" },
-		response: { status: 400 },
-	});
-
-	const client = {
-		subscriber: {
-			list: async ({ query }: { query: Record<string, unknown> }) => {
-				reads.push({ ...query });
-				if (options.failOptOutRead) {
-					return {
-						error: { message: "database unavailable" },
-						response: { status: 500 },
-					};
-				}
-				const listId = (query.list_id as number[] | undefined)?.[0];
-				const status = query.subscription_status as string | undefined;
-				const requested = Number(query.per_page);
-				const perPage =
-					options.pageCap === undefined
-						? requested
-						: Math.min(requested, options.pageCap);
-				const page = Number(query.page);
-				const matched = [...subscriberIds]
-					.filter(
-						(id) =>
-							options.ignoreListFilter === true ||
-							(listId !== undefined &&
-								memberships.get(id)?.get(listId) === status),
-					)
-					.sort((left, right) => right - left);
-				const results = matched
-					.slice((page - 1) * perPage, page * perPage)
-					.map((id) => ({
-						id,
-						uuid: `00000000-0000-4000-8000-${String(id).padStart(12, "0")}`,
-						email: `member${id}@example.com`,
-						status: "enabled",
-						lists: [...(memberships.get(id) ?? new Map()).entries()].map(
-							([membershipListId, subscriptionStatus]) => ({
-								id: membershipListId,
-								subscription_status: subscriptionStatus,
-								name: `List ${membershipListId}`,
-							}),
-						),
-					}));
-				return {
-					data: { results, total: matched.length, page, per_page: perPage },
-				};
-			},
-			manageLists: async ({
-				body,
-			}: {
-				body: { action: string; ids: number[]; target_list_ids: number[] };
-			}) => {
-				unsubscribes.push({
-					ids: [...body.ids],
-					target_list_ids: [...body.target_list_ids],
-				});
-				if (
-					options.failUnsubscribe ||
-					body.ids.some((id) =>
-						options.failUnsubscribeSubscriberIds?.includes(id),
-					)
-				) {
-					return {
-						error: { message: "permission denied" },
-						response: { status: 403 },
-					};
-				}
-				if (body.action !== "unsubscribe") {
-					throw new Error(`unexpected manageLists action ${body.action}`);
-				}
-				// Listmonk's unsubscribe-subscribers-from-lists query updates
-				// existing memberships only.
-				for (const id of body.ids) {
-					for (const targetListId of body.target_list_ids) {
-						if (options.unmanageableListIds?.includes(targetListId)) {
-							continue;
-						}
-						const subscriberLists = memberships.get(id);
-						if (subscriberLists?.has(targetListId)) {
-							subscriberLists.set(targetListId, "unsubscribed");
-						}
-					}
-				}
-				return { data: true };
-			},
-		},
-		list: {
-			getById: async ({ path }: { path: { list_id: number } }) => {
-				const hasMembership = [...memberships.values()].some((subscriberLists) =>
-					subscriberLists.has(path.list_id),
-				);
-				if (!lists.has(path.list_id) && !hasMembership) {
-					return {
-						error: { message: "List not found" },
-						response: { status: 400 },
-					};
-				}
-				return { data: { id: path.list_id, name: `List ${path.list_id}` } };
-			},
-			delete: async ({ path }: { path: { list_id: number } }) => {
-				if (!lists.delete(path.list_id)) {
-					// Listmonk 6.2 acknowledges deleting a missing list.
-					return { data: true };
-				}
-				// subscriber_lists cascades; campaign_lists.list_id is set null.
-				for (const subscriberLists of memberships.values()) {
-					subscriberLists.delete(path.list_id);
-				}
-				for (const campaign of campaigns.values()) {
-					campaign.lists = campaign.lists.filter((id) => id !== path.list_id);
-				}
-				deletedLists.push(path.list_id);
-				return { data: true };
-			},
-		},
-		campaign: {
-			getById: async ({ path }: { path: { id: number } }) => {
-				const campaign = campaigns.get(path.id);
-				return campaign === undefined
-					? campaignNotFound()
-					: { data: { id: path.id, status: campaign.status } };
-			},
-			updateStatus: async ({
-				path,
-				body,
-			}: {
-				path: { id: number };
-				body: { status: string };
-			}) => {
-				const campaign = campaigns.get(path.id);
-				if (campaign === undefined) {
-					return campaignNotFound();
-				}
-				campaign.status = body.status;
-				return { data: true };
-			},
-			delete: async ({ path }: { path: { id: number } }) =>
-				campaigns.delete(path.id) ? { data: true } : campaignNotFound(),
-			update: async () => ({ data: true }),
-		},
-	} as unknown as ListmonkClient;
-	client.subscriber.listRaw = async (options) =>
-		client.subscriber.list(options);
-
-	return {
-		client,
-		options,
-		reads,
-		unsubscribes,
-		deletedLists,
-		addLists(...ids: number[]) {
-			for (const id of ids) {
-				lists.add(id);
-			}
-		},
-		addSubscriber(id: number, listStatuses: Record<number, MembershipStatus>) {
-			subscriberIds.add(id);
-			memberships.set(
-				id,
-				new Map(
-					Object.entries(listStatuses).map(([listId, status]) => [
-						Number(listId),
-						status,
-					]),
-				),
-			);
-		},
-		addCampaign(id: number, status: string, campaignLists: number[]) {
-			campaigns.set(id, { status, lists: [...campaignLists] });
-		},
-		/** Listmonk deleted the campaign outside this package. */
-		removeCampaign(id: number) {
-			campaigns.delete(id);
-		},
-		/**
-		 * The public unsubscribe link (`unsubscribe-by-campaign`): only the
-		 * campaign's own lists are marked unsubscribed.
-		 */
-		unsubscribeViaCampaign(campaignId: number, subscriberId: number) {
-			const campaign = campaigns.get(campaignId);
-			const subscriberLists = memberships.get(subscriberId);
-			for (const listId of campaign?.lists ?? []) {
-				if (subscriberLists?.has(listId)) {
-					subscriberLists.set(listId, "unsubscribed");
-				}
-			}
-		},
-		membership(subscriberId: number, listId: number) {
-			return memberships.get(subscriberId)?.get(listId);
-		},
-		hasList(id: number) {
-			return lists.has(id);
-		},
-	};
-}
-
-type FakeListmonk = ReturnType<typeof createFakeListmonk>;
-
-const SOURCE_A = 1;
-const SOURCE_B = 2;
-
-function makeTest(overrides: Partial<AbTest> = {}): AbTest {
-	const now = new Date("2026-09-01T00:00:00.000Z");
-	return {
-		id: "test_optout",
-		name: "Opt-out propagation",
-		campaignId: "campaign-1",
-		variants: [
-			{ id: "variant-a", name: "A", percentage: 50, contentOverrides: {} },
-			{ id: "variant-b", name: "B", percentage: 50, contentOverrides: {} },
-		],
-		metrics: [],
-		status: "running",
-		createdAt: now,
-		updatedAt: now,
-		baseConfig: {
-			subject: "Subject",
-			body: "Body",
-			lists: [SOURCE_A, SOURCE_B],
-		},
-		testingMode: "holdout",
-		testGroupPercentage: 10,
-		testGroupSize: 4,
-		holdoutGroupSize: 36,
-		confidenceThreshold: 0.95,
-		autoDeployWinner: false,
-		campaignMappings: [
-			{ variantId: "variant-a", campaignId: 100 },
-			{ variantId: "variant-b", campaignId: 101 },
-		],
-		testListMappings: [
-			{ variantId: "variant-a", listId: 200 },
-			{ variantId: "variant-b", listId: 201 },
-		],
-		holdoutListId: 202,
-		...overrides,
-	};
-}
-
-/**
- * Source lists 1 and 2; variant lists 200 and 201 behind campaigns 100 and
- * 101; holdout list 202 behind winner campaign 300.
- */
-function seedAbTestAudience(fake: FakeListmonk, campaignStatus = "finished") {
-	fake.addLists(SOURCE_A, SOURCE_B, 200, 201, 202);
-	fake.addCampaign(100, campaignStatus, [200]);
-	fake.addCampaign(101, campaignStatus, [201]);
-	fake.addCampaign(300, campaignStatus, [202]);
-	// Opts out of variant A: a member of both source lists.
-	fake.addSubscriber(11, {
-		[SOURCE_A]: "confirmed",
-		[SOURCE_B]: "confirmed",
-		200: "unconfirmed",
-	});
-	// Stays subscribed.
-	fake.addSubscriber(12, { [SOURCE_A]: "unconfirmed", 201: "unconfirmed" });
-	// Opts out of variant B: a member of source list 1 only.
-	fake.addSubscriber(14, { [SOURCE_A]: "confirmed", 201: "unconfirmed" });
-	// Opts out of the winner email sent to the holdout.
-	fake.addSubscriber(13, { [SOURCE_B]: "confirmed", 202: "unconfirmed" });
-}
+import {
+	createFakeListmonk,
+	makeTest,
+	SOURCE_A,
+	SOURCE_B,
+	seedAbTestAudience,
+} from "./support/listmonk-optout-fake";
 
 function silenceWarnings() {
 	return spyOn(console, "warn").mockImplementation(() => undefined);
@@ -673,6 +387,9 @@ describe("propagateTemporaryListOptOuts", () => {
 			safeToDelete: true,
 			optedOutCount: 3,
 			propagatedCount: 2,
+			pendingCount: 0,
+			// Carried now (1, 2) or already unsubscribed there (3).
+			settledSubscriberIds: [3, 2, 1],
 			sourceListIds: [SOURCE_A, SOURCE_B],
 		});
 		expect(fake.unsubscribes).toEqual([
@@ -800,6 +517,465 @@ describe("propagateTemporaryListOptOuts", () => {
 			[201, "propagated"],
 			[200, "no_opt_outs"],
 		]);
+	});
+});
+
+describe("repeated propagation carries each opt-out once", () => {
+	const DAY = 24 * 60 * 60 * 1000;
+
+	/** Subscriber 1 opts out of variant campaign 100 a day after the send. */
+	function seedOptOut() {
+		const fake = createFakeListmonk();
+		fake.addLists(SOURCE_A, SOURCE_B, 200);
+		fake.addCampaign(100, "finished", [200]);
+		fake.addSubscriber(1, {
+			[SOURCE_A]: "confirmed",
+			[SOURCE_B]: "unconfirmed",
+			200: "unconfirmed",
+		});
+		fake.advanceClock(DAY);
+		fake.unsubscribeViaCampaign(100, 1);
+		return fake;
+	}
+
+	test("skips settled opt-outs, so a person who re-subscribed stays subscribed", async () => {
+		const fake = seedOptOut();
+		const input = { listId: 200, sourceListIds: [SOURCE_A, SOURCE_B] };
+		const first = await propagateTemporaryListOptOuts(fake.client, input);
+		expect(first.settledSubscriberIds).toEqual([1]);
+		expect(fake.membership(1, SOURCE_A)).toBe("unsubscribed");
+
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(1, SOURCE_A);
+		// A new opt-out arrives on the same list.
+		fake.addSubscriber(2, { [SOURCE_A]: "confirmed", 200: "unconfirmed" });
+		fake.advanceClock(DAY);
+		fake.unsubscribeViaCampaign(100, 2);
+		const second = await propagateTemporaryListOptOuts(fake.client, {
+			...input,
+			settledSubscriberIds: first.settledSubscriberIds,
+		});
+
+		// The re-subscribed person is neither written nor re-checked, so the
+		// new opt-out confirms cleanly.
+		expect(fake.membership(1, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(2, SOURCE_A)).toBe("unsubscribed");
+		expect(fake.unsubscribes.at(-1)?.ids).toEqual([2]);
+		expect(second).toMatchObject({
+			status: "propagated",
+			safeToDelete: true,
+			optedOutCount: 2,
+			propagatedCount: 1,
+			pendingCount: 0,
+			settledSubscriberIds: [2],
+		});
+	});
+
+	test.each([0, 1, 499, 500, 501, 1000, 2000])("confirmation request cost stays linear for %s opt-outs", async (size) => {
+		const fake = createFakeListmonk();
+		fake.addLists(SOURCE_A, 200);
+		for (let id = 1; id <= size; id += 1) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A] });
+		expect(result.safeToDelete).toBe(true);
+		expect(result.propagatedCount).toBe(size);
+		expect(fake.unsubscribes).toHaveLength(Math.ceil(size / 500));
+		const bound = size === 0 ? 1 : 2 * (Math.floor(size / 500) + 1) + Math.ceil(size / 500);
+		expect(fake.reads.length).toBeLessThanOrEqual(bound);
+	});
+
+	test.each(["unknown", "legacy", "missing timestamp"] as const)("ambiguous %s evidence blocks only its recipient, not unrelated opt-outs", async (kind) => {
+		const fake = createFakeListmonk({ omitMembershipTimestamps: kind === "missing timestamp" });
+		for (const id of [1, 2]) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const evidence = kind === "legacy"
+			? { legacySourceSettlements: [{ subscriberId: 1, sourceListId: SOURCE_A }] }
+			: { sourceSettlements: [{ subscriberId: 1, sourceListId: SOURCE_A, through: kind === "unknown" ? null : "2026-09-01T00:00:01Z" }] };
+		const input = { listId: 200, sourceListIds: [SOURCE_A], ...evidence };
+		const preview = await previewTemporaryListOptOuts(fake.client, input);
+		expect(preview).toMatchObject({ status: "failed", pendingCount: 2, wouldSettleSubscriberIds: [2] });
+		expect(fake.unsubscribes).toEqual([]);
+		const first = await propagateTemporaryListOptOuts(fake.client, input);
+		expect(first).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 1, pendingCount: 1, settledSubscriberIds: [2] });
+		expect(first.detail).toContain("fresh consent was not overwritten");
+		expect(fake.membership(1, SOURCE_A)).toBe("confirmed");
+		expect(fake.membership(2, SOURCE_A)).toBe("unsubscribed");
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(2, SOURCE_A);
+		fake.addSubscriber(3, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const next = await propagateTemporaryListOptOuts(fake.client, { ...input, settledSubscriberIds: first.settledSubscriberIds });
+		expect(next).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 1, pendingCount: 1, settledSubscriberIds: [3] });
+		expect(fake.membership(1, SOURCE_A)).toBe("confirmed");
+		expect(fake.membership(2, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(3, SOURCE_A)).toBe("unsubscribed");
+	});
+
+	test("subset reads validate IDs, handle empty sets without I/O, and paginate", async () => {
+		const fake = createFakeListmonk();
+		for (let id = 1; id <= 5; id += 1) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		expect(await readTemporaryListOptOuts(fake.client, 200, { subscriberIds: [] })).toEqual([]);
+		expect(fake.reads).toEqual([]);
+		for (const subscriberIds of [[0], [-1], [Number.MAX_SAFE_INTEGER + 1], Array.from({ length: 501 }, (_, i) => i + 1)]) {
+			await expect(readTemporaryListOptOuts(fake.client, 200, { subscriberIds })).rejects.toThrow();
+		}
+		const rows = await readTemporaryListOptOuts(fake.client, 200, { subscriberIds: [1, 3, 5], pageSize: 2 });
+		expect(rows.map((row) => row.subscriberId)).toEqual([5, 3, 1]);
+		expect(fake.reads).toHaveLength(2);
+	});
+
+	test.each(["ignored filter", "missing", "duplicate", "wrong recipient", "missing metadata", "empty"] as const)("confirmation fails closed on %s", async (kind) => {
+		const fake = createFakeListmonk();
+		for (let id = 1; id <= 3; id += 1) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const original = fake.client.subscriber.listRaw!;
+		const reader = spyOn(fake.client.subscriber, "listRaw").mockImplementation(async (options) => {
+			if (!options?.query?.query) return original(options);
+			if (kind === "ignored filter") {
+				const { query: _filter, ...query } = options.query;
+				return original({ ...options, query });
+			}
+			const response = await original(options);
+			const data = response.data as { total: number; results: Array<{ id: number; lists?: unknown[] }> };
+			if (kind === "missing") { data.results.pop(); data.total -= 1; }
+			if (kind === "duplicate") data.results[1] = data.results[0]!;
+			if (kind === "wrong recipient") data.results[0]!.id = 999;
+			if (kind === "missing metadata") delete data.results[0]!.lists;
+			if (kind === "empty") data.results = [];
+			return response;
+		});
+		try {
+			const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A], chunkSize: 2 });
+			expect(result).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 0, settledSubscriberIds: [] });
+			expect(fake.reads.length).toBeLessThanOrEqual(2);
+		} finally { reader.mockRestore(); }
+	});
+
+	test.each(["envelope", "exception"] as const)("confirmation %s diagnostics cannot leak recipient filters", async (kind) => {
+		const fake = createFakeListmonk();
+		fake.addSubscriber(1, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const original = fake.client.subscriber.listRaw!;
+		const reader = spyOn(fake.client.subscriber, "listRaw").mockImplementation(async (options) => {
+			if (options?.query?.query) {
+				if (kind === "exception") throw new Error("sensitive-query private@example.test");
+				fake.options.failOptOutRead = true;
+				const response = await original(options);
+				(response.error as { message: string }).message = "sensitive-query private@example.test";
+				return response;
+			}
+			return original(options);
+		});
+		try {
+			const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A] });
+			expect(result).toMatchObject({ status: "failed", safeToDelete: false, settledSubscriberIds: [] });
+			expect(result.detail).toContain("Bounded recipient confirmation");
+			expect(result.detail).not.toContain("sensitive-query");
+			expect(result.detail).not.toContain("private@example.test");
+		} finally { reader.mockRestore(); }
+	});
+
+	test("a new opt-out during writes prevents deletion without losing confirmed chunks", async () => {
+		const fake = createFakeListmonk();
+		fake.addSubscriber(1, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const original = fake.client.subscriber.manageLists;
+		const writer = spyOn(fake.client.subscriber, "manageLists").mockImplementation(async (input) => {
+			const response = await original(input);
+			fake.addSubscriber(2, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+			return response;
+		});
+		let first: Awaited<ReturnType<typeof propagateTemporaryListOptOuts>>;
+		try {
+			first = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A] });
+			expect(first).toMatchObject({ status: "failed", safeToDelete: false, optedOutCount: 2, propagatedCount: 1, pendingCount: 1, settledSubscriberIds: [1] });
+			expect(fake.unsubscribes).toHaveLength(1);
+		} finally { writer.mockRestore(); }
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(1, SOURCE_A);
+		const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A], settledSubscriberIds: first!.settledSubscriberIds });
+		expect(result).toMatchObject({ status: "propagated", propagatedCount: 1 });
+		expect(fake.membership(1, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.unsubscribes.at(-1)?.ids).toEqual([2]);
+	});
+
+	test("a failed final discovery read retains confirmed progress but never permits cleanup", async () => {
+		const fake = createFakeListmonk();
+		fake.addSubscriber(1, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const original = fake.client.subscriber.listRaw!;
+		const reader = spyOn(fake.client.subscriber, "listRaw").mockImplementation(async (options) => {
+			if (fake.unsubscribes.length > 0 && !options?.query?.query) throw new Error("final discovery unavailable");
+			return original(options);
+		});
+		let first: Awaited<ReturnType<typeof propagateTemporaryListOptOuts>>;
+		try {
+			first = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A] });
+			expect(first).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 1, pendingCount: 0, settledSubscriberIds: [1] });
+			expect(first.detail).toContain("final opt-out verification failed");
+		} finally { reader.mockRestore(); }
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(1, SOURCE_A);
+		const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A], settledSubscriberIds: first!.settledSubscriberIds });
+		expect(result.safeToDelete).toBe(true);
+		expect(fake.unsubscribes).toHaveLength(1);
+		expect(fake.membership(1, SOURCE_A)).toBe("unconfirmed");
+	});
+
+	test("oversized write chunks still use bounded, paginated confirmation subsets", async () => {
+		const fake = createFakeListmonk();
+		for (let id = 1; id <= 1001; id += 1) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A], chunkSize: 1001, pageSize: 200 });
+		expect(result).toMatchObject({ safeToDelete: true, propagatedCount: 1001 });
+		const confirmations = fake.reads.filter((query) => query.query !== undefined);
+		expect(confirmations.every((query) => String(query.query).split(",").length <= 500)).toBe(true);
+		expect(fake.reads.length).toBeLessThanOrEqual(19);
+	});
+
+	test("retains 500 confirmed opt-outs when the next chunk fails, preserving later reconsent", async () => {
+		const fake = createFakeListmonk({ failUnsubscribeSubscriberIds: [1] });
+		for (let id = 1; id <= 501; id += 1) {
+			fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		}
+		const input = { listId: 200, sourceListIds: [SOURCE_A] };
+		const first = await propagateTemporaryListOptOuts(fake.client, input);
+		expect(first).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 500, pendingCount: 1 });
+		expect(first.settledSubscriberIds).toHaveLength(500);
+		expect(first.settledSubscriberIds).not.toContain(1);
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(501, SOURCE_A);
+		fake.options.failUnsubscribeSubscriberIds = [];
+		const before = fake.unsubscribes.length;
+		const second = await propagateTemporaryListOptOuts(fake.client, { ...input, settledSubscriberIds: first.settledSubscriberIds });
+		expect(fake.unsubscribes.slice(before)).toEqual([{ ids: [1], target_list_ids: [SOURCE_A] }]);
+		expect(fake.membership(501, SOURCE_A)).toBe("unconfirmed");
+		expect(second).toMatchObject({ status: "propagated", propagatedCount: 1, pendingCount: 0, settledSubscriberIds: [1] });
+	});
+
+	test("retains earlier confirmed chunks when a later confirmation read fails", async () => {
+		const fake = createFakeListmonk();
+		for (let id = 1; id <= 3; id += 1) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const original = fake.client.subscriber.listRaw;
+		let reads = 0;
+		const reader = spyOn(fake.client.subscriber, "listRaw").mockImplementation(async (...args) => {
+			if (++reads === 3) throw new Error("confirmation unavailable");
+			return original(...args);
+		});
+		try {
+			const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A], chunkSize: 2 });
+			expect(result).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 2, pendingCount: 1, settledSubscriberIds: [3, 2] });
+			expect(fake.membership(1, SOURCE_A)).toBe("unsubscribed");
+		} finally {
+			reader.mockRestore();
+		}
+	});
+
+	test("does not settle acknowledged chunks that fail read confirmation", async () => {
+		const fake = createFakeListmonk({ unmanageableListIds: [SOURCE_A], failUnsubscribeSubscriberIds: [1] });
+		for (let id = 1; id <= 3; id += 1) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A], chunkSize: 2 });
+		expect(result).toMatchObject({ status: "failed", propagatedCount: 0, pendingCount: 3, settledSubscriberIds: [] });
+	});
+
+	test("leaves alone a source membership created after the opt-out", async () => {
+		const fake = seedOptOut();
+		fake.addLists(3);
+		// After opting out, the person joins source list 3 through the public
+		// form: a membership created after the opt-out, unlike lists 1 and 2.
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(1, 3);
+
+		const result = await propagateTemporaryListOptOuts(fake.client, {
+			listId: 200,
+			sourceListIds: [SOURCE_A, SOURCE_B, 3],
+		});
+
+		expect(fake.membership(1, SOURCE_A)).toBe("unsubscribed");
+		expect(fake.membership(1, SOURCE_B)).toBe("unsubscribed");
+		expect(fake.membership(1, 3)).toBe("unconfirmed");
+		expect(fake.unsubscribes).toEqual([
+			{ ids: [1], target_list_ids: [SOURCE_A, SOURCE_B] },
+		]);
+		expect(result).toMatchObject({
+			status: "propagated",
+			safeToDelete: true,
+			propagatedCount: 1,
+			settledSubscriberIds: [1],
+		});
+	});
+
+	test("carries to every source membership when Listmonk reports no times", async () => {
+		const fake = createFakeListmonk({ omitMembershipTimestamps: true });
+		fake.addLists(SOURCE_A, 3, 200);
+		fake.addCampaign(100, "finished", [200]);
+		fake.addSubscriber(1, { [SOURCE_A]: "confirmed", 200: "unconfirmed" });
+		fake.advanceClock(DAY);
+		fake.unsubscribeViaCampaign(100, 1);
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(1, 3);
+
+		const result = await propagateTemporaryListOptOuts(fake.client, {
+			listId: 200,
+			sourceListIds: [SOURCE_A, 3],
+		});
+
+		// Without times, a later membership cannot be told apart, so the
+		// opt-out wins.
+		expect(fake.membership(1, 3)).toBe("unsubscribed");
+		expect(result.settledSubscriberIds).toEqual([1]);
+	});
+
+	test("carries a subscriber opted out of several lists once per run", async () => {
+		const fake = createFakeListmonk();
+		fake.addLists(SOURCE_A, 200, 201);
+		fake.addSubscriber(1, {
+			[SOURCE_A]: "confirmed",
+			200: "unsubscribed",
+			201: "unsubscribed",
+		});
+
+		const results = await propagateTemporaryListsOptOuts(fake.client, {
+			listIds: [200, 201],
+			sourceListIds: [SOURCE_A],
+		});
+
+		expect(
+			results.map((result) => [result.listId, result.settledSubscriberIds]),
+		).toEqual([
+			[200, [1]],
+			// Settled by the first list, so the second neither writes nor
+			// re-checks it.
+			[201, []],
+		]);
+		expect(fake.unsubscribes).toEqual([
+			{ ids: [1], target_list_ids: [SOURCE_A] },
+		]);
+		expect(results.every((result) => result.safeToDelete)).toBe(true);
+	});
+
+	test("reports a deleted list as missing", async () => {
+		const fake = createFakeListmonk();
+
+		const result = await propagateTemporaryListOptOuts(fake.client, {
+			listId: 200,
+			sourceListIds: [SOURCE_A],
+		});
+
+		expect(result).toMatchObject({
+			status: "no_opt_outs",
+			safeToDelete: true,
+			listMissing: true,
+			settledSubscriberIds: [],
+		});
+	});
+
+	test("previews pending opt-outs without writing", async () => {
+		const fake = seedOptOut();
+		fake.addSubscriber(2, { [SOURCE_A]: "confirmed", 200: "unconfirmed" });
+		fake.unsubscribeViaCampaign(100, 2);
+
+		const preview = await previewTemporaryListOptOuts(fake.client, {
+			listId: 200,
+			sourceListIds: [SOURCE_A, SOURCE_B],
+			settledSubscriberIds: [2],
+		});
+
+		expect(preview).toEqual({
+			listId: 200,
+			status: "pending",
+			optedOutCount: 2,
+			pendingCount: 1,
+			// A real run would carry 1 and record it; 2 was already settled.
+			wouldSettleSubscriberIds: [1],
+			sourceListIds: [SOURCE_A, SOURCE_B],
+		});
+		expect(fake.unsubscribes).toEqual([]);
+		expect(fake.membership(1, SOURCE_A)).toBe("confirmed");
+		expect(
+			(
+				await previewTemporaryListOptOuts(fake.client, {
+					listId: 200,
+					sourceListIds: [SOURCE_A, SOURCE_B],
+					settledSubscriberIds: [1, 2],
+				})
+			).status,
+		).toBe("up_to_date");
+	});
+
+	test("previews every list outcome the way a real run classifies it", async () => {
+		const fake = createFakeListmonk();
+		fake.addLists(SOURCE_A, 200, 201);
+		fake.addSubscriber(1, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const preview = (listId: number, sourceListIds: number[]) =>
+			previewTemporaryListOptOuts(fake.client, { listId, sourceListIds });
+
+		expect(await preview(404, [SOURCE_A])).toEqual({
+			listId: 404,
+			status: "no_opt_outs",
+			listMissing: true,
+			optedOutCount: 0,
+			pendingCount: 0,
+			wouldSettleSubscriberIds: [],
+			sourceListIds: [SOURCE_A],
+		});
+		expect(await preview(201, [SOURCE_A])).toMatchObject({
+			status: "no_opt_outs",
+			optedOutCount: 0,
+			pendingCount: 0,
+		});
+		expect(await preview(201, [SOURCE_A])).not.toHaveProperty("listMissing");
+		expect(await preview(200, [])).toMatchObject({
+			status: "blocked",
+			optedOutCount: 1,
+			pendingCount: 1,
+			wouldSettleSubscriberIds: [],
+		});
+		expect((await preview(200, [])).detail).toContain(
+			"records no source lists",
+		);
+		expect(fake.unsubscribes).toEqual([]);
+
+		const unreadable = {
+			subscriber: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+				listRaw: async () => ({ data: { results: [], total: 0 } }),
+			},
+			list: {
+				getById: async () => ({
+					error: { message: "permission denied" },
+					response: { status: 403 },
+				}),
+			},
+		} as unknown as ListmonkClient;
+		const failed = await previewTemporaryListOptOuts(unreadable, {
+			listId: 200,
+			sourceListIds: [SOURCE_A],
+		});
+		expect(failed).toMatchObject({
+			status: "failed",
+			optedOutCount: 0,
+			pendingCount: 0,
+			wouldSettleSubscriberIds: [],
+		});
+		expect(failed.detail).toContain("HTTP 403: permission denied");
+	});
+
+	test("resolves the source lists one opt-out still needs", () => {
+		const optOut = {
+			subscriberId: 1,
+			membershipStatuses: new Map([
+				[SOURCE_A, "confirmed"],
+				[SOURCE_B, "unsubscribed"],
+				[3, "confirmed"],
+			]),
+			membershipCreatedAt: new Map([
+				[SOURCE_A, 1_000],
+				[3, 5_000],
+			]),
+			optedOutAt: 2_000,
+		};
+		expect(resolvePendingSourceListIds(optOut, [SOURCE_A, SOURCE_B, 3, 4])).toEqual(
+			[SOURCE_A],
+		);
+		expect(
+			resolvePendingSourceListIds(
+				{ ...optOut, optedOutAt: undefined },
+				[SOURCE_A, SOURCE_B, 3],
+			),
+		).toEqual([SOURCE_A, 3]);
 	});
 });
 

@@ -380,6 +380,71 @@ export interface AbTestTickOutput {
 	requested?: NonNegativeInteger;
 	/** Recovery passes only: echoed members that already moved on. */
 	already_done?: NonNegativeInteger;
+	/**
+	 * Sweeps only (absent on recovery passes): the opt-out sync of the tests
+	 * whose cadence made them due; a dry run previews it.
+	 */
+	opt_out_sync?: AbTestSyncOptOutsOutput;
+}
+
+export interface AbTestSyncOptOutsInput {
+	/**
+	 * Sync one test, including a deleted test whose record is retained for
+	 * the sync; omit to sync every tracked test.
+	 */
+	test_id?: NonEmptyString;
+	/** Report what would be carried without writing anything. */
+	dry_run?: boolean;
+}
+
+/**
+ * - `missing`: the temporary list was deleted; nothing to carry.
+ * - `no_opt_outs`: nobody unsubscribed from it.
+ * - `up_to_date`: every opt-out is already carried.
+ * - `propagated`: this run carried `carried` opt-outs and confirmed them.
+ * - `pending`: dry run only; `pending` opt-outs would be carried.
+ * - `blocked`: it holds opt-outs but the test records no source lists.
+ * - `failed`: reading, carrying, or confirming failed; retried next time.
+ */
+export type AbTestOptOutSyncListStatus =
+	| "missing"
+	| "no_opt_outs"
+	| "up_to_date"
+	| "propagated"
+	| "pending"
+	| "blocked"
+	| "failed";
+
+export interface AbTestOptOutSyncListResult {
+	list_id: ResourceId;
+	status: AbTestOptOutSyncListStatus;
+	/** Subscribers whose membership on the temporary list is unsubscribed. */
+	opted_out: NonNegativeInteger;
+	/** Opt-outs this run unsubscribed from at least one source list. */
+	carried: NonNegativeInteger;
+	/** Opt-outs a dry run would carry, or that remain after a failure. */
+	pending: NonNegativeInteger;
+	detail?: string;
+}
+
+export interface AbTestOptOutSyncTestResult {
+	test_id: NonEmptyString;
+	status: AbTestStatus;
+	/** The test was deleted; its record is retained for the opt-out sync. */
+	deleted: boolean;
+	source_list_ids: ResourceId[];
+	lists: AbTestOptOutSyncListResult[];
+	/** Why the sync stopped before checking every list, if it did. */
+	detail?: string;
+}
+
+export interface AbTestSyncOptOutsOutput {
+	dry_run: boolean;
+	/** Tests whose temporary lists were checked. */
+	checked: NonNegativeInteger;
+	/** Tests with a failed or blocked list. */
+	failed: NonNegativeInteger;
+	results: AbTestOptOutSyncTestResult[];
 }
 
 export interface AbTestReconcileResult {

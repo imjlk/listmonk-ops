@@ -1,4 +1,5 @@
 import type { AbTest } from "./types";
+import type { TemporaryListOptOutPropagation } from "./unsubscribe-propagation";
 
 export class AbTestNotFoundError extends Error {
 	constructor(testId: string) {
@@ -11,6 +12,45 @@ export class AbTestConflictError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "AbTestConflictError";
+	}
+}
+
+/**
+ * A stop or delete failed after it may have carried opt-outs to the source
+ * lists or deleted temporary lists, and it recorded that on the test
+ * (`AbTest.optOutSync`) before throwing; nothing else changes before it is
+ * thrown. A stored write transaction commits that record and then raises
+ * the failure, so a retry, however much later, does not carry those
+ * opt-outs again and cannot unsubscribe a person who re-subscribed in
+ * between.
+ */
+export class AbTestOptOutProgressError extends Error {
+	constructor(message: string, options?: ErrorOptions) {
+		super(message, options);
+		this.name = "AbTestOptOutProgressError";
+	}
+}
+
+/**
+ * `deleteTestResources` could not remove every resource. Carries the opt-out
+ * propagation of every temporary list it checked and the lists it did
+ * delete, so the caller can record that progress before failing.
+ */
+export class AbTestCleanupError extends Error {
+	readonly optOutPropagation: readonly TemporaryListOptOutPropagation[];
+	readonly deletedListIds: readonly number[];
+
+	constructor(
+		message: string,
+		progress: {
+			optOutPropagation: readonly TemporaryListOptOutPropagation[];
+			deletedListIds: readonly number[];
+		},
+	) {
+		super(message);
+		this.name = "AbTestCleanupError";
+		this.optOutPropagation = [...progress.optOutPropagation];
+		this.deletedListIds = [...progress.deletedListIds];
 	}
 }
 

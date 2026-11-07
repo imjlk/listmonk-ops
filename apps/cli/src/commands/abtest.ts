@@ -14,6 +14,7 @@ import {
 	type RecommendAbTestSampleSizeOperationOutput,
 	type RunAbTestOperationOutput,
 	type StopAbTestOperationOutput,
+	type SyncAbTestOptOutsOperationOutput,
 	type TickAbTestsOperationOutput,
 	invokeAnalyzeAbTestOperation,
 	invokeCreateAbTestOperation,
@@ -28,6 +29,7 @@ import {
 	invokeRecommendAbTestSampleSizeOperation,
 	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
+	invokeSyncAbTestOptOutsOperation,
 	invokeTickAbTestsOperation,
 	validateHypothesisMetadata,
 	validateStoredAbTestStore,
@@ -356,6 +358,34 @@ async function invokeCliExportAbTestAssignment(
 ): Promise<ExportAbTestAssignmentOperationOutput> {
 	const client = await getListmonkClient(args);
 	return invokeExportAbTestAssignmentOperation({ client }, input);
+}
+
+async function invokeCliSyncAbTestOptOuts(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<SyncAbTestOptOutsOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeSyncAbTestOptOutsOperation({ client }, input);
+}
+
+/**
+ * One line per temporary list whose opt-outs could not be carried, so a
+ * failure is not buried in the JSON payload.
+ */
+export function formatOptOutSyncWarnings(
+	output: SyncAbTestOptOutsOperationOutput,
+): string[] {
+	return output.results.flatMap((result) => {
+		const lists = result.lists
+			.filter((list) => list.status === "failed" || list.status === "blocked")
+			.map(
+				(list) =>
+					`A/B test ${result.test_id} temporary list ${list.list_id} ${list.status}: ${list.detail ?? "its opt-outs were not confirmed on the source lists"}`,
+			);
+		return lists.length === 0 && result.detail !== undefined
+			? [`A/B test ${result.test_id} opt-out sync failed: ${result.detail}`]
+			: lists;
+	});
 }
 
 async function promptInteractiveInput(
@@ -1080,6 +1110,15 @@ export default defineGroup({
 							? `Dry-run: ${result.processed} A/B test(s) would be progressed`
 							: `Ticked ${result.processed} A/B test(s)`,
 					);
+					// The progression succeeded; a list whose opt-outs could not
+					// be carried is retried by the next tick, but say so loudly.
+					if (result.opt_out_sync !== undefined) {
+						for (const failure of formatOptOutSyncWarnings(
+							result.opt_out_sync,
+						)) {
+							getOutput().warning(failure);
+						}
+					}
 					getOutput().json(result);
 					return result;
 				} catch (error) {
@@ -1135,6 +1174,51 @@ export default defineGroup({
 				} catch (error) {
 					throw new Error(
 						`Failed to reconcile A/B tests: ${toErrorMessage(error)}`,
+					);
+				}
+			},
+		}),
+		defineCommand({
+			name: "sync-optouts",
+			operationId: "abtest.sync-optouts",
+			description:
+				"Carry opt-outs from A/B temporary lists to their tests' source lists",
+			options: {
+				"test-id": option(z.string().trim().min(1).optional(), {
+					description:
+						"Test ID, including a deleted test still tracked for opt-outs (omit to sync every tracked test)",
+				}),
+				"dry-run": option(z.coerce.boolean().default(false), {
+					description: "Report what would be carried without writing anything",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const result = await invokeCliSyncAbTestOptOuts(args, {
+						test_id: flags["test-id"],
+						dry_run: flags["dry-run"],
+					});
+					const failures = formatOptOutSyncWarnings(result);
+					for (const failure of failures) {
+						getOutput().warning(failure);
+					}
+					if (failures.length === 0) {
+						getOutput().success(
+							result.dry_run
+								? `Dry run: checked opt-outs for ${result.checked} A/B test(s)`
+								: `Synced opt-outs for ${result.checked} A/B test(s)`,
+						);
+					}
+					getOutput().json(result);
+					// Preserve structured stdout, but fail the execution boundary so
+					// audit and lifecycle events cannot report a successful sync.
+					if (result.failed > 0) {
+						throw new Error(`${result.failed} A/B test(s) have unresolved opt-out sync failures`);
+					}
+					return result;
+				} catch (error) {
+					throw new Error(
+						`Failed to sync A/B test opt-outs: ${toErrorMessage(error)}`,
 					);
 				}
 			},

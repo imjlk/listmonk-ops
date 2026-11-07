@@ -1,6 +1,13 @@
 import { generateAssignmentSeed } from "./assignment";
 import { createHash } from "node:crypto";
 import { resolveOptOutSourceListIds } from "./unsubscribe-propagation";
+import {
+	describeOptOutSyncFailures,
+	recordTemporaryListOptOutPropagation,
+	createOptOutSourceSettlementRecorder,
+	hasRelatedTrackedOptOutSources,
+	resolveTrackedTemporaryListIds,
+} from "./optout-sync";
 import type {
 	ListmonkAbTestIntegration,
 	ProvisionedAbTestResources,
@@ -37,7 +44,12 @@ import type {
 	TestValidationResult,
 	Variant,
 } from "./types";
-import { AbTestConflictError, AbTestInvalidStatusError } from "./errors";
+import {
+	AbTestCleanupError,
+	AbTestConflictError,
+	AbTestInvalidStatusError,
+	AbTestOptOutProgressError,
+} from "./errors";
 import { getAbTestAttributionDeadline } from "./conversion-events";
 import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
 
@@ -221,6 +233,11 @@ export class AbTestService {
 	private static readonly MAX_VARIANTS = 3;
 	private static readonly VARIANT_LABELS = ["A", "B", "C"];
 	private tests: Map<string, AbTest> = new Map();
+	/**
+	 * Deleted terminal tests whose temporary lists still exist (`deletedAt`
+	 * is set). They are invisible to every lookup except the opt-out sync.
+	 */
+	private retiredTests: Map<string, AbTest> = new Map();
 
 	constructor(
 		private listmonkIntegration?: ListmonkAbTestIntegration,
@@ -931,6 +948,7 @@ export class AbTestService {
 	 */
 	hydrateTests(tests: AbTest[]): void {
 		this.tests.clear();
+		this.retiredTests.clear();
 
 		for (const rawTest of tests) {
 			const hydratedTest: AbTest = {
@@ -948,7 +966,11 @@ export class AbTestService {
 				})),
 			};
 
-			this.tests.set(hydratedTest.id, hydratedTest);
+			if (hydratedTest.deletedAt === undefined) {
+				this.tests.set(hydratedTest.id, hydratedTest);
+			} else {
+				this.retiredTests.set(hydratedTest.id, hydratedTest);
+			}
 		}
 	}
 
@@ -959,12 +981,70 @@ export class AbTestService {
 		return Array.from(this.tests.values());
 	}
 
+	/**
+	 * Deleted terminal tests retained only so the opt-out sync can keep
+	 * carrying opt-outs from their temporary lists.
+	 */
+	snapshotRetiredTests(): AbTest[] {
+		return Array.from(this.retiredTests.values());
+	}
+
+	/**
+	 * Every record the persistent store must keep: the tests plus the
+	 * retained records of deleted tests. Persist this rather than
+	 * {@link snapshotTests}, or a deletion would drop the opt-out record.
+	 */
+	snapshotStoredTests(): AbTest[] {
+		return [...this.snapshotTests(), ...this.snapshotRetiredTests()];
+	}
+
+	/** A retained record of a deleted test, by id. */
+	getRetiredTest(testId: string): AbTest | null {
+		return this.retiredTests.get(testId) ?? null;
+	}
+
+	/**
+	 * Drop the retained record of a deleted test, once none of its temporary
+	 * lists exists any more.
+	 */
+	pruneRetiredTest(testId: string): boolean {
+		return this.retiredTests.delete(testId);
+	}
+
+	/**
+	 * Delete a test. A non-terminal test's campaigns and temporary lists are
+	 * removed first (each list's opt-outs carried before it goes). A terminal
+	 * test keeps its campaigns and lists for delivery history, and their
+	 * unsubscribe links keep recording opt-outs on those lists, so its
+	 * opt-outs are carried first and, while any of its lists still exists, its
+	 * record is retained (hidden) for the opt-out sync instead of dropped.
+	 * Either way a failure keeps the test and throws
+	 * `AbTestOptOutProgressError` after recording the opt-outs the attempt
+	 * carried and the lists it deleted.
+	 */
 	async deleteTest(testId: string): Promise<boolean> {
 		const test = this.tests.get(testId);
 		if (!test) {
 			return false;
 		}
 
+		const relatedTests = [
+			...this.tests.values(),
+			...this.retiredTests.values(),
+		];
+		// Reconcile partial confirmations before cleanup, even without another related test.
+		if (
+			this.listmonkIntegration &&
+			!TERMINAL_STATUSES.has(test.status) &&
+			((test.optOutSync?.sourceSettlements?.length ?? 0) > 0 ||
+				hasRelatedTrackedOptOutSources(test, relatedTests))
+		) {
+			const outcome = await this.listmonkIntegration.syncTestOptOuts(test, {
+				relatedTests,
+			});
+			if (outcome.state) test.optOutSync = outcome.state;
+			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Source-list opt-outs must be reconciled before deleting ${testId}: ${describeOptOutSyncFailures(outcome.result)}`);
+		}
 		// Cleanup Listmonk resources for any test that has remote campaigns.
 		// Use deleteTestResources which is status-aware: it cancels running or
 		// paused campaigns before deleting (Listmonk v6.2.0 rejects DELETE on
@@ -979,22 +1059,85 @@ export class AbTestService {
 			if (test.holdoutListId !== undefined) {
 				listIds.push(test.holdoutListId);
 			}
-			await this.listmonkIntegration.deleteTestResources({
-				campaignIds: [
-					...test.campaignMappings.map((m) => m.campaignId),
-					...(test.winnerCampaignId !== undefined
-						? [test.winnerCampaignId]
-						: []),
-				],
-				listIds,
-				// Opt-outs recorded on the temporary lists are carried here
-				// before the lists are deleted.
-				sourceListIds: resolveOptOutSourceListIds(test),
-			});
+			const sourceProgress = createOptOutSourceSettlementRecorder(test);
+			try {
+				await this.listmonkIntegration.deleteTestResources({
+					campaignIds: [
+						...test.campaignMappings.map((m) => m.campaignId),
+						...(test.winnerCampaignId !== undefined
+							? [test.winnerCampaignId]
+							: []),
+					],
+					listIds,
+					// Opt-outs recorded on the temporary lists are carried here
+					// before the lists are deleted; ones an earlier sync carried
+					// are skipped.
+					sourceListIds: resolveOptOutSourceListIds(test),
+					settledSubscriberIds: test.optOutSync?.settledSubscriberIds,
+					sourceSettlements: test.optOutSync?.sourceSettlements,
+					onSourceUnsubscribed: sourceProgress.record,
+				});
+			} catch (error) {
+				if (!(error instanceof AbTestCleanupError)) {
+					throw error;
+				}
+				// Keep the test, but record the opt-outs this attempt carried
+				// and the lists it deleted so the retry skips them.
+				recordTemporaryListOptOutPropagation(test, {
+					propagations: error.optOutPropagation,
+					removedListIds: error.deletedListIds,
+				});
+				throw new AbTestOptOutProgressError(error.message, { cause: error });
+			} finally {
+				sourceProgress.flush();
+			}
+		} else if (
+			this.listmonkIntegration &&
+			TERMINAL_STATUSES.has(test.status) &&
+			resolveTrackedTemporaryListIds(test).length > 0
+		) {
+			const { result, state } =
+				await this.listmonkIntegration.syncTestOptOuts(test, { relatedTests });
+			// Recorded even when the delete fails below, so the opt-outs
+			// this attempt did carry are not carried again.
+			if (state !== undefined) {
+				test.optOutSync = state;
+			}
+			if (!result.ok) {
+				throw new AbTestOptOutProgressError(
+					`A/B test ${testId} was not deleted because the opt-outs on its temporary lists could not be carried to its source lists: ${describeOptOutSyncFailures(result)}; retry the delete or run abtest sync-optouts once fixed`,
+				);
+			}
+			if (resolveTrackedTemporaryListIds(test).length > 0) {
+				this.retireTest(test);
+				return true;
+			}
 		}
 
+		if (test.optOutSync?.sourceSettlements?.length && hasRelatedTrackedOptOutSources(test, relatedTests)) {
+			this.retireTest(test);
+			return true;
+		}
 		this.tests.delete(testId);
 		return true;
+	}
+
+	/**
+	 * Move a deleted terminal test to the retained records. Its replay key
+	 * is dropped so a later create with the same key starts a new test.
+	 */
+	private retireTest(test: AbTest): void {
+		const {
+			idempotencyKey: _idempotencyKey,
+			idempotencyFingerprint: _idempotencyFingerprint,
+			pendingCreate: _pendingCreate,
+			...retained
+		} = test;
+		this.tests.delete(test.id);
+		this.retiredTests.set(test.id, {
+			...retained,
+			deletedAt: new Date().toISOString(),
+		});
 	}
 
 	async getTestByIdempotencyKey(key: string): Promise<AbTest | null> {

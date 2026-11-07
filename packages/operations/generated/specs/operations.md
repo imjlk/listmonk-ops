@@ -1392,24 +1392,24 @@ Schedule every variant campaign for delivery and transition a draft A/B test to 
 
 ## `abtest.stop`
 
-Stop a running or scheduled A/B test, cancel or delete its backing campaigns, clean up eligible temporary lists, and transition it to cancelled
+Stop a running or scheduled A/B test, cancel or delete its backing campaigns, carry its temporary lists' opt-outs to the source lists, clean up eligible temporary lists, and transition it to cancelled
 
 - Resource / verb: `experiment.stop`
 - MCP tool: `listmonk_abtest_stop`
 - Contract source: input `typescript`, output `typescript`
-- Effects: `write:experiment, write:campaign, delete:campaign, delete:list`
+- Effects: `write:experiment, write:campaign, delete:campaign, delete:list, suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `stable` since `0.10.0`
 
 ## `abtest.delete`
 
-Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists
+Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists; a terminal test's opt-outs are carried to its source lists first, and its kept temporary lists stay tracked for later opt-outs
 
 - Resource / verb: `experiment.delete`
 - MCP tool: `listmonk_abtest_delete`
 - Contract source: input `typescript`, output `typescript`
-- Effects: `delete:experiment, delete:campaign, delete:list`
+- Effects: `delete:experiment, delete:campaign, delete:list, suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `stable` since `0.10.0`
@@ -1452,12 +1452,12 @@ Advance an A/B test by one lifecycle step (launch, analyze, or deploy winner)
 
 ## `abtest.tick`
 
-Advance all non-terminal A/B tests by one step
+Advance all non-terminal A/B tests by one step and carry the opt-outs due for sync from temporary lists to their tests' source lists
 
 - Resource / verb: `experiment.tick`
 - MCP tool: `listmonk_abtest_tick`
 - Contract source: input `typescript`, output `typescript`
-- Effects: `write:experiment, delivery:bulk:immediate`
+- Effects: `write:experiment, delivery:bulk:immediate, suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `conditional`
 - Stability: `stable` since `0.10.0`
@@ -1485,6 +1485,18 @@ Export the subscriber assignment manifest for a test with deterministic provisio
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
 - Stability: `stable` since `0.10.0`
+
+## `abtest.sync-optouts`
+
+Carry opt-outs recorded on A/B test temporary lists, including the lists of completed, stopped, and deleted tests, to each test's source lists, confirm them, and record each carried opt-out so it is never carried again
+
+- Resource / verb: `experiment.sync-optouts`
+- MCP tool: `listmonk_abtest_sync_optouts`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `suppression:audience, write:experiment`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `stable` since `0.21.0`
 
 ## `bounces.list`
 

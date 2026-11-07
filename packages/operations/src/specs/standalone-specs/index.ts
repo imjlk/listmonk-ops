@@ -106,6 +106,7 @@ import {
 	abTestTickOperationSpec,
 	abTestReconcileOperationSpec,
 	abTestExportAssignmentOperationSpec,
+	abTestSyncOptOutsOperationSpec,
 } from "./abtest-specs";
 
 export const standaloneOperationSpecs = [
@@ -167,6 +168,7 @@ export const standaloneOperationSpecs = [
 	abTestTickOperationSpec,
 	abTestReconcileOperationSpec,
 	abTestExportAssignmentOperationSpec,
+	abTestSyncOptOutsOperationSpec,
 	bouncesListOperationSpec,
 	bouncesGetOperationSpec,
 	bouncesDeleteOperationSpec,

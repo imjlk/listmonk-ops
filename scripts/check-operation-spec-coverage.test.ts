@@ -23,12 +23,12 @@ describe("operation spec migration coverage", () => {
 			new Date("2026-07-28T00:00:00Z"),
 		);
 		expect(report).toEqual({
-			total: 140,
-			covered: 140,
+			total: 141,
+			covered: 141,
 			exempted: 0,
 			coverageRatio: 1,
 		});
-		expect(sharedOperationCatalog.entries).toHaveLength(140);
+		expect(sharedOperationCatalog.entries).toHaveLength(141);
 	});
 
 	test("compares runtime exemptions by fields rather than property order", () => {

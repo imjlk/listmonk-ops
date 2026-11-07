@@ -408,6 +408,12 @@ const abTestOperationDefinitions = [
 		"invokeExportAbTestAssignmentOperation",
 		"executeExportAbTestAssignmentOperation",
 	],
+	[
+		"sync opt-outs",
+		"invokeCliSyncAbTestOptOuts",
+		"invokeSyncAbTestOptOutsOperation",
+		"executeSyncAbTestOptOutsOperation",
+	],
 ] as const;
 
 const abTestOperationContracts: readonly CallPathContract[] =
@@ -556,6 +562,28 @@ const abTestTestContracts: readonly CallPathContract[] = [
 			cliAbTestInputTestModule,
 			"apps/cli/src/commands/abtest.ts#buildCreateInputFromFlags:function",
 			"apps/cli/src/commands/abtest.ts#normalizeVariants:function",
+		],
+	},
+	{
+		label: "Opt-out sync tests anchor the kept-list sync and its shared propagation",
+		path: [
+			"packages/abtest/tests/optout-sync.test.ts#packages/abtest/tests/optout-sync.test.ts:module",
+			"packages/abtest/src/optout-sync.ts#syncAbTestOptOuts:function",
+			"packages/abtest/src/unsubscribe-propagation.ts#propagateTemporaryListOptOuts:function",
+		],
+	},
+	{
+		label: "Propagation tests anchor the dry-run opt-out preview",
+		path: [
+			"packages/abtest/tests/unsubscribe-propagation.test.ts#packages/abtest/tests/unsubscribe-propagation.test.ts:module",
+			"packages/abtest/src/unsubscribe-propagation.ts#previewTemporaryListOptOuts:function",
+		],
+	},
+	{
+		label: "CLI A/B tests anchor the opt-out sync failure report",
+		path: [
+			cliAbTestInputTestModule,
+			"apps/cli/src/commands/abtest.ts#formatOptOutSyncWarnings:function",
 		],
 	},
 	{

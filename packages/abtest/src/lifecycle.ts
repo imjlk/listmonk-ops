@@ -1,11 +1,12 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { formatListmonkErrorResponse } from "./listmonk-errors";
-import type { AbTest } from "./types";
+import type { AbTest, AbTestOptOutSourceSettlement } from "./types";
 import {
 	describeRetainedTemporaryList,
 	propagateTemporaryListsOptOuts,
 	resolveOptOutSourceListIds,
 	type TemporaryListOptOutPropagation,
+	type OptOutSourceConfirmed,
 } from "./unsubscribe-propagation";
 
 /**
@@ -31,10 +32,11 @@ import {
  *
  * Temporary lists are only deleted once no remaining backing campaign
  * references them, so an in-flight or partially-failed cancel cannot detach
- * a list a still-running campaign needs. Before a list is deleted, its
+ * a list a still-running campaign needs. Every temporary list's
  * unsubscribed memberships are carried to the test's source lists (see
- * `unsubscribe-propagation.ts`); a list whose opt-outs cannot be carried is
- * kept.
+ * `unsubscribe-propagation.ts`), whether the list is then deleted or kept
+ * for a surviving campaign; a list whose opt-outs cannot be carried is never
+ * deleted.
  *
  * Campaign names are never overwritten. The previous code renamed every
  * campaign to the same `A/B Test Completed - ...` string, which destroyed
@@ -70,6 +72,14 @@ export interface CancelPlan {
 	 * that holds opt-outs.
 	 */
 	optOutSourceListIds?: number[];
+	/**
+	 * Opt-outs an earlier sync already carried to the source lists. They are
+	 * not carried again, so a person who re-subscribed since stays
+	 * subscribed.
+	 */
+	optOutSettledSubscriberIds?: number[];
+	/** Private per-source progress, including partial confirmations. */
+	optOutSourceSettlements?: readonly AbTestOptOutSourceSettlement[];
 }
 
 export interface CancelExecutionResult {
@@ -116,9 +126,11 @@ export interface CancelExecutionResult {
 	 */
 	hadFetchFailures: boolean;
 	/**
-	 * Opt-out propagation for every list the plan was cleared to delete. A
-	 * list whose opt-outs could not be carried to the source lists is kept
-	 * and reported as a `failed` list result.
+	 * Opt-out propagation for every temporary list in the plan, whether it is
+	 * deleted or kept for a surviving campaign. A list cleared for deletion
+	 * whose opt-outs could not be carried to the source lists is kept and
+	 * reported as a `failed` list result; a kept list's failure only shows
+	 * here, and a later opt-out sync retries it.
 	 */
 	optOutPropagation: TemporaryListOptOutPropagation[];
 }
@@ -266,6 +278,14 @@ export function planCancelAbTest(
 		listActions,
 		campaignsBlockingListDeletion: survivingCampaignIds,
 		optOutSourceListIds: resolveOptOutSourceListIds(test),
+		...(test.optOutSync === undefined
+			? {}
+			: {
+					...(test.optOutSync.sourceSettlements === undefined ? {} : { optOutSourceSettlements: test.optOutSync.sourceSettlements }),
+					optOutSettledSubscriberIds: [
+						...test.optOutSync.settledSubscriberIds,
+					],
+				}),
 	};
 }
 
@@ -373,6 +393,7 @@ export function isListmonkNotFoundAnswer(response: unknown): boolean {
 export async function executeCancelPlan(
 	client: ListmonkClient,
 	plan: CancelPlan,
+	options?: { onSourceUnsubscribed?: OptOutSourceConfirmed },
 ): Promise<CancelExecutionResult> {
 	// Campaign actions are independent API calls; run them concurrently so
 	// total latency is the slowest call rather than the sum. A failure in
@@ -460,13 +481,16 @@ export async function executeCancelPlan(
 	const anySurvivingReference = survivingListReferences.size > 0;
 	// Deleting a list erases its unsubscribed memberships, so carry them to
 	// the source lists first; a list whose opt-outs are not confirmed there
-	// is kept and reported as failed so the stop can be retried.
-	const optOutPropagation = anySurvivingReference
-		? []
-		: await propagateTemporaryListsOptOuts(client, {
-				listIds: plan.listActions.map((action) => action.listId),
-				sourceListIds: plan.optOutSourceListIds ?? [],
-			});
+	// is kept and reported as failed so the stop can be retried. A list kept
+	// for a surviving campaign is carried too: that campaign's recipients may
+	// already have unsubscribed, and only the temporary list records it.
+	const optOutPropagation = await propagateTemporaryListsOptOuts(client, {
+		listIds: plan.listActions.map((action) => action.listId),
+		sourceListIds: plan.optOutSourceListIds ?? [],
+		settledSubscriberIds: plan.optOutSettledSubscriberIds,
+		sourceSettlements: plan.optOutSourceSettlements,
+		onSourceUnsubscribed: options?.onSourceUnsubscribed,
+	});
 	const propagationByListId = new Map(
 		optOutPropagation.map((propagation) => [propagation.listId, propagation]),
 	);
@@ -644,7 +668,7 @@ export async function fetchCampaignStatuses(
 export async function cancelAbTest(
 	client: ListmonkClient,
 	test: AbTest,
-	options?: { deleteTerminalCampaigns?: boolean },
+	options?: { deleteTerminalCampaigns?: boolean; onSourceUnsubscribed?: OptOutSourceConfirmed },
 ): Promise<CancelExecutionResult> {
 	// Only fetch statuses for the backing variant campaigns — the winner
 	// campaign is separately managed and planCancelAbTest always adds it to
@@ -656,7 +680,7 @@ export async function cancelAbTest(
 	const { statuses: observedStatuses, unobservable } =
 		await fetchCampaignStatuses(client, campaignIds);
 	const plan = planCancelAbTest(test, observedStatuses, options);
-	const result = await executeCancelPlan(client, plan);
+	const result = await executeCancelPlan(client, plan, options);
 	// Surface fetch failures so the caller does not persist the test as
 	// fully cancelled when a campaign's status could not be verified.
 	return { ...result, hadFetchFailures: unobservable.length > 0 };

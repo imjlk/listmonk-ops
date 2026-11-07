@@ -10,7 +10,11 @@ import {
 } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { isAudienceEligibilityPolicyVersion } from "./audience";
-import { AbTestInvalidStatusError, AbTestNotFoundError } from "./errors";
+import {
+	AbTestInvalidStatusError,
+	AbTestNotFoundError,
+	AbTestOptOutProgressError,
+} from "./errors";
 export { AbTestConflictError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { resolveConversionStorePath } from "./conversion-events";
@@ -50,6 +54,12 @@ const METRIC_TYPES = new Set([
  * written by every new write. A version 1 document is read transparently:
  * the v1 tests are re-validated and the next successful write upgrades the
  * document to version 2 without re-splitting any audience.
+ *
+ * Version 2 records may also carry the optional `optOutSync` record and,
+ * for a deleted terminal test whose temporary lists still exist, a
+ * `deletedAt` marker. Such retained records stay in `tests` (readers that
+ * predate them keep them intact on rewrite) but are hidden from every A/B
+ * lookup except the opt-out sync.
  */
 export interface StoredAbTestDocument {
 	version: 2;
@@ -388,7 +398,27 @@ function isStoredAbTest(value: unknown): boolean {
 		// present so corrupt state (negative quotas, malformed cells) is
 		// rejected at the file boundary.
 		(value.stratification === undefined ||
-			isStoredStratification(value.stratification))
+			isStoredStratification(value.stratification)) &&
+		// Opt-out sync record and the retention marker of a deleted test:
+		// optional, validated when present.
+		(value.optOutSync === undefined ||
+			isStoredOptOutSyncState(value.optOutSync)) &&
+		(value.deletedAt === undefined || isValidTimestamp(value.deletedAt))
+	);
+}
+
+function isStoredOptOutSyncState(value: unknown): boolean {
+	return (
+		isRecord(value) &&
+		Array.isArray(value.settledSubscriberIds) &&
+		value.settledSubscriberIds.every(isPositiveInteger) &&
+		(value.missingListIds === undefined ||
+			(Array.isArray(value.missingListIds) &&
+				value.missingListIds.every(isPositiveInteger))) &&
+		(value.syncedAt === undefined || isValidTimestamp(value.syncedAt)) &&
+  (value.sourceSettlements === undefined || (Array.isArray(value.sourceSettlements) &&
+   value.sourceSettlements.every((entry) => isRecord(entry) && isPositiveInteger(entry.subscriberId) &&
+    isPositiveInteger(entry.sourceListId) && (entry.through === null || isValidTimestamp(entry.through)))))
 	);
 }
 
@@ -821,20 +851,34 @@ export async function withStoredAbTestExecutors<Result>(
 
 	let actionStarted = false;
 	let actionCompleted = false;
+	// A stop or delete that failed after recording the opt-outs it carried:
+	// its record is committed and the failure raised afterwards.
+	let recordedFailure: AbTestOptOutProgressError | undefined;
+	let committed: Result | undefined;
 	try {
-		return await updateJsonFileStore(store, async (persisted) => {
+		committed = await updateJsonFileStore(store, async (persisted) => {
 			const executors = createHydratedExecutors(
 				client,
 				persisted.tests,
 				options.storePath,
 			);
 			actionStarted = true;
-			const result = await action(executors);
-			actionCompleted = true;
+			let result: Result | undefined;
+			try {
+				result = await action(executors);
+				actionCompleted = true;
+			} catch (error) {
+				if (!(error instanceof AbTestOptOutProgressError)) {
+					throw error;
+				}
+				recordedFailure = error;
+			}
 			return commitJsonFileStoreUpdate(
 				{
 					version: 2,
-					tests: executors.abTestService.snapshotTests(),
+					// Includes the retained records of deleted tests, which the
+					// opt-out sync still needs.
+					tests: executors.abTestService.snapshotStoredTests(),
 				},
 				result,
 			);
@@ -862,4 +906,11 @@ export async function withStoredAbTestExecutors<Result>(
 			error,
 		);
 	}
+	if (recordedFailure !== undefined) {
+		throw new AbTestWriteTransactionError(
+			`The A/B test operation failed; the opt-outs it carried and the temporary lists it deleted, if any, were recorded so a retry does not carry them again. Listmonk may contain partial changes; inspect remote resources before retrying. Cause: ${recordedFailure.message}`,
+			recordedFailure,
+		);
+	}
+	return committed as Result;
 }

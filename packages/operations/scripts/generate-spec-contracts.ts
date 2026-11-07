@@ -220,6 +220,8 @@ import type {
 	AbTestExportOutput,
 	AbTestDeleteOutput,
 	AbTestDeployWinnerOutput,
+	AbTestSyncOptOutsInput,
+	AbTestSyncOptOutsOutput,
 	BounceCollectionOutput,
 	BounceDeleteOutput,
 	BounceIdInput,
@@ -976,6 +978,12 @@ const contracts = {
 	),
 	abTestDeployWinnerOutputContract: contractSchema(
 		typia.json.schema<AbTestDeployWinnerOutput>(),
+	),
+	abTestSyncOptOutsInputContract: contractSchema(
+		typia.json.schema<AbTestSyncOptOutsInput>(),
+	),
+	abTestSyncOptOutsOutputContract: contractSchema(
+		typia.json.schema<AbTestSyncOptOutsOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

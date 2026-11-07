@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	buildCreateInputFromFlags,
 	buildRunAbTestInputFromFlags,
+	formatOptOutSyncWarnings,
 } from "../src/commands/abtest";
 
 function createFlags(overrides: Partial<Parameters<typeof buildCreateInputFromFlags>[0]> = {}) {
@@ -82,5 +83,56 @@ describe("A/B test CLI input", () => {
 			expected_status: "analyzing",
 			expected_updated_at: "2026-07-30T17:00:00.000Z",
 		});
+	});
+
+	test("names every temporary list whose opt-outs could not be carried", () => {
+		expect(
+			formatOptOutSyncWarnings({
+				dry_run: false,
+				checked: 3,
+				failed: 2,
+				results: [
+					{
+						test_id: "test-ok",
+						status: "completed",
+						deleted: false,
+						source_list_ids: [1],
+						lists: [
+							{ list_id: 200, status: "propagated", opted_out: 1, carried: 1, pending: 0 },
+						],
+					},
+					{
+						test_id: "test-partial",
+						status: "cancelled",
+						deleted: true,
+						source_list_ids: [1, 2],
+						lists: [
+							{ list_id: 201, status: "up_to_date", opted_out: 2, carried: 0, pending: 0 },
+							{
+								list_id: 202,
+								status: "failed",
+								opted_out: 3,
+								carried: 1,
+								pending: 2,
+								detail: "2 opted-out subscriber(s) are still subscribed",
+							},
+							{ list_id: 203, status: "blocked", opted_out: 1, carried: 0, pending: 1 },
+						],
+					},
+					{
+						test_id: "test-broken",
+						status: "completed",
+						deleted: false,
+						source_list_ids: [],
+						lists: [],
+						detail: "unexpected record",
+					},
+				],
+			}),
+		).toEqual([
+			"A/B test test-partial temporary list 202 failed: 2 opted-out subscriber(s) are still subscribed",
+			"A/B test test-partial temporary list 203 blocked: its opt-outs were not confirmed on the source lists",
+			"A/B test test-broken opt-out sync failed: unexpected record",
+		]);
 	});
 });
