@@ -32,7 +32,7 @@ export function unwrapResponseData<T>(
 }
 
 export async function getCampaign(
-	client: ListmonkClient,
+	client: { campaign: Pick<ListmonkClient["campaign"], "getById"> },
 	campaignId: number,
 ): Promise<Campaign> {
 	const response = await client.campaign.getById({
@@ -42,7 +42,7 @@ export async function getCampaign(
 }
 
 export async function getListById(
-	client: ListmonkClient,
+	client: { list: Pick<ListmonkClient["list"], "getById"> },
 	listId: number,
 ): Promise<List> {
 	const response = await client.list.getById({

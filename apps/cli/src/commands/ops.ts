@@ -1,6 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
+	invokeCampaignReviewOperation,
 	invokeCampaignPreflightOperation,
 	invokeDailyDigestOperation,
 	invokeDeliverabilityGuardOperation,
@@ -30,6 +31,34 @@ export default defineGroup({
 	name: "ops",
 	description: "Operational automation and safety tooling",
 	commands: [
+ defineCommand({
+  name: "campaign-review", operationId: "ops.campaign.review",
+  description: "Collect read-only review evidence and compare a saved snapshot; never sends",
+  options: {
+   "campaign-id": option(positiveIntegerIdSchema, { description: "Campaign ID" }),
+   "max-audience": option(z.coerce.number().int().positive().optional(), { description: "Audience warning threshold" }),
+   compare: option(z.string().min(1).optional(), { description: "Previous snapshot JSON file (at most 256 KiB)" }),
+   "snapshot-output": option(z.string().min(1).optional(), { description: "Save snapshot JSON to a new private local file (never overwrite)" }),
+  },
+  handler: async ({ flags, ...args }) => {
+   let previous: unknown;
+   if (flags.compare) {
+    if ((await stat(flags.compare)).size > 262_144) throw new Error("Review snapshot file exceeds 256 KiB");
+    const source = await readFile(flags.compare, "utf8");
+    if (Buffer.byteLength(source) > 262_144) throw new Error("Review snapshot file exceeds 256 KiB");
+    try { previous = JSON.parse(source); } catch { throw new Error("Invalid review snapshot JSON"); }
+   }
+   const client = await getListmonkClient(args);
+   const result = await invokeCampaignReviewOperation({ client }, {
+    campaign_id: flags["campaign-id"], max_audience: flags["max-audience"], previous_snapshot: previous,
+   });
+   if (flags["snapshot-output"]) {
+    // Exclusive create avoids clobbering an earlier review (including symlink targets).
+    await writeFile(flags["snapshot-output"], `${JSON.stringify(result.snapshot, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+   }
+   getOutput().json(result);
+  },
+ }),
 		defineCommand({
 			name: "preflight",
 			operationId: "ops.campaign.preflight",

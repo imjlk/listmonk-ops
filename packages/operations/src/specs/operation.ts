@@ -56,6 +56,7 @@ export type OperationSpecVerb =
 	| "dns-check"
 	| "diff"
 	| "preflight"
+ | "review"
 	| "blocklist"
 	| "search"
 	| "describe"

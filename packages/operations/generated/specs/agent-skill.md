@@ -1374,6 +1374,20 @@ Verify with: `media.list`
 
 Retry guidance: Key the upload with idempotency_key so an ambiguous retry replays the bound media file; without a key, verify with media.list before repeating.
 
+## Build campaign review package (`ops.campaign.review`)
+
+Contract maturity: `experimental`; effects: `read:campaign, read:list, read:template`; confirmation: `never`; retry: `safe`.
+
+Use when: A human needs campaign content, audience estimates, preflight and changes in one review package.
+
+Avoid when: Atomic approval or a recipient-exact send guarantee is required.
+
+Prerequisites: `campaigns.get`
+
+Verify with: `ops.campaign.preflight`
+
+Retry guidance: Retry reads safely. Re-review changes before separately approved delivery; expected_updated_at is not an atomic lock.
+
 ## Detect segment drift (`ops.segments.drift`)
 
 Contract maturity: `stable`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `conditional`.

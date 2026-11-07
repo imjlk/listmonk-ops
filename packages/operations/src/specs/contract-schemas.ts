@@ -193,6 +193,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberBulkBlocklistInputContract: NormalizedContractSchema;
 	segmentDriftInputContract: NormalizedContractSchema;
 	segmentDriftOutputContract: NormalizedContractSchema;
+	campaignReviewInputContract: NormalizedContractSchema;
+	campaignReviewOutputContract: NormalizedContractSchema;
 	dailyDigestInputContract: NormalizedContractSchema;
 	dailyDigestOutputContract: NormalizedContractSchema;
 	deliverabilityGuardInputContract: NormalizedContractSchema;
@@ -588,3 +590,6 @@ export const abTestDeleteOutputContract = contracts.abTestDeleteOutputContract;
 export const abTestDeployWinnerOutputContract = contracts.abTestDeployWinnerOutputContract;
 
 export const controlConfigurationOutputContract = contracts.controlConfigurationOutputContract;
+
+export const campaignReviewInputContract = contracts.campaignReviewInputContract;
+export const campaignReviewOutputContract = contracts.campaignReviewOutputContract;

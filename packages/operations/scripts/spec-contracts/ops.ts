@@ -174,3 +174,44 @@ export interface TemplateRollbackOutput {
 	/** False when the requested rollback was already applied. */
 	rolledBack: boolean;
 }
+
+export interface CampaignReviewFields {
+	name: ReviewText;
+	subject: ReviewText;
+	from_email: ReviewText;
+	status: ReviewText;
+	send_at: ReviewText;
+	updated_at: ReviewText;
+	content_type: ReviewText;
+	messenger: ReviewText;
+	template_id: ResourceId | null;
+	template_updated_at: ReviewText;
+	template_body_sha256: ReviewDigest;
+	body_sha256: ReviewDigest;
+	altbody_sha256: ReviewDigest;
+	preview_sha256: ReviewDigest;
+}
+type ReviewText = (string & tags.MaxLength<512>) | null;
+type ReviewDigest = (string & tags.Pattern<"^[a-f0-9]{64}$">) | null;
+export interface CampaignReviewSnapshot {
+	version: 1;
+	campaign_id: ResourceId;
+	campaign_uuid: ReviewText;
+	fields: CampaignReviewFields;
+	lists: { id: ResourceId; name: ReviewText; subscriber_count: NonNegativeInteger | null }[] & tags.MaxItems<100>;
+}
+export interface CampaignReviewInput {
+	campaign_id: ResourceId;
+	max_audience?: PositiveInteger;
+	previous_snapshot?: CampaignReviewSnapshot;
+}
+export interface CampaignReviewOutput {
+	snapshot: CampaignReviewSnapshot;
+	preview: { html: (string & tags.MaxLength<2000000>) | null; trusted: false };
+	preflight: {
+		checks: { id: string; level: "pass" | "warn" | "fail"; message: string }[];
+		summary: { pass: number; warn: number; fail: number }; audienceEstimate: number;
+	};
+	comparison: { compared: boolean; changed_fields: string[]; messages: string[] };
+	limitations: string[];
+}
