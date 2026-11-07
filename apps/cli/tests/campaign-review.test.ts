@@ -22,8 +22,8 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(request) {
  if (path === "/api/lists/7") return Response.json({ data: { id: 7, name: "Audience", subscriber_count: 10 } });
  return new Response("Not found", { status: 404 });
 } });
-afterAll(() => {
-	server.stop(true);
+afterAll(async () => {
+	await server.stop(true);
 	rmSync(directory, { recursive: true, force: true });
 });
 async function run(args: string[]) {
@@ -68,7 +68,7 @@ describe("campaign review CLI", () => {
 		expect(first.stderr).toBe("");
 		const result = JSON.parse(first.stdout);
 		expect(JSON.parse(readFileSync(path, "utf8"))).toEqual(result.snapshot);
-		expect(statSync(path).mode & 0o777).toBe(0o600);
+		if (process.platform !== "win32") expect(statSync(path).mode & 0o777).toBe(0o600);
 		const compare = await run(["--compare", path]);
 		expect(compare.code).toBe(0);
 		expect(JSON.parse(compare.stdout).comparison).toEqual({

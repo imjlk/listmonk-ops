@@ -139,10 +139,25 @@ describe("campaign review package", () => {
 	});
 	test("missing revision and concurrent edits fail closed", async () => {
 		await expect(buildCampaignReview(fixture({ updated_at: undefined }).client, input)).rejects.toThrow("missing updated_at");
-		const { client, campaign } = fixture();
-		const original = client.campaign.preview;
-		client.campaign.preview = async (...args) => { const response = await original(...args); campaign.updated_at = "new"; return response; };
-		await expect(buildCampaignReview(client, input)).rejects.toThrow("changed while collecting");
+		for (const field of ["updated_at", "uuid"] as const) {
+			const { client, campaign } = fixture();
+			const original = client.campaign.preview;
+			client.campaign.preview = async (...args) => { const response = await original(...args); campaign[field] = "new"; return response; };
+			await expect(buildCampaignReview(client, input)).rejects.toThrow("changed while collecting");
+		}
+	});
+	test("revision transport and envelope failures use one sanitized label", async () => {
+		for (const failure of ["envelope", "transport"] as const) {
+			const { client } = fixture();
+			const original = client.campaign.getById;
+			let reads = 0;
+			client.campaign.getById = async (...args) => {
+				if (++reads === 1) return original(...args);
+				if (failure === "transport") throw new Error("credential-secret");
+				return ({ error: { message: "credential-secret" } }) as never;
+			};
+			await expect(buildCampaignReview(client, input)).rejects.toThrow(/^Campaign review could not read campaign revision; verify permissions and retry$/);
+		}
 	});
 	test("bounds lists before fan-out and rejects invalid snapshots", async () => {
 		const { client, calls } = fixture({

@@ -231,8 +231,8 @@ export async function buildCampaignReview(client: CampaignPreflightClient, input
 	 lists,
  });
 	const current = reviewData(
-	 await readReview(() => client.campaign.getById({ path: { id: input.campaign_id } }), "campaign"),
-	 "Campaign review could not verify revision",
+	 await readReview(() => client.campaign.getById({ path: { id: input.campaign_id } }), "campaign revision"),
+	 "campaign revision",
  );
 	if (current.id !== campaign.id || current.uuid !== campaign.uuid || current.updated_at !== campaign.updated_at) throw new Error("Campaign changed while collecting review; collect a new review");
 	return {
