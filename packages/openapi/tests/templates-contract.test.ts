@@ -89,8 +89,8 @@ describe("Template Operations Contract", () => {
 		});
 	});
 
-	afterEach(() => {
-		server.stop(true);
+	afterEach(async () => {
+		await server.stop(true);
 	});
 
 	test("template.list should normalize array payload to results format", async () => {

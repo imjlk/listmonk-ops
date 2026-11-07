@@ -814,7 +814,7 @@ export default defineGroup({
 			operationId: "subscribers.create",
 			description: "Create a subscriber",
 			options: {
-				email: option(z.string().trim().email(), {
+				email: option(z.string().trim().check(z.email()), {
 					description: "Subscriber email",
 				}),
 				name: option(z.string().trim().optional(), {
@@ -847,7 +847,7 @@ export default defineGroup({
 				id: option(positiveIntegerIdSchema, {
 					description: "Subscriber ID",
 				}),
-				email: option(z.string().trim().email().optional(), {
+				email: option(z.string().trim().check(z.email()).optional(), {
 					description: "Subscriber email",
 				}),
 				name: option(z.string().trim().optional(), {

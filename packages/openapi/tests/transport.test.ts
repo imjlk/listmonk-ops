@@ -238,8 +238,8 @@ describe("resilient fetch redirects", () => {
 			expect(result.data).toBeUndefined();
 			expect(targetHits).toBe(0);
 		} finally {
-			origin.stop(true);
-			target.stop(true);
+			await origin.stop(true);
+			await target.stop(true);
 		}
 	});
 });

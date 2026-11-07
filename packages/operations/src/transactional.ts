@@ -368,10 +368,13 @@ export const idempotencyKeySchema = idempotencyKeyBaseSchema
 const sendTransactionalInputSchema = z
 	.object({
 		template_id: positiveIdInputSchema.describe("Transactional template ID"),
+		// Validate the trimmed value: `z.email().trim()` would validate before
+		// trimming, and `.pipe(z.email())` would drop the email format from the
+		// published input JSON Schema.
 		subscriber_email: z
 			.string()
 			.trim()
-			.email()
+			.check(z.email())
 			.optional()
 			.describe("Recipient subscriber email"),
 		subscriber_id: positiveIdInputSchema

@@ -669,9 +669,9 @@ export default defineGroup({
 				"variant-id": option(z.string().trim().min(1), { description: "Assigned variant ID" }),
 				"subscriber-uuid": option(z.string().trim().min(1), { description: "Assigned subscriber UUID" }),
 				event: option(z.string().trim().min(1), { description: "Event name, such as purchase" }),
-				value: option(z.coerce.number().finite().nonnegative().optional(), { description: "Optional monetary value" }),
+				value: option(z.coerce.number().nonnegative().optional(), { description: "Optional monetary value" }),
 				currency: option(z.string().trim().min(1).optional(), { description: "ISO 4217 currency when value is provided" }),
-				"occurred-at": option(z.string().datetime({ offset: true }), { description: "Event ISO timestamp" }),
+				"occurred-at": option(z.iso.datetime({ offset: true }), { description: "Event ISO timestamp" }),
 			},
 			handler: async ({ flags, ...args }) => {
 				const result = await invokeCliRecordAbTestConversion(args, {
@@ -887,7 +887,7 @@ export default defineGroup({
 					description: "Comma-separated list IDs",
 				}),
 				"test-group-percentage": option(
-					z.coerce.number().finite().gt(0).lte(100),
+					z.coerce.number().gt(0).lte(100),
 					{
 						description: "Planned test-group percentage",
 					},
