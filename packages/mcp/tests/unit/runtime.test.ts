@@ -37,7 +37,7 @@ function reservePort(): number {
 		},
 	});
 	const { port } = server;
-	server.stop(true);
+	void server.stop(true);
 	return port;
 }
 
@@ -398,8 +398,8 @@ describe("mcp runtime entrypoint", () => {
 		});
 		runningProcesses.push(proc);
 		const send = (message: unknown) => {
-			proc.stdin.write(`${JSON.stringify(message)}\n`);
-			proc.stdin.flush();
+			void proc.stdin.write(`${JSON.stringify(message)}\n`);
+			void proc.stdin.flush();
 		};
 		const reader = proc.stdout.getReader();
 		const decoder = new TextDecoder();
@@ -449,7 +449,7 @@ describe("mcp runtime entrypoint", () => {
 		} finally {
 			proc.kill();
 			await proc.exited;
-			listmonk.stop(true);
+			await listmonk.stop(true);
 		}
 		for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
 			stdout += decoder.decode(chunk.value, { stream: true });

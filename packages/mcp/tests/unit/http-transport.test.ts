@@ -272,7 +272,7 @@ describe("MCP HTTP transport boundary", () => {
 				});
 			}
 		} finally {
-			listener.stop(true);
+			await listener.stop(true);
 		}
 	});
 
@@ -291,7 +291,7 @@ describe("MCP HTTP transport boundary", () => {
 			expect(consoleError).not.toHaveBeenCalled();
 		} finally {
 			consoleError.mockRestore();
-			listener.stop(true);
+			await listener.stop(true);
 		}
 	});
 
@@ -404,7 +404,7 @@ describe("MCP HTTP transport boundary", () => {
 			);
 			expect(response.status).toBe(200);
 		} finally {
-			listener.stop(true);
+			await listener.stop(true);
 		}
 
 		await expect(server.listen(0, "0.0.0.0")).rejects.toThrow(
@@ -425,6 +425,6 @@ describe("MCP HTTP transport boundary", () => {
 			allowedHttpOrigins: ["https://app.example.com"],
 		});
 		const remoteListener = await remoteServer.listen(0, "0.0.0.0");
-		remoteListener.stop(true);
+		await remoteListener.stop(true);
 	});
 });

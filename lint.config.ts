@@ -32,5 +32,14 @@ export default {
 		"no-throw-literal": "error",
 		// The noCheck quality project cannot resolve Bun's async expect matchers.
 		"typescript/await-thenable": "off",
+		"typescript/no-floating-promises": "error",
+		"typescript/no-misused-promises": "error",
+		// A deliberate `default` covers the remaining members; switches without
+		// one must handle every member of a finite union.
+		"typescript/switch-exhaustiveness-check": [
+			"error",
+			{ considerDefaultExhaustiveForUnions: true },
+		],
+		"typescript/only-throw-error": "error",
 	},
 } satisfies ITtscLintConfig;

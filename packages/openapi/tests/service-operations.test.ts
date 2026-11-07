@@ -44,8 +44,8 @@ describe("Service operation factories", () => {
 		});
 	});
 
-	afterEach(() => {
-		server.stop(true);
+	afterEach(async () => {
+		await server.stop(true);
 	});
 
 	test("createSettingsOperations rejects redacted settings update placeholders", async () => {

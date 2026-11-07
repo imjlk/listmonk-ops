@@ -89,7 +89,7 @@ describe("bounded Listmonk readiness probes", () => {
 			});
 			expect(result.state).toBe("unavailable");
 			expect(Date.now() - started).toBeLessThan(2_000);
-		} finally { server.stop(true); }
+		} finally { await server.stop(true); }
 	});
 });
 
@@ -119,7 +119,7 @@ test("redirects retain connectivity evidence without forwarding credentials", as
 		});
 		expect(redirected).toBe(0);
 	} finally {
-		server.stop(true);
-		destination.stop(true);
+		await server.stop(true);
+		await destination.stop(true);
 	}
 });

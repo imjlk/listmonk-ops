@@ -730,17 +730,19 @@ async function writeJsonFileAtomic(
 		operationError = error;
 	}
 
+	let cleanupFailed = false;
 	let cleanupError: unknown;
 	if (temporaryFileCreated) {
 		try {
 			await unlinkIfExists(temporaryPath);
 		} catch (error) {
+			cleanupFailed = true;
 			cleanupError = error;
 		}
 	}
 
 	if (operationFailed) {
-		if (cleanupError !== undefined) {
+		if (cleanupFailed) {
 			console.warn(
 				`Failed to clean temporary JSON store file ${temporaryPath}`,
 				cleanupError,
@@ -748,7 +750,7 @@ async function writeJsonFileAtomic(
 		}
 		throw operationError;
 	}
-	if (cleanupError !== undefined) {
+	if (cleanupFailed) {
 		throw cleanupError;
 	}
 }
