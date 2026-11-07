@@ -16,9 +16,13 @@ function ipv6LoopbackAvailable(): boolean {
 	}
 }
 
-/** Run the bootstrap with a minimal environment: no GITHUB_ENV or operator shell. */
+/**
+ * Run the bootstrap with a minimal environment: no GITHUB_ENV or operator shell.
+ * It runs under the Bun running these tests, not `bun` from PATH: a
+ * version-manager shim there reads its trust state from the real HOME.
+ */
 async function runBootstrap(directory: string, apiUrl: string) {
-	const child = Bun.spawn(["bun", bootstrap], {
+	const child = Bun.spawn([process.execPath, bootstrap], {
 		env: {
 			PATH: process.env.PATH ?? "",
 			HOME: directory,

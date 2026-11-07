@@ -171,7 +171,10 @@ It packs the CLI and its workspace dependencies with `bun pm pack` as the
 release workflow does, installs the tarballs into a temporary npm project, and
 runs the installed `listmonk-cli` offline. Third-party dependencies come from
 the configured npm registry or cache, and the check is skipped when npm is not
-installed. CI runs it after the workspace build.
+installed. The install prefers cached registry metadata; when npm reports
+`ETARGET` (no version matches a range, for example because the metadata was
+cached before a dependency published that version), the check logs a retry and
+installs once more with `--prefer-online`. CI runs it after the workspace build.
 
 ### Published declarations
 
@@ -199,8 +202,8 @@ public entry point and subpath export with `skipLibCheck: false` under
 `bundler`, `node16`, and `nodenext` resolution. TypeScript 5.0 skips
 `operations`, `automation`, and `abtest` because their zod 4 types need
 TypeScript 5.4. Like the CLI install check, it reads packages from the npm
-registry or cache, is skipped when npm is not installed, and runs in CI after
-the workspace build.
+registry or cache with the same single `--prefer-online` retry on `ETARGET`, is
+skipped when npm is not installed, and runs in CI after the workspace build.
 
 ### TypeScript code graph
 

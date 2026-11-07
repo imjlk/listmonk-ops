@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -10,12 +11,17 @@ import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import {
 	CLI_PACKAGE_NAME,
+	type CommandResult,
 	collectWorkspaceClosure,
 	findInstalledWorkspaceCopies,
 	isPublishedBundleCommand,
+	type NpmMetadataPolicy,
+	npmInstall,
+	npmInstallCommand,
 	parseBundlerExternals,
 	readWorkspaces,
 	requireWorkspace,
+	shouldRetryWithFreshMetadata,
 	WORKSPACE_SCOPE,
 	workspaceRuntimeDependencies,
 	type Workspace,
@@ -254,5 +260,190 @@ describe("published package shape", () => {
 					.map((field) => `${manifest.name} ${field}`),
 			);
 		expect(offenders).toEqual([]);
+	});
+});
+
+const ETARGET_STDERR = [
+	"npm error code ETARGET",
+	"npm error notarget No matching version found for @aws-sdk/client-sesv2@^3.1000.0.",
+	"npm error notarget In most cases you or one of your dependencies are requesting",
+	"npm error notarget a package version that doesn't exist.",
+	"npm error A complete log of this run can be found in: /home/ci/.npm/_logs/debug-0.log",
+	"",
+].join("\n");
+
+function failedInstall(
+	stderr: string,
+	fields: Partial<CommandResult> = {},
+): CommandResult {
+	return {
+		exitCode: 1,
+		signal: null,
+		timedOut: false,
+		stdout: "",
+		stderr,
+		...fields,
+	};
+}
+
+/**
+ * Writes an `npm` stand-in that records each invocation's arguments and
+ * answers with the stderr and exit status configured for its metadata policy.
+ */
+function writeFakeNpm(
+	directory: string,
+	answers: Record<NpmMetadataPolicy, { stderr: string; exitCode: number }>,
+): { npm: string; calls: () => string[] } {
+	const npm = join(directory, "npm");
+	const callsPath = join(directory, "calls.log");
+	const branches = Object.entries(answers).map(([policy, answer]) => {
+		const stderrPath = join(directory, `${policy.slice(2)}.stderr`);
+		writeFileSync(stderrPath, answer.stderr);
+		return `*" ${policy} "*) cat '${stderrPath}' >&2; exit ${answer.exitCode} ;;`;
+	});
+	writeFileSync(
+		npm,
+		[
+			"#!/bin/sh",
+			`printf '%s\\n' "$*" >>'${callsPath}'`,
+			'case " $* " in',
+			...branches,
+			"esac",
+			"exit 64",
+			"",
+		].join("\n"),
+		{ mode: 0o755 },
+	);
+	return {
+		npm,
+		calls: () =>
+			existsSync(callsPath)
+				? readFileSync(callsPath, "utf8").trim().split("\n")
+				: [],
+	};
+}
+
+describe("npm install metadata retry", () => {
+	const succeeded = { stderr: "", exitCode: 0 };
+	const etarget = { stderr: ETARGET_STDERR, exitCode: 1 };
+	const offlineArguments = npmInstallCommand("npm", "--prefer-offline")
+		.slice(1)
+		.join(" ");
+	const onlineArguments = npmInstallCommand("npm", "--prefer-online")
+		.slice(1)
+		.join(" ");
+
+	async function withProject(
+		run: (directory: string) => Promise<void>,
+	): Promise<void> {
+		const directory = mkdtempSync(join(tmpdir(), "listmonk-npm-retry-"));
+		try {
+			await run(directory);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	}
+
+	test("retries ETARGET from stale cached metadata", () => {
+		expect(shouldRetryWithFreshMetadata(failedInstall(ETARGET_STDERR))).toBe(
+			true,
+		);
+		// npm before 10 prefixed its errors with `npm ERR!`.
+		expect(
+			shouldRetryWithFreshMetadata(
+				failedInstall(
+					"npm ERR! code ETARGET\nnpm ERR! notarget No matching version found for zod@^4.9.0.\n",
+				),
+			),
+		).toBe(true);
+		// A forced color setting wraps the prefix and title in ANSI escapes.
+		expect(
+			shouldRetryWithFreshMetadata(
+				failedInstall(
+					"\u001b[31mnpm\u001b[39m \u001b[41merror\u001b[49m \u001b[35mnotarget\u001b[39m No matching version found for zod@^4.9.0.\n",
+				),
+			),
+		).toBe(true);
+	});
+
+	test("reports every other outcome without a retry", () => {
+		expect(
+			shouldRetryWithFreshMetadata(
+				failedInstall(ETARGET_STDERR, { exitCode: 0 }),
+			),
+		).toBe(false);
+		for (const stderr of [
+			"npm error code E404\nnpm error 404 Not Found - GET https://registry.npmjs.org/notarget - Not found\n",
+			"npm error code ENOTFOUND\nnpm error syscall getaddrinfo\n",
+			"npm error code EINTEGRITY\n",
+			"",
+		]) {
+			expect(shouldRetryWithFreshMetadata(failedInstall(stderr))).toBe(false);
+		}
+		// A stalled or killed install is not retried, which keeps the bound.
+		expect(
+			shouldRetryWithFreshMetadata(
+				failedInstall(ETARGET_STDERR, {
+					exitCode: 137,
+					signal: "SIGKILL",
+					timedOut: true,
+				}),
+			),
+		).toBe(false);
+		expect(
+			shouldRetryWithFreshMetadata(
+				failedInstall(ETARGET_STDERR, { signal: "SIGTERM" }),
+			),
+		).toBe(false);
+	});
+
+	test("installs with cached metadata first and retries ETARGET once with fresh metadata", async () => {
+		await withProject(async (directory) => {
+			const { npm, calls } = writeFakeNpm(directory, {
+				"--prefer-offline": etarget,
+				"--prefer-online": succeeded,
+			});
+			const reports: string[] = [];
+
+			await npmInstall(npm, directory, (message) => reports.push(message));
+
+			expect(calls()).toEqual([offlineArguments, onlineArguments]);
+			expect(reports).toHaveLength(1);
+			expect(reports[0]).toContain("ETARGET");
+			expect(reports[0]).toContain("retrying once with --prefer-online");
+		});
+	});
+
+	test("reports the retry's failure without a third attempt", async () => {
+		await withProject(async (directory) => {
+			const { npm, calls } = writeFakeNpm(directory, {
+				"--prefer-offline": etarget,
+				"--prefer-online": {
+					stderr: "npm error code ENOTFOUND\n",
+					exitCode: 1,
+				},
+			});
+
+			await expect(npmInstall(npm, directory, () => {})).rejects.toThrow(
+				"npm install --prefer-online (retry after ETARGET) exited with 1\nnpm error code ENOTFOUND",
+			);
+			expect(calls()).toEqual([offlineArguments, onlineArguments]);
+		});
+	});
+
+	test("fails other install errors without a retry", async () => {
+		await withProject(async (directory) => {
+			const { npm, calls } = writeFakeNpm(directory, {
+				"--prefer-offline": { stderr: "npm error code E404\n", exitCode: 1 },
+				"--prefer-online": succeeded,
+			});
+			const reports: string[] = [];
+
+			await expect(
+				npmInstall(npm, directory, (message) => reports.push(message)),
+			).rejects.toThrow("npm install exited with 1\nnpm error code E404");
+			expect(calls()).toEqual([offlineArguments]);
+			expect(reports).toEqual([]);
+		});
 	});
 });

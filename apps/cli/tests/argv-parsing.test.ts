@@ -56,8 +56,13 @@ beforeEach(() => {
 
 async function runCli(args: string[]) {
 	const executable = process.env.CLI_TEST_EXECUTABLE?.trim();
+	// The source CLI runs under the Bun running these tests: with the temporary
+	// HOME below, a version-manager shim found as `bun` on PATH (for example
+	// mise) cannot read its trust state from the real HOME.
 	const child = Bun.spawn(
-		executable ? [executable, ...args] : ["bun", "src/index.ts", ...args],
+		executable
+			? [executable, ...args]
+			: [process.execPath, "src/index.ts", ...args],
 		{
 			cwd: cliDirectory,
 			// A minimal environment keeps developer profiles and stores out of the run.
