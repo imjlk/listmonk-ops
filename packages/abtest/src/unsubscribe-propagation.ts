@@ -543,8 +543,14 @@ async function unsubscribeOptOutsFromSourceLists(
 	client: ListmonkClient,
 	optOuts: readonly TemporaryListOptOut[],
 	sourceListIds: readonly number[],
-	chunkSize?: number,
+	chunkSize: number = OPT_OUT_UNSUBSCRIBE_CHUNK_SIZE,
+	onChunk?: (subscriberIds: readonly number[]) => Promise<void>,
 ): Promise<void> {
+	if (!Number.isSafeInteger(chunkSize) || chunkSize <= 0) {
+		throw new Error(
+			`chunkSize must be a positive integer, received ${chunkSize}`,
+		);
+	}
 	const groups = new Map<
 		string,
 		{ listIds: number[]; subscriberIds: number[] }
@@ -559,12 +565,16 @@ async function unsubscribeOptOutsFromSourceLists(
 		groups.set(key, group);
 	}
 	for (const group of groups.values()) {
-		await unsubscribeSubscribersFromLists(
-			client,
-			group.subscriberIds,
-			group.listIds,
-			chunkSize,
-		);
+		for (let offset = 0; offset < group.subscriberIds.length; offset += chunkSize) {
+			const chunk = group.subscriberIds.slice(offset, offset + chunkSize);
+			await unsubscribeSubscribersFromLists(
+				client,
+				chunk,
+				group.listIds,
+				chunkSize,
+			);
+			await onChunk?.(chunk);
+		}
 	}
 }
 
@@ -764,30 +774,42 @@ export async function propagateTemporaryListOptOuts(
 			sourceListIds,
 		};
 	}
+	// Retain only read-confirmed chunk progress if a later chunk fails.
+	// An acknowledgement alone is not proof: Listmonk can silently skip lists.
+	const newlySettled = new Set(settledAsRead);
+	let reread = optOuts;
+	const carriedCount = () => pending.filter((optOut) =>
+		newlySettled.has(optOut.subscriberId),
+	).length;
 	try {
 		await unsubscribeOptOutsFromSourceLists(
 			client,
 			pending,
 			sourceListIds,
 			input.chunkSize,
+			async (chunk) => {
+				reread = await readTemporaryListOptOuts(client, listId, { pageSize: input.pageSize });
+				const chunkIds = new Set(chunk);
+				for (const optOut of reread) {
+					if (chunkIds.has(optOut.subscriberId) && resolvePendingSourceListIds(optOut, sourceListIds).length === 0) {
+						newlySettled.add(optOut.subscriberId);
+					}
+				}
+			},
 		);
-		const reread = await readTemporaryListOptOuts(client, listId, {
-			pageSize: input.pageSize,
-		});
 		// Settled opt-outs are not re-checked: a person who re-subscribed to
 		// a source list after an earlier carry must not fail the confirmation.
 		const confirmed = reread.filter(
-			(optOut) => !settled.has(optOut.subscriberId),
+			(optOut) => !settled.has(optOut.subscriberId) && !newlySettled.has(optOut.subscriberId),
 		);
 		const unconfirmed = new Set(
 			findUnpropagatedOptOuts(confirmed, sourceListIds),
 		);
-		const settledSubscriberIds = confirmed
-			.filter((optOut) => !unconfirmed.has(optOut.subscriberId))
-			.map((optOut) => optOut.subscriberId);
-		const propagatedCount = pending.filter(
-			(optOut) => !unconfirmed.has(optOut.subscriberId),
-		).length;
+		for (const optOut of confirmed) {
+			if (!unconfirmed.has(optOut.subscriberId)) newlySettled.add(optOut.subscriberId);
+		}
+		const settledSubscriberIds = [...newlySettled];
+		const propagatedCount = carriedCount();
 		const optedOutCount = reread.length;
 		if (unconfirmed.size > 0) {
 			return {
@@ -813,16 +835,18 @@ export async function propagateTemporaryListOptOuts(
 			sourceListIds,
 		};
 	} catch (error) {
+		const propagatedCount = carriedCount();
+		const pendingCount = pending.length - propagatedCount;
 		return {
 			listId,
 			status: "failed",
 			safeToDelete: false,
-			optedOutCount: optOuts.length,
-			propagatedCount: 0,
-			pendingCount: pending.length,
-			settledSubscriberIds: settledAsRead,
+			optedOutCount: reread.length,
+			propagatedCount,
+			pendingCount,
+			settledSubscriberIds: [...newlySettled],
 			sourceListIds,
-			detail: `${pending.length} opt-out(s) could not be carried to source lists ${sourceListIds.join(", ")}: ${describeError(error)}`,
+			detail: `${pendingCount} opt-out(s) could not be carried to source lists ${sourceListIds.join(", ")}: ${describeError(error)}`,
 		};
 	}
 }

@@ -1210,11 +1210,10 @@ export default defineGroup({
 						);
 					}
 					getOutput().json(result);
-					// Keep the structured result on stdout and report opt-outs
-					// that could not be carried through the exit code, so a
-					// scheduler notices.
+					// Preserve structured stdout, but fail the execution boundary so
+					// audit and lifecycle events cannot report a successful sync.
 					if (result.failed > 0) {
-						process.exitCode = 1;
+						throw new Error(`${result.failed} A/B test(s) have unresolved opt-out sync failures`);
 					}
 					return result;
 				} catch (error) {

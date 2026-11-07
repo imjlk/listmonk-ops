@@ -571,6 +571,51 @@ describe("repeated propagation carries each opt-out once", () => {
 		});
 	});
 
+	test("retains 500 confirmed opt-outs when the next chunk fails, preserving later reconsent", async () => {
+		const fake = createFakeListmonk({ failUnsubscribeSubscriberIds: [1] });
+		for (let id = 1; id <= 501; id += 1) {
+			fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		}
+		const input = { listId: 200, sourceListIds: [SOURCE_A] };
+		const first = await propagateTemporaryListOptOuts(fake.client, input);
+		expect(first).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 500, pendingCount: 1 });
+		expect(first.settledSubscriberIds).toHaveLength(500);
+		expect(first.settledSubscriberIds).not.toContain(1);
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(501, SOURCE_A);
+		fake.options.failUnsubscribeSubscriberIds = [];
+		const before = fake.unsubscribes.length;
+		const second = await propagateTemporaryListOptOuts(fake.client, { ...input, settledSubscriberIds: first.settledSubscriberIds });
+		expect(fake.unsubscribes.slice(before)).toEqual([{ ids: [1], target_list_ids: [SOURCE_A] }]);
+		expect(fake.membership(501, SOURCE_A)).toBe("unconfirmed");
+		expect(second).toMatchObject({ status: "propagated", propagatedCount: 1, pendingCount: 0, settledSubscriberIds: [1] });
+	});
+
+	test("retains earlier confirmed chunks when a later confirmation read fails", async () => {
+		const fake = createFakeListmonk();
+		for (let id = 1; id <= 3; id += 1) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const original = fake.client.subscriber.listRaw;
+		let reads = 0;
+		const reader = spyOn(fake.client.subscriber, "listRaw").mockImplementation(async (...args) => {
+			if (++reads === 3) throw new Error("confirmation unavailable");
+			return original(...args);
+		});
+		try {
+			const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A], chunkSize: 2 });
+			expect(result).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 2, pendingCount: 1, settledSubscriberIds: [3, 2] });
+			expect(fake.membership(1, SOURCE_A)).toBe("unsubscribed");
+		} finally {
+			reader.mockRestore();
+		}
+	});
+
+	test("does not settle acknowledged chunks that fail read confirmation", async () => {
+		const fake = createFakeListmonk({ unmanageableListIds: [SOURCE_A], failUnsubscribeSubscriberIds: [1] });
+		for (let id = 1; id <= 3; id += 1) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const result = await propagateTemporaryListOptOuts(fake.client, { listId: 200, sourceListIds: [SOURCE_A], chunkSize: 2 });
+		expect(result).toMatchObject({ status: "failed", propagatedCount: 0, pendingCount: 3, settledSubscriberIds: [] });
+	});
+
 	test("leaves alone a source membership created after the opt-out", async () => {
 		const fake = seedOptOut();
 		fake.addLists(3);
