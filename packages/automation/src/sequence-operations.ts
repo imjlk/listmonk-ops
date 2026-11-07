@@ -1,3 +1,11 @@
+import {
+	assertSequenceSimulationBounds,
+	readSequenceSimulationSnapshot,
+	simulateSequenceSnapshot,
+	sequenceSimulationOptionsSchema,
+	sequenceSimulationOutputSchema,
+	MAX_SEQUENCE_SIMULATION_STEPS,
+} from "./sequence-simulator";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	defineOperation,
@@ -12,6 +20,7 @@ import {
 } from "@listmonk-ops/operations";
 import { createHash } from "node:crypto";
 import {
+	bindSequenceSimulateOperationSpec,
 	bindSequenceCreateOperationSpec,
 	bindSequenceDeleteOperationSpec,
 	bindSequenceEnrollOperationSpec,
@@ -153,6 +162,16 @@ const sequenceStepInputSchema = buildSequenceStepSchema(
 		"duration_seconds must be no greater than one year",
 	),
 );
+
+const sequenceSimulateInputSchema = sequenceSimulationOptionsSchema.extend({
+ id: sequenceIdInput.optional(),
+ enrollment_id: sequenceIdInput.optional(),
+ steps: z.array(sequenceStepInputSchema).min(1).max(MAX_SEQUENCE_SIMULATION_STEPS).optional(),
+}).superRefine((input, context) => {
+ if ((input.id === undefined) === (input.steps === undefined)) context.addIssue({ code: "custom", message: "Provide exactly one of id or steps" });
+ if (input.enrollment_id !== undefined && input.id === undefined) context.addIssue({ code: "custom", message: "enrollment_id requires id" });
+ if (input.enrollment_id !== undefined && input.context !== undefined) context.addIssue({ code: "custom", message: "Enrollment simulations use stored context; overrides are not supported" });
+});
 
 const sequenceValidateInputSchema = z.object({
 	steps: z.array(sequenceStepInputSchema).min(1),
@@ -1043,6 +1062,36 @@ export const sequenceListOperation = defineOperation({
 	spec: bindSequenceListOperationSpec(),
 	execute: executeSequenceListOperation,
 });
+export async function executeSequenceSimulateOperation(context: SequenceOperationContext, input: z.output<typeof sequenceSimulateInputSchema>) {
+	const snapshot = input.steps
+  ? { steps: validateSequenceSteps(input.steps.map(toInternalStep)) }
+  : await readSequenceSimulationSnapshot(repository(context), input.id!, input.enrollment_id);
+	return simulateSequenceSnapshot(snapshot, input);
+}
+
+export const sequenceSimulateOperation = defineOperation({
+ id: "sequences.simulate", title: "Simulate a sequence without sending",
+ description: "Explain a bounded snapshot path with a fixed clock; never send, claim, enroll or predict delivery beyond the first send boundary.",
+ inputSchema: sequenceSimulateInputSchema, outputSchema: sequenceSimulationOutputSchema,
+ safety: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+ mcp: { name: "listmonk_sequences_simulate" }, spec: bindSequenceSimulateOperationSpec(),
+ execute: executeSequenceSimulateOperation,
+});
+
+export async function invokeSequenceSimulateOperation(context: SequenceOperationContext, input: unknown) {
+	assertSequenceSimulationBounds(input);
+	const parsed = parseOperationInput(sequenceSimulateInputSchema, input);
+	try {
+		return parseOperationOutput(
+			sequenceSimulateOperation.id,
+			sequenceSimulationOutputSchema,
+			await executeSequenceSimulateOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(sequenceSimulateOperation.id, error);
+	}
+}
+
 export const sequenceGetOperation = defineOperation({
 	id: "sequences.get",
 	title: "Get sequence",
@@ -1484,6 +1533,10 @@ const bindings = [
 	{ operation: sequenceCreateOperation, invoke: invokeSequenceCreateOperation },
 	{ operation: sequenceUpdateOperation, invoke: invokeSequenceUpdateOperation },
 	{ operation: sequenceListOperation, invoke: invokeSequenceListOperation },
+	{
+		operation: sequenceSimulateOperation,
+		invoke: invokeSequenceSimulateOperation,
+	},
 	{ operation: sequenceGetOperation, invoke: invokeSequenceGetOperation },
 	{ operation: sequenceDeleteOperation, invoke: invokeSequenceDeleteOperation },
 	{ operation: sequenceEnrollOperation, invoke: invokeSequenceEnrollOperation },

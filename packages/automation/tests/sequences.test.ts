@@ -691,7 +691,7 @@ describe("sequence definitions and file persistence", () => {
 
 	test("validates condition targets through the shared operation", async () => {
 		expect(sequenceOperationCatalog.operations.map((operation) => operation.id))
-			.toHaveLength(14);
+			.toHaveLength(15);
 		expect(sequenceReconcileOperation.safety.destructiveHint).toBe(true);
 		await expect(
 			invokeSequenceValidateOperation({}, {

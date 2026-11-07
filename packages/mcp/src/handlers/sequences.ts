@@ -4,6 +4,8 @@ import {
 } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	invokeSequenceSimulateOperation,
+	sequenceSimulateOperation,
 	getSequenceOperationByMcpName,
 	getSequenceRepositoryFromEnvironment,
 	invokeSequenceOperationByMcpName,
@@ -27,6 +29,13 @@ export async function executeSequenceTools(
 	client: ListmonkClient,
 	context: SequenceOperationContext = {},
 ): Promise<CallToolResult> {
+	// Snapshot simulation must not even construct configured database/claim stores.
+	if (request.params.name === sequenceSimulateOperation.mcp.name) {
+		return createOperationResult(
+		sequenceSimulateOperation,
+		await invokeSequenceSimulateOperation(context, request.params.arguments ?? {}),
+	);
+	}
 	const repository =
 		context.repository ?? getSequenceRepositoryFromEnvironment();
 	const invocation = await invokeSequenceOperationByMcpName(

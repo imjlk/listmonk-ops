@@ -1,4 +1,6 @@
 import {
+	sequenceSimulateInputContract,
+	sequenceSimulateOutputContract,
 	sequenceCreateInputContract,
 	sequenceCreateOutputContract,
 	sequenceDefinitionOutputContract,
@@ -635,7 +637,30 @@ export const sequenceStatusOperationSpec = defineOperationSpec({
 	since: "0.9.0",
 });
 
+export const sequenceSimulateOperationSpec = defineOperationSpec({
+ id: "sequences.simulate",
+ resource: "sequence", verb: "simulate",
+ title: "Simulate a sequence without sending",
+ description: "Explain a bounded snapshot path with a fixed clock; never send, claim, enroll or predict delivery beyond the first send boundary.",
+ contract: { input: sequenceSimulateInputContract, output: sequenceSimulateOutputContract },
+ effects: [{ kind: "read", resource: "sequence" }],
+ policy: { confirmation: "never", audit: "optional", dryRun: false },
+ retry: { kind: "safe", reason: "The simulator reads explicit snapshots or file-backed state without claiming or mutating work." },
+ agent: {
+  useWhen: ["A fixed-clock explanation of supported steps, branch choices, waits and fresh-send snapshot consent is needed."],
+  avoidWhen: ["Actual delivery times, receipt reconciliation or live subscriber eligibility must be guaranteed."],
+  prerequisites: [], verifyWith: [], related: ["sequences.validate", "sequences.get", "sequences.enrollments.get"],
+  retryGuidance: "Retry with the same snapshots and clock for deterministic results; refreshed file state may change the explanation.",
+ },
+ projection: { mcpName: "listmonk_sequences_simulate", openWorld: false, graph: graphNodes("simulate") },
+ stability: "experimental", since: "0.10.0",
+});
+export function bindSequenceSimulateOperationSpec(): typeof sequenceSimulateOperationSpec {
+	return sequenceSimulateOperationSpec;
+}
+
 export const sequenceOperationSpecs = [
+	sequenceSimulateOperationSpec,
 	sequenceValidateOperationSpec,
 	sequenceCreateOperationSpec,
 	sequenceUpdateOperationSpec,

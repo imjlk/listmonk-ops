@@ -77,6 +77,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	transactionalRecordsOutputContract: NormalizedContractSchema;
 	transactionalReconcileInputContract: NormalizedContractSchema;
 	transactionalReconcileOutputContract: NormalizedContractSchema;
+	sequenceSimulateInputContract: NormalizedContractSchema;
+	sequenceSimulateOutputContract: NormalizedContractSchema;
 	sequenceValidateInputContract: NormalizedContractSchema;
 	sequenceValidateOutputContract: NormalizedContractSchema;
 	sequenceCreateInputContract: NormalizedContractSchema;
@@ -593,6 +595,8 @@ export const abTestDeployWinnerOutputContract = contracts.abTestDeployWinnerOutp
 
 export const controlConfigurationOutputContract = contracts.controlConfigurationOutputContract;
 
+export const sequenceSimulateInputContract = contracts.sequenceSimulateInputContract;
+export const sequenceSimulateOutputContract = contracts.sequenceSimulateOutputContract;
 export const campaignReviewInputContract = contracts.campaignReviewInputContract;
 export const campaignReviewOutputContract = contracts.campaignReviewOutputContract;
 export const opsHealthInputContract = contracts.opsHealthInputContract;

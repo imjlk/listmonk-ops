@@ -402,6 +402,18 @@ Close one endpoint circuit after the operator has corrected its failure.
 - Retry: `safe`
 - Stability: `stable` since `0.8.0`
 
+## `sequences.simulate`
+
+Explain a bounded snapshot path with a fixed clock; never send, claim, enroll or predict delivery beyond the first send boundary.
+
+- Resource / verb: `sequence.simulate`
+- MCP tool: `listmonk_sequences_simulate`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:sequence`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
+
 ## `sequences.validate`
 
 Validate typed send, wait, wait-until, condition, and stop steps without persisting a sequence.

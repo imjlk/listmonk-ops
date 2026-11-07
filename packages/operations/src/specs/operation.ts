@@ -73,6 +73,7 @@ export type OperationSpecVerb =
 	| "replay"
 	| "reset"
 	| "validate"
+ | "simulate"
 	| "enroll"
 	| "resume"
 	| "clone"

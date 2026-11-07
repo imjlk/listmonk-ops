@@ -1,4 +1,12 @@
-import type { ListmonkClient } from "@listmonk-ops/openapi";
+/** Only the read endpoint used by consent checks; snapshot simulators cannot expose sends. */
+export interface SequenceConsentReadClient {
+	list?: {
+		getById(options: { path: { list_id: number } }): Promise<{
+			data?: { id?: number; optin?: string }; error?: unknown;
+			response?: { status?: number };
+		}>;
+	};
+}
 
 type SubscriberConsentState = {
 	status?: string | undefined;
@@ -18,7 +26,7 @@ function retryableListStatus(status: unknown): boolean {
 
 /** Policy absence preserves legacy transactional use. A scoped send fails closed. */
 export async function checkSequenceListConsent(
- client: Partial<Pick<ListmonkClient, "list">>,
+ client: SequenceConsentReadClient,
  subscriber: SubscriberConsentState,
  requiredListIds: readonly number[] | undefined,
 ): Promise<string | undefined> {

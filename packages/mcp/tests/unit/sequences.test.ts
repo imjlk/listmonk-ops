@@ -1,3 +1,5 @@
+import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { SequenceRepository } from "@listmonk-ops/automation";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -203,5 +205,31 @@ describe("MCP sequence tools", () => {
 		expect(blockedDelete.content[0]?.text).toContain(
 			"non-terminal enrollments",
 		);
+	});
+});
+
+test("simulator is a read-only snapshot tool that never touches repository or Listmonk capabilities", async () => {
+	const { executeSequenceTools, sequenceTools } = await import("../../src/handlers/sequences");
+	const tool = sequenceTools.find(
+		(item) => item.name === "listmonk_sequences_simulate",
+	);
+	expect(tool?.annotations).toMatchObject({
+		readOnlyHint: true,
+		destructiveHint: false,
+		openWorldHint: false,
+	});
+	const forbidden = new Proxy(
+		{},
+		{
+			get() {
+				throw new Error("State or network capability touched");
+			},
+		},
+	);
+	const result = await executeSequenceTools({ method: "tools/call", params: { name: "listmonk_sequences_simulate", arguments: { at: "2026-01-01T00:00:00Z", steps: [{ id: "stop", type: "stop" }] } } }, forbidden as ListmonkClient, { repository: forbidden as SequenceRepository });
+	expect(result.isError).not.toBe(true);
+	expect(result.structuredContent).toMatchObject({
+		source: "steps",
+		outcome: "completed_path",
 	});
 });

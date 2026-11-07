@@ -4,6 +4,7 @@ import {
 } from "@listmonk-ops/common";
 import {
 	getSequenceRepositoryFromEnvironment,
+	invokeSequenceSimulateOperation,
 	invokeSequenceCreateOperation,
 	invokeSequenceDeleteOperation,
 	invokeSequenceEnrollOperation,
@@ -80,6 +81,38 @@ async function executionContext(
 		target: { baseUrl: session.baseUrl, username: session.username },
 	};
 }
+
+function parseSimulationJson(value: string | undefined): unknown {
+	if (value === undefined) return undefined;
+	if (Buffer.byteLength(value) > 262144) throw new Error("Simulation JSON exceeds 256 KiB");
+	try {
+		return JSON.parse(value);
+	} catch {
+		throw new Error("Invalid simulation JSON");
+	}
+}
+
+const simulateCommand = defineCommand({
+ name: "simulate", operationId: "sequences.simulate",
+ description: "Explain a bounded no-send snapshot path at an explicit clock",
+ options: {
+  id: option(z.uuid().optional(), { description: "File-backed sequence ID; use this or --steps" }),
+  "enrollment-id": option(z.uuid().optional(), { description: "Existing enrollment pinned revision/context; requires --id" }),
+  steps: option(z.string().optional(), { description: "Offline JSON step array using sequences create syntax; no repository access" }),
+  at: option(z.iso.datetime({ offset: true }), { description: "Required fixed ISO clock with timezone" }),
+  context: option(z.string().optional(), { description: "Context JSON for a hypothetical fresh enrollment (not subscriber attributes)" }),
+  subscriber: option(z.string().optional(), { description: "Minimal status/lists JSON snapshot; omit email and attributes" }),
+  "list-policies": option(z.string().optional(), { description: "JSON array of id/optin snapshots for unconfirmed consent memberships" }),
+  "max-steps": option(z.coerce.number().int().min(1).max(500).default(100), { description: "Maximum path steps to explain" }),
+ },
+ handler: async ({ flags }) => {
+  getOutput().json(await invokeSequenceSimulateOperation({}, {
+   id: flags.id, enrollment_id: flags["enrollment-id"], steps: parseSimulationJson(flags.steps),
+   at: flags.at, context: parseSimulationJson(flags.context), subscriber: parseSimulationJson(flags.subscriber),
+   list_policies: parseSimulationJson(flags["list-policies"]), max_steps: flags["max-steps"],
+  }));
+ },
+});
 
 const validateCommand = defineCommand({
 	name: "validate",
@@ -488,6 +521,7 @@ export default defineGroup({
 	name: "sequences",
 	description: "Headless typed email sequence operations",
 	commands: [
+		simulateCommand,
 		validateCommand,
 		createCommand,
 		updateCommand,

@@ -940,7 +940,7 @@ GET이며 자동 재시도하지 않습니다. `not_checked`는 자격 증명이
 `readiness.listmonk`가 true가 되지 않습니다. 대상 URL의 인라인 자격 증명,
 쿼리 문자열, 프래그먼트는 결과에서 제거합니다.
 
-139개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+140개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -949,8 +949,8 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-139개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 136개는
-`stable`이며 `abtest.conversion.record`, `ops.health`, `ops.campaign.review`는 experimental입니다. 안정 계약에는
+140개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 기존 136개는
+`stable`이며 `abtest.conversion.record`, `ops.health`, `ops.campaign.review`, `sequences.simulate`는 experimental입니다. 안정 계약에는
 바운스 패밀리(`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), 캠페인 프리뷰/테스트 발송/애널리틱스
@@ -1898,6 +1898,56 @@ ambiguous 상태, lease, running/stale/stopped/failed worker health를 보고하
 유지합니다(due work를 처리할 최신 worker가 없을 때만 unhealthy). Sequence
 create/revise/enroll/pause/resume 및 운영자 reconcile은 typed `sequence.*`
 outbound event로도 투영됩니다.
+
+### 시퀀스 무발송 시뮬레이터
+
+목록 항목의 ID/상태가 없거나 지원하지 않는 상태이면 동의/취소로 추정하지 않고 `unknown`으로 남깁니다. 명확한 전역 차단은 취소로 판단합니다.
+
+```bash
+# 오프라인: 인증·네트워크·저장소·DB 초기화 없이 실행
+listmonk-cli sequences simulate --at 2026-01-01T00:00:00Z \
+  --steps '[{"id":"wait","type":"wait","duration_seconds":60},{"id":"send","type":"send","template_id":3}]' \
+  --subscriber '{"status":"enabled","lists":[]}'
+# 파일 백엔드 정의를 새로운 가상 등록 기준으로 설명
+listmonk-cli sequences simulate --id <sequence-uuid> --at 2026-01-01T00:00:00Z \
+  --context '{"plan":"pro"}' --subscriber '{"status":"enabled","lists":[]}'
+# 실제 등록의 고정 리비전과 저장된 context 사용 (덮어쓰기 불가)
+listmonk-cli sequences simulate --id <sequence-uuid> --enrollment-id <enrollment-uuid> \
+  --at 2026-01-01T00:00:00Z
+```
+
+MCP `listmonk_sequences_simulate`도 같은 입력/결과를 사용합니다. `id`와 `steps` 중
+하나, 시간대가 포함된 필수 `at`, 선택적인 `enrollment_id`, `context`, `subscriber`,
+`list_policies`, `max_steps`(기본 100, 최대 500)를 받습니다. 단계는 `sequences create`
+문법입니다. `enrollment_id`에는 `id`가 필요하고 context 재정의를 허용하지 않습니다.
+등록은 생성하지 않습니다. 정의/등록 참조는 현재 **파일 백엔드만** 지원합니다.
+Postgres 조회 메서드는 스키마를 초기화하므로 DB 조회 전에 거부합니다. 오프라인
+시뮬레이션에는 명시적인 `steps` 스냅샷을 사용하세요. 기존 `sequences get`은 본문이
+아닌 지문을 반환하므로 실행 단계로 사용할 수 없습니다. 원본 단계 정의를 보관하세요.
+
+엔진이 실제 지원하는 `condition`(`equals`, `not_equals`, `exists`), `wait`,
+`wait_until`, `send`, `stop`을 설명합니다. 조건은 구독자 속성이나 send의 data가 아닌
+**등록 context만** 평가합니다. 상대 대기는 단계 실행 시점부터, 절대 대기는 현재 가상
+시점과 지정 시각 중 늦은 값부터 계산합니다. 타임라인은 고정 스냅샷을 전제로 한
+**가상 최초 실행 가능 경로**이며 실제 worker 일정이나 배송 예측이 아닙니다.
+**첫 발송 경계에서 중단**하고 이후 성공·재시도·렌더링·공급자 수락·receipt를
+추측하지 않습니다. `snapshot_cancelled`는 새 발송의 스냅샷 정책상 취소될 것이라는
+설명일 뿐 실제 등록을 취소했다는 뜻이 아닙니다. 기존 등록의 send에서는 accepted/
+pending/unknown receipt가 새 동의 검사보다 우선할 수 있어 `unknown`으로 중단합니다.
+정의 일시정지·종료/불명확 등록·유효 lease·아직 도래하지 않은 실행도 claim 없이
+설명합니다. 현재/등록 고정 리비전 비교는 파일 참조에서만 제공하고 오프라인은 null입니다.
+
+구독자 입력은 `status`와 `lists`(`id`, `subscription_status`)만 필요하며 이메일이나
+개인 속성은 넣지 마세요. 누락 상태는 알 수 없음으로 처리합니다. 동의 범위의 모든
+리스트가 허용해야 하며 unconfirmed에는 `list_policies`의
+`{ "id": 7, "optin": "single" }` 또는 `"double"`이 필요합니다. 정책 누락은 unknown이고,
+동의 범위가 없는 기존 send는 엔진의 기존 정책을 따릅니다. 스냅샷은 제공된 자료이지
+실시간 구독자 상태를 검증한 결과가 아닙니다. context 값·구독자 식별자·메일 내용은
+반환하지 않습니다. Listmonk 조회·발송·claim·receipt/시퀀스 저장·구독자 내보내기는
+하지 않지만 공통 어댑터 감사 로그는 기록될 수 있습니다. 입력/선택한 스냅샷은
+256 KiB·깊이 32·JSON 노드 10,000개·정의/경로 단계 500개로 제한하고 미지원 단계나
+잘못된 분기 구조는 거부합니다.
+
 
 ## Provider 및 Deliverability Doctor
 

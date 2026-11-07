@@ -11693,6 +11693,805 @@
     {
       "agent": {
         "avoidWhen": [
+          "Actual delivery times, receipt reconciliation or live subscriber eligibility must be guaranteed."
+        ],
+        "prerequisites": [],
+        "related": [
+          "sequences.validate",
+          "sequences.get",
+          "sequences.enrollments.get"
+        ],
+        "retryGuidance": "Retry with the same snapshots and clock for deterministic results; refreshed file state may change the explanation.",
+        "useWhen": [
+          "A fixed-clock explanation of supported steps, branch choices, waits and fresh-send snapshot consent is needed."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceConditionPath": {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+                "type": "string"
+              },
+              "SequenceSimulateInput": {
+                "additionalProperties": false,
+                "description": "Exactly one of id or steps; enrollment_id requires id and forbids context overrides.",
+                "properties": {
+                  "at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "context": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "enrollment_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "list_policies": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "$ref": "#/components/schemas/ResourceId"
+                        },
+                        "optin": {
+                          "oneOf": [
+                            {
+                              "const": "double"
+                            },
+                            {
+                              "const": "single"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "optin"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "max_steps": {
+                    "maximum": 500,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "steps": {
+                    "items": {
+                      "$ref": "#/components/schemas/SequenceStep"
+                    },
+                    "maxItems": 500,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "subscriber": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "lists": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "$ref": "#/components/schemas/ResourceId"
+                            },
+                            "subscription_status": {
+                              "maxLength": 80,
+                              "type": "string"
+                            }
+                          },
+                          "required": [],
+                          "type": "object"
+                        },
+                        "maxItems": 1000,
+                        "type": "array"
+                      },
+                      "status": {
+                        "maxLength": 80,
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "at"
+                ],
+                "type": "object"
+              },
+              "SequenceStep": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "altbody": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "consent_list_ids": {
+                        "description": "Require current consent on every listed mailing list before sending. Single opt-in accepts unconfirmed memberships.",
+                        "items": {
+                          "$ref": "#/components/schemas/ResourceId"
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array",
+                        "uniqueItems": true
+                      },
+                      "content_type": {
+                        "oneOf": [
+                          {
+                            "const": "html"
+                          },
+                          {
+                            "const": "markdown"
+                          },
+                          {
+                            "const": "plain"
+                          }
+                        ]
+                      },
+                      "data": {
+                        "$ref": "#/components/schemas/Recordstringunknown"
+                      },
+                      "from_email": {
+                        "$ref": "#/components/schemas/TransactionalFromEmail"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "messenger": {
+                        "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                      },
+                      "subject": {
+                        "$ref": "#/components/schemas/TransactionalSubject"
+                      },
+                      "template_id": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      },
+                      "type": {
+                        "const": "send"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "template_id"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "duration_seconds": {
+                        "$ref": "#/components/schemas/PositiveInteger"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "type": {
+                        "const": "wait"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "duration_seconds"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "at": {
+                        "$ref": "#/components/schemas/IsoDateTime"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "type": {
+                        "const": "wait_until"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "at"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "on_false": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "on_true": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "operator": {
+                        "oneOf": [
+                          {
+                            "const": "equals"
+                          },
+                          {
+                            "const": "exists"
+                          },
+                          {
+                            "const": "not_equals"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "$ref": "#/components/schemas/SequenceConditionPath"
+                      },
+                      "type": {
+                        "const": "condition"
+                      },
+                      "value": {}
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "path",
+                      "operator",
+                      "on_true",
+                      "on_false"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "type": {
+                        "const": "stop"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "SequenceStepId": {
+                "maxLength": 80,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "TransactionalFromEmail": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])\\s*(?:(?:(?:[^\\s@\\\\\",:;<>()[\\]]+)|(?:\"(?:[^\"\\\\]|\\\\.)+\"))@[^\\s@\\\\\",:;<>()[\\]]+|(?:(?:\"(?:[^\"\\\\]|\\\\.)+\")|(?:[^\\\\\",:;<>()[\\]@]+)) *<(?:(?:[^\\s@\\\\\",:;<>()[\\]]+)|(?:\"(?:[^\"\\\\]|\\\\.)+\"))@[^\\s@\\\\\",:;<>()[\\]]+>)\\s*$",
+                "type": "string"
+              },
+              "TransactionalSubject": {
+                "minLength": 1,
+                "pattern": "^(?=[^\\u0000-\\u001f\\u007f]*\\S)[^\\u0000-\\u001f\\u007f]+$",
+                "type": "string"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "description": "Exactly one of id or steps; enrollment_id requires id and forbids context overrides.",
+            "properties": {
+              "at": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "context": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "enrollment_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "list_policies": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "optin": {
+                      "oneOf": [
+                        {
+                          "const": "double"
+                        },
+                        {
+                          "const": "single"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "optin"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              "max_steps": {
+                "maximum": 500,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "steps": {
+                "items": {
+                  "$ref": "#/components/schemas/SequenceStep"
+                },
+                "maxItems": 500,
+                "minItems": 1,
+                "type": "array"
+              },
+              "subscriber": {
+                "additionalProperties": false,
+                "properties": {
+                  "lists": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "$ref": "#/components/schemas/ResourceId"
+                        },
+                        "subscription_status": {
+                          "maxLength": 80,
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
+                    },
+                    "maxItems": 1000,
+                    "type": "array"
+                  },
+                  "status": {
+                    "maxLength": 80,
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            },
+            "required": [
+              "at"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceSimulateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "current_revision": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/PositiveInteger"
+                      }
+                    ]
+                  },
+                  "limitations": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "outcome": {
+                    "oneOf": [
+                      {
+                        "const": "blocked"
+                      },
+                      {
+                        "const": "completed_path"
+                      },
+                      {
+                        "const": "invalid_sender"
+                      },
+                      {
+                        "const": "limit"
+                      },
+                      {
+                        "const": "send_boundary"
+                      },
+                      {
+                        "const": "snapshot_cancelled"
+                      },
+                      {
+                        "const": "unknown"
+                      }
+                    ]
+                  },
+                  "revision": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/PositiveInteger"
+                      }
+                    ]
+                  },
+                  "revision_changed": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  },
+                  "source": {
+                    "oneOf": [
+                      {
+                        "const": "enrollment"
+                      },
+                      {
+                        "const": "sequence"
+                      },
+                      {
+                        "const": "steps"
+                      }
+                    ]
+                  },
+                  "subscriber_snapshot_present": {
+                    "type": "boolean"
+                  },
+                  "timeline": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "at": {
+                          "type": "string"
+                        },
+                        "earliest_next_at": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "oneOf": [
+                            {
+                              "const": "complete"
+                            },
+                            {
+                              "const": "condition"
+                            },
+                            {
+                              "const": "gate"
+                            },
+                            {
+                              "const": "send"
+                            },
+                            {
+                              "const": "stop"
+                            },
+                            {
+                              "const": "wait"
+                            },
+                            {
+                              "const": "wait_until"
+                            }
+                          ]
+                        },
+                        "matched": {
+                          "type": "boolean"
+                        },
+                        "next_step_id": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "step_id": {
+                          "oneOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "step_id",
+                        "kind",
+                        "at",
+                        "reason"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 500,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "at",
+                  "source",
+                  "revision",
+                  "current_revision",
+                  "revision_changed",
+                  "subscriber_snapshot_present",
+                  "outcome",
+                  "timeline",
+                  "limitations"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "type": "string"
+              },
+              "current_revision": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  }
+                ]
+              },
+              "limitations": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "outcome": {
+                "oneOf": [
+                  {
+                    "const": "blocked"
+                  },
+                  {
+                    "const": "completed_path"
+                  },
+                  {
+                    "const": "invalid_sender"
+                  },
+                  {
+                    "const": "limit"
+                  },
+                  {
+                    "const": "send_boundary"
+                  },
+                  {
+                    "const": "snapshot_cancelled"
+                  },
+                  {
+                    "const": "unknown"
+                  }
+                ]
+              },
+              "revision": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  }
+                ]
+              },
+              "revision_changed": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "source": {
+                "oneOf": [
+                  {
+                    "const": "enrollment"
+                  },
+                  {
+                    "const": "sequence"
+                  },
+                  {
+                    "const": "steps"
+                  }
+                ]
+              },
+              "subscriber_snapshot_present": {
+                "type": "boolean"
+              },
+              "timeline": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "at": {
+                      "type": "string"
+                    },
+                    "earliest_next_at": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "oneOf": [
+                        {
+                          "const": "complete"
+                        },
+                        {
+                          "const": "condition"
+                        },
+                        {
+                          "const": "gate"
+                        },
+                        {
+                          "const": "send"
+                        },
+                        {
+                          "const": "stop"
+                        },
+                        {
+                          "const": "wait"
+                        },
+                        {
+                          "const": "wait_until"
+                        }
+                      ]
+                    },
+                    "matched": {
+                      "type": "boolean"
+                    },
+                    "next_step_id": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "step_id": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "step_id",
+                    "kind",
+                    "at",
+                    "reason"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 500,
+                "type": "array"
+              }
+            },
+            "required": [
+              "at",
+              "source",
+              "revision",
+              "current_revision",
+              "revision_changed",
+              "subscriber_snapshot_present",
+              "outcome",
+              "timeline",
+              "limitations"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Explain a bounded snapshot path with a fixed clock; never send, claim, enroll or predict delivery beyond the first send boundary.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.simulate",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceSimulateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceSimulateOperationSpec:variable",
+          "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceSimulateOperation:function",
+          "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceSimulateOperation:function",
+          "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceSimulateOperation:variable"
+        },
+        "mcpName": "listmonk_sequences_simulate",
+        "openWorld": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "kind": "safe",
+        "reason": "The simulator reads explicit snapshots or file-backed state without claiming or mutating work."
+      },
+      "since": "0.10.0",
+      "stability": "experimental",
+      "title": "Simulate a sequence without sending",
+      "verb": "simulate"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The sequence has already been validated and persistence is required."
         ],
         "prerequisites": [],
