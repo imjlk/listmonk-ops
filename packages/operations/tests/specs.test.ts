@@ -224,6 +224,7 @@ describe("email operations specification", () => {
 			"media.upload",
 			"ops.segments.drift",
 			"ops.digest.daily",
+ "ops.health",
 			"ops.campaign.deliverability-guard",
 			"ops.subscribers.hygiene",
 			"ops.templates.registry-sync",
@@ -265,8 +266,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(137);
-		expect(new Set(operationIds).size).toBe(137);
+		expect(operationIds).toHaveLength(138);
+		expect(new Set(operationIds).size).toBe(138);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),

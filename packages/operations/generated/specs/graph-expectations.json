@@ -2703,6 +2703,33 @@
     {
       "edges": [
         {
+          "from": "packages/automation/src/ops-operations.ts#opsHealthOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsHealthOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsHealthOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsHealthOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeOpsHealthOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeOpsHealthOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsHealthOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsHealthOperationSpec:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeOpsHealthOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeOpsHealthOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#opsHealthOperation:variable"
+      },
+      "operationId": "ops.health"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsDeliverabilityGuardOperationSpec:function"
