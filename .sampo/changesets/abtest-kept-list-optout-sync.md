@@ -10,3 +10,7 @@ Carry A/B opt-outs from temporary lists that are kept, not only from lists about
 Reconcile shared-source opt-outs with persisted, read-confirmed remote timestamp checkpoints; preserve newer opt-outs, fail closed on unknown legacy chronology, retain required replay history, and omit private progress from public test output.
 
 Preserve PostgreSQL microseconds when deciding whether a source membership was created after an opt-out, including equivalent timezone offsets.
+
+Reconcile a lone test's own partial source-list confirmations before stop or non-terminal deletion; preserve fresh consent and block cleanup when remaining propagation or chronology cannot be confirmed.
+
+Record per-source confirmations during cleanup itself, including partial failures, so a later stop/delete retry or automatic sync cannot revoke renewed consent on an already-carried source.

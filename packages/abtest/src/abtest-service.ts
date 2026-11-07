@@ -4,6 +4,7 @@ import { resolveOptOutSourceListIds } from "./unsubscribe-propagation";
 import {
 	describeOptOutSyncFailures,
 	recordTemporaryListOptOutPropagation,
+	createOptOutSourceSettlementRecorder,
 	hasRelatedTrackedOptOutSources,
 	resolveTrackedTemporaryListIds,
 } from "./optout-sync";
@@ -1031,12 +1032,18 @@ export class AbTestService {
 			...this.tests.values(),
 			...this.retiredTests.values(),
 		];
-		if (this.listmonkIntegration && !TERMINAL_STATUSES.has(test.status) && hasRelatedTrackedOptOutSources(test, relatedTests)) {
+		// Reconcile partial confirmations before cleanup, even without another related test.
+		if (
+			this.listmonkIntegration &&
+			!TERMINAL_STATUSES.has(test.status) &&
+			((test.optOutSync?.sourceSettlements?.length ?? 0) > 0 ||
+				hasRelatedTrackedOptOutSources(test, relatedTests))
+		) {
 			const outcome = await this.listmonkIntegration.syncTestOptOuts(test, {
 				relatedTests,
 			});
 			if (outcome.state) test.optOutSync = outcome.state;
-			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Shared-source opt-outs must be reconciled before deleting ${testId}`);
+			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Source-list opt-outs must be reconciled before deleting ${testId}`);
 		}
 		// Cleanup Listmonk resources for any test that has remote campaigns.
 		// Use deleteTestResources which is status-aware: it cancels running or
@@ -1052,6 +1059,7 @@ export class AbTestService {
 			if (test.holdoutListId !== undefined) {
 				listIds.push(test.holdoutListId);
 			}
+			const sourceProgress = createOptOutSourceSettlementRecorder(test);
 			try {
 				await this.listmonkIntegration.deleteTestResources({
 					campaignIds: [
@@ -1066,6 +1074,8 @@ export class AbTestService {
 					// are skipped.
 					sourceListIds: resolveOptOutSourceListIds(test),
 					settledSubscriberIds: test.optOutSync?.settledSubscriberIds,
+					sourceSettlements: test.optOutSync?.sourceSettlements,
+					onSourceUnsubscribed: sourceProgress.record,
 				});
 			} catch (error) {
 				if (!(error instanceof AbTestCleanupError)) {
@@ -1078,6 +1088,8 @@ export class AbTestService {
 					removedListIds: error.deletedListIds,
 				});
 				throw new AbTestOptOutProgressError(error.message, { cause: error });
+			} finally {
+				sourceProgress.flush();
 			}
 		} else if (
 			this.listmonkIntegration &&

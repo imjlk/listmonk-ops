@@ -19,6 +19,7 @@ import {
 	isOptOutSyncDue,
 	isOptOutSyncTracked,
 	recordTemporaryListOptOutPropagation,
+	createOptOutSourceSettlementRecorder,
 	hasRelatedTrackedOptOutSources,
 	resolveTrackedTemporaryListIds,
 	syncAbTestOptOuts,
@@ -179,14 +180,23 @@ export function createAbTestExecutors(
 			...(await abTestService.getAllTests()),
 			...abTestService.snapshotRetiredTests(),
 		];
-		if (hasRelatedTrackedOptOutSources(test, relatedTests)) {
+		// Own partial confirmations protect fresh consent even for a lone test.
+		if ((test.optOutSync?.sourceSettlements?.length ?? 0) > 0 || hasRelatedTrackedOptOutSources(test, relatedTests)) {
 			const outcome = await syncAbTestOptOuts(listmonkClient, test, {
 				relatedTests,
 			});
 			if (outcome.state) test.optOutSync = outcome.state;
-			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Shared-source opt-outs must be reconciled before stopping ${testId}`);
+			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Source-list opt-outs must be reconciled before stopping ${testId}`);
 		}
-		const result = await cancelAbTest(listmonkClient, test);
+		const sourceProgress = createOptOutSourceSettlementRecorder(test);
+		let result: Awaited<ReturnType<typeof cancelAbTest>>;
+		try {
+			result = await cancelAbTest(listmonkClient, test, {
+				onSourceUnsubscribed: sourceProgress.record,
+			});
+		} finally {
+			sourceProgress.flush();
+		}
 		// Record what the stop carried, and the lists it deleted, so later
 		// syncs skip both. A stop that fails below keeps this record: it
 		// throws AbTestOptOutProgressError, which a stored write commits.

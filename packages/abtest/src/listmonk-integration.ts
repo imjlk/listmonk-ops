@@ -35,6 +35,7 @@ import {
 	propagateTemporaryListOptOuts,
 	propagateTemporaryListsOptOuts,
 	type TemporaryListOptOutPropagation,
+	type OptOutSourceConfirmed,
 } from "./unsubscribe-propagation";
 import { isListmonkNotFoundAnswer } from "./lifecycle";
 import { syncAbTestOptOuts, type AbTestOptOutSyncOutcome } from "./optout-sync";
@@ -789,6 +790,8 @@ export class ListmonkAbTestIntegration {
 		sourceListIds?: readonly number[];
 		/** Opt-outs an earlier sync already carried; they are skipped. */
 		settledSubscriberIds?: readonly number[];
+		sourceSettlements?: Parameters<typeof propagateTemporaryListsOptOuts>[1]["sourceSettlements"];
+		onSourceUnsubscribed?: OptOutSourceConfirmed;
 		campaignIds: number[];
 		listIds: number[];
 	}): Promise<void> {
@@ -864,6 +867,8 @@ export class ListmonkAbTestIntegration {
 					listIds: [...resources.listIds].reverse(),
 					sourceListIds: resources.sourceListIds ?? [],
 					settledSubscriberIds: resources.settledSubscriberIds,
+					sourceSettlements: resources.sourceSettlements,
+					onSourceUnsubscribed: resources.onSourceUnsubscribed,
 				},
 			);
 			const deletableListIds: number[] = [];

@@ -1,11 +1,12 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { formatListmonkErrorResponse } from "./listmonk-errors";
-import type { AbTest } from "./types";
+import type { AbTest, AbTestOptOutSourceSettlement } from "./types";
 import {
 	describeRetainedTemporaryList,
 	propagateTemporaryListsOptOuts,
 	resolveOptOutSourceListIds,
 	type TemporaryListOptOutPropagation,
+	type OptOutSourceConfirmed,
 } from "./unsubscribe-propagation";
 
 /**
@@ -77,6 +78,8 @@ export interface CancelPlan {
 	 * subscribed.
 	 */
 	optOutSettledSubscriberIds?: number[];
+	/** Private per-source progress, including partial confirmations. */
+	optOutSourceSettlements?: readonly AbTestOptOutSourceSettlement[];
 }
 
 export interface CancelExecutionResult {
@@ -278,6 +281,7 @@ export function planCancelAbTest(
 		...(test.optOutSync === undefined
 			? {}
 			: {
+					...(test.optOutSync.sourceSettlements === undefined ? {} : { optOutSourceSettlements: test.optOutSync.sourceSettlements }),
 					optOutSettledSubscriberIds: [
 						...test.optOutSync.settledSubscriberIds,
 					],
@@ -389,6 +393,7 @@ export function isListmonkNotFoundAnswer(response: unknown): boolean {
 export async function executeCancelPlan(
 	client: ListmonkClient,
 	plan: CancelPlan,
+	options?: { onSourceUnsubscribed?: OptOutSourceConfirmed },
 ): Promise<CancelExecutionResult> {
 	// Campaign actions are independent API calls; run them concurrently so
 	// total latency is the slowest call rather than the sum. A failure in
@@ -483,6 +488,8 @@ export async function executeCancelPlan(
 		listIds: plan.listActions.map((action) => action.listId),
 		sourceListIds: plan.optOutSourceListIds ?? [],
 		settledSubscriberIds: plan.optOutSettledSubscriberIds,
+		sourceSettlements: plan.optOutSourceSettlements,
+		onSourceUnsubscribed: options?.onSourceUnsubscribed,
 	});
 	const propagationByListId = new Map(
 		optOutPropagation.map((propagation) => [propagation.listId, propagation]),
@@ -661,7 +668,7 @@ export async function fetchCampaignStatuses(
 export async function cancelAbTest(
 	client: ListmonkClient,
 	test: AbTest,
-	options?: { deleteTerminalCampaigns?: boolean },
+	options?: { deleteTerminalCampaigns?: boolean; onSourceUnsubscribed?: OptOutSourceConfirmed },
 ): Promise<CancelExecutionResult> {
 	// Only fetch statuses for the backing variant campaigns — the winner
 	// campaign is separately managed and planCancelAbTest always adds it to
@@ -673,7 +680,7 @@ export async function cancelAbTest(
 	const { statuses: observedStatuses, unobservable } =
 		await fetchCampaignStatuses(client, campaignIds);
 	const plan = planCancelAbTest(test, observedStatuses, options);
-	const result = await executeCancelPlan(client, plan);
+	const result = await executeCancelPlan(client, plan, options);
 	// Surface fetch failures so the caller does not persist the test as
 	// fully cancelled when a campaign's status could not be verified.
 	return { ...result, hadFetchFailures: unobservable.length > 0 };

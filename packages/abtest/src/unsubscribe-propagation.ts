@@ -649,11 +649,13 @@ type TemporaryListOptOutClassification =
 			pending: TemporaryListOptOut[];
 	  };
 
+export type OptOutSourceConfirmed = (subscriberId: number, sourceListId: number, through: string | undefined) => void;
+
 interface SourceSettlementEvidence {
 	alreadySettled?: Pick<ReadonlySet<number>, "has">;
 	sourceSettlements?: readonly AbTestOptOutSourceSettlement[];
 	legacySourceSettlements?: readonly { subscriberId: number; sourceListId: number }[];
-	onSourceUnsubscribed?: (subscriberId: number, sourceListId: number, through: string | undefined) => void;
+	onSourceUnsubscribed?: OptOutSourceConfirmed;
 }
 
 function reconcileSourceSettlements(optOuts: TemporaryListOptOut[], sourceListIds: readonly number[], evidence: SourceSettlementEvidence): TemporaryListOptOut[] {
@@ -1040,8 +1042,17 @@ export async function propagateTemporaryListsOptOuts(
 		listIds: readonly number[];
 		sourceListIds: readonly number[];
 		settledSubscriberIds?: Iterable<number>;
-	},
+	} & SourceSettlementEvidence,
 ): Promise<TemporaryListOptOutPropagation[]> {
+	const sourceSettlements = [...(input.sourceSettlements ?? [])];
+	const onSourceUnsubscribed: OptOutSourceConfirmed = (subscriberId, sourceListId, through) => {
+		sourceSettlements.push({
+			subscriberId,
+			sourceListId,
+			through: through ?? null,
+		});
+		input.onSourceUnsubscribed?.(subscriberId, sourceListId, through);
+	};
 	const settledSubscriberIds = new Set(input.settledSubscriberIds ?? []);
 	const results: TemporaryListOptOutPropagation[] = [];
 	for (const listId of input.listIds) {
@@ -1049,6 +1060,9 @@ export async function propagateTemporaryListsOptOuts(
 			listId,
 			sourceListIds: input.sourceListIds,
 			settledSubscriberIds,
+			sourceSettlements,
+			legacySourceSettlements: input.legacySourceSettlements,
+			onSourceUnsubscribed,
 		});
 		// One id at a time: a long-lived list can settle more ids than a
 		// spread call accepts.

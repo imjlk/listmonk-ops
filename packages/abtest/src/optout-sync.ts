@@ -225,6 +225,21 @@ export function mergeOptOutSyncState(
 	};
 }
 
+/** Batch private confirmations so cleanup does not repeatedly sort the full history per recipient. */
+export function createOptOutSourceSettlementRecorder(test: AbTest) {
+	const confirmed: AbTestOptOutSourceSettlement[] = [];
+	return {
+		record(subscriberId: number, sourceListId: number, through: string | undefined): void {
+			confirmed.push({ subscriberId, sourceListId, through: through ?? null });
+		},
+		flush(): void {
+			if (confirmed.length === 0) return;
+			test.optOutSync = mergeOptOutSyncState(test.optOutSync, { sourceSettlements: confirmed });
+			confirmed.length = 0;
+		},
+	};
+}
+
 /**
  * Settled ids only stop a later propagation of the same temporary lists
  * from carrying an opt-out twice, so once Listmonk reports every temporary

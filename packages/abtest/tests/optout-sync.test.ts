@@ -429,6 +429,67 @@ describe("shared-source opt-out chronology", () => {
   expect(fake.membership(777, SOURCE_B)).toBe("unsubscribed");
   expect(fake.unsubscribes.at(-1)?.target_list_ids).toEqual([SOURCE_B]);
  });
+	async function lonePartialSourceProgress() {
+		const storePath = await createStorePath();
+		const { fake, a } = fixture({ unmanageableListIds: [SOURCE_B] });
+		a.baseConfig.lists = [SOURCE_A, SOURCE_B];
+		a.status = "running";
+		fake.addCampaign(100, "running", [200]);
+		fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+		await saveStoredAbTests([a], storePath);
+		const context = { client: fake.client, storePath };
+		expect((await invokeSyncAbTestOptOutsOperation(context, { test_id: "a" })).failed).toBe(1);
+		const [saved] = await loadStoredAbTests(storePath);
+		expect(saved?.optOutSync?.settledSubscriberIds).toEqual([]);
+		expect(saved?.optOutSync?.sourceSettlements?.map((point) => point.sourceListId)).toEqual([SOURCE_A]);
+		fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+		return { fake, context, storePath };
+	}
+
+	test.each(["stop", "delete"] as const)("%s preserves a lone test's persisted partial source consent", async (action) => {
+		const { fake, context, storePath } = await lonePartialSourceProgress();
+		fake.options.unmanageableListIds = [];
+		const writes = fake.unsubscribes.length;
+		const output = action === "stop"
+			? await invokeStopAbTestOperation(context, { test_id: "a" })
+			: await invokeDeleteAbTestOperation(context, { test_id: "a" });
+		expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(777, SOURCE_B)).toBe("unsubscribed");
+		expect(fake.unsubscribes.slice(writes)).toEqual([{ ids: [777], target_list_ids: [SOURCE_B] }]);
+		expect(JSON.stringify(output)).not.toContain("sourceSettlements");
+		expect(JSON.stringify(output)).not.toContain("optOutSourceSettlements");
+		expect(JSON.stringify(output)).not.toContain("777");
+		if (action === "stop") expect((await loadStoredAbTests(storePath))[0]?.status).toBe("cancelled");
+		else expect(await loadStoredAbTests(storePath)).toEqual([]);
+	});
+
+	test.each([
+		["stop", "permissions"], ["delete", "permissions"],
+		["stop", "chronology"], ["delete", "chronology"],
+	] as const)("%s blocks lone-test cleanup when partial source %s remain unconfirmed", async (action, failure) => {
+		const { fake, context, storePath } = await lonePartialSourceProgress();
+		if (failure === "chronology") {
+			fake.options.unmanageableListIds = [];
+			fake.options.omitMembershipTimestamps = true;
+		}
+		const writes = fake.unsubscribes.length;
+		const cleanup = () => action === "stop"
+			? invokeStopAbTestOperation(context, { test_id: "a" })
+			: invokeDeleteAbTestOperation(context, { test_id: "a" });
+		await expect(cleanup()).rejects.toThrow(/opt-outs must be reconciled/);
+		expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(777, SOURCE_B)).toBe("confirmed");
+		expect((await fake.client.campaign.getById({ path: { id: 100 } })).data?.status).toBe("running");
+		expect(fake.hasList(200)).toBe(true);
+		const [saved] = await loadStoredAbTests(storePath);
+		expect(saved?.status).toBe("running");
+		expect(saved?.optOutSync?.sourceSettlements?.map((point) => point.sourceListId)).toEqual([SOURCE_A]);
+		if (failure === "chronology") expect(fake.unsubscribes.length).toBe(writes);
+		else expect(fake.unsubscribes.slice(writes)).toEqual([{ ids: [777], target_list_ids: [SOURCE_B] }]);
+	});
+
  test.each([false, true])("retains PostgreSQL microseconds when comparing a newer opt-out: %s", async (newer) => {
   const { fake, a, b } = fixture();
   fake.advanceClock(1000);
@@ -885,6 +946,28 @@ describe("a failed stop or delete keeps the opt-outs it carried", () => {
 		fake.resubscribeViaForm(15, SOURCE_A);
 		fake.options.unmanageableListIds = [];
 	}
+
+	test.each(["stop", "delete"] as const)("%s records partial source confirmations created by cleanup itself", async (action) => {
+		const storePath = await createStorePath();
+		const fake = seedPartialFailure("scheduled");
+		await saveStoredAbTests([makeTest({ status: "scheduled" })], storePath);
+		const context = { client: fake.client, storePath };
+		const cleanup = () => action === "stop"
+			? invokeStopAbTestOperation(context, { test_id: "test_optout" })
+			: invokeDeleteAbTestOperation(context, { test_id: "test_optout" });
+		await expect(cleanup()).rejects.toThrow();
+		const [saved] = await loadStoredAbTests(storePath);
+		expect(saved?.optOutSync?.sourceSettlements?.some((point) => point.subscriberId === 14 && point.sourceListId === SOURCE_A)).toBe(true);
+		expect(saved?.optOutSync?.settledSubscriberIds).not.toContain(14);
+		resubscribeAndFix(fake);
+		fake.resubscribeViaForm(14, SOURCE_A);
+		const writes = fake.unsubscribes.length;
+		await cleanup();
+		expect(fake.membership(14, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(15, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(14, SOURCE_B)).toBe("unsubscribed");
+		expect(fake.unsubscribes.slice(writes)).toEqual([{ ids: [14], target_list_ids: [SOURCE_B] }]);
+	});
 
 	test("stop", async () => {
 		const storePath = await createStorePath();
