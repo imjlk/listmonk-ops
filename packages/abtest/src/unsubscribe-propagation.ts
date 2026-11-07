@@ -93,6 +93,8 @@ export interface TemporaryListOptOut {
 	optedOutAt?: number;
 	/** Source lists already covered by another test, not synthetic remote status. */
 	settledSourceListIds?: ReadonlySet<number>;
+	/** This recipient needs operator reconciliation; never carry or settle it automatically. */
+	unreconciled?: true;
 }
 
 /**
@@ -551,7 +553,7 @@ export function findUnpropagatedOptOuts(
 	return optOuts
 		.filter(
 			(optOut) =>
-				resolvePendingSourceListIds(optOut, sourceListIds).length > 0,
+				optOut.unreconciled || resolvePendingSourceListIds(optOut, sourceListIds).length > 0,
 		)
 		.map((optOut) => optOut.subscriberId);
 }
@@ -715,11 +717,11 @@ function reconcileSourceSettlements(optOuts: TemporaryListOptOut[], sourceListId
    const key = `${optOut.subscriberId}:${sourceListId}`;
    const through = checkpoints.get(key);
    if (unknown.has(key) || (through === undefined && legacy.has(key))) {
-    throw new Error("Shared-source settlement has no chronology; fresh consent was not overwritten and requires operator reconciliation");
+    return { ...optOut, settledSourceListIds, unreconciled: true as const };
    }
    if (through !== undefined) {
     const optOutTime = optOut.optedOutTimestamp === undefined ? undefined : parseOptOutTimestampMicros(optOut.optedOutTimestamp);
-    if (optOutTime === undefined) throw new Error("Cannot reconcile shared-source opt-outs without parseable timestamps; fresh consent was not overwritten");
+    if (optOutTime === undefined) return { ...optOut, settledSourceListIds, unreconciled: true as const };
     if (optOutTime <= through) settledSourceListIds.add(sourceListId);
    }
   }
@@ -783,7 +785,7 @@ async function classifyTemporaryListOptOuts(
 		unsettled,
 		pending: unsettled.filter(
 			(optOut) =>
-				resolvePendingSourceListIds(optOut, sourceListIds).length > 0,
+				!optOut.unreconciled && resolvePendingSourceListIds(optOut, sourceListIds).length > 0,
 		),
 	};
 }
@@ -882,19 +884,27 @@ export async function propagateTemporaryListOptOuts(
 	}
 	const { optOuts, unsettled, pending } = classification;
 	const pendingIds = new Set(pending.map((optOut) => optOut.subscriberId));
+	const blocked = new Set(
+		unsettled.filter((optOut) => optOut.unreconciled).map(
+			(optOut) => optOut.subscriberId,
+		),
+	);
+	const ambiguityDetail = () => `${blocked.size} recipient(s) need source chronology reconciliation; fresh consent was not overwritten`;
+
 	// Opt-outs with nothing left to carry are settled as read.
 	const settledAsRead = unsettled
-		.filter((optOut) => !pendingIds.has(optOut.subscriberId))
+		.filter((optOut) => !optOut.unreconciled && !pendingIds.has(optOut.subscriberId))
 		.map((optOut) => optOut.subscriberId);
 	if (pending.length === 0) {
 		return {
 			listId,
-			status: "propagated",
-			safeToDelete: true,
+			status: blocked.size > 0 ? "failed" : "propagated",
+			safeToDelete: blocked.size === 0,
 			optedOutCount: optOuts.length,
 			propagatedCount: 0,
 			pendingCount: 0,
 			settledSubscriberIds: settledAsRead,
+			...(blocked.size > 0 ? { pendingCount: blocked.size, detail: ambiguityDetail() } : {}),
 			sourceListIds,
 		};
 	}
@@ -927,7 +937,8 @@ export async function propagateTemporaryListOptOuts(
 					}
 					const confirmedChunk = reconcileSourceSettlements(records, sourceListIds, { ...input, alreadySettled: { has: (id) => settled.has(id) || newlySettled.has(id) } });
 					for (const optOut of confirmedChunk) {
-						if (resolvePendingSourceListIds(optOut, sourceListIds).length === 0) newlySettled.add(optOut.subscriberId);
+						if (optOut.unreconciled) blocked.add(optOut.subscriberId);
+						else if (resolvePendingSourceListIds(optOut, sourceListIds).length === 0) newlySettled.add(optOut.subscriberId);
 					}
 				}
 			},
@@ -940,9 +951,11 @@ export async function propagateTemporaryListOptOuts(
 		const confirmed = reread.filter(
 			(optOut) => !settled.has(optOut.subscriberId) && !newlySettled.has(optOut.subscriberId),
 		);
-		const unconfirmed = new Set(
-			findUnpropagatedOptOuts(confirmed, sourceListIds),
-		);
+		for (const optOut of confirmed) if (optOut.unreconciled) blocked.add(optOut.subscriberId);
+		const unconfirmed = new Set([
+			...blocked,
+			...findUnpropagatedOptOuts(confirmed, sourceListIds),
+		]);
 		for (const optOut of confirmed) {
 			if (!unconfirmed.has(optOut.subscriberId)) newlySettled.add(optOut.subscriberId);
 		}
@@ -959,7 +972,9 @@ export async function propagateTemporaryListOptOuts(
 				pendingCount: unconfirmed.size,
 				settledSubscriberIds,
 				sourceListIds,
-				detail: `${unconfirmed.size} opted-out subscriber(s) are still subscribed to source lists ${sourceListIds.join(", ")} after the unsubscribe; check that the API user may manage those lists`,
+				detail: blocked.size > 0
+					? `${ambiguityDetail()}; ${unconfirmed.size} opt-out(s) remain unresolved, so the temporary list is kept`
+					: `${unconfirmed.size} opted-out subscriber(s) are still subscribed to source lists ${sourceListIds.join(", ")} after the unsubscribe; check that the API user may manage those lists`,
 			};
 		}
 		return {
@@ -974,7 +989,10 @@ export async function propagateTemporaryListOptOuts(
 		};
 	} catch (error) {
 		const propagatedCount = carriedCount();
-		const pendingCount = pending.length - propagatedCount;
+		const pendingCount = new Set([
+			...blocked,
+			...pending.filter((optOut) => !newlySettled.has(optOut.subscriberId)).map((optOut) => optOut.subscriberId),
+		]).size;
 		return {
 			listId,
 			status: "failed",
@@ -1056,17 +1074,26 @@ export async function previewTemporaryListOptOuts(
 				sourceListIds,
 				detail: classification.detail,
 			};
-		case "read":
+		case "read": {
+			const blockedCount = classification.unsettled.filter(
+				(optOut) => optOut.unreconciled,
+			).length;
 			return {
 				listId,
-				status: classification.pending.length === 0 ? "up_to_date" : "pending",
+				status: blockedCount > 0
+					? "failed"
+					: classification.pending.length === 0
+						? "up_to_date"
+						: "pending",
 				optedOutCount: classification.optOuts.length,
-				pendingCount: classification.pending.length,
-				wouldSettleSubscriberIds: classification.unsettled.map(
+				pendingCount: classification.pending.length + blockedCount,
+				wouldSettleSubscriberIds: classification.unsettled.filter((optOut) => !optOut.unreconciled).map(
 					(optOut) => optOut.subscriberId,
 				),
+				...(blockedCount > 0 ? { detail: `${blockedCount} recipient(s) need source chronology reconciliation; fresh consent was not overwritten` } : {}),
 				sourceListIds,
 			};
+		}
 	}
 }
 

@@ -17,6 +17,7 @@ import { cancelAbTest } from "./lifecycle";
 import { describeRetainedTemporaryList } from "./unsubscribe-propagation";
 import {
 	isOptOutSyncDue,
+	describeOptOutSyncFailures,
 	isOptOutSyncTracked,
 	recordTemporaryListOptOutPropagation,
 	createOptOutSourceSettlementRecorder,
@@ -186,7 +187,7 @@ export function createAbTestExecutors(
 				relatedTests,
 			});
 			if (outcome.state) test.optOutSync = outcome.state;
-			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Source-list opt-outs must be reconciled before stopping ${testId}`);
+			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Source-list opt-outs must be reconciled before stopping ${testId}: ${describeOptOutSyncFailures(outcome.result)}`);
 		}
 		const sourceProgress = createOptOutSourceSettlementRecorder(test);
 		let result: Awaited<ReturnType<typeof cancelAbTest>>;

@@ -16,3 +16,5 @@ Reconcile a lone test's own partial source-list confirmations before stop or non
 Record per-source confirmations during cleanup itself, including partial failures, so a later stop/delete retry or automatic sync cannot revoke renewed consent on an already-carried source.
 
 Confirm only validated, bounded recipient subsets after each write chunk, preserving confirmed partial progress and failing closed on missing or unfiltered responses; retain one final full read to detect newly arriving opt-outs. This keeps subscriber-page request cost linear in the backlog instead of rereading every historical opt-out per chunk.
+
+Keep ambiguous recipients fail-closed without starving unrelated opt-outs. Preserve legacy unknown provenance when adding modern checkpoints, distinguish new no-source cleanup records, and include safe list failure details in stop/delete errors. Clarify first-carry consent limits and upgrade backlog scope in English and Korean.

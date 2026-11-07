@@ -225,6 +225,18 @@ export function mergeOptOutSyncState(
 	};
 }
 
+/** Materialize old unknown coverage before adding a modern source-scoped record. */
+function legacySourceCheckpoints(test: AbTest): AbTestOptOutSourceSettlement[] {
+	if (test.optOutSync?.sourceSettlements !== undefined) return [];
+	return (test.optOutSync?.settledSubscriberIds ?? []).flatMap((subscriberId) =>
+		resolveOptOutSourceListIds(test).map((sourceListId) => ({
+			subscriberId,
+			sourceListId,
+			through: null,
+		})),
+	);
+}
+
 /** Batch private confirmations so cleanup does not repeatedly sort the full history per recipient. */
 export function createOptOutSourceSettlementRecorder(test: AbTest) {
 	const confirmed: AbTestOptOutSourceSettlement[] = [];
@@ -234,7 +246,7 @@ export function createOptOutSourceSettlementRecorder(test: AbTest) {
 		},
 		flush(): void {
 			if (confirmed.length === 0) return;
-			test.optOutSync = mergeOptOutSyncState(test.optOutSync, { sourceSettlements: confirmed });
+			test.optOutSync = mergeOptOutSyncState(test.optOutSync, { sourceSettlements: [...legacySourceCheckpoints(test), ...confirmed] });
 			confirmed.length = 0;
 		},
 	};
@@ -295,6 +307,7 @@ export function recordTemporaryListOptOutPropagation(
 			settledSubscriberIds,
 			missingListIds,
 			syncedAt: input.syncedAt,
+			sourceSettlements: legacySourceCheckpoints(test),
 		}),
 	);
 }
@@ -433,7 +446,10 @@ export async function syncAbTestOptOuts(
 			test,
 			mergeOptOutSyncState(test.optOutSync, {
 				settledSubscriberIds: newlySettled,
-				sourceSettlements: newlyConfirmedSources,
+				sourceSettlements: [
+					...legacySourceCheckpoints(test),
+					...newlyConfirmedSources,
+				],
 				missingListIds,
 				syncedAt: ok ? (options.now ?? new Date()).toISOString() : undefined,
 			}),

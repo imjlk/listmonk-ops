@@ -1672,19 +1672,26 @@ send results. Summary of the current behavior:
   they are deleted in Listmonk. Each carried opt-out is recorded and never
   carried again, so a person who later re-subscribes to a source list stays
   subscribed, and a source membership created after the opt-out is left
-  alone.
+  alone. Before the first confirmed carry, however, re-subscribing an existing
+  membership may leave no timestamp evidence: it cannot reliably be distinguished
+  from the old opt-out and may still be unsubscribed by that first carry.
   Tests sharing a source list reconcile private subscriber/list-scoped checkpoints
   before applying another test's older opt-out. Checkpoints use read-confirmed
   Listmonk membership/opt-out timestamps, never the local machine's clock, and
   a no-op sync cannot advance them; strictly newer opt-outs still propagate.
-  Missing opt-out chronology or legacy settlement records without source
-  evidence fail closed for operator reconciliation rather than overwrite fresh
-  consent. Stop/delete use the same reconciliation before shared-source cleanup.
+  With an existing source checkpoint, missing opt-out chronology or legacy
+  records without source evidence require operator reconciliation: that recipient
+  is not modified or settled, while unrelated known opt-outs still carry. The
+  list remains failed/retained and its successful-sync time does not advance.
+  Without a checkpoint, absent timestamps cannot prove later membership creation,
+  so the old opt-out may still carry. Stop/delete use the same reconciliation.
   Checkpoints may outlive their own temporary lists while another existing test
   still references that source; they are not included in CLI/MCP test output.
   This is not an atomic consent lock: concurrent remote changes require rechecking.
-  The first tick after upgrading carries the backlog that earlier
-  versions left on kept lists. An unsubscribe link whose campaign or list
+  The first tick after upgrading carries the backlog on kept lists only for
+  tests whose local records still exist. Records already deleted by an older
+  version cannot be rediscovered: reconcile those remote lists manually.
+  An unsubscribe link whose campaign or list
   was removed no longer records anything.
 - **Confidence threshold honored**: the stored `confidenceThreshold` drives
   alpha so the significance decision and reported confidence level match.

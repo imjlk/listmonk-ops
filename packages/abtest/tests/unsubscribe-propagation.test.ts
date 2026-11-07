@@ -583,6 +583,31 @@ describe("repeated propagation carries each opt-out once", () => {
 		expect(fake.reads.length).toBeLessThanOrEqual(bound);
 	});
 
+	test.each(["unknown", "legacy", "missing timestamp"] as const)("ambiguous %s evidence blocks only its recipient, not unrelated opt-outs", async (kind) => {
+		const fake = createFakeListmonk({ omitMembershipTimestamps: kind === "missing timestamp" });
+		for (const id of [1, 2]) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const evidence = kind === "legacy"
+			? { legacySourceSettlements: [{ subscriberId: 1, sourceListId: SOURCE_A }] }
+			: { sourceSettlements: [{ subscriberId: 1, sourceListId: SOURCE_A, through: kind === "unknown" ? null : "2026-09-01T00:00:01Z" }] };
+		const input = { listId: 200, sourceListIds: [SOURCE_A], ...evidence };
+		const preview = await previewTemporaryListOptOuts(fake.client, input);
+		expect(preview).toMatchObject({ status: "failed", pendingCount: 2, wouldSettleSubscriberIds: [2] });
+		expect(fake.unsubscribes).toEqual([]);
+		const first = await propagateTemporaryListOptOuts(fake.client, input);
+		expect(first).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 1, pendingCount: 1, settledSubscriberIds: [2] });
+		expect(first.detail).toContain("fresh consent was not overwritten");
+		expect(fake.membership(1, SOURCE_A)).toBe("confirmed");
+		expect(fake.membership(2, SOURCE_A)).toBe("unsubscribed");
+		fake.advanceClock(DAY);
+		fake.resubscribeViaForm(2, SOURCE_A);
+		fake.addSubscriber(3, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		const next = await propagateTemporaryListOptOuts(fake.client, { ...input, settledSubscriberIds: first.settledSubscriberIds });
+		expect(next).toMatchObject({ status: "failed", safeToDelete: false, propagatedCount: 1, pendingCount: 1, settledSubscriberIds: [3] });
+		expect(fake.membership(1, SOURCE_A)).toBe("confirmed");
+		expect(fake.membership(2, SOURCE_A)).toBe("unconfirmed");
+		expect(fake.membership(3, SOURCE_A)).toBe("unsubscribed");
+	});
+
 	test("subset reads validate IDs, handle empty sets without I/O, and paginate", async () => {
 		const fake = createFakeListmonk();
 		for (let id = 1; id <= 5; id += 1) fake.addSubscriber(id, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });

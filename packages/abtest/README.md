@@ -817,6 +817,10 @@ opt-outs:
   their opt-out was carried stays subscribed. The record, not a timestamp,
   decides this, because the public subscription form re-subscribes without
   changing `updated_at`.
+- Unknown source chronology blocks only that recipient: unrelated known opt-outs
+  continue, but the list remains failed and retained, and its successful-sync
+  time does not advance. Legacy unknown checkpoints remain unknown when newer
+  source-scoped records are added; migration never invents consent evidence.
 - Like `unsubscribe-by-campaign`, which marks the memberships that exist
   when the person opts out, a source membership whose
   `subscription_created_at` is later than the temporary-list membership's

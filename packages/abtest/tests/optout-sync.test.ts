@@ -13,6 +13,7 @@ import {
 } from "../src/operations";
 import {
 	isOptOutSyncDue,
+	recordTemporaryListOptOutPropagation,
 	isOptOutSyncTracked,
 	OPT_OUT_SYNC_INTERVAL_MS,
 	OPT_OUT_SYNC_LONG_TAIL_INTERVAL_MS,
@@ -606,6 +607,37 @@ describe("shared-source opt-out chronology", () => {
   expect(fake.membership(777, SOURCE_A)).toBe("unconfirmed");
   expect(fake.unsubscribes.length).toBe(writes);
  });
+	test("adding new checkpoints never erases legacy ambiguity for an older recipient", async () => {
+		const { fake, a, b } = fixture();
+		fake.advanceClock(1000);
+		fake.unsubscribeViaCampaign(100, 777);
+		fake.unsubscribeViaCampaign(101, 777);
+		a.optOutSync = { settledSubscriberIds: [777] };
+		fake.advanceClock(1000);
+		fake.resubscribeViaForm(777, SOURCE_A);
+		fake.addSubscriber(888, { [SOURCE_A]: "confirmed", 200: "unsubscribed" });
+		a.optOutSync = (await syncAbTestOptOuts(fake.client, a)).state;
+		expect(a.optOutSync?.sourceSettlements?.some((point) => point.subscriberId === 777 && point.through === null)).toBe(true);
+		fake.addSubscriber(889, { [SOURCE_A]: "confirmed", 201: "unsubscribed" });
+		const previousSync = new Date(0).toISOString();
+		b.optOutSync = { settledSubscriberIds: [], syncedAt: previousSync };
+		const outcome = await syncAbTestOptOuts(fake.client, b, { relatedTests: [a] });
+		expect(outcome.result.ok).toBe(false);
+		expect(outcome.state?.syncedAt).toBe(previousSync);
+		expect(outcome.state?.settledSubscriberIds).toEqual([889]);
+		expect(outcome.result.lists[0]).toMatchObject({ carriedCount: 1, pendingCount: 1 });
+		expect(fake.membership(889, SOURCE_A)).toBe("unsubscribed");
+		expect(fake.membership(777, SOURCE_A)).toBe("confirmed");
+		expect(fake.membership(888, SOURCE_A)).toBe("unsubscribed");
+	});
+	test.each(["new", "empty", "legacy"] as const)("cleanup keeps %s settlement provenance honest", (kind) => {
+		const test = completedTest();
+		if (kind !== "new") test.optOutSync = { settledSubscriberIds: kind === "legacy" ? [999] : [] };
+		recordTemporaryListOptOutPropagation(test, { propagations: [{ listId: 200, status: "propagated", safeToDelete: true, optedOutCount: 1, propagatedCount: 0, pendingCount: 0, settledSubscriberIds: [777], sourceListIds: [SOURCE_A] }] });
+		expect(test.optOutSync?.sourceSettlements).toEqual(kind === "legacy"
+			? [SOURCE_A, SOURCE_B].map((sourceListId) => ({ subscriberId: 999, sourceListId, through: null }))
+			: []);
+	});
  test("retains source history after its own lists vanish until every related replay source is gone", async () => {
   await createStorePath();
 		const { fake, a, b } = fixture();

@@ -1043,7 +1043,7 @@ export class AbTestService {
 				relatedTests,
 			});
 			if (outcome.state) test.optOutSync = outcome.state;
-			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Source-list opt-outs must be reconciled before deleting ${testId}`);
+			if (!outcome.result.ok) throw new AbTestOptOutProgressError(`Source-list opt-outs must be reconciled before deleting ${testId}: ${describeOptOutSyncFailures(outcome.result)}`);
 		}
 		// Cleanup Listmonk resources for any test that has remote campaigns.
 		// Use deleteTestResources which is status-aware: it cancels running or
