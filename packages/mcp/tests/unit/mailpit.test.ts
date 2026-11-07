@@ -17,7 +17,7 @@ test("Mailpit helper resolves its API URL after test env setup", async () => {
 			messages: [],
 		});
 	} finally {
-		server.stop(true);
+		await server.stop(true);
 		if (previousMailpitApiUrl === undefined) {
 			delete process.env.MAILPIT_API_URL;
 		} else {
@@ -57,7 +57,7 @@ test("Mailpit helper searches for the exact recipient and subject", async () => 
 			Subject: subject,
 		});
 	} finally {
-		server.stop(true);
+		await server.stop(true);
 		if (previousMailpitApiUrl === undefined) {
 			delete process.env.MAILPIT_API_URL;
 		} else {

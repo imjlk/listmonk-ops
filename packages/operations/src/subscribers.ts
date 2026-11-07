@@ -127,7 +127,10 @@ const subscriberListInputSchema = z.object({
 });
 
 const subscriberFields = {
-	email: z.string().trim().email(),
+	// Validate the trimmed value: `z.email().trim()` would validate before
+	// trimming, and `.pipe(z.email())` would drop the email format from the
+	// published input JSON Schema.
+	email: z.string().trim().check(z.email()),
 	name: z.string().trim().optional(),
 	status: subscriberStatusSchema.optional(),
 	lists: z.array(resourceIdSchema).optional(),

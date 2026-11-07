@@ -213,6 +213,32 @@ describe("transactional operations", () => {
 		expect(send).not.toHaveBeenCalled();
 	});
 
+	test("trims subscriber_email before validating it", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		await expect(
+			invokeSendTransactionalOperation(context(send), {
+				template_id: 3,
+				subscriber_email: "  recipient@example.com\t",
+			}),
+		).resolves.toEqual({ sent: true, status: "accepted" });
+		expect(send).toHaveBeenCalledWith(
+			expect.objectContaining({ subscriber_emails: ["recipient@example.com"] }),
+		);
+		await expect(
+			invokeSendTransactionalOperation(context(send), {
+				template_id: 3,
+				subscriber_email: "  not-an-email  ",
+			}),
+		).rejects.toEqual(
+			expect.objectContaining({
+				name: "OperationInputError",
+				message: "Invalid parameter subscriber_email: Invalid email address",
+			}),
+		);
+		expect(send).toHaveBeenCalledTimes(1);
+	});
+
 	test("requires exactly one supported recipient selector (XOR)", async () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
 
@@ -446,6 +472,7 @@ describe("transactional operations", () => {
 			"template_id",
 		]);
 		expect(sendTransactionalOperation.inputJsonSchema.properties).toMatchObject({
+			subscriber_email: { type: "string", format: "email" },
 			subscriber_id: {
 				anyOf: [{ type: "integer" }, { type: "string" }],
 			},

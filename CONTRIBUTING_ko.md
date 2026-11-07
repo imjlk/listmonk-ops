@@ -143,7 +143,10 @@ bun run check
 직접 import하기 때문입니다. Bun의 isolated workspace linker가 이 런타임과
 peer 해석을 OpenAPI 패키지 안에 격리합니다. 이 패키지의 `build`, `lint`,
 `typecheck` 명령은 계속 `ttsc`를 호출하므로 실제 컴파일은 TypeScript 7로
-수행합니다.
+수행합니다. ttsc는 가장 가까운 패키지의 컴파일러를 사용하므로, 이 패키지는
+네이티브 TypeScript 7을 `@typescript/native` npm alias(`npm:typescript@7.x`)로
+함께 선언하며 ttsc는 구형 `typescript` 항목보다 이 alias를 우선합니다.
+업그레이드할 때는 이 alias를 루트 `typescript`와 같은 버전으로 유지하세요.
 
 VS Code에서는 추천 확장인 `samchon.ttsc`를 설치하세요. 저장소의 워크스페이스
 설정은 TypeScript 저장 시 포맷에 이 확장을 사용합니다.
@@ -168,7 +171,10 @@ bun run check:cli-npm-install
 워크스페이스 의존성을 패킹하고, 임시 npm 프로젝트에 tarball을 설치한 뒤 설치된
 `listmonk-cli`를 오프라인으로 실행합니다. 서드파티 의존성은 설정된 npm
 레지스트리나 캐시에서 가져오며, npm이 설치되어 있지 않으면 검사를 건너뜁니다.
-CI는 워크스페이스 빌드 후 이 검사를 실행합니다.
+설치는 캐시된 레지스트리 메타데이터를 우선 사용합니다. 의존성이 버전을 배포하기
+전에 캐시된 메타데이터 때문에 npm이 `ETARGET`(범위에 맞는 버전 없음)을 보고하면,
+검사는 재시도를 로그로 남기고 `--prefer-online`으로 한 번 더 설치합니다. CI는
+워크스페이스 빌드 후 이 검사를 실행합니다.
 
 ### 배포 선언 파일
 
@@ -195,8 +201,9 @@ TypeScript 5.0, 5.4, 5.9와 저장소의 TypeScript 7 릴리스를 사용하는 
 모듈을 `bundler`, `node16`, `nodenext` 해석과 `skipLibCheck: false`로
 컴파일합니다. `operations`, `automation`, `abtest`의 zod 4 타입은
 TypeScript 5.4가 필요하므로 TypeScript 5.0에서는 이 패키지들을 건너뜁니다.
-CLI 설치 검사와 마찬가지로 npm 레지스트리나 캐시를 사용하고, npm이 설치되어
-있지 않으면 검사를 건너뛰며, CI는 워크스페이스 빌드 후 이 검사를 실행합니다.
+CLI 설치 검사와 마찬가지로 npm 레지스트리나 캐시를 사용하고 `ETARGET`이면
+`--prefer-online`으로 한 번 재시도하며, npm이 설치되어 있지 않으면 검사를
+건너뛰고, CI는 워크스페이스 빌드 후 이 검사를 실행합니다.
 
 ### TypeScript 코드 그래프
 

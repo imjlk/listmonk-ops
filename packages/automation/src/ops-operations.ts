@@ -68,7 +68,7 @@ const numberInput = () =>
 			value === null || value === "" || typeof value === "boolean"
 				? Number.NaN
 				: value,
-		z.coerce.number().finite(),
+		z.coerce.number(),
 	).nonoptional();
 const positiveIntegerInput = numberInput().pipe(z.number().int().positive());
 const nonNegativeNumberInput = numberInput().pipe(z.number().min(0));

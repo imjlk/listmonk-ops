@@ -32,6 +32,24 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # ttsc compiles Go source plugins (@ttsc/lint, typia) into native
+      # binaries. Restore them so a run only rebuilds what bun.lock or a
+      # tsconfig plugin list changed, then build any that are missing.
+      - name: Locate ttsc plugin cache
+        id: ttsc-cache
+        run: echo "plugins=$(bunx ttsc cache paths --json | jq -r '.pluginCacheRoot')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore ttsc plugin binaries
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.ttsc-cache.outputs.plugins }}
+          key: ttsc-plugins-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', 'tsconfig*.json', 'apps/*/tsconfig*.json', 'packages/*/tsconfig*.json') }}
+          restore-keys: |
+            ttsc-plugins-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Prepare ttsc plugins
+        run: bunx ttsc prepare
+
       - name: Check formatting with ttsc
         run: |
           bun run format
@@ -77,6 +95,24 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      # ttsc compiles Go source plugins (@ttsc/lint, typia) into native
+      # binaries. Restore them so a run only rebuilds what bun.lock or a
+      # tsconfig plugin list changed, then build any that are missing.
+      - name: Locate ttsc plugin cache
+        id: ttsc-cache
+        run: echo "plugins=$(bunx ttsc cache paths --json | jq -r '.pluginCacheRoot')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore ttsc plugin binaries
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.ttsc-cache.outputs.plugins }}
+          key: ttsc-plugins-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', 'tsconfig*.json', 'apps/*/tsconfig*.json', 'packages/*/tsconfig*.json') }}
+          restore-keys: |
+            ttsc-plugins-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Prepare ttsc plugins
+        run: bunx ttsc prepare
 
       - name: Start local stack
         run: docker compose up -d
