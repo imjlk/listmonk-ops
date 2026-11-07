@@ -20,7 +20,7 @@ function request(
 
 describe("ops operation MCP adapter", () => {
 	test("publishes registry metadata for every ops tool", () => {
-		expect(opsTools).toHaveLength(10);
+		expect(opsTools).toHaveLength(11);
 		expect(isOpsToolName("listmonk_ops_preflight")).toBe(true);
 		expect(isOpsToolName("listmonk_ops_preflight_extra")).toBe(false);
 
@@ -109,6 +109,21 @@ describe("ops operation MCP adapter", () => {
 	});
 });
 
+test("campaign review is an unconfirmed read-only tool returning shared structured evidence", async () => {
+  const client = {
+   campaign: {
+    getById: async () => ({ data: { id: 42, uuid: "review-uuid", updated_at: "r1", subject: "Hello", body: "Body", status: "draft", lists: [{ id: 7 }] } }),
+    preview: async () => ({ data: "<p>Review</p>" }),
+   },
+   list: { getById: async () => ({ data: { id: 7, name: "Audience", subscriber_count: 10 } }) },
+  } as unknown as ListmonkClient;
+  const tool = opsTools.find((entry) => entry.name === "listmonk_ops_campaign_review");
+  expect(tool?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false, idempotentHint: true });
+  expect(tool?.inputSchema.required).toEqual(["campaign_id"]);
+  const result = await handleOpsTools(request("listmonk_ops_campaign_review", { campaign_id: 42 }), client);
+  expect(result.isError).not.toBe(true);
+  expect(result.structuredContent).toMatchObject({ snapshot: { version: 1, campaign_id: 42 }, preview: { trusted: false }, comparison: { compared: false } });
+ });
 test("health MCP is read-only, structured and does not consult the remote client", async () => {
 	const handler = createOpsToolsHandler({
 		sequenceSource: { kind: "postgres" },

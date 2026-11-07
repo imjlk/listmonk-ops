@@ -1,5 +1,7 @@
 import { defineOperationSpec } from "../operation";
 import {
+	campaignReviewInputContract,
+	campaignReviewOutputContract,
 	opsHealthInputContract,
 	opsHealthOutputContract,
 	segmentDriftInputContract,
@@ -522,6 +524,32 @@ export function bindOpsTemplateRegistryPromoteOperationSpec(): typeof opsTemplat
 
 export function bindOpsTemplateRegistryRollbackOperationSpec(): typeof opsTemplateRegistryRollbackOperationSpec {
 	return opsTemplateRegistryRollbackOperationSpec;
+}
+
+export const opsCampaignReviewOperationSpec = defineOperationSpec({
+ id: "ops.campaign.review", resource: "campaign", verb: "review",
+ title: "Build campaign review package",
+ description: "Collect bounded read-only campaign evidence, rendered preview and preflight; compare an earlier snapshot. Never approves, sends or schedules.",
+ contract: { input: campaignReviewInputContract, output: campaignReviewOutputContract },
+ effects: [{ kind: "read", resource: "campaign" }, { kind: "read", resource: "list" }, { kind: "read", resource: "template" }],
+ policy: { confirmation: "never", audit: "optional", dryRun: false },
+ retry: { kind: "safe", reason: "Read-only evidence can be collected again; observations may change." },
+ agent: {
+  useWhen: ["A human needs campaign content, audience estimates, preflight and changes in one review package."],
+  avoidWhen: ["Atomic approval or a recipient-exact send guarantee is required."],
+  prerequisites: ["campaigns.get"], verifyWith: ["ops.campaign.preflight"], related: ["campaigns.preview"],
+  retryGuidance: "Retry reads safely. Re-review changes before separately approved delivery; expected_updated_at is not an atomic lock.",
+ },
+ projection: { mcpName: "listmonk_ops_campaign_review", openWorld: true, graph: {
+  descriptorNode: "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsCampaignReviewOperationSpec:variable",
+  bindingNode: "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsCampaignReviewOperationSpec:function",
+  runtimeDefinitionNode: "packages/automation/src/ops-operations.ts#campaignReviewOperation:variable",
+  invokerNode: "packages/automation/src/ops-operations.ts#invokeCampaignReviewOperation:function",
+  executorNode: "packages/automation/src/ops-operations.ts#executeCampaignReviewOperation:function",
+ } }, stability: "experimental", since: "0.10.0",
+});
+export function bindOpsCampaignReviewOperationSpec(): typeof opsCampaignReviewOperationSpec {
+	return opsCampaignReviewOperationSpec;
 }
 
 export const opsHealthOperationSpec = defineOperationSpec({

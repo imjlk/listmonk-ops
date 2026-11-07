@@ -2676,6 +2676,33 @@
     {
       "edges": [
         {
+          "from": "packages/automation/src/ops-operations.ts#campaignReviewOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsCampaignReviewOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsCampaignReviewOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsCampaignReviewOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeCampaignReviewOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeCampaignReviewOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsCampaignReviewOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsCampaignReviewOperationSpec:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeCampaignReviewOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeCampaignReviewOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#campaignReviewOperation:variable"
+      },
+      "operationId": "ops.campaign.review"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsSegmentDriftOperationSpec:function"

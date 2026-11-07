@@ -6886,6 +6886,661 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "campaignReviewInputContract": {
+    "components": {
+      "schemas": {
+        "CampaignReviewFields": {
+          "additionalProperties": false,
+          "properties": {
+            "altbody_sha256": {
+              "$ref": "#/components/schemas/ReviewDigest"
+            },
+            "body_sha256": {
+              "$ref": "#/components/schemas/ReviewDigest"
+            },
+            "content_type": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "from_email": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "messenger": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "name": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "preview_sha256": {
+              "$ref": "#/components/schemas/ReviewDigest"
+            },
+            "send_at": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "status": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "subject": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "template_body_sha256": {
+              "$ref": "#/components/schemas/ReviewDigest"
+            },
+            "template_id": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceId"
+                }
+              ]
+            },
+            "template_updated_at": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "updated_at": {
+              "$ref": "#/components/schemas/ReviewText"
+            }
+          },
+          "required": [
+            "name",
+            "subject",
+            "from_email",
+            "status",
+            "send_at",
+            "updated_at",
+            "content_type",
+            "messenger",
+            "template_id",
+            "template_updated_at",
+            "template_body_sha256",
+            "body_sha256",
+            "altbody_sha256",
+            "preview_sha256"
+          ],
+          "type": "object"
+        },
+        "CampaignReviewInput": {
+          "additionalProperties": false,
+          "properties": {
+            "campaign_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "max_audience": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "previous_snapshot": {
+              "$ref": "#/components/schemas/CampaignReviewSnapshot"
+            }
+          },
+          "required": [
+            "campaign_id"
+          ],
+          "type": "object"
+        },
+        "CampaignReviewSnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "campaign_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "campaign_uuid": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "fields": {
+              "$ref": "#/components/schemas/CampaignReviewFields"
+            },
+            "lists": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/ReviewText"
+                  },
+                  "subscriber_count": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "subscriber_count"
+                ],
+                "type": "object"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            "version": {
+              "const": 1
+            }
+          },
+          "required": [
+            "version",
+            "campaign_id",
+            "campaign_uuid",
+            "fields",
+            "lists"
+          ],
+          "type": "object"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ReviewDigest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            }
+          ]
+        },
+        "ReviewText": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "maxLength": 512,
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "campaign_id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "max_audience": {
+          "$ref": "#/components/schemas/PositiveInteger"
+        },
+        "previous_snapshot": {
+          "$ref": "#/components/schemas/CampaignReviewSnapshot"
+        }
+      },
+      "required": [
+        "campaign_id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "campaignReviewOutputContract": {
+    "components": {
+      "schemas": {
+        "CampaignReviewFields": {
+          "additionalProperties": false,
+          "properties": {
+            "altbody_sha256": {
+              "$ref": "#/components/schemas/ReviewDigest"
+            },
+            "body_sha256": {
+              "$ref": "#/components/schemas/ReviewDigest"
+            },
+            "content_type": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "from_email": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "messenger": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "name": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "preview_sha256": {
+              "$ref": "#/components/schemas/ReviewDigest"
+            },
+            "send_at": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "status": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "subject": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "template_body_sha256": {
+              "$ref": "#/components/schemas/ReviewDigest"
+            },
+            "template_id": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceId"
+                }
+              ]
+            },
+            "template_updated_at": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "updated_at": {
+              "$ref": "#/components/schemas/ReviewText"
+            }
+          },
+          "required": [
+            "name",
+            "subject",
+            "from_email",
+            "status",
+            "send_at",
+            "updated_at",
+            "content_type",
+            "messenger",
+            "template_id",
+            "template_updated_at",
+            "template_body_sha256",
+            "body_sha256",
+            "altbody_sha256",
+            "preview_sha256"
+          ],
+          "type": "object"
+        },
+        "CampaignReviewOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "comparison": {
+              "additionalProperties": false,
+              "properties": {
+                "changed_fields": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "compared": {
+                  "type": "boolean"
+                },
+                "messages": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "compared",
+                "changed_fields",
+                "messages"
+              ],
+              "type": "object"
+            },
+            "limitations": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "preflight": {
+              "additionalProperties": false,
+              "properties": {
+                "audienceEstimate": {
+                  "type": "number"
+                },
+                "checks": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "level": {
+                        "oneOf": [
+                          {
+                            "const": "fail"
+                          },
+                          {
+                            "const": "pass"
+                          },
+                          {
+                            "const": "warn"
+                          }
+                        ]
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "level",
+                      "message"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "summary": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "fail": {
+                      "type": "number"
+                    },
+                    "pass": {
+                      "type": "number"
+                    },
+                    "warn": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "pass",
+                    "warn",
+                    "fail"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "checks",
+                "summary",
+                "audienceEstimate"
+              ],
+              "type": "object"
+            },
+            "preview": {
+              "additionalProperties": false,
+              "properties": {
+                "html": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "maxLength": 2000000,
+                      "type": "string"
+                    }
+                  ]
+                },
+                "trusted": {
+                  "const": false
+                }
+              },
+              "required": [
+                "html",
+                "trusted"
+              ],
+              "type": "object"
+            },
+            "snapshot": {
+              "$ref": "#/components/schemas/CampaignReviewSnapshot"
+            }
+          },
+          "required": [
+            "snapshot",
+            "preview",
+            "preflight",
+            "comparison",
+            "limitations"
+          ],
+          "type": "object"
+        },
+        "CampaignReviewSnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "campaign_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "campaign_uuid": {
+              "$ref": "#/components/schemas/ReviewText"
+            },
+            "fields": {
+              "$ref": "#/components/schemas/CampaignReviewFields"
+            },
+            "lists": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/ReviewText"
+                  },
+                  "subscriber_count": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "subscriber_count"
+                ],
+                "type": "object"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            "version": {
+              "const": 1
+            }
+          },
+          "required": [
+            "version",
+            "campaign_id",
+            "campaign_uuid",
+            "fields",
+            "lists"
+          ],
+          "type": "object"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ReviewDigest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            }
+          ]
+        },
+        "ReviewText": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "maxLength": 512,
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "comparison": {
+          "additionalProperties": false,
+          "properties": {
+            "changed_fields": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "compared": {
+              "type": "boolean"
+            },
+            "messages": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "compared",
+            "changed_fields",
+            "messages"
+          ],
+          "type": "object"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "preflight": {
+          "additionalProperties": false,
+          "properties": {
+            "audienceEstimate": {
+              "type": "number"
+            },
+            "checks": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "level": {
+                    "oneOf": [
+                      {
+                        "const": "fail"
+                      },
+                      {
+                        "const": "pass"
+                      },
+                      {
+                        "const": "warn"
+                      }
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "level",
+                  "message"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "summary": {
+              "additionalProperties": false,
+              "properties": {
+                "fail": {
+                  "type": "number"
+                },
+                "pass": {
+                  "type": "number"
+                },
+                "warn": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "pass",
+                "warn",
+                "fail"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "checks",
+            "summary",
+            "audienceEstimate"
+          ],
+          "type": "object"
+        },
+        "preview": {
+          "additionalProperties": false,
+          "properties": {
+            "html": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "maxLength": 2000000,
+                  "type": "string"
+                }
+              ]
+            },
+            "trusted": {
+              "const": false
+            }
+          },
+          "required": [
+            "html",
+            "trusted"
+          ],
+          "type": "object"
+        },
+        "snapshot": {
+          "$ref": "#/components/schemas/CampaignReviewSnapshot"
+        }
+      },
+      "required": [
+        "snapshot",
+        "preview",
+        "preflight",
+        "comparison",
+        "limitations"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "campaignScheduleInputContract": {
     "components": {
       "schemas": {
