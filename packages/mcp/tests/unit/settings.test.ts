@@ -1,5 +1,9 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { describe, expect, test } from "bun:test";
+import {
+	createListmonkClient,
+	RedactedSettingsPlaceholderError,
+} from "@listmonk-ops/openapi";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { handleSettingsTools } from "../../src/handlers/settings";
 import {
 	handleSharedSettingsTools,
@@ -73,6 +77,99 @@ describe("settings shared adapter", () => {
 				],
 			},
 		});
+	});
+});
+
+/** A Listmonk 6.2 `GET /api/settings` excerpt with one SMTP server. */
+function listmonk62SmtpSettings() {
+	return {
+		"app.site_name": "Mailing list",
+		smtp: [
+			{
+				name: "email-postmark",
+				uuid: "2e8c0f4a-2f6b-4a55-9f1e-7d3c2b1a0e9f",
+				enabled: true,
+				host: "smtp.postmarkapp.com",
+				port: 587,
+				auth_protocol: "plain",
+				username: "pm-server-token-7c1d",
+				password: "••••••••••••••••••••",
+				tls_type: "STARTTLS",
+			},
+		],
+	};
+}
+
+const redactedSmtpTestError = new RedactedSettingsPlaceholderError(
+	"test SMTP",
+	["server.username", "server.password"],
+).message;
+
+async function readRedactedSmtpServer(client: ListmonkClient) {
+	const read = await handleSharedSettingsTools(
+		request("listmonk_get_settings"),
+		client,
+	);
+	expect(read.isError).toBeFalsy();
+	const { settings } = read.structuredContent as {
+		settings: { smtp: Array<Record<string, unknown>> };
+	};
+	return settings.smtp[0];
+}
+
+describe("settings redacted round trip", () => {
+	const originalFetch = globalThis.fetch;
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	test("refuses to test SMTP with a server copied from the redacted read", async () => {
+		const testSmtp = mock(async () => ({ data: ["sent"] }));
+		const client = {
+			settings: {
+				get: async () => ({ data: listmonk62SmtpSettings() }),
+				testSmtp,
+			},
+		} as unknown as ListmonkClient;
+
+		const server = await readRedactedSmtpServer(client);
+		const result = await handleSharedSettingsTools(
+			request("listmonk_test_smtp", { email: "ops@example.com", server }),
+			client,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text).toBe(`Error: ${redactedSmtpTestError}`);
+		expect(testSmtp).not.toHaveBeenCalled();
+	});
+
+	test("sends no request to Listmonk through the shared client", async () => {
+		const requests: string[] = [];
+		globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			const outgoing = new Request(input, init);
+			const { pathname } = new URL(outgoing.url);
+			requests.push(`${outgoing.method} ${pathname}`);
+			if (outgoing.method === "GET" && pathname === "/api/settings") {
+				return Response.json({ data: listmonk62SmtpSettings() });
+			}
+			return Response.json({ data: ["sent"] });
+		}) as typeof fetch;
+		const client = createListmonkClient({
+			baseUrl: "http://127.0.0.1:9/api",
+			headers: { Authorization: "token test:test" },
+			retries: 0,
+		});
+
+		const server = await readRedactedSmtpServer(client);
+		const result = await handleSharedSettingsTools(
+			request("listmonk_test_smtp", { email: "ops@example.com", server }),
+			client,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text).toBe(`Error: ${redactedSmtpTestError}`);
+		expect(requests).toEqual(["GET /api/settings"]);
 	});
 });
 

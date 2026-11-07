@@ -762,7 +762,10 @@ listmonk-cli system logs --lines 50
 # Credential assignments in free-form values (token=..., api_key=...) are
 # also redacted; unrelated non-URL text remains visible.
 listmonk-cli settings get
-# Every run sends a real message to the recipient.
+# Every run sends a real message to the recipient. Pass the real username and
+# password: Listmonk's SMTP test never falls back to the stored ones, and a
+# server copied from `settings get` is refused before any request, naming
+# each field that still holds [redacted].
 listmonk-cli settings test-smtp --email reader@example.com \
   --host mailpit --port 1025
 # Restarts Listmonk: running campaigns are interrupted and queued
@@ -1308,7 +1311,20 @@ store and confirmation gate were removed:
 - `listmonk_update_settings`, which passed any object to
   `PUT /api/settings` and reloaded Listmonk: there is no MCP replacement.
   Read settings with the redacted `listmonk_get_settings` and change them in
-  the Listmonk admin UI.
+  the Listmonk admin UI; `listmonk_test_smtp` refuses a server copied from
+  that read, naming each field that still holds `[redacted]`, because
+  Listmonk's SMTP test never falls back to the stored credentials. Code that
+  saves settings with
+  `client.settings.update()` from `@listmonk-ops/openapi` cannot write a
+  redacted read back either: the client refuses, before any request, a
+  document in which a value still holds `[redacted]` (as the whole value, URL
+  userinfo, or a credential parameter) and names those keys. Replace each with
+  the real value. Leaving a key out does not keep it, because Listmonk 6.2
+  saves the whole document and resets omitted keys; only the secrets it masks
+  itself (SMTP, messenger, and bounce-mailbox passwords of entries that keep
+  their `uuid`, and the S3, SendGrid, Azure, Postmark, ForwardEmail,
+  Lettermint, hCaptcha, and OIDC secrets) keep their stored value when sent as
+  an empty string.
 - `listmonk_send_subscriber_optin`: use the audited `listmonk_send_optin`,
   which takes the same `id`.
 

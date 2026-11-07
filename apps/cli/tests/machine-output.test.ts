@@ -17,8 +17,8 @@ const server = Bun.serve({
 		});
 	},
 });
-afterAll(() => {
-	server.stop(true);
+afterAll(async () => {
+	await server.stop(true);
 	rmSync(temporaryDirectory, { recursive: true, force: true });
 });
 

@@ -143,7 +143,10 @@ runtime solely because `@hey-api/openapi-ts` imports the legacy JavaScript
 compiler API while generating code. Bun's isolated workspace linker keeps that
 runtime and its peer resolution inside the OpenAPI package. Its `build`,
 `lint`, and `typecheck` scripts still invoke `ttsc` and therefore compile with
-TypeScript 7.
+TypeScript 7: ttsc uses the nearest package's own compiler, so the package
+also declares native TypeScript 7 as the `@typescript/native` npm alias
+(`npm:typescript@7.x`), which ttsc prefers over the legacy `typescript` entry.
+Keep that alias on the same version as the root `typescript` when upgrading.
 
 For VS Code, install the recommended `samchon.ttsc` extension. The checked-in
 workspace settings use it for TypeScript format-on-save.
@@ -168,7 +171,10 @@ It packs the CLI and its workspace dependencies with `bun pm pack` as the
 release workflow does, installs the tarballs into a temporary npm project, and
 runs the installed `listmonk-cli` offline. Third-party dependencies come from
 the configured npm registry or cache, and the check is skipped when npm is not
-installed. CI runs it after the workspace build.
+installed. The install prefers cached registry metadata; when npm reports
+`ETARGET` (no version matches a range, for example because the metadata was
+cached before a dependency published that version), the check logs a retry and
+installs once more with `--prefer-online`. CI runs it after the workspace build.
 
 ### Published declarations
 
@@ -196,8 +202,8 @@ public entry point and subpath export with `skipLibCheck: false` under
 `bundler`, `node16`, and `nodenext` resolution. TypeScript 5.0 skips
 `operations`, `automation`, and `abtest` because their zod 4 types need
 TypeScript 5.4. Like the CLI install check, it reads packages from the npm
-registry or cache, is skipped when npm is not installed, and runs in CI after
-the workspace build.
+registry or cache with the same single `--prefer-online` retry on `ETARGET`, is
+skipped when npm is not installed, and runs in CI after the workspace build.
 
 ### TypeScript code graph
 

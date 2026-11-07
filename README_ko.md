@@ -746,7 +746,10 @@ listmonk-cli system logs --lines 50
 # (token, api_key, signature, access_token 등)도 [redacted]로 치환됩니다.
 # 일반 문자열의 token=..., api_key=... 형태도 치환되며 다른 텍스트는 유지됩니다.
 listmonk-cli settings get
-# 실행할 때마다 수신자에게 실제 메시지를 보냅니다.
+# 실행할 때마다 수신자에게 실제 메시지를 보냅니다. 실제 username과 password를
+# 전달하세요. Listmonk의 SMTP 테스트는 저장된 자격 증명을 대신 쓰지 않으며,
+# `settings get` 결과를 복사한 서버 설정은 요청 전에 거부되고 [redacted]가
+# 남아 있는 필드 이름이 표시됩니다.
 listmonk-cli settings test-smtp --email reader@example.com \
   --host mailpit --port 1025
 # Listmonk를 재시작합니다. 실행 중인 캠페인이 중단되고 대기 중인
@@ -1237,7 +1240,18 @@ read-only이며, 모든 MCP 도구는 `readOnlyHint`, `destructiveHint`,
 - 임의의 객체를 `PUT /api/settings`로 전달하고 Listmonk를 다시 로드하던
   `listmonk_update_settings`: MCP 대체 도구는 없습니다. 자격 증명이 가려진
   `listmonk_get_settings`로 설정을 읽고, 변경은 Listmonk 관리자 UI에서
-  하세요.
+  하세요. Listmonk의 SMTP 테스트는 저장된 자격 증명을 대신 쓰지 않으므로
+  `listmonk_test_smtp`는 이 읽기 결과를 복사한 서버 설정을 거부하고
+  `[redacted]`가 남아 있는 필드 이름을 알려 줍니다.
+  `@listmonk-ops/openapi`의 `client.settings.update()`로 설정을
+  저장하는 코드도 가려진 읽기 결과를 그대로 다시 쓸 수 없습니다. 값 전체,
+  URL userinfo, 자격 증명 파라미터 중 어디든 `[redacted]`가 남아 있으면
+  클라이언트가 요청 전에 거부하고 해당 키 이름을 알려 줍니다. 각 값을 실제
+  값으로 바꾸세요. Listmonk 6.2는 설정 문서 전체를 저장하면서 빠진 키를
+  초기화하므로 키를 생략해도 저장된 값이 유지되지 않습니다. Listmonk가 직접
+  가리는 비밀 값(`uuid`를 유지한 SMTP, messenger, bounce mailbox 항목의
+  password와 S3, SendGrid, Azure, Postmark, ForwardEmail, Lettermint,
+  hCaptcha, OIDC 비밀 값)만 빈 문자열로 보내면 저장된 값이 유지됩니다.
 - `listmonk_send_subscriber_optin`: 같은 `id`를 받는 감사 대상
   `listmonk_send_optin`을 사용하세요.
 

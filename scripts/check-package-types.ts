@@ -11,7 +11,8 @@
  * `nodenext` module resolution modes.
  *
  * Third-party dependencies and the compilers come from the configured npm
- * registry (or the local npm cache). The check is skipped when npm or Node.js
+ * registry (or the local npm cache, refreshed once when its metadata lacks a
+ * needed version; see `npmInstall`). The check is skipped when npm or Node.js
  * is not installed.
  */
 import {
@@ -99,8 +100,9 @@ export const TYPESCRIPT_TOOLCHAINS: readonly TypeScriptToolchain[] = [
 ];
 
 // Each spawned command is already bounded by the npm install check's command
-// timeout. This budget is checked between commands, so a slow registry can hold
-// a runner for at most the budget plus one command timeout.
+// timeout. This budget is checked between steps, so a slow registry can hold a
+// runner for at most the budget plus two command timeouts: an npm install step
+// retries once with fresh metadata after ETARGET.
 const CHECK_BUDGET_MS = 10 * 60_000;
 
 function log(message: string): void {
@@ -558,7 +560,7 @@ export async function checkPackageTypes(
 				toolchain,
 				toolchainEntryPoints(toolchain, declarationPackages),
 			);
-			await npmInstall(npm, projectDirectory);
+			await npmInstall(npm, projectDirectory, log);
 			const typescript = installedVersion(projectDirectory, "typescript");
 			const label = toolchain.unsupported ? `${typescript}*` : typescript;
 			for (const mode of RESOLUTION_MODES) {
