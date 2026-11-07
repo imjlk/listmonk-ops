@@ -1,5 +1,15 @@
 # @listmonk-ops/abtest
 
+## 0.9.3 — 2026-11-07
+
+### Changed
+
+- [2ce212e](https://github.com/imjlk/listmonk-ops/commit/2ce212e9c9c183bd0d709261e04e6b6f5326c339) Migrated off zod APIs that zod 4 deprecates, with no behavior change. Number schemas no longer call `.finite()`, which zod 4 made a no-op because number schemas already reject infinite values; string `.datetime()` is now `z.iso.datetime()` with the same options; and the trimmed email fields (`subscribers.create` and `subscribers.update` `email`, `transactional.send` `subscriber_email`, and the matching CLI options) use `z.string().trim().check(z.email())` instead of `.trim().email()`, so input is still trimmed before it is validated and the published input schemas keep `format: "email"`. Validation results, error messages, and every operation input and output JSON Schema published through the CLI and MCP catalogs are unchanged. In the `@listmonk-ops/abtest` declarations, the A/B test datetime fields are typed `ZodISODateTime` instead of `ZodString`; their inferred type is still `string`. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: common@0.7.3, openapi@0.11.1, operations@0.21.0
+
 ## 0.9.2 — 2026-09-27
 
 ### Fixed

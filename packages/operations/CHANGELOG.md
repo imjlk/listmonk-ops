@@ -1,5 +1,26 @@
 # @listmonk-ops/operations
 
+## 0.21.0 — 2026-11-07
+
+### Minor changes
+
+- [6432518](https://github.com/imjlk/listmonk-ops/commit/6432518f7fe5e726929e0ee3d5c433c7321bec5e) Add a bounded read-only campaign review package shared by CLI and MCP, with rendered preview, preflight, versioned snapshots and readable change comparisons. No send or approval is performed. — Thanks @imjlk!
+- [3242ca3](https://github.com/imjlk/listmonk-ops/commit/3242ca33ee1d62c9e5e354d266633f3e391b3582) Add a bounded, privacy-minimal read-only ops health report shared by CLI and MCP, with fixed-clock classification, explicit unavailable/Postgres/truncated evidence, safe read suggestions and CLI check exit status. Never recover, claim, send or initialize schema while inspecting health. — Thanks @imjlk!
+- [35ce98a](https://github.com/imjlk/listmonk-ops/commit/35ce98a653897c8583e87782f39ff19836a5aef5) Add a bounded, fixed-clock no-send sequence simulator with context branching, wait timelines, snapshot consent explanations and file-backed enrollment revision inspection. No execution or state mutation occurs. — Thanks @imjlk!
+
+### Changed
+
+- [2ce212e](https://github.com/imjlk/listmonk-ops/commit/2ce212e9c9c183bd0d709261e04e6b6f5326c339) Migrated off zod APIs that zod 4 deprecates, with no behavior change. Number schemas no longer call `.finite()`, which zod 4 made a no-op because number schemas already reject infinite values; string `.datetime()` is now `z.iso.datetime()` with the same options; and the trimmed email fields (`subscribers.create` and `subscribers.update` `email`, `transactional.send` `subscriber_email`, and the matching CLI options) use `z.string().trim().check(z.email())` instead of `.trim().email()`, so input is still trimmed before it is validated and the published input schemas keep `format: "email"`. Validation results, error messages, and every operation input and output JSON Schema published through the CLI and MCP catalogs are unchanged. In the `@listmonk-ops/abtest` declarations, the A/B test datetime fields are typed `ZodISODateTime` instead of `ZodString`; their inferred type is still `string`. — Thanks @imjlk!
+- [0731923](https://github.com/imjlk/listmonk-ops/commit/073192342aebb70ea2d5552a18a3c22ff22b4ca7) Build with ttsc 0.34.3 and typia 15.2.2. ttsc now compiles with each package's own native TypeScript, so `@listmonk-ops/openapi`, which keeps the legacy TypeScript 5.9 runtime for code generation, also declares TypeScript 7.0.2 under the `@typescript/native` alias. This is a build-toolchain update with no source changes, and the generated operation contracts are unchanged. — Thanks @imjlk!
+
+### Fixed
+
+- [587525b](https://github.com/imjlk/listmonk-ops/commit/587525b0e83a42a2a104f76a4b6983ae5ff2f5eb) Settings writes refuse redaction placeholders at the shared boundary and name the offending keys. `settings.test-smtp` (CLI `settings test-smtp`, MCP `listmonk_test_smtp`) now rejects, before any request, a server configuration that still holds the `[redacted]` placeholder of a redacted `settings.get` read, whatever client the surface supplies; it previously relied on the OpenAPI client to catch it. The error names each offending field (for example `server.username, server.password`), never its value, and explains that Listmonk's SMTP test never falls back to stored credentials. `client.settings.update()` and `client.settings.testSmtp()` in `@listmonk-ops/openapi` use the same guard and name the offending key paths, such as `smtp[0].password`. For updates the message follows Listmonk 6.2's handler: it saves the whole document and resets keys left out, so omitting a key does not keep it, while the secrets Listmonk masks itself (SMTP, messenger, and bounce-mailbox passwords of entries that keep their `uuid`, and the S3, SendGrid, Azure, Postmark, ForwardEmail, Lettermint, hCaptcha, and OIDC secrets) keep their stored value when sent as an empty string. The guard now reads a parameter name the way the redactor does, so a placeholder after a name ending in an encoded separator (such as `sig%26=[redacted]`) is refused instead of saved, and it checks each value in one pass instead of rescanning the text before every marker. `@listmonk-ops/openapi` and `@listmonk-ops/operations` export `assertNoRedactedSettingsPlaceholders` and `RedactedSettingsPlaceholderError`. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: common@0.7.3, openapi@0.11.1
+
 ## 0.20.0 — 2026-09-27
 
 ### Fixed
