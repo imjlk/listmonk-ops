@@ -1,3 +1,9 @@
+import {
+	collectOpsHealth,
+	opsHealthInputSchema,
+	opsHealthOutputSchema,
+	type OpsHealthContext,
+} from "./ops-health";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { z } from "zod";
 import {
@@ -33,6 +39,7 @@ import {
 } from "@listmonk-ops/operations";
 import {
 	bindOpsDailyDigestOperationSpec,
+	bindOpsHealthOperationSpec,
 	bindOpsDeliverabilityGuardOperationSpec,
 	bindOpsSubscriberHygieneOperationSpec,
 	bindOpsTemplateRegistrySyncOperationSpec,
@@ -43,7 +50,7 @@ import {
 	bindCampaignPreflightOperationSpec,
 } from "@listmonk-ops/operations/specs";
 
-export interface OpsOperationContext {
+export interface OpsOperationContext extends OpsHealthContext {
 	client?: ListmonkClient;
 }
 
@@ -821,7 +828,42 @@ export const dailyDigestOperation = defineOperation({
 	execute: executeDailyDigestOperation,
 });
 
+export async function executeOpsHealthOperation(context: OpsOperationContext, input: z.output<typeof opsHealthInputSchema>) {
+	return collectOpsHealth(context, input);
+}
+
+export const opsHealthOperation = defineOperation({
+ id: "ops.health",
+ title: "Inspect consolidated operations health",
+ description: "Inspect bounded file-backed sequence and webhook evidence without recovery or remote mutations",
+ inputSchema: opsHealthInputSchema,
+ outputSchema: opsHealthOutputSchema,
+ safety: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+ mcp: { name: "listmonk_ops_health" },
+ spec: bindOpsHealthOperationSpec(),
+ execute: executeOpsHealthOperation,
+});
+
+export async function invokeOpsHealthOperation(context: OpsOperationContext, input: unknown): Promise<z.output<typeof opsHealthOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		opsHealthOperation.inputSchema,
+		input,
+	);
+	let output: Awaited<ReturnType<typeof executeOpsHealthOperation>>;
+	try {
+		output = await executeOpsHealthOperation(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(opsHealthOperation.id, error);
+	}
+	return parseOperationOutput(
+		opsHealthOperation.id,
+		opsHealthOperation.outputSchema,
+		output,
+	);
+}
+
 export const opsOperations = [
+	opsHealthOperation,
 	campaignPreflightOperation,
 	deliverabilityGuardOperation,
 	subscriberHygieneOperation,
@@ -1082,6 +1124,11 @@ export async function invokeOpsOperationByMcpName(
 	input: unknown,
 ): Promise<OpsOperationInvocation | undefined> {
 	switch (name) {
+		case opsHealthOperation.mcp.name:
+			return {
+				operation: opsHealthOperation,
+				output: await invokeOpsHealthOperation(context, input),
+			};
 		case campaignPreflightOperation.mcp.name:
 			return {
 				operation: campaignPreflightOperation,

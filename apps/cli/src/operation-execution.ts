@@ -240,7 +240,7 @@ export async function executeCliOperation<Result>(config: {
 	const auditStoreOptions = config.auditStoreOptions ?? {};
 	const webhookStoreOptions =
 		config.webhookStoreOptions ??
-		getOutboundWebhookStoreOptionsFromEnvironment();
+		(execution.policy.auditRequired ? getOutboundWebhookStoreOptionsFromEnvironment() : {});
 	const recordAudit = config.recordAudit;
 	const onAuditError = config.onAuditError ?? ((message: string) => console.error(
 		message,
