@@ -1168,16 +1168,35 @@ describe("segment drift alert thresholds", () => {
 		} as unknown as ListmonkClient;
 		const options = { threshold: 0, minAbsoluteChange: 0 };
 
-		await runSegmentDriftSnapshot(client, options);
-		const unchanged = await runSegmentDriftSnapshot(client, options);
-		expect(unchanged.comparisons[0]).toMatchObject({
-			delta: 0,
-			alert: false,
-		});
+		try {
+			// History excludes equal capture times; give each observation its own
+			// fixed millisecond instead of depending on filesystem timing.
+			setSystemTime(new Date("2026-09-27T03:00:00.000Z"));
+			const initial = await runSegmentDriftSnapshot(client, options);
+			setSystemTime(new Date("2026-09-27T03:00:00.001Z"));
+			const unchanged = await runSegmentDriftSnapshot(client, options);
+			expect(unchanged.comparisons[0]).toMatchObject({
+				previousCount: 100,
+				delta: 0,
+				alert: false,
+			});
 
-		count = 101;
-		const changed = await runSegmentDriftSnapshot(client, options);
-		expect(changed.comparisons[0]).toMatchObject({ delta: 1, alert: true });
+			count = 101;
+			setSystemTime(new Date("2026-09-27T03:00:00.002Z"));
+			const changed = await runSegmentDriftSnapshot(client, options);
+			expect(changed.comparisons[0]).toMatchObject({
+				previousCount: 100,
+				delta: 1,
+				alert: true,
+			});
+			expect([initial.capturedAt, unchanged.capturedAt, changed.capturedAt]).toEqual([
+				"2026-09-27T03:00:00.000Z",
+				"2026-09-27T03:00:00.001Z",
+				"2026-09-27T03:00:00.002Z",
+			]);
+		} finally {
+			setSystemTime();
+		}
 	});
 });
 
