@@ -21,5 +21,6 @@ export * from "./template-registry";
 export * from "./webhook-operations";
 export * from "./ops-operations";
 
+export * from "./sequence-simulator";
 export * from "./campaign-review";
 export * from "./ops-health";

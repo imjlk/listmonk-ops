@@ -77,7 +77,7 @@ export interface TemporaryListOptOut {
 	 * `subscription_created_at` for.
 	 */
 	membershipCreatedAt?: ReadonlyMap<number, number>;
- /** Raw Listmonk creation timestamps, retaining PostgreSQL microseconds. */
+	/** Raw Listmonk creation timestamps, retaining PostgreSQL microseconds. */
 	membershipCreatedTimestamps?: ReadonlyMap<number, string>;
 	membershipUpdatedAt?: ReadonlyMap<number, string>;
 	optedOutTimestamp?: string;
@@ -315,7 +315,9 @@ function toTemporaryListOptOut(
 		) {
 			membershipStatuses.set(membership.id, membership.subscription_status);
 			const rawCreatedAt = membership.subscription_created_at;
-			if (typeof rawCreatedAt === "string") membershipCreatedTimestamps.set(membership.id, rawCreatedAt);
+			if (typeof rawCreatedAt === "string") {
+				membershipCreatedTimestamps.set(membership.id, rawCreatedAt);
+			}
 			const createdAt = parseListmonkTimestamp(rawCreatedAt);
 			if (createdAt !== undefined) {
 				membershipCreatedAt.set(membership.id, createdAt);
@@ -480,7 +482,7 @@ function isMembershipNewerThanOptOut(
 			: parseOptOutTimestampMicros(optOut.optedOutTimestamp);
 		return created !== undefined && optedOut !== undefined && created > optedOut;
 	}
- // Compatibility for in-memory callers supplying already-resolved millisecond values.
+	// Compatibility for in-memory callers supplying already-resolved millisecond values.
 	const createdAt = optOut.membershipCreatedAt?.get(listId);
 	return (
 		optOut.optedOutAt !== undefined &&

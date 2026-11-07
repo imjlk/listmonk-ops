@@ -464,6 +464,20 @@ Verify with: `webhooks.runtime.status`
 
 Retry guidance: Retrying the same reset is safe.
 
+## Simulate a sequence without sending (`sequences.simulate`)
+
+Contract maturity: `experimental`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
+
+Use when: A fixed-clock explanation of supported steps, branch choices, waits and fresh-send snapshot consent is needed.
+
+Avoid when: Actual delivery times, receipt reconciliation or live subscriber eligibility must be guaranteed.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry with the same snapshots and clock for deterministic results; refreshed file state may change the explanation.
+
 ## Validate sequence definition (`sequences.validate`)
 
 Contract maturity: `stable`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.

@@ -298,3 +298,37 @@ export interface SequenceStatusOutput {
 		last_heartbeat_at?: IsoDateTime | undefined;
 	};
 }
+
+/** Exactly one of id or steps; enrollment_id requires id and forbids context overrides. */
+export interface SequenceSimulateInput {
+	id?: string & tags.Format<"uuid">;
+	enrollment_id?: string & tags.Format<"uuid">;
+	steps?: SequenceSteps & tags.MaxItems<500>;
+	at: IsoDateTime;
+	context?: Record<string, unknown>;
+	subscriber?: {
+		status?: string & tags.MaxLength<80>;
+		lists?: { id?: ResourceId; subscription_status?: string & tags.MaxLength<80> }[] & tags.MaxItems<1000>;
+	};
+	list_policies?: { id: ResourceId; optin: "single" | "double" }[] & tags.MaxItems<100>;
+	max_steps?: number & tags.Type<"int32"> & tags.Minimum<1> & tags.Maximum<500>;
+}
+export interface SequenceSimulateOutput {
+	at: string;
+	source: "steps" | "sequence" | "enrollment";
+	revision: PositiveInteger | null;
+	current_revision: PositiveInteger | null;
+	revision_changed: boolean | null;
+	subscriber_snapshot_present: boolean;
+	outcome: "send_boundary" | "snapshot_cancelled" | "completed_path" | "unknown" | "blocked" | "limit" | "invalid_sender";
+	timeline: {
+		step_id: string | null;
+		kind: "condition" | "wait" | "wait_until" | "send" | "stop" | "gate" | "complete";
+		at: string;
+		earliest_next_at?: string;
+		next_step_id?: string;
+		matched?: boolean;
+		reason: string;
+	}[] & tags.MaxItems<500>;
+	limitations: string[];
+}

@@ -188,7 +188,7 @@ describe("operation catalog MCP adapter", () => {
 			"auditRequired",
 			"dryRunSupported",
 		]);
-		expect(mcpOperationCatalog.entries).toHaveLength(140);
+		expect(mcpOperationCatalog.entries).toHaveLength(141);
 		expect(listMcpOperationCatalogSummaries("ops")).toHaveLength(11);
 		expect(listMcpOperationCatalogSummaries("media")).toHaveLength(4);
 		expect(listMcpOperationCatalogSummaries("bounces")).toHaveLength(6);

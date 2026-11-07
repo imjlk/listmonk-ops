@@ -269,8 +269,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(140);
-		expect(new Set(operationIds).size).toBe(140);
+		expect(operationIds).toHaveLength(141);
+		expect(new Set(operationIds).size).toBe(141);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
@@ -539,7 +539,7 @@ describe("email operations specification", () => {
 			"ops.campaign.preflight",
 		);
 		expect(webhookOperationSpecs).toHaveLength(16);
-		expect(sequenceOperationSpecs).toHaveLength(14);
+		expect(sequenceOperationSpecs).toHaveLength(15);
 		expect(providerOperationSpecs).toHaveLength(7);
 		expect(webhookDispatchOperationSpec.effects).toEqual([
 			{ kind: "webhook", resource: "webhook", audience: "bulk" },

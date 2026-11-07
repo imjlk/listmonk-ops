@@ -148,7 +148,8 @@ function resolvePath(
 	return current;
 }
 
-function evaluateCondition(
+/** Evaluate supported condition operators against enrollment context without traversing prototypes or arrays. */
+export function evaluateSequenceCondition(
 	step: Extract<SequenceStep, { type: "condition" }>,
 	context: Readonly<Record<string, unknown>>,
 ): boolean {
@@ -210,7 +211,8 @@ function transitionToNext(
 	);
 }
 
-function subscriberCannotReceive(subscriber: {
+/** Shared legacy suppression gate, evaluated before consent-scoped list policy. */
+export function sequenceSubscriberCannotReceive(subscriber: {
 	status?: string;
 	lists?: Array<Record<string, unknown>>;
 }): string | undefined {
@@ -319,7 +321,7 @@ async function executeSendStep(
 				{ client: context.client },
 				{ id: claimed.enrollment.subscriberId },
 			);
-			const cannotReceive = subscriberCannotReceive(
+			const cannotReceive = sequenceSubscriberCannotReceive(
 			subscriber as {
 				status?: string;
 				lists?: Array<Record<string, unknown>>;
@@ -511,7 +513,10 @@ async function executeClaimedEnrollment(
 			break;
 		}
 		case "condition": {
-			const targetId = evaluateCondition(step, claimed.enrollment.context)
+			const targetId = evaluateSequenceCondition(
+				step,
+				claimed.enrollment.context,
+			)
 				? step.onTrue
 				: step.onFalse;
 			next = withoutLease(
