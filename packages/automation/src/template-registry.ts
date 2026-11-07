@@ -431,7 +431,7 @@ function versionHoldsLiveContent(
  * Accept a hash previously reported by a sync or stored in registry history
  * when Listmonk's verified write normalization produced the live content.
  */
-function liveTemplateMatchesRemoteHashPin(
+export function liveTemplateMatchesRemoteHashPin(
 	record: Pick<TemplateRegistryTemplateRecord, "versions"> | undefined,
 	liveHash: string,
 	expectedRemoteHash: string,
@@ -532,8 +532,15 @@ export function selectTemplateRollbackTarget(
 		(version) => version.versionId === baseVersionId,
 	);
 	const baseVersion = history[baseIndex];
+	if (!baseVersion) {
+		// Only a drift pin bases the rollback on the stored active version,
+		// which a hand-edited or older store may not hold in its history.
+		throw new Error(
+			`Template ${record.templateId} base version ${baseVersionId ?? "(none)"} for the rollback is not in its registry history`,
+		);
+	}
 	let targetVersion: TemplateRegistryVersion | undefined;
-	if (baseVersion?.previousVersionId !== undefined) {
+	if (baseVersion.previousVersionId !== undefined) {
 		targetVersion = history.find(
 			(version) => version.versionId === baseVersion.previousVersionId,
 		);
@@ -712,8 +719,10 @@ async function captureTemplateRegistry(
 	storeDefinition: JsonFileStore<TemplateRegistryStore>,
 ): Promise<TemplateRegistryCapture> {
 	const capturedAt = new Date().toISOString();
-	const templateIds = await getTemplateIds(client, options.templateIds);
+	// Read the store before listing templates, so a registry the sync could
+	// not merge into fails it before any Listmonk request.
 	const registry = await readJsonFileStore(storeDefinition);
+	const templateIds = await getTemplateIds(client, options.templateIds);
 	const captureSequenceHighWater =
 		getTemplateRegistryCaptureSequenceHighWater(registry);
 	const sequenceStore = createTemplateCaptureSequenceStore(
