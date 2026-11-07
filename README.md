@@ -1638,6 +1638,13 @@ send results. Summary of the current behavior:
   campaigns). A campaign or list that is already gone (HTTP 404, or
   Listmonk 6.2's HTTP 400 "Campaign not found" / "List not found" answer)
   counts as cleaned up, so a retry can finish a partial cleanup.
+- **Bounded opt-out confirmation**: reads select at most 500 validated
+  recipient IDs per query, then make one final full scan to detect new opt-outs
+  before allowing list cleanup. Missing, duplicated, unexpected or incomplete
+  confirmation rows fail closed; earlier confirmed progress is retained. This
+  bounds page-request growth linearly, not transaction duration or concurrent
+  remote changes.
+
 - **Opt-outs survive cleanup**: variant and winner campaigns go only to
   temporary lists, and Listmonk's unsubscribe link marks only the
   campaign's lists, so deleting a temporary list used to erase the opt-out

@@ -388,13 +388,24 @@ function parseListmonkTimestamp(value: unknown): number | undefined {
 export async function readTemporaryListOptOuts(
 	client: ListmonkClient,
 	listId: number,
-	options: { pageSize?: number } = {},
+	options: { pageSize?: number; subscriberIds?: readonly number[] } = {},
 ): Promise<TemporaryListOptOut[]> {
 	const pageSize = options.pageSize ?? OPT_OUT_READ_PAGE_SIZE;
 	if (!Number.isSafeInteger(pageSize) || pageSize <= 0) {
 		throw new Error(
 			`pageSize must be a positive integer, received ${pageSize}`,
 		);
+	}
+	const requestedIds = options.subscriberIds === undefined
+		? undefined
+		: new Set(options.subscriberIds);
+	if (requestedIds !== undefined) {
+		if (requestedIds.size > OPT_OUT_UNSUBSCRIBE_CHUNK_SIZE || [...requestedIds].some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+			throw new Error(
+				"Confirmation IDs must be positive safe integers in a batch of at most 500",
+			);
+		}
+		if (requestedIds.size === 0) return [];
 	}
 	const optOuts = new Map<number, TemporaryListOptOut>();
 	let reportedTotal: number | undefined;
@@ -407,6 +418,8 @@ export async function readTemporaryListOptOuts(
 		const options = {
 			query: {
 				list_id: [listId],
+				// Listmonk GET /subscribers supports an SQL expression; IDs are validated integers only.
+				...(requestedIds === undefined ? {} : { query: `subscribers.id IN (${[...requestedIds].join(",")})` }),
 				subscription_status: UNSUBSCRIBED,
 				page,
 				per_page: pageSize,
@@ -444,13 +457,24 @@ export async function readTemporaryListOptOuts(
 				`Failed to read opt-outs on temporary list ${listId} (page ${page}): subscriber total changed from ${reportedTotal} to ${data.total}`,
 			);
 		}
+		if (requestedIds !== undefined && data.total !== requestedIds.size) {
+			throw new Error(
+				"Confirmation response did not contain exactly the requested recipients",
+			);
+		}
 		reportedTotal = data.total;
 		const rows: readonly unknown[] = data.results;
+		if (requestedIds !== undefined && rows.length > pageSize) throw new Error("Confirmation page exceeded its requested bound");
 		for (const row of rows) {
 			const optOut = toTemporaryListOptOut(row, listId);
+			if (requestedIds !== undefined && (!requestedIds.has(optOut.subscriberId) || optOuts.has(optOut.subscriberId))) {
+				throw new Error(
+					"Confirmation response contained unexpected or duplicate recipients",
+				);
+			}
 			optOuts.set(optOut.subscriberId, optOut);
 		}
-		if (rows.length < pageSize) {
+		if (rows.length < pageSize || (requestedIds !== undefined && optOuts.size === requestedIds.size)) {
 			break;
 		}
 	}
@@ -888,15 +912,29 @@ export async function propagateTemporaryListOptOuts(
 			sourceListIds,
 			input.chunkSize,
 			async (chunk) => {
-				reread = reconcileSourceSettlements(await readTemporaryListOptOuts(client, listId, { pageSize: input.pageSize }), sourceListIds, { ...input, alreadySettled: { has: (id) => settled.has(id) || newlySettled.has(id) } });
-				const chunkIds = new Set(chunk);
-				for (const optOut of reread) {
-					if (chunkIds.has(optOut.subscriberId) && resolvePendingSourceListIds(optOut, sourceListIds).length === 0) {
-						newlySettled.add(optOut.subscriberId);
+				// Even custom oversized write chunks use bounded read queries.
+				for (let offset = 0; offset < chunk.length; offset += OPT_OUT_UNSUBSCRIBE_CHUNK_SIZE) {
+					const ids = chunk.slice(offset, offset + OPT_OUT_UNSUBSCRIBE_CHUNK_SIZE);
+					let records: TemporaryListOptOut[];
+					try {
+						records = await readTemporaryListOptOuts(client, listId, {
+							subscriberIds: ids,
+							pageSize: Math.min(input.pageSize ?? OPT_OUT_READ_PAGE_SIZE, ids.length + 1),
+						});
+					} catch {
+						// Backend diagnostics can echo the private SQL recipient filter.
+						throw new Error("Bounded recipient confirmation could not be verified; inspect the backend privately before retrying");
+					}
+					const confirmedChunk = reconcileSourceSettlements(records, sourceListIds, { ...input, alreadySettled: { has: (id) => settled.has(id) || newlySettled.has(id) } });
+					for (const optOut of confirmedChunk) {
+						if (resolvePendingSourceListIds(optOut, sourceListIds).length === 0) newlySettled.add(optOut.subscriberId);
 					}
 				}
 			},
 		);
+		// One final complete read detects opt-outs arriving during the writes.
+		// Never delete a list based solely on the original audience or a chunk subset.
+		reread = reconcileSourceSettlements(await readTemporaryListOptOuts(client, listId, { pageSize: input.pageSize }), sourceListIds, { ...input, alreadySettled: { has: (id) => settled.has(id) || newlySettled.has(id) } });
 		// Settled opt-outs are not re-checked: a person who re-subscribed to
 		// a source list after an earlier carry must not fail the confirmation.
 		const confirmed = reread.filter(
@@ -946,7 +984,9 @@ export async function propagateTemporaryListOptOuts(
 			pendingCount,
 			settledSubscriberIds: [...newlySettled],
 			sourceListIds,
-			detail: `${pendingCount} opt-out(s) could not be carried to source lists ${sourceListIds.join(", ")}: ${describeError(error)}`,
+			detail: pendingCount === 0
+				? `Attempted recipients were confirmed, but final opt-out verification failed; keep the temporary list: ${describeError(error)}`
+				: `${pendingCount} opt-out(s) could not be carried to source lists ${sourceListIds.join(", ")}: ${describeError(error)}`,
 		};
 	}
 }

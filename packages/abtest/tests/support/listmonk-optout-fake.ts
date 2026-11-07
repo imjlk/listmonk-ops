@@ -90,7 +90,11 @@ export function createFakeListmonk(options: FakeListmonkOptions = {}) {
 						? requested
 						: Math.min(requested, options.pageCap);
 				const page = Number(query.page);
+				const idQuery = typeof query.query === "string" ? /^subscribers\.id IN \(([0-9,]+)\)$/.exec(query.query) : undefined;
+				if (query.query !== undefined && !idQuery) throw new Error("Unsupported fake subscriber query");
+				const selectedIds = idQuery ? new Set(idQuery[1]!.split(",").map(Number)) : undefined;
 				const matched = [...subscriberIds]
+					.filter((id) => selectedIds === undefined || selectedIds.has(id))
 					.filter(
 						(id) =>
 							options.ignoreListFilter === true ||

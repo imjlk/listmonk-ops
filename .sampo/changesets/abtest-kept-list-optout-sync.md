@@ -14,3 +14,5 @@ Preserve PostgreSQL microseconds when deciding whether a source membership was c
 Reconcile a lone test's own partial source-list confirmations before stop or non-terminal deletion; preserve fresh consent and block cleanup when remaining propagation or chronology cannot be confirmed.
 
 Record per-source confirmations during cleanup itself, including partial failures, so a later stop/delete retry or automatic sync cannot revoke renewed consent on an already-carried source.
+
+Confirm only validated, bounded recipient subsets after each write chunk, preserving confirmed partial progress and failing closed on missing or unfiltered responses; retain one final full read to detect newly arriving opt-outs. This keeps subscriber-page request cost linear in the backlog instead of rereading every historical opt-out per chunk.
