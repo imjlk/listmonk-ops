@@ -1181,9 +1181,9 @@ export function createFileSequenceRepository(
 
 export function buildSequenceRuntimeHealth(
 	kind: "file" | "postgres",
-	definitions: readonly SequenceDefinition[],
-	enrollments: readonly SequenceEnrollment[],
-	workers: readonly SequenceWorker[],
+	definitions: readonly Pick<SequenceDefinition, "status">[],
+	enrollments: readonly Pick<SequenceEnrollment, "status" | "nextRunAt" | "leaseExpiresAt">[],
+	workers: readonly Pick<SequenceWorker, "status" | "heartbeatAt">[],
 	options: Readonly<{ now: Date; workerStaleMs: number }>,
 ): SequenceRuntimeHealth {
 	const nowMs = options.now.getTime();

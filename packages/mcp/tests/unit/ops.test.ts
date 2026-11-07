@@ -2,6 +2,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, test } from "bun:test";
 import {
 	handleOpsTools,
+	createOpsToolsHandler,
 	isOpsToolName,
 	opsTools,
 } from "../../src/handlers/ops.js";
@@ -19,7 +20,7 @@ function request(
 
 describe("ops operation MCP adapter", () => {
 	test("publishes registry metadata for every ops tool", () => {
-		expect(opsTools).toHaveLength(10);
+		expect(opsTools).toHaveLength(11);
 		expect(isOpsToolName("listmonk_ops_preflight")).toBe(true);
 		expect(isOpsToolName("listmonk_ops_preflight_extra")).toBe(false);
 
@@ -123,3 +124,20 @@ test("campaign review is an unconfirmed read-only tool returning shared structur
   expect(result.isError).not.toBe(true);
   expect(result.structuredContent).toMatchObject({ snapshot: { version: 1, campaign_id: 42 }, preview: { trusted: false }, comparison: { compared: false } });
  });
+test("health MCP is read-only, structured and does not consult the remote client", async () => {
+	const handler = createOpsToolsHandler({
+		sequenceSource: { kind: "postgres" },
+		webhookSource: { kind: "conflict" },
+	});
+	const client = new Proxy({}, { get() { throw new Error("Remote access forbidden"); } }) as ListmonkClient;
+	const result = await handler(request("listmonk_ops_health", { at: "2026-11-07T00:00:00Z" }), client);
+	expect(result.isError).toBeFalsy();
+	expect(result.structuredContent).toMatchObject({
+		severity: "unknown",
+		check_passed: false,
+		complete: false,
+	});
+	expect(opsTools.find((tool) => tool.name === "listmonk_ops_health")?.annotations).toMatchObject(
+		{ readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+	);
+});

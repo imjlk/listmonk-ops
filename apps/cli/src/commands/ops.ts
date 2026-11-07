@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import {
 	invokeCampaignReviewOperation,
 	invokeCampaignPreflightOperation,
+	invokeOpsHealthOperation,
 	invokeDailyDigestOperation,
 	invokeDeliverabilityGuardOperation,
 	invokeSegmentDriftOperation,
@@ -21,6 +22,7 @@ import {
 	toErrorMessage,
 } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
+import { writeNewPrivateSnapshot } from "../lib/private-snapshot";
 
 async function writeTextFile(path: string, content: string) {
 	await mkdir(dirname(path), { recursive: true });
@@ -53,11 +55,27 @@ export default defineGroup({
     campaign_id: flags["campaign-id"], max_audience: flags["max-audience"], previous_snapshot: previous,
    });
    if (flags["snapshot-output"]) {
-    // Exclusive create avoids clobbering an earlier review (including symlink targets).
-    await writeFile(flags["snapshot-output"], `${JSON.stringify(result.snapshot, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+    // Publish complete bytes atomically; never replace existing files or symlinks.
+    await writeNewPrivateSnapshot(flags["snapshot-output"], `${JSON.stringify(result.snapshot, null, 2)}\n`);
    }
    getOutput().json(result);
   },
+ }),
+ defineCommand({
+ name: "health", operationId: "ops.health",
+ description: "Inspect bounded read-only sequence and webhook health; never recover or send",
+ options: {
+ scope: option(z.enum(["all", "sequences", "webhooks"]).default("all"), { description: "File-state components to inspect" }),
+ at: option(z.iso.datetime({ offset: true }).optional(), { description: "Fixed observation clock (ISO timestamp)" }),
+ "worker-stale-ms": option(z.coerce.number().int().min(1000).max(86400000).default(90000), { description: "Heartbeat staleness threshold" }),
+ "scan-limit": option(z.coerce.number().int().min(1).max(10000).default(1000), { description: "Maximum rows inspected per collection (4 MiB file cap)" }),
+ check: option(z.coerce.boolean().default(false), { description: "Exit 1 unless all scoped evidence is complete and healthy; still emit the report" }),
+ },
+ handler: async ({ flags }) => {
+ const report = await invokeOpsHealthOperation({}, { scope: flags.scope, at: flags.at, worker_stale_ms: flags["worker-stale-ms"], scan_limit: flags["scan-limit"] });
+ getOutput().json(report);
+ if (flags.check && !report.check_passed) process.exitCode = 1;
+ },
  }),
 		defineCommand({
 			name: "preflight",

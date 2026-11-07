@@ -15589,6 +15589,383 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "opsHealthInputContract": {
+    "components": {
+      "schemas": {
+        "OpsHealthInput": {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "scan_limit": {
+              "maximum": 10000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "scope": {
+              "oneOf": [
+                {
+                  "const": "all"
+                },
+                {
+                  "const": "sequences"
+                },
+                {
+                  "const": "webhooks"
+                }
+              ]
+            },
+            "worker_stale_ms": {
+              "maximum": 86400000,
+              "minimum": 1000,
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "scan_limit": {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "const": "all"
+            },
+            {
+              "const": "sequences"
+            },
+            {
+              "const": "webhooks"
+            }
+          ]
+        },
+        "worker_stale_ms": {
+          "maximum": 86400000,
+          "minimum": 1000,
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "opsHealthOutputContract": {
+    "components": {
+      "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "OpsHealthComponent": {
+          "additionalProperties": false,
+          "properties": {
+            "availability": {
+              "oneOf": [
+                {
+                  "const": "available"
+                },
+                {
+                  "const": "unavailable"
+                },
+                {
+                  "const": "unsupported"
+                }
+              ]
+            },
+            "backend": {
+              "oneOf": [
+                {
+                  "const": "file"
+                },
+                {
+                  "const": "postgres"
+                },
+                {
+                  "const": "unknown"
+                }
+              ]
+            },
+            "complete": {
+              "type": "boolean"
+            },
+            "component": {
+              "oneOf": [
+                {
+                  "const": "sequences"
+                },
+                {
+                  "const": "webhooks"
+                }
+              ]
+            },
+            "coverage": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "collection": {
+                    "type": "string"
+                  },
+                  "scanned": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "total": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "truncated": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "collection",
+                  "scanned",
+                  "total",
+                  "truncated"
+                ],
+                "type": "object"
+              },
+              "maxItems": 4,
+              "type": "array"
+            },
+            "findings": {
+              "items": {
+                "$ref": "#/components/schemas/OpsHealthFinding"
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
+            "metrics": {
+              "$ref": "#/components/schemas/RecordstringNonNegativeInteger"
+            },
+            "severity": {
+              "$ref": "#/components/schemas/OpsHealthSeverity"
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "backend",
+            "availability",
+            "severity",
+            "complete",
+            "truncated",
+            "coverage",
+            "metrics",
+            "findings"
+          ],
+          "type": "object"
+        },
+        "OpsHealthFinding": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "count": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "next_actions": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "const": "read"
+                  },
+                  "operation_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "command",
+                  "mode"
+                ],
+                "type": "object"
+              },
+              "maxItems": 2,
+              "type": "array"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "severity": {
+              "$ref": "#/components/schemas/OpsHealthSeverity"
+            }
+          },
+          "required": [
+            "code",
+            "severity",
+            "count",
+            "reason",
+            "next_actions"
+          ],
+          "type": "object"
+        },
+        "OpsHealthOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "check_passed": {
+              "type": "boolean"
+            },
+            "checked_at": {
+              "type": "string"
+            },
+            "complete": {
+              "type": "boolean"
+            },
+            "components": {
+              "items": {
+                "$ref": "#/components/schemas/OpsHealthComponent"
+              },
+              "maxItems": 2,
+              "minItems": 1,
+              "type": "array"
+            },
+            "limitations": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "scope": {
+              "oneOf": [
+                {
+                  "const": "all"
+                },
+                {
+                  "const": "sequences"
+                },
+                {
+                  "const": "webhooks"
+                }
+              ]
+            },
+            "severity": {
+              "$ref": "#/components/schemas/OpsHealthSeverity"
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "checked_at",
+            "scope",
+            "severity",
+            "check_passed",
+            "complete",
+            "truncated",
+            "components",
+            "limitations"
+          ],
+          "type": "object"
+        },
+        "OpsHealthSeverity": {
+          "oneOf": [
+            {
+              "const": "critical"
+            },
+            {
+              "const": "healthy"
+            },
+            {
+              "const": "unknown"
+            },
+            {
+              "const": "warning"
+            }
+          ]
+        },
+        "RecordstringNonNegativeInteger": {
+          "additionalProperties": {
+            "$ref": "#/components/schemas/NonNegativeInteger"
+          },
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "check_passed": {
+          "type": "boolean"
+        },
+        "checked_at": {
+          "type": "string"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "components": {
+          "items": {
+            "$ref": "#/components/schemas/OpsHealthComponent"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "const": "all"
+            },
+            {
+              "const": "sequences"
+            },
+            {
+              "const": "webhooks"
+            }
+          ]
+        },
+        "severity": {
+          "$ref": "#/components/schemas/OpsHealthSeverity"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "checked_at",
+        "scope",
+        "severity",
+        "check_passed",
+        "complete",
+        "truncated",
+        "components",
+        "limitations"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "paginationInputContract": {
     "components": {
       "schemas": {

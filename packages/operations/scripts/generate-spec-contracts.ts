@@ -168,6 +168,8 @@ import type {
 	SegmentDriftOutput,
 	CampaignReviewInput,
 	CampaignReviewOutput,
+	OpsHealthInput,
+	OpsHealthOutput,
 	DailyDigestInput,
 	DailyDigestOutput,
 	DeliverabilityGuardInput,
@@ -872,6 +874,8 @@ const contracts = {
 	campaignReviewOutputContract: contractSchema(
 		typia.json.schema<CampaignReviewOutput>(),
 	),
+	opsHealthInputContract: contractSchema(typia.json.schema<OpsHealthInput>()),
+	opsHealthOutputContract: contractSchema(typia.json.schema<OpsHealthOutput>()),
 	dailyDigestInputContract: contractSchema(
 		typia.json.schema<DailyDigestInput>(),
 	),

@@ -2,6 +2,8 @@ import { defineOperationSpec } from "../operation";
 import {
 	campaignReviewInputContract,
 	campaignReviewOutputContract,
+	opsHealthInputContract,
+	opsHealthOutputContract,
 	segmentDriftInputContract,
 	segmentDriftOutputContract,
 	dailyDigestInputContract,
@@ -548,4 +550,48 @@ export const opsCampaignReviewOperationSpec = defineOperationSpec({
 });
 export function bindOpsCampaignReviewOperationSpec(): typeof opsCampaignReviewOperationSpec {
 	return opsCampaignReviewOperationSpec;
+}
+
+export const opsHealthOperationSpec = defineOperationSpec({
+	id: "ops.health",
+	resource: "control",
+	verb: "health",
+	title: "Inspect consolidated operations health",
+	description: "Inspect bounded file-backed sequence and webhook evidence without recovery or remote mutations",
+	contract: { input: opsHealthInputContract, output: opsHealthOutputContract },
+	effects: [{ kind: "read", resource: "control" }],
+	policy: { confirmation: "never", audit: "optional", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason: "Read-only file evidence can be inspected again; state and observation clock may change.",
+	},
+	agent: {
+		useWhen: [
+			"A bounded sequence/webhook action-needed report is required without recovery or sending.",
+		],
+		avoidWhen: [
+			"Actual SMTP/provider readiness or atomic delivery approval is needed.",
+			"Postgres-only status is required: existing read paths initialize schema and are refused.",
+		],
+		prerequisites: [],
+		verifyWith: [],
+		related: ["sequences.status", "webhooks.runtime.status"],
+		retryGuidance: "Read-only retries are safe; use at for a fixed observation clock. Truncation and unknown evidence never pass the check.",
+	},
+	projection: {
+		mcpName: "listmonk_ops_health",
+		openWorld: false,
+		graph: {
+			descriptorNode: "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsHealthOperationSpec:variable",
+			bindingNode: "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsHealthOperationSpec:function",
+			runtimeDefinitionNode: "packages/automation/src/ops-operations.ts#opsHealthOperation:variable",
+			invokerNode: "packages/automation/src/ops-operations.ts#invokeOpsHealthOperation:function",
+			executorNode: "packages/automation/src/ops-operations.ts#executeOpsHealthOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.10.0",
+});
+export function bindOpsHealthOperationSpec(): typeof opsHealthOperationSpec {
+	return opsHealthOperationSpec;
 }

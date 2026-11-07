@@ -3,6 +3,7 @@ import {
 	getOpsOperationByMcpName,
 	invokeOpsOperationByMcpName,
 	opsOperations,
+	type OpsHealthContext,
 } from "@listmonk-ops/automation";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
@@ -16,13 +17,18 @@ export function isOpsToolName(name: string): boolean {
 	return getOpsOperationByMcpName(name) !== undefined;
 }
 
-export const handleOpsTools: HandlerFunction = withErrorHandler(
+export const handleOpsTools: (
+ request: CallToolRequest,
+ client: ListmonkClient,
+ context?: OpsHealthContext,
+) => Promise<CallToolResult> = withErrorHandler(
 	async (
 		request: CallToolRequest,
 		client: ListmonkClient,
+ context: OpsHealthContext = {},
 	): Promise<CallToolResult> => {
 		const invocation = await invokeOpsOperationByMcpName(
-			{ client },
+			{ ...context, client },
 			request.params.name,
 			request.params.arguments ?? {},
 		);
@@ -33,3 +39,7 @@ export const handleOpsTools: HandlerFunction = withErrorHandler(
 		return createOperationResult(invocation.operation, invocation.output);
 	},
 );
+
+export function createOpsToolsHandler(context: OpsHealthContext = {}): HandlerFunction {
+	return (request, client) => handleOpsTools(request, client, context);
+}

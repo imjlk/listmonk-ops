@@ -215,3 +215,39 @@ export interface CampaignReviewOutput {
 	comparison: { compared: boolean; changed_fields: string[]; messages: string[] };
 	limitations: string[];
 }
+
+export interface OpsHealthInput {
+	scope?: "all" | "sequences" | "webhooks";
+	at?: string & tags.Format<"date-time">;
+	worker_stale_ms?: number & tags.Type<"int64"> & tags.Minimum<1000> & tags.Maximum<86400000>;
+	scan_limit?: number & tags.Type<"int64"> & tags.Minimum<1> & tags.Maximum<10000>;
+}
+export type OpsHealthSeverity = "healthy" | "warning" | "unknown" | "critical";
+export interface OpsHealthFinding {
+	code: string;
+	severity: OpsHealthSeverity;
+	count: NonNegativeInteger;
+	reason: string;
+	next_actions: { operation_id?: string; command: string; mode: "read" }[] & tags.MaxItems<2>;
+}
+export interface OpsHealthComponent {
+	component: "sequences" | "webhooks";
+	backend: "file" | "postgres" | "unknown";
+	availability: "available" | "unavailable" | "unsupported";
+	severity: OpsHealthSeverity;
+	complete: boolean;
+	truncated: boolean;
+	coverage: { collection: string; scanned: NonNegativeInteger; total: NonNegativeInteger; truncated: boolean }[] & tags.MaxItems<4>;
+	metrics: Record<string, NonNegativeInteger>;
+	findings: OpsHealthFinding[] & tags.MaxItems<32>;
+}
+export interface OpsHealthOutput {
+	checked_at: string;
+	scope: "all" | "sequences" | "webhooks";
+	severity: OpsHealthSeverity;
+	check_passed: boolean;
+	complete: boolean;
+	truncated: boolean;
+	components: OpsHealthComponent[] & tags.MinItems<1> & tags.MaxItems<2>;
+	limitations: string[];
+}
