@@ -80,6 +80,7 @@ import {
 	subscribersBouncesDeleteOperationSpec,
 } from "./bounces-specs";
 import {
+	opsCampaignReviewOperationSpec,
 	opsSegmentDriftOperationSpec,
 	opsDailyDigestOperationSpec,
 	opsHealthOperationSpec,
@@ -142,6 +143,7 @@ export const standaloneOperationSpecs = [
 	dashboardChartsOperationSpec,
 	mediaDeleteOperationSpec,
 	mediaUploadOperationSpec,
+	opsCampaignReviewOperationSpec,
 	opsSegmentDriftOperationSpec,
 	opsDailyDigestOperationSpec,
 	opsHealthOperationSpec,

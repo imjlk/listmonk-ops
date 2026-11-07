@@ -23,9 +23,9 @@ const context = { client: {} as ListmonkClient };
 
 describe("automation operation registry", () => {
 	test("exposes every ops MCP tool with shared metadata", () => {
-		expect(opsOperations).toHaveLength(10);
+		expect(opsOperations).toHaveLength(11);
 		expect(new Set(opsOperations.map((operation) => operation.mcp.name)).size).toBe(
-			10,
+			11,
 		);
 		expect(getOpsOperationByMcpName("listmonk_ops_preflight")).toBe(
 			campaignPreflightOperation,
