@@ -99,6 +99,14 @@ of silently disabling requests.
 - `createClient` (raw hey-api client factory)
 - `transformResponse` (response flatten helper)
 - `ListmonkRedirectError` (returned when a write receives a redirect)
+- `SETTINGS_REDACTED_VALUE`, `isSettingsCredentialQueryParameter`
+  (the settings redaction marker and credential parameter matcher)
+- `assertNoRedactedSettingsPlaceholders(document, write)` and
+  `RedactedSettingsPlaceholderError` (the guard `settings.update()` and
+  `settings.testSmtp()` run before any request: it refuses a document in
+  which a value still holds the `[redacted]` placeholder of a redacted
+  settings read and names the offending key paths, such as
+  `smtp[0].password`, in `error.paths`)
 - Types: `ListmonkClient`, `ListmonkConfig`, `About`, `Campaign`, `List`, `Subscriber`, `Template`, `UserRole`, `UserRoleInput`, `UserRoleOperations`
 
 > The previous `rawSdk` namespace export has been removed. It forced the
@@ -129,6 +137,18 @@ Listmonk v6.2 additions include `system.getAbout()`, `subscriber.patch()`, and t
 Use `client.subscriber.listRaw()` when a caller must validate pagination
 completeness itself. It preserves the original subscriber `results` and
 `total` fields instead of applying the tolerant defaults used by `list()`.
+
+`client.settings.update()` sends the whole settings document. Listmonk 6.2
+saves every key of it and resets keys left out, so send a complete document
+with real values. The client refuses, before any request, a value that still
+holds the `[redacted]` placeholder of a redacted `settings.get` read. Only the
+secrets Listmonk masks itself (SMTP, messenger, and bounce-mailbox passwords
+of entries that keep their `uuid`, and the S3, SendGrid, Azure, Postmark,
+ForwardEmail, Lettermint, hCaptcha, and OIDC secrets) keep their stored value
+when sent as an empty string, which is how the Listmonk admin UI submits the
+`•` masks that `client.settings.get()` returns for them.
+`client.settings.testSmtp()` authenticates only with the credentials it is
+given.
 
 Example:
 
