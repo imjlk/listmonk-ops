@@ -335,6 +335,51 @@ reject buffered JSON mode. Keep stderr separate from stdout when parsing results
 Explicit help, version, and shell-completion requests retain their text formats.
 Interactive prompts and `ops digest --markdown-only` require `--format human`.
 
+### Campaign review package (no send)
+
+Snapshot output is staged privately beside its destination and atomically published without replacing existing files or symlinks. A failed staging write leaves the destination absent; filesystems without hard-link support fail closed.
+
+```bash
+listmonk-cli ops campaign-review --campaign-id 42 --snapshot-output review-42.json
+listmonk-cli ops campaign-review --campaign-id 42 --compare review-42.json
+```
+
+The shared MCP tool is `listmonk_ops_campaign_review` with `campaign_id`, optional
+`max_audience` (default 200000), and optional `previous_snapshot` (the `snapshot`
+object returned by an earlier call). Both surfaces return a versioned snapshot,
+rendered preview, existing preflight checks, audience estimate, and readable
+`comparison.changed_fields` / `comparison.messages`. CLI snapshot export creates
+a **new**, owner-only JSON file and refuses to overwrite an existing path.
+`--compare` accepts only snapshot JSON (not the whole result), at most 256 KiB.
+MCP never reads or writes local snapshot paths: retain and pass the object yourself.
+
+This is read-only evidence, **not approval** and not an atomic send guarantee.
+No messages, test sends, link checks, schedule/status changes, registry writes or
+subscriber exports occur. Each review reads at most 100 target lists, a single
+preview (at most 2,000,000 characters), and the referenced template. It checks the
+campaign revision again at the end and rejects detected edits. Preview failure
+produces failed preflight findings and a null preview; missing `updated_at`,
+failed campaign/list reads, and excessive bounds fail the operation. A successful
+review command does not mean preflight passed: inspect `preflight.summary`.
+
+Snapshots contain sender, subject, schedule, campaign revision, list counts and
+SHA-256 content/preview/template fingerprints. Unknown/oversized metadata is
+`null`; a null schedule is not proof that a schedule was never configured.
+Comparisons require matching campaign ID **and a present UUID**. Audience estimates
+sum list counts and are neither deduplicated nor guaranteed deliverable counts.
+Template revision/body are reported only when returned by the API; the local
+registry is not consulted. Separate reads are not a transaction, and list membership
+or template changes need not advance campaign `updated_at`.
+
+The preview is **untrusted HTML in JSON**, not an HTML report. It can contain
+personalized content and tracking/control URLs. Keep results and snapshots private;
+do not inject the preview into an active page or render/load its resources without
+isolation. No HTML report or automatic browser preview is produced. Preview uses
+Listmonk's preview subscriber, not every recipient. Before separately authorized
+delivery, re-review and use `snapshot.fields.updated_at` as the existing
+`expected_updated_at` guard (CLI `--expected-updated-at`); that guard narrows a race
+window, but does not atomically pin content, templates or audience.
+
 ### Shared connection profiles
 
 CLI and MCP read the same versioned configuration file, defaulting to
@@ -916,7 +961,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 139 public shared operations now include a `spec` descriptor. Specs define
+All 140 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -925,8 +970,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 139 contracts are standalone TypeScript/Typia product contracts. The
-existing 137 remain `stable`; `abtest.conversion.record` and `ops.health` are experimental. The
+All 140 contracts are standalone TypeScript/Typia product contracts. The
+existing 137 remain `stable`; `abtest.conversion.record`, `ops.health`, and `ops.campaign.review` are experimental. The
 stable set includes the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and

@@ -590,8 +590,15 @@ export async function checkLink(
 	}
 }
 
+/** Preflight is structurally limited to read endpoints, including when capturing a review. */
+export interface CampaignPreflightClient {
+	campaign: Pick<ListmonkClient["campaign"], "getById" | "preview">;
+	list: Pick<ListmonkClient["list"], "getById">;
+	template: Pick<ListmonkClient["template"], "getById">;
+}
+
 export async function runCampaignPreflight(
-	client: ListmonkClient,
+	client: CampaignPreflightClient,
 	campaignId: number,
 	options: CampaignPreflightOptions = {},
 ): Promise<CampaignPreflightResult> {

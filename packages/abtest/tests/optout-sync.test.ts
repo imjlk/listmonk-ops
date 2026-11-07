@@ -108,6 +108,37 @@ describe("syncAbTestOptOuts on kept temporary lists", () => {
 		expect(state?.syncedAt).toBeDefined();
 	});
 
+ test.each([
+  ["later by one microsecond", "2026-09-01T00:00:00.000002Z", true],
+  ["same instant with an offset", "2026-09-01T09:00:00.000002+09:00", true],
+  ["earlier within the millisecond", "2026-09-01T00:00:00.000000Z", false],
+  ["equal", "2026-09-01T00:00:00.000001Z", false],
+  ["unparseable", "unknown", false],
+ ] as const)("source creation %s is compared without discarding remote microseconds", async (_label, createdAt, protectedSource) => {
+  const fake = createFakeListmonk();
+		seedAbTestAudience(fake);
+		fake.unsubscribeViaCampaign(100, 11);
+  const read = fake.client.subscriber.listRaw.bind(fake.client.subscriber);
+  fake.client.subscriber.listRaw = async (input) => {
+   const response = await read(input);
+   if (response.data) for (const subscriber of response.data.results) {
+    for (const membership of subscriber.lists ?? []) {
+     if (membership.id === SOURCE_A) membership.subscription_created_at = createdAt;
+     if (membership.id === 200) membership.subscription_updated_at = "2026-09-01T00:00:00.000001Z";
+    }
+   }
+   return response;
+  };
+  const test = completedTest();
+  expect((await syncAbTestOptOuts(fake.client, test, { dryRun: true })).state).toBeUndefined();
+  expect(fake.unsubscribes).toEqual([]);
+  const outcome = await syncAbTestOptOuts(fake.client, test);
+  expect(outcome.result.ok).toBe(true);
+  expect(fake.membership(11, SOURCE_A)).toBe(protectedSource ? "confirmed" : "unsubscribed");
+  expect(fake.membership(11, SOURCE_B)).toBe("unsubscribed");
+  expect(fake.unsubscribes.at(-1)?.target_list_ids).toEqual(protectedSource ? [SOURCE_B] : [SOURCE_A, SOURCE_B]);
+ });
+
 	test("repeated syncs never unsubscribe a person who re-subscribed again", async () => {
 		const fake = createFakeListmonk();
 		seedAbTestAudience(fake);

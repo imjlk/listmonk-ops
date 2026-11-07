@@ -77,6 +77,8 @@ export interface TemporaryListOptOut {
 	 * `subscription_created_at` for.
 	 */
 	membershipCreatedAt?: ReadonlyMap<number, number>;
+ /** Raw Listmonk creation timestamps, retaining PostgreSQL microseconds. */
+	membershipCreatedTimestamps?: ReadonlyMap<number, string>;
 	membershipUpdatedAt?: ReadonlyMap<number, string>;
 	optedOutTimestamp?: string;
 	/**
@@ -300,6 +302,7 @@ function toTemporaryListOptOut(
 	}
 	const membershipStatuses = new Map<number, string>();
 	const membershipCreatedAt = new Map<number, number>();
+	const membershipCreatedTimestamps = new Map<number, string>();
 	const membershipUpdatedAt = new Map<number, string>();
 	let optedOutTimestamp: string | undefined;
 	let optedOutAt: number | undefined;
@@ -311,9 +314,9 @@ function toTemporaryListOptOut(
 			typeof membership.subscription_status === "string"
 		) {
 			membershipStatuses.set(membership.id, membership.subscription_status);
-			const createdAt = parseListmonkTimestamp(
-				membership.subscription_created_at,
-			);
+			const rawCreatedAt = membership.subscription_created_at;
+			if (typeof rawCreatedAt === "string") membershipCreatedTimestamps.set(membership.id, rawCreatedAt);
+			const createdAt = parseListmonkTimestamp(rawCreatedAt);
 			if (createdAt !== undefined) {
 				membershipCreatedAt.set(membership.id, createdAt);
 			}
@@ -342,6 +345,7 @@ function toTemporaryListOptOut(
 		subscriberId,
 		membershipStatuses,
 		membershipCreatedAt,
+		membershipCreatedTimestamps,
 		membershipUpdatedAt,
 		...(optedOutTimestamp === undefined ? {} : { optedOutTimestamp }),
 		...(optedOutAt === undefined ? {} : { optedOutAt }),
@@ -466,6 +470,17 @@ function isMembershipNewerThanOptOut(
 	listId: number,
 ): boolean {
 	if (optOut.settledSourceListIds?.has(listId)) return true;
+	const rawCreatedAt = optOut.membershipCreatedTimestamps?.get(listId);
+	if (rawCreatedAt !== undefined || optOut.optedOutTimestamp !== undefined) {
+		const created = rawCreatedAt === undefined
+			? undefined
+			: parseOptOutTimestampMicros(rawCreatedAt);
+		const optedOut = optOut.optedOutTimestamp === undefined
+			? undefined
+			: parseOptOutTimestampMicros(optOut.optedOutTimestamp);
+		return created !== undefined && optedOut !== undefined && created > optedOut;
+	}
+ // Compatibility for in-memory callers supplying already-resolved millisecond values.
 	const createdAt = optOut.membershipCreatedAt?.get(listId);
 	return (
 		optOut.optedOutAt !== undefined &&

@@ -1,4 +1,9 @@
 import {
+	buildCampaignReview,
+	campaignReviewInputSchema,
+	campaignReviewOutputSchema,
+} from "./campaign-review";
+import {
 	collectOpsHealth,
 	opsHealthInputSchema,
 	opsHealthOutputSchema,
@@ -38,6 +43,7 @@ import {
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
 import {
+	bindOpsCampaignReviewOperationSpec,
 	bindOpsDailyDigestOperationSpec,
 	bindOpsHealthOperationSpec,
 	bindOpsDeliverabilityGuardOperationSpec,
@@ -693,6 +699,32 @@ export async function executeDailyDigestOperation(
 	return result;
 }
 
+export async function executeCampaignReviewOperation(context: OpsOperationContext, input: z.output<typeof campaignReviewInputSchema>) {
+	return buildCampaignReview(requireOpsClient(context), input);
+}
+
+export const campaignReviewOperation = defineOperation({
+ id: "ops.campaign.review", title: "Build campaign review package",
+ description: "Collect bounded read-only campaign evidence, rendered preview and preflight; compare an earlier snapshot. Never approves, sends or schedules.",
+ inputSchema: campaignReviewInputSchema, outputSchema: campaignReviewOutputSchema,
+ safety: readSafety, mcp: { name: "listmonk_ops_campaign_review" },
+ spec: bindOpsCampaignReviewOperationSpec(), execute: executeCampaignReviewOperation,
+});
+
+export async function invokeCampaignReviewOperation(context: OpsOperationContext, input: unknown) {
+	const parsed = parseOperationInput(campaignReviewInputSchema, input);
+	try {
+		const output = await executeCampaignReviewOperation(context, parsed);
+		return parseOperationOutput(
+			campaignReviewOperation.id,
+			campaignReviewOutputSchema,
+			output,
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(campaignReviewOperation.id, error);
+	}
+}
+
 export const campaignPreflightOperation = defineOperation({
 	id: "ops.campaign.preflight",
 	title: "Run campaign preflight",
@@ -863,6 +895,7 @@ export async function invokeOpsHealthOperation(context: OpsOperationContext, inp
 }
 
 export const opsOperations = [
+	campaignReviewOperation,
 	opsHealthOperation,
 	campaignPreflightOperation,
 	deliverabilityGuardOperation,
@@ -1124,6 +1157,11 @@ export async function invokeOpsOperationByMcpName(
 	input: unknown,
 ): Promise<OpsOperationInvocation | undefined> {
 	switch (name) {
+		case campaignReviewOperation.mcp.name:
+			return {
+				operation: campaignReviewOperation,
+				output: await invokeCampaignReviewOperation(context, input),
+			};
 		case opsHealthOperation.mcp.name:
 			return {
 				operation: opsHealthOperation,

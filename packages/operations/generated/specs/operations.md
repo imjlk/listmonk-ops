@@ -1186,6 +1186,18 @@ Upload a media file to Listmonk from base64-encoded contents. Validates an allow
 - Retry: `conditional`
 - Stability: `stable` since `0.9.0`
 
+## `ops.campaign.review`
+
+Collect bounded read-only campaign evidence, rendered preview and preflight; compare an earlier snapshot. Never approves, sends or schedules.
+
+- Resource / verb: `campaign.review`
+- MCP tool: `listmonk_ops_campaign_review`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:campaign, read:list, read:template`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
+
 ## `ops.segments.drift`
 
 Snapshot list sizes and detect subscriber-count drift
