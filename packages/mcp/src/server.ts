@@ -10,8 +10,10 @@ import {
 	enqueueSuccessfulOperationLifecycleEvents,
 	getOutboundWebhookStoreOptionsFromEnvironment,
 	getSequenceRepositoryFromEnvironment,
+	resolveOpsHealthSource,
 	recordOperationAuditWithLifecycle,
 	type OutboundWebhookStoreOptions,
+	type OpsHealthContext,
 } from "@listmonk-ops/automation";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { createListmonkClient } from "@listmonk-ops/openapi";
@@ -233,6 +235,7 @@ export class ListmonkMCPServer {
 	private allowedHttpHosts: Set<string>;
 	private allowedHttpOrigins: Set<string>;
 	private webhookHandler: ReturnType<typeof createWebhookToolsHandler>;
+	private opsHealthContext: OpsHealthContext;
 	private sequenceHandler: ReturnType<typeof createSequenceToolsHandler>;
 	private transactionalStore: TransactionalIdempotencyStore | undefined;
 
@@ -279,6 +282,10 @@ export class ListmonkMCPServer {
 			path: config.webhookStorePath,
 			databaseUrl: config.webhookDatabaseUrl,
 		});
+		this.opsHealthContext = {
+ sequenceSource: resolveOpsHealthSource("sequences", { path: config.sequenceStorePath, databaseUrl: config.sequenceDatabaseUrl }),
+ webhookSource: resolveOpsHealthSource("webhooks", { path: config.webhookStorePath, databaseUrl: config.webhookDatabaseUrl }),
+ };
 		this.webhookHandler = createWebhookToolsHandler({
 			store: this.webhookStoreOptions,
 		});
@@ -615,7 +622,7 @@ export class ListmonkMCPServer {
 		try {
 			let client = this.client;
 			const localTransactionalTool = name === "listmonk_transactional_records" || name === "listmonk_reconcile_transactional";
-			if (this.credentialProvider && !localTransactionalTool && !toolNameSets.catalog.has(name) && (!toolNameSets.discovery.has(name) || name === "listmonk_status")) {
+			if (this.credentialProvider && name !== "listmonk_ops_health" && !localTransactionalTool && !toolNameSets.catalog.has(name) && (!toolNameSets.discovery.has(name) || name === "listmonk_status")) {
 				const credential = await this.credentialProvider();
 				if (!credential) throw new Error("Missing Listmonk API credential");
 				client = createListmonkClient({ baseUrl: this.baseUrl, headers: { Authorization: `token ${this.username}:${credential}` } });
@@ -674,7 +681,7 @@ export class ListmonkMCPServer {
 					idempotencyStore: this.transactionalStore,
 				});
 			} else if (toolNameSets.ops.has(name)) {
-				result = await handleOpsTools(operationRequest, client);
+				result = await handleOpsTools(operationRequest, client, this.opsHealthContext);
 			} else if (toolNameSets.providers.has(name)) {
 				result = await handleProviderTools(operationRequest, client);
 			} else if (toolNameSets.abtest.has(name)) {

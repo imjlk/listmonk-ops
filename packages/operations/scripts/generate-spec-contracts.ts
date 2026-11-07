@@ -168,6 +168,8 @@ import type {
 	SubscriberBulkBlocklistInput,
 	SegmentDriftInput,
 	SegmentDriftOutput,
+	OpsHealthInput,
+	OpsHealthOutput,
 	DailyDigestInput,
 	DailyDigestOutput,
 	DeliverabilityGuardInput,
@@ -872,6 +874,8 @@ const contracts = {
 	segmentDriftOutputContract: contractSchema(
 		typia.json.schema<SegmentDriftOutput>(),
 	),
+	opsHealthInputContract: contractSchema(typia.json.schema<OpsHealthInput>()),
+	opsHealthOutputContract: contractSchema(typia.json.schema<OpsHealthOutput>()),
 	dailyDigestInputContract: contractSchema(
 		typia.json.schema<DailyDigestInput>(),
 	),

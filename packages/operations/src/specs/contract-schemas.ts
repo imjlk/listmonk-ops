@@ -195,6 +195,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberBulkBlocklistInputContract: NormalizedContractSchema;
 	segmentDriftInputContract: NormalizedContractSchema;
 	segmentDriftOutputContract: NormalizedContractSchema;
+	opsHealthInputContract: NormalizedContractSchema;
+	opsHealthOutputContract: NormalizedContractSchema;
 	dailyDigestInputContract: NormalizedContractSchema;
 	dailyDigestOutputContract: NormalizedContractSchema;
 	deliverabilityGuardInputContract: NormalizedContractSchema;
@@ -593,3 +595,5 @@ export const controlConfigurationOutputContract = contracts.controlConfiguration
 
 export const sequenceSimulateInputContract = contracts.sequenceSimulateInputContract;
 export const sequenceSimulateOutputContract = contracts.sequenceSimulateOutputContract;
+export const opsHealthInputContract = contracts.opsHealthInputContract;
+export const opsHealthOutputContract = contracts.opsHealthOutputContract;

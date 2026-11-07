@@ -190,12 +190,23 @@ export async function simulateSequenceSnapshot(snapshot: SequenceSimulationSnaps
 					return result;
 				}
 				const subscriber = options.subscriber;
-				if (!subscriber || subscriber.status === undefined || subscriber.lists === undefined) {
-					row.reason = "Subscriber status or list snapshot is missing; fresh-send eligibility is unknown";
+				if (!subscriber || subscriber.status === undefined ||
+					!["enabled", "blocklisted", "disabled"].includes(subscriber.status.toLowerCase())) {
+					row.reason = "Subscriber status snapshot is missing or unsupported; fresh-send eligibility is unknown";
 					result.outcome = "unknown";
 					return result;
 				}
 				let reason = sequenceSubscriberCannotReceive(subscriber);
+				// A known suppression is definitive independently of missing list IDs.
+				// Otherwise do not let engine defaults turn omitted evidence into consent.
+				if (!reason && (subscriber.lists === undefined || subscriber.lists.some((list) =>
+					list.id === undefined || list.subscription_status === undefined ||
+					!["confirmed", "unconfirmed", "unsubscribed"].includes(list.subscription_status.toLowerCase()),
+				))) {
+					row.reason = "List membership snapshot is missing or incomplete; fresh-send eligibility is unknown";
+					result.outcome = "unknown";
+					return result;
+				}
 				try {
 					reason ??= await checkSequenceListConsent({ list: { getById: async ({ path }) => {
       const policy = policies.find((entry) => entry.id === path.list_id);

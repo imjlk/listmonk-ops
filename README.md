@@ -338,6 +338,8 @@ Interactive prompts and `ops digest --markdown-only` require `--format human`.
 
 ### No-send sequence simulator
 
+Incomplete membership entries (missing IDs/statuses or unsupported statuses) remain `unknown`, not consent or cancellation; explicit global suppression still cancels.
+
 ```bash
 # Offline: no Listmonk credentials, network, repository or database initialization.
 listmonk-cli sequences simulate --at 2026-01-01T00:00:00Z \
@@ -968,7 +970,7 @@ does not establish access to every subscriber/list, mutation rights, or send per
 Public health alone no longer makes `readiness.listmonk` true. Target URLs omit
 inline credentials, query strings, and fragments.
 
-All 137 public shared operations now include a `spec` descriptor. Specs define
+All 139 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -977,8 +979,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 137 contracts are standalone TypeScript/Typia product contracts. The
-existing 136 remain `stable`; `abtest.conversion.record` is experimental. The
+All 139 contracts are standalone TypeScript/Typia product contracts. The
+existing 136 remain `stable`; `abtest.conversion.record`, `ops.health`, and `sequences.simulate` are experimental. The
 stable set includes the bounce family (`bounces.list`, `bounces.get`,
 `bounces.delete`, `bounces.prune`, `subscribers.bounces.get`,
 `subscribers.bounces.delete`), the campaign preview, test-send, and
@@ -1814,6 +1816,24 @@ contain policy reasons, status codes, and local error codes, not remote error
 text. Template promote supports
 optimistic concurrency via `--expected-remote-hash`. MCP/CLI operation outputs
 no longer expose absolute filesystem paths.
+
+### Consolidated action-needed health (read-only)
+
+```bash
+listmonk-cli ops health --format json
+listmonk-cli ops health --scope sequences --at 2026-11-07T00:00:00Z --worker-stale-ms 90000 --scan-limit 1000 --check --format json
+# MCP: listmonk_ops_health({ scope: "all", at: "2026-11-07T00:00:00Z", scan_limit: 1000 })
+```
+
+Shared `ops.health` inspects **existing local sequence/webhook files only**, without client authentication/network calls, locks, schema initialization, claims, recovery, retry, replay, circuit reset, worker start or sends. CLI/MCP use the same collector. MCP honors programmatic store/backend overrides as well as environment configuration; ordinary MCP startup configuration validation still applies. `--scope all|sequences|webhooks` defaults to both; an unused or missing scoped store is **unknown**, not an invented empty healthy store.
+
+Each regular, non-symlink file is capped at **4 MiB**. Each collection scans its stored-order prefix, at most `scan_limit` rows (default 1000, maximum 10000). `coverage` reports total/scanned/truncated separately for every collection; truncated counts are lower bounds, and `complete` describes scan completeness, not worker or delivery readiness. Malformed selected metadata, version mismatch, missing/oversized/unreadable files and changing-in-place reads are unavailable. This metadata projection does not validate complete payloads or revision topology. Postgres is deliberately **unsupported/unknown**: the existing status repository paths initialize schema. Health collection never constructs or queries those repositories, never falls back to a different backend, and never marks Postgres healthy.
+
+Severity precedence is `critical > unknown > warning > healthy`. Ambiguous sequence results, failed enrollments at the engine retry ceiling, webhook exhausted/DLQ records, and observed active/enabled due candidates without fresh workers need inspection. Expired/missing in-flight leases, retained failed enrollments, open circuits and disabled/orphaned targets are surfaced with reasons and **read-only** next actions. Due counts are scheduling candidates, **not** runnable-step, pinned-revision, consent or future delivery predictions. Paused definitions do not count as active due candidates. Webhook expired leases do not establish whether a remote endpoint received an event.
+
+All time comparisons use one observation clock (`--at` fixes comparisons, not historical store replay); heartbeat age equal to the threshold is fresh, older is stale, and future heartbeats cannot prove liveness. Empty queues without fresh heartbeats remain unknown. Fresh workers cover retained stale/failed worker history without a false liveness alarm. Reports omit subscriber identities/context, endpoint URLs/secrets, event/message bodies, worker IDs and raw errors. Each store is observed independently: **no atomic/cross-store health or approval/delivery guarantee**. Safe next commands only recheck bounded health or inspect the offline operation catalog; legacy status commands are not suggested because another CLI configuration could initialize Postgres. Unavailable sources suggest only offline catalog inspection.
+
+Ordinary inspection exits zero even for warnings/unknown/critical findings, because the query succeeded. `--check` preserves the complete JSON report and exits **1** unless every scoped component is complete and healthy (including supported liveness evidence); bad arguments retain normal CLI validation errors. Read-only adapter paths do not audit or enqueue lifecycle events. This is not SMTP/provider/Listmonk connectivity monitoring.
 
 ## Signed Outbound Event Webhooks
 

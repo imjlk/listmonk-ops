@@ -135,6 +135,34 @@ describe("fixed-clock no-send sequence simulator", () => {
   const multi = await simulateSequenceSnapshot({ steps: [{ ...send, consentListIds: [7, 8] }] }, options());
   expect(multi.outcome).toBe("snapshot_cancelled");
  });
+ test("incomplete or unsupported membership evidence stays unknown for scoped and legacy sends", async () => {
+  for (const lists of [
+   [{ id: 7 }], [{ subscription_status: "confirmed" }], [{}],
+   [{ id: 7, subscription_status: "future-status" }],
+   [{ id: 7, subscription_status: "unsubscribed" }, { id: 8 }],
+  ]) {
+   for (const step of [send, { ...send, consentListIds: undefined }]) {
+    const input = options({ subscriber: { status: "enabled", lists } });
+    const before = structuredClone(input);
+    const first = await simulateSequenceSnapshot({ steps: [step] }, input);
+    expect(first.outcome).toBe("unknown");
+    expect(first.timeline[0]?.reason).toContain("incomplete");
+    expect(await simulateSequenceSnapshot({ steps: [step] }, input)).toEqual(first);
+    expect(input).toEqual(before);
+    expect(JSON.stringify(first)).not.toContain("future-status");
+   }
+  }
+ });
+ test("known suppression remains definitive even if unrelated membership evidence is incomplete", async () => {
+  for (const snapshot of [
+   { status: "disabled", lists: [{ id: 7 }] },
+   { status: "blocklisted" },
+   { status: "enabled", lists: [{ subscription_status: "unsubscribed" }] },
+  ]) {
+   expect((await simulateSequenceSnapshot({ steps: [send] }, options({ subscriber: snapshot }))).outcome).toBe("snapshot_cancelled");
+  }
+  expect((await simulateSequenceSnapshot({ steps: [send] }, options({ subscriber: { status: "future-status", lists: [] } }))).outcome).toBe("unknown");
+ });
  test("unconfirmed membership uses only supplied single/double policy and missing policy stays unknown", async () => {
   const snapshot = { status: "enabled", lists: [{ id: 7, subscription_status: "unconfirmed" }] };
   for (const [optin, outcome] of [["single", "send_boundary"], ["double", "snapshot_cancelled"]] as const) {

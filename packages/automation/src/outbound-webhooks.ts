@@ -2362,10 +2362,10 @@ export async function getOutboundWebhookRuntimeHealth(
 
 export function summarizeOutboundWebhookRuntimeHealth(
 	store: "file" | "postgres",
-	endpoints: readonly OutboundWebhookEndpoint[],
-	deliveries: readonly OutboundWebhookDelivery[],
-	endpointRuntime: readonly OutboundWebhookEndpointRuntime[],
-	workers: readonly OutboundWebhookWorker[],
+	endpoints: readonly Pick<OutboundWebhookEndpoint, "enabled">[],
+	deliveries: readonly Pick<OutboundWebhookDelivery, "status" | "nextAttemptAt" | "leaseExpiresAt" | "lastAttemptAt">[],
+	endpointRuntime: readonly Pick<OutboundWebhookEndpointRuntime, "circuitState" | "circuitOpenUntil">[],
+	workers: readonly Pick<OutboundWebhookWorker, "status" | "heartbeatAt">[],
 	now: Date,
 	workerStaleMs: number,
 ): OutboundWebhookRuntimeHealth {

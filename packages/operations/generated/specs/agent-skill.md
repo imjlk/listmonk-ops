@@ -1416,6 +1416,20 @@ Verify with: none
 
 Retry guidance: Retry is safe; the digest is read-only.
 
+## Inspect consolidated operations health (`ops.health`)
+
+Contract maturity: `experimental`; effects: `read:control`; confirmation: `never`; retry: `safe`.
+
+Use when: A bounded sequence/webhook action-needed report is required without recovery or sending.
+
+Avoid when: Actual SMTP/provider readiness or atomic delivery approval is needed. Postgres-only status is required: existing read paths initialize schema and are refused.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Read-only retries are safe; use at for a fixed observation clock. Truncation and unknown evidence never pass the check.
+
 ## Evaluate deliverability guard (`ops.campaign.deliverability-guard`)
 
 Contract maturity: `stable`; effects: `read:campaign, write:campaign`; confirmation: `required`; retry: `safe`.
