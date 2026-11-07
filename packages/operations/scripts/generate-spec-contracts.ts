@@ -66,6 +66,8 @@ import type {
 	SequenceTickInput,
 	SequenceTickOutput,
 	SequenceUpdateInput,
+	SequenceSimulateInput,
+	SequenceSimulateOutput,
 	SequenceValidateInput,
 	SequenceValidateOutput,
 	SubscriberBlocklistInput,
@@ -524,6 +526,12 @@ const contracts = {
 	),
 	transactionalReconcileOutputContract: contractSchema(
 		typia.json.schema<TransactionalReconcileOutput>(),
+	),
+	sequenceSimulateInputContract: contractSchema(
+		typia.json.schema<SequenceSimulateInput>(),
+	),
+	sequenceSimulateOutputContract: contractSchema(
+		typia.json.schema<SequenceSimulateOutput>(),
 	),
 	sequenceValidateInputContract: contractSchema(
 		typia.json.schema<SequenceValidateInput>(),

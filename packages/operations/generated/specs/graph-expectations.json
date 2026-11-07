@@ -894,6 +894,33 @@
     {
       "edges": [
         {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceSimulateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceSimulateOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceSimulateOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceSimulateOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceSimulateOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceSimulateOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceSimulateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceSimulateOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceSimulateOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceSimulateOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceSimulateOperation:variable"
+      },
+      "operationId": "sequences.simulate"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/automation/src/sequence-operations.ts#sequenceValidateOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/sequences.ts#bindSequenceValidateOperationSpec:function"

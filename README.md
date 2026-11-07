@@ -335,6 +335,58 @@ reject buffered JSON mode. Keep stderr separate from stdout when parsing results
 Explicit help, version, and shell-completion requests retain their text formats.
 Interactive prompts and `ops digest --markdown-only` require `--format human`.
 
+
+### No-send sequence simulator
+
+```bash
+# Offline: no Listmonk credentials, network, repository or database initialization.
+listmonk-cli sequences simulate --at 2026-01-01T00:00:00Z \
+  --steps '[{"id":"wait","type":"wait","duration_seconds":60},{"id":"send","type":"send","template_id":3}]' \
+  --subscriber '{"status":"enabled","lists":[]}'
+# Read a file-backed definition (fresh hypothetical enrollment):
+listmonk-cli sequences simulate --id <sequence-uuid> --at 2026-01-01T00:00:00Z \
+  --context '{"plan":"pro"}' --subscriber '{"status":"enabled","lists":[]}'
+# Existing enrollment: use its pinned revision and stored context; never override them.
+listmonk-cli sequences simulate --id <sequence-uuid> --enrollment-id <enrollment-uuid> \
+  --at 2026-01-01T00:00:00Z
+```
+
+MCP `listmonk_sequences_simulate` shares the same inputs/results: exactly one of
+`id` or `steps`, required timezone-bearing `at`, optional `enrollment_id`, `context`,
+`subscriber`, `list_policies`, and `max_steps` (default 100, maximum 500). Steps use
+`sequences create` syntax. `enrollment_id` requires `id` and forbids context overrides.
+No enrollment is created. Definition/enrollment references currently support the
+**file backend only**: Postgres repository reads initialize schema, so reference
+simulation refuses that backend before querying it. Supply an explicit `steps`
+snapshot for offline simulation instead. Existing redacted `sequences get` output
+contains fingerprints, not executable steps: retain your original step definition;
+do not treat those summaries as step snapshots.
+
+The simulator follows the engine's actual `condition` (`equals`, `not_equals`,
+`exists`), `wait`, `wait_until`, `send`, and `stop` semantics. Conditions inspect
+**enrollment context only**, not subscriber attributes or send-step data. Relative
+waits begin at simulated step execution; absolute waits use the later timestamp.
+The timeline is a hypothetical **earliest eligibility path with frozen snapshots**,
+not a worker schedule or delivery forecast. It stops at the **first send boundary**;
+no downstream success, retries, rendering, provider acceptance or receipt state is
+invented. `snapshot_cancelled` means the supplied fresh-send snapshot policy would
+cancel, **not** that an enrollment was cancelled. Existing enrollment sends stop as
+`unknown`: accepted/pending/unknown send receipts can bypass fresh consent checks.
+Paused definitions, terminal/ambiguous enrollments, live leases and not-due work
+are explained without claiming anything. Current versus pinned revision is reported
+only for actual file-backed references; offline revision metadata remains null.
+
+Subscriber input needs only `status` and `lists` (`id`, `subscription_status`), never
+email or personal attributes. Missing state remains unknown. Every scoped consent
+list must permit receipt; unconfirmed memberships need explicit `list_policies`
+with `{ "id": 7, "optin": "single" }` or `"double"`. Missing policies remain unknown;
+legacy sends without consent-list scope retain the engine's legacy policy. Snapshots
+are supplied evidence, not verified live subscriber state. Context values, subscriber
+identity and message data are not returned. No Listmonk lookups, sends, claims,
+receipt/sequence-store writes or subscriber exports occur; ordinary adapter audit
+logging may still occur. Inputs/selected snapshots are bounded to 256 KiB, depth 32,
+10,000 JSON nodes and 500 definition/path steps. Unsupported types/topologies fail.
+
 ### Shared connection profiles
 
 CLI and MCP read the same versioned configuration file, defaulting to
