@@ -1,8 +1,0 @@
----
-npm/@listmonk-ops/openapi: patch (Fixed)
-npm/@listmonk-ops/operations: patch (Fixed)
-npm/@listmonk-ops/cli: patch (Fixed)
-npm/@listmonk-ops/mcp: patch (Fixed)
----
-
-Settings writes refuse redaction placeholders at the shared boundary and name the offending keys. `settings.test-smtp` (CLI `settings test-smtp`, MCP `listmonk_test_smtp`) now rejects, before any request, a server configuration that still holds the `[redacted]` placeholder of a redacted `settings.get` read, whatever client the surface supplies; it previously relied on the OpenAPI client to catch it. The error names each offending field (for example `server.username, server.password`), never its value, and explains that Listmonk's SMTP test never falls back to stored credentials. `client.settings.update()` and `client.settings.testSmtp()` in `@listmonk-ops/openapi` use the same guard and name the offending key paths, such as `smtp[0].password`. For updates the message follows Listmonk 6.2's handler: it saves the whole document and resets keys left out, so omitting a key does not keep it, while the secrets Listmonk masks itself (SMTP, messenger, and bounce-mailbox passwords of entries that keep their `uuid`, and the S3, SendGrid, Azure, Postmark, ForwardEmail, Lettermint, hCaptcha, and OIDC secrets) keep their stored value when sent as an empty string. The guard now reads a parameter name the way the redactor does, so a placeholder after a name ending in an encoded separator (such as `sig%26=[redacted]`) is refused instead of saved, and it checks each value in one pass instead of rescanning the text before every marker. `@listmonk-ops/openapi` and `@listmonk-ops/operations` export `assertNoRedactedSettingsPlaceholders` and `RedactedSettingsPlaceholderError`.

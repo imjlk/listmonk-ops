@@ -1,5 +1,44 @@
 # @listmonk-ops/cli
 
+## 0.19.0 — 2026-11-09
+
+### Minor changes
+
+- [6432518](https://github.com/imjlk/listmonk-ops/commit/6432518f7fe5e726929e0ee3d5c433c7321bec5e) Add a bounded read-only campaign review package shared by CLI and MCP, with rendered preview, preflight, versioned snapshots and readable change comparisons. No send or approval is performed. — Thanks @imjlk!
+- [3242ca3](https://github.com/imjlk/listmonk-ops/commit/3242ca33ee1d62c9e5e354d266633f3e391b3582) Add a bounded, privacy-minimal read-only ops health report shared by CLI and MCP, with fixed-clock classification, explicit unavailable/Postgres/truncated evidence, safe read suggestions and CLI check exit status. Never recover, claim, send or initialize schema while inspecting health. — Thanks @imjlk!
+- [35ce98a](https://github.com/imjlk/listmonk-ops/commit/35ce98a653897c8583e87782f39ff19836a5aef5) Add a bounded, fixed-clock no-send sequence simulator with context branching, wait timelines, snapshot consent explanations and file-backed enrollment revision inspection. No execution or state mutation occurs. — Thanks @imjlk!
+
+### Fixed
+
+- [10ca793](https://github.com/imjlk/listmonk-ops/commit/10ca79342cef283602fdf51ae4e9889b737eb433) Run the CLI and MCP test subprocesses that replace HOME under the Bun running the tests instead of `bun` from PATH, so a version-manager shim (for example mise) that reads its trust state from the real HOME no longer fails them. — Thanks @imjlk!
+- [3a25d1c](https://github.com/imjlk/listmonk-ops/commit/3a25d1c4b64337830a19936485f0b28f1c43a99c) Carry A/B opt-outs from temporary lists that are kept, not only from lists about to be deleted: a completed test's variant lists and the holdout list its winner went to, lists a stop keeps for cancelled or finished campaigns, and the lists of a deleted terminal test keep recording opt-outs from those campaigns' unsubscribe links. `abtest tick` now carries them after its progression sweep (at most hourly while a test is active and for 30 days after it ends, then at most daily for as long as a list exists; a dry run previews it and the output reports it as `opt_out_sync`), stop carries the lists it keeps, and deleting a terminal test carries its opt-outs first, fails closed, and keeps a hidden record so its lists keep being synced until they are deleted in Listmonk. Each carried opt-out is recorded and never carried again, so a person who re-subscribes to a source list stays subscribed, and a source membership created after the opt-out is left alone; a stop or delete that fails part-way keeps that record. The first tick after upgrading carries the backlog earlier versions left on kept lists. `abtest.stop`, `abtest.delete`, and `abtest.tick` now declare the audience suppression they perform, and the tick output gains the optional `opt_out_sync` field.
+  
+  Reconcile shared-source opt-outs with persisted, read-confirmed remote timestamp checkpoints; preserve newer opt-outs, fail closed on unknown legacy chronology, retain required replay history, and omit private progress from public test output.
+  
+  Preserve PostgreSQL microseconds when deciding whether a source membership was created after an opt-out, including equivalent timezone offsets.
+  
+  Reconcile a lone test's own partial source-list confirmations before stop or non-terminal deletion; preserve fresh consent and block cleanup when remaining propagation or chronology cannot be confirmed.
+  
+  Record per-source confirmations during cleanup itself, including partial failures, so a later stop/delete retry or automatic sync cannot revoke renewed consent on an already-carried source.
+  
+  Confirm only validated, bounded recipient subsets after each write chunk, preserving confirmed partial progress and failing closed on missing or unfiltered responses; retain one final full read to detect newly arriving opt-outs. This keeps subscriber-page request cost linear in the backlog instead of rereading every historical opt-out per chunk.
+  
+  Keep ambiguous recipients fail-closed without starving unrelated opt-outs. Preserve legacy unknown provenance when adding modern checkpoints, distinguish new no-source cleanup records, and include safe list failure details in stop/delete errors. Clarify first-carry consent limits and upgrade backlog scope in English and Korean. — Thanks @imjlk!
+- [4ecc740](https://github.com/imjlk/listmonk-ops/commit/4ecc7403e83101d4aed1e131b83da79bf08966f2) Template registry sync now reads the registry before it lists templates, so an unreadable registry fails a sync without explicit template ids before any Listmonk request, as a sync with explicit ids already did. A rollback pinned over drifted live content whose stored active version is missing from the template's history now reports that missing base version instead of claiming the template has no previous version. `liveTemplateMatchesRemoteHashPin()`, the predicate promotion and rollback use to accept an `expected_remote_hash` pin, is exported beside the other template registry predicates. — Thanks @imjlk!
+- [587525b](https://github.com/imjlk/listmonk-ops/commit/587525b0e83a42a2a104f76a4b6983ae5ff2f5eb) Settings writes refuse redaction placeholders at the shared boundary and name the offending keys. `settings.test-smtp` (CLI `settings test-smtp`, MCP `listmonk_test_smtp`) now rejects, before any request, a server configuration that still holds the `[redacted]` placeholder of a redacted `settings.get` read, whatever client the surface supplies; it previously relied on the OpenAPI client to catch it. The error names each offending field (for example `server.username, server.password`), never its value, and explains that Listmonk's SMTP test never falls back to stored credentials. `client.settings.update()` and `client.settings.testSmtp()` in `@listmonk-ops/openapi` use the same guard and name the offending key paths, such as `smtp[0].password`. For updates the message follows Listmonk 6.2's handler: it saves the whole document and resets keys left out, so omitting a key does not keep it, while the secrets Listmonk masks itself (SMTP, messenger, and bounce-mailbox passwords of entries that keep their `uuid`, and the S3, SendGrid, Azure, Postmark, ForwardEmail, Lettermint, hCaptcha, and OIDC secrets) keep their stored value when sent as an empty string. The guard now reads a parameter name the way the redactor does, so a placeholder after a name ending in an encoded separator (such as `sig%26=[redacted]`) is refused instead of saved, and it checks each value in one pass instead of rescanning the text before every marker. `@listmonk-ops/openapi` and `@listmonk-ops/operations` export `assertNoRedactedSettingsPlaceholders` and `RedactedSettingsPlaceholderError`. — Thanks @imjlk!
+
+### Added
+
+- [3a25d1c](https://github.com/imjlk/listmonk-ops/commit/3a25d1c4b64337830a19936485f0b28f1c43a99c) Added the stable `abtest.sync-optouts` operation (137 → 138 described operations). It carries opt-outs recorded on A/B temporary lists to the tests' source lists on demand, for one test (including a deleted test whose record is kept for the sync) or every tracked test, ignoring the tick's cadence, and records what it carried so it is never carried twice. `dry_run` previews what would be carried with reads only. It is a confirmed, audited, previewable audience suppression. CLI: `listmonk-cli abtest sync-optouts [--test-id <id>] [--dry-run] --confirm`, which warns about each list it could not carry and exits 1 when one failed; MCP: `listmonk_abtest_sync_optouts`. — Thanks @imjlk!
+
+### Changed
+
+- [2ce212e](https://github.com/imjlk/listmonk-ops/commit/2ce212e9c9c183bd0d709261e04e6b6f5326c339) Migrated off zod APIs that zod 4 deprecates, with no behavior change. Number schemas no longer call `.finite()`, which zod 4 made a no-op because number schemas already reject infinite values; string `.datetime()` is now `z.iso.datetime()` with the same options; and the trimmed email fields (`subscribers.create` and `subscribers.update` `email`, `transactional.send` `subscriber_email`, and the matching CLI options) use `z.string().trim().check(z.email())` instead of `.trim().email()`, so input is still trimmed before it is validated and the published input schemas keep `format: "email"`. Validation results, error messages, and every operation input and output JSON Schema published through the CLI and MCP catalogs are unchanged. In the `@listmonk-ops/abtest` declarations, the A/B test datetime fields are typed `ZodISODateTime` instead of `ZodString`; their inferred type is still `string`. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.10.0, automation@0.10.0, common@0.7.3, openapi@0.11.1, operations@0.21.0
+
 ## 0.18.0 — 2026-09-27
 
 ### Fixed

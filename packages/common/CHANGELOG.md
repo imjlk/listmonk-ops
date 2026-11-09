@@ -1,5 +1,11 @@
 # @listmonk-ops/common
 
+## 0.7.3 — 2026-11-09
+
+### Fixed
+
+- [c6ca467](https://github.com/imjlk/listmonk-ops/commit/c6ca467d9aad7d7b377fc1f9b14dbbe0a0bc4f37) JSON file store writes now rethrow a temporary-file cleanup failure even when the thrown value is `undefined`, instead of silently treating the write as clean. — Thanks @imjlk!
+
 ## 0.7.2 — 2026-09-27
 
 ### Fixed
