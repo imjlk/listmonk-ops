@@ -1,5 +1,26 @@
 # @listmonk-ops/automation
 
+## 0.10.0 — 2026-11-09
+
+### Minor changes
+
+- [6432518](https://github.com/imjlk/listmonk-ops/commit/6432518f7fe5e726929e0ee3d5c433c7321bec5e) Add a bounded read-only campaign review package shared by CLI and MCP, with rendered preview, preflight, versioned snapshots and readable change comparisons. No send or approval is performed. — Thanks @imjlk!
+- [3242ca3](https://github.com/imjlk/listmonk-ops/commit/3242ca33ee1d62c9e5e354d266633f3e391b3582) Add a bounded, privacy-minimal read-only ops health report shared by CLI and MCP, with fixed-clock classification, explicit unavailable/Postgres/truncated evidence, safe read suggestions and CLI check exit status. Never recover, claim, send or initialize schema while inspecting health. — Thanks @imjlk!
+- [35ce98a](https://github.com/imjlk/listmonk-ops/commit/35ce98a653897c8583e87782f39ff19836a5aef5) Add a bounded, fixed-clock no-send sequence simulator with context branching, wait timelines, snapshot consent explanations and file-backed enrollment revision inspection. No execution or state mutation occurs. — Thanks @imjlk!
+
+### Fixed
+
+- [84c243f](https://github.com/imjlk/listmonk-ops/commit/84c243f7b54e43f78750bcabe2c7aed67b1e2de4) Make the zero-threshold segment-drift regression deterministic with distinct fixed capture times and restore its test clock after execution. Runtime behavior is unchanged. — Thanks @imjlk!
+- [4ecc740](https://github.com/imjlk/listmonk-ops/commit/4ecc7403e83101d4aed1e131b83da79bf08966f2) Template registry sync now reads the registry before it lists templates, so an unreadable registry fails a sync without explicit template ids before any Listmonk request, as a sync with explicit ids already did. A rollback pinned over drifted live content whose stored active version is missing from the template's history now reports that missing base version instead of claiming the template has no previous version. `liveTemplateMatchesRemoteHashPin()`, the predicate promotion and rollback use to accept an `expected_remote_hash` pin, is exported beside the other template registry predicates. — Thanks @imjlk!
+
+### Changed
+
+- [2ce212e](https://github.com/imjlk/listmonk-ops/commit/2ce212e9c9c183bd0d709261e04e6b6f5326c339) Migrated off zod APIs that zod 4 deprecates, with no behavior change. Number schemas no longer call `.finite()`, which zod 4 made a no-op because number schemas already reject infinite values; string `.datetime()` is now `z.iso.datetime()` with the same options; and the trimmed email fields (`subscribers.create` and `subscribers.update` `email`, `transactional.send` `subscriber_email`, and the matching CLI options) use `z.string().trim().check(z.email())` instead of `.trim().email()`, so input is still trimmed before it is validated and the published input schemas keep `format: "email"`. Validation results, error messages, and every operation input and output JSON Schema published through the CLI and MCP catalogs are unchanged. In the `@listmonk-ops/abtest` declarations, the A/B test datetime fields are typed `ZodISODateTime` instead of `ZodString`; their inferred type is still `string`. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: common@0.7.3, openapi@0.11.1, operations@0.21.0
+
 ## 0.9.1 — 2026-09-27
 
 ### Fixed

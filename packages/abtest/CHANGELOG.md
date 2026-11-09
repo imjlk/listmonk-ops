@@ -1,5 +1,35 @@
 # @listmonk-ops/abtest
 
+## 0.10.0 — 2026-11-09
+
+### Added
+
+- [3a25d1c](https://github.com/imjlk/listmonk-ops/commit/3a25d1c4b64337830a19936485f0b28f1c43a99c) Added the stable `abtest.sync-optouts` operation (137 → 138 described operations). It carries opt-outs recorded on A/B temporary lists to the tests' source lists on demand, for one test (including a deleted test whose record is kept for the sync) or every tracked test, ignoring the tick's cadence, and records what it carried so it is never carried twice. `dry_run` previews what would be carried with reads only. It is a confirmed, audited, previewable audience suppression. CLI: `listmonk-cli abtest sync-optouts [--test-id <id>] [--dry-run] --confirm`, which warns about each list it could not carry and exits 1 when one failed; MCP: `listmonk_abtest_sync_optouts`. — Thanks @imjlk!
+
+### Fixed
+
+- [3a25d1c](https://github.com/imjlk/listmonk-ops/commit/3a25d1c4b64337830a19936485f0b28f1c43a99c) Carry A/B opt-outs from temporary lists that are kept, not only from lists about to be deleted: a completed test's variant lists and the holdout list its winner went to, lists a stop keeps for cancelled or finished campaigns, and the lists of a deleted terminal test keep recording opt-outs from those campaigns' unsubscribe links. `abtest tick` now carries them after its progression sweep (at most hourly while a test is active and for 30 days after it ends, then at most daily for as long as a list exists; a dry run previews it and the output reports it as `opt_out_sync`), stop carries the lists it keeps, and deleting a terminal test carries its opt-outs first, fails closed, and keeps a hidden record so its lists keep being synced until they are deleted in Listmonk. Each carried opt-out is recorded and never carried again, so a person who re-subscribes to a source list stays subscribed, and a source membership created after the opt-out is left alone; a stop or delete that fails part-way keeps that record. The first tick after upgrading carries the backlog earlier versions left on kept lists. `abtest.stop`, `abtest.delete`, and `abtest.tick` now declare the audience suppression they perform, and the tick output gains the optional `opt_out_sync` field.
+  
+  Reconcile shared-source opt-outs with persisted, read-confirmed remote timestamp checkpoints; preserve newer opt-outs, fail closed on unknown legacy chronology, retain required replay history, and omit private progress from public test output.
+  
+  Preserve PostgreSQL microseconds when deciding whether a source membership was created after an opt-out, including equivalent timezone offsets.
+  
+  Reconcile a lone test's own partial source-list confirmations before stop or non-terminal deletion; preserve fresh consent and block cleanup when remaining propagation or chronology cannot be confirmed.
+  
+  Record per-source confirmations during cleanup itself, including partial failures, so a later stop/delete retry or automatic sync cannot revoke renewed consent on an already-carried source.
+  
+  Confirm only validated, bounded recipient subsets after each write chunk, preserving confirmed partial progress and failing closed on missing or unfiltered responses; retain one final full read to detect newly arriving opt-outs. This keeps subscriber-page request cost linear in the backlog instead of rereading every historical opt-out per chunk.
+  
+  Keep ambiguous recipients fail-closed without starving unrelated opt-outs. Preserve legacy unknown provenance when adding modern checkpoints, distinguish new no-source cleanup records, and include safe list failure details in stop/delete errors. Clarify first-carry consent limits and upgrade backlog scope in English and Korean. — Thanks @imjlk!
+
+### Changed
+
+- [2ce212e](https://github.com/imjlk/listmonk-ops/commit/2ce212e9c9c183bd0d709261e04e6b6f5326c339) Migrated off zod APIs that zod 4 deprecates, with no behavior change. Number schemas no longer call `.finite()`, which zod 4 made a no-op because number schemas already reject infinite values; string `.datetime()` is now `z.iso.datetime()` with the same options; and the trimmed email fields (`subscribers.create` and `subscribers.update` `email`, `transactional.send` `subscriber_email`, and the matching CLI options) use `z.string().trim().check(z.email())` instead of `.trim().email()`, so input is still trimmed before it is validated and the published input schemas keep `format: "email"`. Validation results, error messages, and every operation input and output JSON Schema published through the CLI and MCP catalogs are unchanged. In the `@listmonk-ops/abtest` declarations, the A/B test datetime fields are typed `ZodISODateTime` instead of `ZodString`; their inferred type is still `string`. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: common@0.7.3, openapi@0.11.1, operations@0.21.0
+
 ## 0.9.2 — 2026-09-27
 
 ### Fixed
