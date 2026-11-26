@@ -27,6 +27,9 @@ jobs:
   release-and-publish:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      release_sha: ${{ steps.release_ref.outputs.sha }}
+      verify_release_pr: ${{ steps.release_ref.outputs.verify }}
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
@@ -171,3 +174,109 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --ref main \
             --raw-field "tag=${CLI_RELEASE_TAG}"
+
+      # A PR opened or updated with the default GITHUB_TOKEN does not
+      # reliably start pull_request workflows. Record the release-branch
+      # SHA so a later job can run CI as a reusable workflow and post
+      # checks on that commit.
+      - name: Record release branch SHA
+        id: release_ref
+        if: steps.changesets.outputs.pending == 'true' && steps.sampo.outputs.published != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin sampo/release
+          sha="$(git rev-parse "origin/sampo/release")"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          echo "verify=true" >> "$GITHUB_OUTPUT"
+          echo "Release branch SHA: ${sha}"
+
+  # Runs the same CI jobs against the sampo/release commit. The called
+  # workflow is the copy on this workflow's ref (normally main), so
+  # verification does not depend on the release branch's workflow files.
+  verify-release-pr:
+    needs: release-and-publish
+    if: needs.release-and-publish.outputs.verify_release_pr == 'true'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.release-and-publish.outputs.release_sha }}
+    permissions:
+      contents: read
+
+  # Reusable workflow checks land on this workflow_run's main SHA.
+  # Copy the job conclusions onto the release commit so they appear on
+  # the release PR and can be required as status checks.
+  report-release-pr-ci:
+    needs:
+      - release-and-publish
+      - verify-release-pr
+    if: always() && needs.release-and-publish.outputs.verify_release_pr == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      checks: write
+    steps:
+      - name: Publish CI checks on the release commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SHA: ${{ needs.release-and-publish.outputs.release_sha }}
+          VERIFY_RESULT: ${{ needs.verify-release-pr.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${RELEASE_SHA}" ]]; then
+            echo "Missing release SHA" >&2
+            exit 1
+          fi
+
+          jobs_json="$(gh api --paginate --jq '.jobs[]' "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs" | jq -s '{jobs: .}')"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          report_job() {
+            local expected="$1"
+            local job name conclusion details title summary
+            job="$(jq -c --arg suffix "$expected" '
+              [.jobs[]? | select(.name == $suffix or (.name | endswith(" / " + $suffix)))]
+              | last
+            ' <<<"$jobs_json")"
+
+            name="$expected"
+            if [[ -z "$job" || "$job" == "null" ]]; then
+              conclusion="failure"
+              if [[ "${VERIFY_RESULT}" == "cancelled" ]]; then
+                conclusion="cancelled"
+              fi
+              details="$run_url"
+              title="CI job ${expected} did not run"
+              summary="Reusable CI result was \`${VERIFY_RESULT}\` and no job named \`${expected}\` was found in run ${GITHUB_RUN_ID}."
+            else
+              conclusion="$(jq -r '.conclusion // "failure"' <<<"$job")"
+              details="$(jq -r '.html_url // empty' <<<"$job")"
+              if [[ -z "$details" ]]; then
+                details="$run_url"
+              fi
+              if [[ -z "$conclusion" || "$conclusion" == "null" ]]; then
+                conclusion="failure"
+              fi
+              title="${expected}: ${conclusion}"
+              summary="Copied from the Sampo Release Publish reusable CI run onto the sampo/release commit."
+            fi
+
+            gh api "repos/${GITHUB_REPOSITORY}/check-runs" \
+              -f name="$name" \
+              -f head_sha="${RELEASE_SHA}" \
+              -f status="completed" \
+              -f conclusion="$conclusion" \
+              -f details_url="$details" \
+              -f "output[title]=$title" \
+              -f "output[summary]=$summary"
+          }
+
+          report_job "build-and-test"
+          report_job "local-stack-smoke"
+
+          if [[ "${VERIFY_RESULT}" != "success" ]]; then
+            echo "Release PR CI did not succeed (result=${VERIFY_RESULT})" >&2
+            exit 1
+          fi
