@@ -16,6 +16,7 @@ import {
 	findInstalledWorkspaceCopies,
 	isPublishedBundleCommand,
 	type NpmMetadataPolicy,
+	normalizeSignalCode,
 	npmInstall,
 	npmInstallCommand,
 	parseBundlerExternals,
@@ -75,6 +76,22 @@ describe("bundler command parsing", () => {
 			isPublishedBundleCommand("bun run build:js && bun run build:bin"),
 		).toBe(false);
 		expect(isPublishedBundleCommand("ttsc")).toBe(false);
+	});
+});
+
+describe("normalizeSignalCode", () => {
+	test("keeps null and named signals", () => {
+		expect(normalizeSignalCode(null)).toBe(null);
+		expect(normalizeSignalCode("SIGKILL")).toBe("SIGKILL");
+		expect(normalizeSignalCode("SIGTERM")).toBe("SIGTERM");
+	});
+
+	test("maps numeric SIGKILL to the name used by the timeout check", () => {
+		expect(normalizeSignalCode(9)).toBe("SIGKILL");
+	});
+
+	test("stringifies unnamed signal numbers", () => {
+		expect(normalizeSignalCode(64)).toBe("64");
 	});
 });
 
