@@ -30765,7 +30765,7 @@
       },
       "retry": {
         "kind": "safe",
-        "reason": "Read-only file evidence can be inspected again; state and observation clock may change."
+        "reason": "Read-only file or Postgres evidence can be inspected again; state and observation clock may change."
       },
       "since": "0.10.0",
       "stability": "experimental"

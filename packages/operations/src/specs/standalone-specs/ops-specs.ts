@@ -557,13 +557,13 @@ export const opsHealthOperationSpec = defineOperationSpec({
 	resource: "control",
 	verb: "health",
 	title: "Inspect consolidated operations health",
-	description: "Inspect bounded file-backed sequence and webhook evidence without recovery or remote mutations",
+	description: "Inspect bounded file or read-only Postgres sequence and webhook evidence without recovery or remote mutations",
 	contract: { input: opsHealthInputContract, output: opsHealthOutputContract },
 	effects: [{ kind: "read", resource: "control" }],
 	policy: { confirmation: "never", audit: "optional", dryRun: false },
 	retry: {
 		kind: "safe",
-		reason: "Read-only file evidence can be inspected again; state and observation clock may change.",
+		reason: "Read-only file or Postgres evidence can be inspected again; state and observation clock may change.",
 	},
 	agent: {
 		useWhen: [
@@ -571,7 +571,7 @@ export const opsHealthOperationSpec = defineOperationSpec({
 		],
 		avoidWhen: [
 			"Actual SMTP/provider readiness or atomic delivery approval is needed.",
-			"Postgres-only status is required: existing read paths initialize schema and are refused.",
+			"The Postgres schema must be created or migrated: health only reads it and reports missing or outdated schemas as unknown.",
 		],
 		prerequisites: [],
 		verifyWith: [],

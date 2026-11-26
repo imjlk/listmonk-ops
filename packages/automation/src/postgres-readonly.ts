@@ -122,17 +122,35 @@ export interface PostgresReadOnlyTransaction {
 	): Promise<Row[]>;
 }
 
+/**
+ * `read only` uses Postgres' default isolation (each statement sees its own
+ * snapshot). `isolation level repeatable read read only` makes every
+ * statement in the transaction observe one snapshot, so counts and sampled
+ * rows from several tables agree with each other.
+ */
+export type PostgresReadOnlyTransactionMode =
+	| "read only"
+	| "isolation level repeatable read read only";
+
+export interface PostgresReadOnlyOptions {
+	/** Read every statement from one consistent snapshot (REPEATABLE READ). */
+	consistentSnapshot?: boolean;
+}
+
 export interface PostgresReadOnlyClient {
 	readonly kind: "postgres-read-only";
 	/** Run `read` in one `BEGIN READ ONLY` transaction; errors are sanitized. */
-	readOnly<T>(read: (transaction: PostgresReadOnlyTransaction) => Promise<T>): Promise<T>;
+	readOnly<T>(
+		read: (transaction: PostgresReadOnlyTransaction) => Promise<T>,
+		options?: PostgresReadOnlyOptions,
+	): Promise<T>;
 	close(): Promise<void>;
 }
 
 /** Low-level runner seam: begin a read-only transaction and run raw statements. */
 export interface PostgresReadOnlyTransactionRunner {
 	begin<T>(
-		mode: "read only",
+		mode: PostgresReadOnlyTransactionMode,
 		callback: (
 			execute: (
 				text: string,
@@ -268,9 +286,12 @@ export function createPostgresReadOnlyClientFromRunner(
 	);
 	return {
 		kind: "postgres-read-only",
-		async readOnly(read) {
+		async readOnly(read, options = {}) {
+			const mode: PostgresReadOnlyTransactionMode = options.consistentSnapshot
+				? "isolation level repeatable read read only"
+				: "read only";
 			try {
-				return await runner.begin("read only", async (execute) => {
+				return await runner.begin(mode, async (execute) => {
 					await execute(
 						"SELECT set_config('statement_timeout', $1, true), set_config('lock_timeout', $2, true), set_config('idle_in_transaction_session_timeout', $1, true)",
 						[`${statementTimeoutMs}ms`, `${lockTimeoutMs}ms`],

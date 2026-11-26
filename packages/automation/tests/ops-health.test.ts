@@ -215,15 +215,16 @@ describe("consolidated read-only ops health", () => {
   expect(report.components[0]?.findings[0]?.code).toBe("not_regular_file");
  });
  test("Postgres and conflicting targets are unknown with only offline catalog next actions", async () => {
-  const report = await invokeOpsHealthOperation({ sequenceSource: { kind: "postgres" }, webhookSource: { kind: "conflict" } }, { at });
+  const report = await invokeOpsHealthOperation({ sequenceSource: { kind: "postgres", databaseUrl: "postgres://private-user:private-password@127.0.0.1:1/private" }, webhookSource: { kind: "conflict" } }, { at });
   expect(report).toMatchObject({ severity: "unknown", check_passed: false, complete: false });
-  expect(report.components.map((component) => component.availability)).toEqual(["unsupported", "unavailable"]);
-  expect(report.components[0]?.findings[0]?.code).toBe("postgres_not_read_only");
+  expect(report.components.map((component) => [component.backend, component.availability])).toEqual([["postgres", "unavailable"], ["unknown", "unavailable"]]);
+  expect(report.components[0]?.findings[0]?.code).toBe("postgres_unreachable");
+  expect(JSON.stringify(report)).not.toContain("private-password");
   for (const component of report.components) expect(component.findings[0]?.next_actions[0]?.command).toContain("operations --family");
  });
  test("critical observed issues remain visible despite another source being unknown", async () => {
   const { context } = await files(sequence([enrollment("ambiguous")]));
-  const report = await collectOpsHealth({ ...context, webhookSource: { kind: "postgres" } }, input);
+  const report = await collectOpsHealth({ ...context, webhookSource: { kind: "postgres", databaseUrl: "not-a-postgres-url" } }, input);
   expect(report).toMatchObject({ severity: "critical", complete: false, check_passed: false });
   expect(report.components[1]?.severity).toBe("unknown");
  });
@@ -252,7 +253,7 @@ describe("consolidated read-only ops health", () => {
  });
  test("scope and fixed/injected clocks are explicit; invalid bounds cannot reach execution", async () => {
   const { context } = await files();
-  const result = await invokeOpsHealthOperation({ ...context, webhookSource: { kind: "postgres" }, now: () => now }, { scope: "sequences" });
+  const result = await invokeOpsHealthOperation({ ...context, webhookSource: { kind: "postgres", databaseUrl: "not-a-postgres-url" }, now: () => now }, { scope: "sequences" });
   expect(result.components).toHaveLength(1);
 		expect(result.check_passed).toBe(true);
 		expect(result.checked_at).toBe(at);

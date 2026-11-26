@@ -1236,7 +1236,7 @@ Generate a metrics and deliverability summary for an operations window
 
 ## `ops.health`
 
-Inspect bounded file-backed sequence and webhook evidence without recovery or remote mutations
+Inspect bounded file or read-only Postgres sequence and webhook evidence without recovery or remote mutations
 
 - Resource / verb: `control.health`
 - MCP tool: `listmonk_ops_health`

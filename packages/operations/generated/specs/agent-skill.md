@@ -1436,7 +1436,7 @@ Contract maturity: `experimental`; effects: `read:control`; confirmation: `never
 
 Use when: A bounded sequence/webhook action-needed report is required without recovery or sending.
 
-Avoid when: Actual SMTP/provider readiness or atomic delivery approval is needed. Postgres-only status is required: existing read paths initialize schema and are refused.
+Avoid when: Actual SMTP/provider readiness or atomic delivery approval is needed. The Postgres schema must be created or migrated: health only reads it and reports missing or outdated schemas as unknown.
 
 Prerequisites: none
 
