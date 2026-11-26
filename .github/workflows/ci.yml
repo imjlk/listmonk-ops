@@ -32,11 +32,14 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        if: github.event_name != 'workflow_call'
+        if: inputs.ref == ''
         uses: actions/checkout@v7
 
+      # github.event_name in a called workflow is the caller's event
+      # (workflow_run / workflow_dispatch), not workflow_call. Select
+      # the release commit from the input instead.
       - name: Checkout requested ref
-        if: github.event_name == 'workflow_call'
+        if: inputs.ref != ''
         uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
@@ -103,11 +106,14 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        if: github.event_name != 'workflow_call'
+        if: inputs.ref == ''
         uses: actions/checkout@v7
 
+      # github.event_name in a called workflow is the caller's event
+      # (workflow_run / workflow_dispatch), not workflow_call. Select
+      # the release commit from the input instead.
       - name: Checkout requested ref
-        if: github.event_name == 'workflow_call'
+        if: inputs.ref != ''
         uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
