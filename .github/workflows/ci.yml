@@ -5,6 +5,16 @@ on:
   push:
     branches:
       - main
+  # Called by Sampo Release Publish after it opens or refreshes
+  # sampo/release, so that branch still gets real CI when the default
+  # GITHUB_TOKEN does not reliably start pull_request workflows.
+  workflow_call:
+    inputs:
+      ref:
+        description: Git SHA or ref to check out and test
+        required: true
+        type: string
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -22,7 +32,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
+        if: inputs.ref == ''
         uses: actions/checkout@v7
+
+      # github.event_name in a called workflow is the caller's event
+      # (workflow_run / workflow_dispatch), not workflow_call. Select
+      # the release commit from the input instead.
+      - name: Checkout requested ref
+        if: inputs.ref != ''
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -86,7 +106,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
+        if: inputs.ref == ''
         uses: actions/checkout@v7
+
+      # github.event_name in a called workflow is the caller's event
+      # (workflow_run / workflow_dispatch), not workflow_call. Select
+      # the release commit from the input instead.
+      - name: Checkout requested ref
+        if: inputs.ref != ''
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

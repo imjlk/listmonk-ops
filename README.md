@@ -593,7 +593,10 @@ After a PR is merged into `main` and its CI succeeds, workflow
 `.github/workflows/sampo-release-publish.yml` runs:
 
 1. With pending changesets, Sampo opens or refreshes the release PR with package
-   versions, changelogs, and the regenerated Bun lockfile.
+   versions, changelogs, and the regenerated Bun lockfile. The same workflow
+   then runs the full CI jobs on that release commit and posts the checks on
+   the PR, because a `GITHUB_TOKEN`-created PR does not reliably trigger
+   `pull_request` CI.
 2. After that release PR is merged, the workflow builds, checks, and tests the
    workspaces before publishing npm packages through trusted publishing (OIDC).
 3. Successful publishing creates tags and dispatches the separate native CLI

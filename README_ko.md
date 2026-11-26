@@ -577,7 +577,10 @@ PR이 `main`에 머지되고 해당 CI가 성공하면
 `.github/workflows/sampo-release-publish.yml`이 실행됩니다.
 
 1. 대기 중인 changeset이 있으면 패키지 버전·체인지로그·Bun 잠금 파일을 갱신한
-   릴리스 PR을 만들거나 업데이트합니다.
+   릴리스 PR을 만들거나 업데이트합니다. 같은 워크플로가 이어서 그 릴리스
+   커밋에서 전체 CI 작업을 실행하고 체크를 PR에 게시합니다. 기본
+   `GITHUB_TOKEN`으로 만든 PR은 `pull_request` CI를 신뢰성 있게 시작하지
+   않기 때문입니다.
 2. 릴리스 PR이 머지되면 워크스페이스 빌드·검사·테스트를 거쳐
    npm trusted publishing(OIDC)으로 패키지를 배포합니다.
 3. 배포 성공 후 태그를 만들고 별도의 네이티브 CLI 릴리스 워크플로를 실행합니다.
