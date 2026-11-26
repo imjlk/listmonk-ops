@@ -258,6 +258,24 @@ describe("ops health over read-only Postgres projections", () => {
 		expect(JSON.stringify(report)).not.toContain("private-password");
 	});
 
+	test("without --at, a heartbeat written while connecting is not treated as a future heartbeat", async () => {
+		const rows = sequenceRows();
+		const heartbeat = new Date("2026-11-07T00:00:02.000Z");
+		rows.sequence_enrollments = [rows.sequence_enrollments[0]!];
+		rows.sequence_workers = [{ status: "running", heartbeat_at: heartbeat }];
+		const fake = fakeContext({ rows: { ...rows, ...webhookRows() } });
+		const clocks = [new Date(at), new Date("2026-11-07T00:00:03.000Z")];
+		const report = await collectOpsHealth(
+			{ ...fake.context, now: () => clocks.shift() ?? new Date("2026-11-07T00:00:03.000Z") },
+			opsHealthInputSchema.parse({ scope: "sequences" }),
+		);
+		expect(report.checked_at).toBe(at);
+		const [component] = report.components;
+		expect(component?.metrics).toMatchObject({ due: 1, workers_running: 1, workers_future: 0 });
+		expect(component?.findings.map((finding) => finding.code)).not.toContain("due_without_worker");
+		expect(component?.severity).toBe("healthy");
+	});
+
 	test("a failing client close never hides the inspected result", async () => {
 		const fake = fakeContext();
 		const context: OpsHealthContext = {
@@ -410,6 +428,13 @@ describe("ops health against a real Postgres database", () => {
 	});
 
 	postgresTest("an outdated schema version is unknown and is not migrated by health", async () => {
+		// Bootstrap here so this test does not depend on the seeded-state test.
+		const sequences = createPostgresSequenceRepository({ connectionString: isolatedUrl, maxConnections: 1 });
+		try {
+			await sequences.listDefinitions();
+		} finally {
+			await sequences.close?.();
+		}
 		await direct!.unsafe(
 			"UPDATE listmonk_ops.sequence_runtime_meta SET value = '2' WHERE key = 'schema_version'",
 		);

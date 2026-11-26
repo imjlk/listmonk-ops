@@ -589,6 +589,12 @@ function finish(component: OpsHealthComponent): OpsHealthComponent {
 	return component;
 }
 
+function laterClock(start: Date, current: Date): Date {
+	return Number.isFinite(current.getTime()) && current.getTime() > start.getTime()
+		? current
+		: start;
+}
+
 /**
  * Inspect one Postgres-backed component in a single REPEATABLE READ, READ ONLY
  * transaction: classify the schema first (never bootstrapping or migrating it),
@@ -619,20 +625,26 @@ async function collectPostgresComponent(component: "sequences" | "webhooks", sou
 			};
 		}, { consistentSnapshot: true });
 		if (outcome.projection === undefined) return unavailable(component, source, outcome.state);
+		// Without an explicit --at, classify against a clock read after the snapshot:
+		// a heartbeat written while the connection was being established must not
+		// look like a future (non-live) heartbeat.
+		const observedAt = input.at
+			? now
+			: laterClock(now, context.now?.() ?? new Date());
 		try {
 			return component === "sequences"
 				? summarizeOpsHealthSequenceProjection(
 						outcome.projection.selected,
 						outcome.projection.coverage,
 						input,
-						now,
+						observedAt,
 						"postgres",
 					)
 				: summarizeOpsHealthWebhookProjection(
 						outcome.projection.selected,
 						outcome.projection.coverage,
 						input,
-						now,
+						observedAt,
 						"postgres",
 					);
 		} catch {
@@ -697,7 +709,7 @@ export async function collectOpsHealth(context: OpsHealthContext, input: OpsHeal
 		 "Scope is sequence and outbound-webhook file or Postgres state evidence, not SMTP/provider/Listmonk connectivity or actual delivery confirmation.",
 		 "Due counts are scheduling candidates, not proof of runnable steps, valid pinned revisions, consent or future delivery.",
 		 "Each file is read independently without locks or a cross-store transaction; state may change immediately afterward. No recovery, sending, claim, schema initialization or sequence/receipt mutation occurs.",
-		 "Each Postgres store is read in its own REPEATABLE READ, READ ONLY transaction with statement and lock timeouts, never through the runtime repositories: no DDL, migration, advisory lock or row write occurs, and missing, outdated or unsupported schemas, unreachable servers and timeouts are unknown. There is no cross-store snapshot.",
+		 "Each Postgres store is read in its own REPEATABLE READ, READ ONLY transaction with statement and lock timeouts, never through the runtime repositories: no DDL, migration, advisory lock or row write occurs, and missing, outdated or unsupported schemas, unreachable servers and timeouts are unknown. There is no cross-store snapshot. Without --at, each Postgres component is classified at a clock read after its snapshot, which may be slightly later than checked_at.",
 		 "Missing, invalid and oversized file evidence is unknown.",
 		 "Metadata projections do not validate complete payloads or revision topology; a healthy report only describes the supported status evidence.",
 		 "Metadata-only projections omit subscriber identity/context, message/event bodies, endpoint URLs/secrets, worker IDs and raw error strings. Read-only adapters do not enqueue lifecycle events or audit writes.",
