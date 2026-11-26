@@ -73,6 +73,9 @@ describe("read-only Postgres statement guard", () => {
 			"SELECT value FROM listmonk_ops.sequence_runtime_meta WHERE key = 'update delete'",
 			'SELECT "update" FROM t;',
 			"SELECT updated_at, last_update_id FROM t",
+			"SELECT 'it''s -- not a comment; nor /* this */' AS v -- trailing comment",
+			"SELECT 1 /* nested /* comment */ still */ AS one",
+			"SELECT CASE WHEN $1 = 'a' THEN 1 ELSE 0 END",
 		]) {
 			expect(() => assertPostgresReadOnlyStatement(text)).not.toThrow();
 		}
@@ -94,6 +97,16 @@ describe("read-only Postgres statement guard", () => {
 			"SELECT 1; DROP TABLE t",
 			"SET statement_timeout = 0",
 			"/* SELECT */ DELETE FROM t",
+			"SELECT 'x--'; COMMIT; DELETE FROM t",
+			"SELECT 'x/*'; DELETE FROM t; SELECT '*/'",
+			"SELECT 'a'';'; DELETE FROM t",
+			"SELECT E'\\''; DELETE FROM t --'",
+			"SELECT $$;$$; DELETE FROM t",
+			"SELECT $tag$x$tag$",
+			"SELECT 'unterminated",
+			"SELECT 1 /* unterminated",
+			"SELECT 1 /* outer /* inner */ still comment ; DELETE */ ; DELETE FROM t",
+			'SELECT "a; DELETE FROM t',
 		]) {
 			expect(() => assertPostgresReadOnlyStatement(text), text).toThrow(
 				PostgresReadOnlyError,

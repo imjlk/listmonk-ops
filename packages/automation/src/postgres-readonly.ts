@@ -164,30 +164,86 @@ function resolveTimeout(value: number | undefined, fallback: number, label: stri
 }
 
 const FORBIDDEN_STATEMENT =
-	/\b(insert|update|delete|merge|upsert|create|alter|drop|truncate|grant|revoke|comment|copy|lock|vacuum|analyze|reindex|cluster|refresh|listen|notify|call|do|execute|prepare|set|reset|nextval|setval|set_config|pg_advisory\w*|pg_try_advisory\w*|for\s+(no\s+key\s+)?update|for\s+(key\s+)?share)\b/i;
+	/\b(insert|update|delete|merge|upsert|create|alter|drop|truncate|grant|revoke|comment|copy|lock|vacuum|analyze|reindex|cluster|refresh|listen|notify|call|do|execute|prepare|set|reset|commit|rollback|savepoint|abort|nextval|setval|set_config|pg_advisory\w*|pg_try_advisory\w*|for\s+(no\s+key\s+)?update|for\s+(key\s+)?share)\b/i;
+
+function readOnlyViolation(): never {
+	throw new PostgresReadOnlyError("postgres_read_only_violation");
+}
+
+/**
+ * Mask SQL in one left-to-right pass: string literals become `''`, quoted
+ * identifiers `""` and comments a space, so a `--` or `;` inside a literal
+ * cannot hide the rest of the statement (and vice versa). Constructs whose
+ * boundaries need more context are refused: backslash escapes (E'' strings),
+ * dollar-quoted strings and unterminated literals or comments.
+ */
+function maskPostgresStatement(text: string): string {
+	let masked = "";
+	let index = 0;
+	while (index < text.length) {
+		const char = text[index]!;
+		const next = text[index + 1];
+		if (char === "'" || char === '"') {
+			let cursor = index + 1;
+			for (;;) {
+				if (cursor >= text.length) readOnlyViolation();
+				const current = text[cursor]!;
+				if (current === "\\" && char === "'") readOnlyViolation();
+				if (current === char) {
+					if (text[cursor + 1] === char) {
+						cursor += 2;
+						continue;
+					}
+					break;
+				}
+				cursor += 1;
+			}
+			masked += char === "'" ? "''" : '""';
+			index = cursor + 1;
+		} else if (char === "-" && next === "-") {
+			const newline = text.indexOf("\n", index);
+			masked += " ";
+			index = newline === -1 ? text.length : newline;
+		} else if (char === "/" && next === "*") {
+			// Postgres block comments nest.
+			let depth = 1;
+			let cursor = index + 2;
+			while (depth > 0) {
+				if (cursor >= text.length) readOnlyViolation();
+				if (text[cursor] === "/" && text[cursor + 1] === "*") {
+					depth += 1;
+					cursor += 2;
+				} else if (text[cursor] === "*" && text[cursor + 1] === "/") {
+					depth -= 1;
+					cursor += 2;
+				} else {
+					cursor += 1;
+				}
+			}
+			masked += " ";
+			index = cursor;
+		} else if (char === "$" && next !== undefined && /[A-Za-z_$]/.test(next)) {
+			// `$tag$...$tag$` or `$$...$$`; positional `$1` parameters are allowed.
+			readOnlyViolation();
+		} else {
+			masked += char;
+			index += 1;
+		}
+	}
+	return masked;
+}
 
 /**
  * Defense in depth on top of `BEGIN READ ONLY`: accept one SELECT/WITH
- * statement without write keywords, row locks, advisory locks or session
- * settings. Statements are code-owned constants with bound parameters, so a
- * keyword match is a programming error, not user input.
+ * statement without write keywords, transaction control, row locks, advisory
+ * locks or session settings. Statements are code-owned constants with bound
+ * parameters, so a refusal is a programming error, not user input.
  */
 export function assertPostgresReadOnlyStatement(text: string): void {
-	const normalized = text.replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ").trim();
-	if (!/^(select|with)\b/i.test(normalized)) {
-		throw new PostgresReadOnlyError("postgres_read_only_violation");
-	}
-	if (normalized.replace(/;\s*$/, "").includes(";")) {
-		throw new PostgresReadOnlyError("postgres_read_only_violation");
-	}
-	// Ignore quoted literals/identifiers so values such as 'schema_version' do not match.
-	const unquoted = normalized.replace(/'(?:[^']|'')*'/g, "''").replace(
-		/"(?:[^"]|"")*"/g,
-		'""',
-	);
-	if (FORBIDDEN_STATEMENT.test(unquoted)) {
-		throw new PostgresReadOnlyError("postgres_read_only_violation");
-	}
+	const masked = maskPostgresStatement(text).trim();
+	if (!/^(select|with)\b/i.test(masked)) readOnlyViolation();
+	if (masked.replace(/;\s*$/, "").includes(";")) readOnlyViolation();
+	if (FORBIDDEN_STATEMENT.test(masked)) readOnlyViolation();
 }
 
 /**
