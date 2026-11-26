@@ -1,6 +1,6 @@
 {
 	"name": "@listmonk-ops/abtest",
-	"version": "0.10.0",
+	"version": "0.10.1",
 	"type": "module",
 	"description": "A/B testing orchestration and statistical analysis for Listmonk",
 	"sideEffects": false,
@@ -37,7 +37,7 @@
 	"dependencies": {
 		"@listmonk-ops/common": "workspace:^0.7.3",
 		"@listmonk-ops/openapi": "workspace:^0.11.1",
-		"@listmonk-ops/operations": "workspace:^0.21.0",
+		"@listmonk-ops/operations": "workspace:^0.21.1",
 		"zod": "4.6.5"
 	},
 	"devDependencies": {
