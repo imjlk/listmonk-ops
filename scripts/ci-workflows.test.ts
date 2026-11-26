@@ -17,6 +17,8 @@ test("CI reuses the full build without removing binary or integration coverage",
 	);
 	expect(workflow).toContain("outbound-webhook-postgres.test.ts");
 	expect(workflow).toContain("sequence-postgres.test.ts");
+	expect(workflow).toContain("postgres-readonly.test.ts");
+	expect(workflow).toContain('LISTMONK_OPS_REQUIRE_POSTGRES_TESTS: "1"');
 	expect(workflow).toContain("bun run test:e2e");
 	expect(workflow).toContain(
 		"group: ci-${{ github.event.pull_request.number || github.run_id }}",
