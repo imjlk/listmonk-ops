@@ -20,7 +20,7 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { constants as osConstants, tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 
 export const REPOSITORY_ROOT = resolve(import.meta.dir, "..");
@@ -169,6 +169,28 @@ const NPM_LIFECYCLE_VARIABLE =
 const COMMAND_TIMEOUT_MS = 5 * 60_000;
 const COMMAND_TIMEOUT_SIGNAL = "SIGKILL";
 
+/**
+ * `Subprocess.signalCode` is a signal name, or a number when the signal
+ * has no name (for example a Linux real-time signal). `CommandResult`
+ * stores the name so timeout detection can compare against `"SIGKILL"`.
+ */
+export function normalizeSignalCode(
+	signal: string | number | null,
+): string | null {
+	if (signal === null) {
+		return null;
+	}
+	if (typeof signal === "string") {
+		return signal;
+	}
+	for (const [name, value] of Object.entries(osConstants.signals)) {
+		if (value === signal) {
+			return name;
+		}
+	}
+	return String(signal);
+}
+
 function readOutput(path: string): string {
 	return existsSync(path) ? readFileSync(path, "utf8") : "";
 }
@@ -197,7 +219,7 @@ export async function runCommand(
 		});
 		const exitCode = await child.exited;
 		const elapsedMs = performance.now() - startedAt;
-		const signal = child.signalCode;
+		const signal = normalizeSignalCode(child.signalCode);
 		return {
 			exitCode,
 			signal,
