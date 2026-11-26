@@ -180,11 +180,11 @@ jobs:
           LISTMONK_OPS_TEST_SEQUENCE_DATABASE_URL: postgres://listmonk:listmonk@127.0.0.1:15432/listmonk
         run: bun test packages/automation/tests/sequence-postgres.test.ts
 
-      - name: Run Postgres read-only inspection integration
+      - name: Run Postgres read-only inspection and ops health integration
         env:
           LISTMONK_OPS_TEST_SEQUENCE_DATABASE_URL: postgres://listmonk:listmonk@127.0.0.1:15432/listmonk
           LISTMONK_OPS_REQUIRE_POSTGRES_TESTS: "1"
-        run: bun test packages/automation/tests/postgres-readonly.test.ts
+        run: bun test packages/automation/tests/postgres-readonly.test.ts packages/automation/tests/ops-health-postgres.test.ts
 
       - name: Run MCP E2E tests
         env:

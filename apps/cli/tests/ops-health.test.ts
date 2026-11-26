@@ -92,7 +92,7 @@ describe("ops health CLI", () => {
 		}
 		expect(readdirSync(dir)).toEqual(["sequences.json"]);
 	});
-	test("unsupported Postgres and conflicting webhook configuration never resolve mutation-capable lifecycle repositories", () => {
+	test("unreachable Postgres and conflicting webhook configuration never resolve mutation-capable lifecycle repositories", () => {
 		const database = "postgres://private-user:private-password@127.0.0.1:1/private";
 		const result = cli(
 			["ops", "health", "--at", at, "--check", "--format", "json"],
@@ -105,9 +105,16 @@ describe("ops health CLI", () => {
 		);
 		expect(result.exitCode).toBe(1);
 		const report = JSON.parse(result.stdout.toString());
-		expect(report.components.map((component: { availability: string }) => component.availability)).toEqual(
-			["unsupported", "unavailable"],
-		);
+		expect(
+			report.components.map((component: { backend: string; availability: string; findings: { code: string }[] }) => [
+				component.backend,
+				component.availability,
+				component.findings[0]?.code,
+			]),
+		).toEqual([
+			["postgres", "unavailable", "postgres_unreachable"],
+			["unknown", "unavailable", "configuration_conflict"],
+		]);
 		expect(result.stdout.toString() + result.stderr.toString()).not.toContain(
 			"private-password",
 		);

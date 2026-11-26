@@ -126,7 +126,7 @@ test("campaign review is an unconfirmed read-only tool returning shared structur
  });
 test("health MCP is read-only, structured and does not consult the remote client", async () => {
 	const handler = createOpsToolsHandler({
-		sequenceSource: { kind: "postgres" },
+		sequenceSource: { kind: "postgres", databaseUrl: "not-a-postgres-url" },
 		webhookSource: { kind: "conflict" },
 	});
 	const client = new Proxy({}, { get() { throw new Error("Remote access forbidden"); } }) as ListmonkClient;

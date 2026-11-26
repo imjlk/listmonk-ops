@@ -12,6 +12,18 @@ import {
 	summarizeOutboundWebhookRuntimeHealth,
 } from "./outbound-webhooks";
 import { SEQUENCE_RETRY_MAX_ATTEMPTS } from "./sequence-engine";
+import {
+	type OpsHealthCoverage,
+	readOpsHealthPostgresSequences,
+	readOpsHealthPostgresWebhooks,
+} from "./ops-health-postgres";
+import {
+	classifyPostgresReadOnlyError,
+	createPostgresReadOnlyClient,
+	inspectPostgresReadOnlySchemaInTransaction,
+	type PostgresReadOnlyClient,
+	type PostgresReadOnlyClientOptions,
+} from "./postgres-readonly";
 
 export const MAX_OPS_HEALTH_FILE_BYTES = 4 * 1024 * 1024;
 export const opsHealthInputSchema = z.object({
@@ -56,11 +68,16 @@ export const opsHealthOutputSchema = z.object({
 export type OpsHealthInput = z.output<typeof opsHealthInputSchema>;
 export type OpsHealthComponent = z.output<typeof componentSchema>;
 export type OpsHealthReport = z.output<typeof opsHealthOutputSchema>;
-export type OpsHealthSource = { kind: "file"; path: string } | { kind: "postgres" } | { kind: "conflict" };
+export type OpsHealthSource =
+	| { kind: "file"; path: string }
+	| { kind: "postgres"; databaseUrl: string }
+	| { kind: "conflict" };
 export interface OpsHealthContext {
 	sequenceSource?: OpsHealthSource;
 	webhookSource?: OpsHealthSource;
 	now?: () => Date;
+	/** Test seam; defaults to a one-connection read-only postgres.js client per inspection. */
+	createPostgresReadOnlyClient?: (options: PostgresReadOnlyClientOptions) => PostgresReadOnlyClient;
 }
 const iso = z.iso.datetime({ offset: true });
 const workerSchema = z.object({
@@ -175,7 +192,7 @@ export function resolveOpsHealthSource(component: "sequences" | "webhooks", opti
 	const path = options.path ?? (environmentPath ? defaultPath() : undefined);
 	const database = options.databaseUrl ?? process.env[sequence ? "LISTMONK_OPS_SEQUENCE_DATABASE_URL" : "LISTMONK_OPS_WEBHOOK_DATABASE_URL"]?.trim();
 	if (path && database) return { kind: "conflict" };
-	if (database) return { kind: "postgres" };
+	if (database) return { kind: "postgres", databaseUrl: database };
 	return { kind: "file", path: path ?? defaultPath() };
 }
 
@@ -213,7 +230,16 @@ function add(component: OpsHealthComponent, code: string, severity: OpsHealthCom
 	});
 }
 const unavailableReasons: Record<string, string> = {
- postgres_not_read_only: "Postgres status paths initialize schema; health collection did not construct or query a repository",
+ schema_missing: "The listmonk-ops Postgres schema or a required table is missing; read-only inspection never creates or migrates it",
+ schema_outdated: "The stored Postgres schema version is older than this release expects; the runtime repository migrates it on its own startup, read-only inspection does not",
+ schema_unsupported: "The stored Postgres schema version is newer or unrecognized; use a listmonk-ops release that supports it",
+ configuration_invalid: "The Postgres connection string is not a valid postgres:// or postgresql:// URL",
+ postgres_unreachable: "Postgres could not be reached or the connection closed; no state was inferred",
+ postgres_auth_failed: "Postgres rejected the configured credentials",
+ postgres_timeout: "Read-only inspection exceeded its statement or lock timeout; retry later rather than treating the store as healthy",
+ postgres_permission_denied: "The configured role cannot read the listmonk_ops schema; grant USAGE on the schema and SELECT on its tables",
+ postgres_read_only_violation: "A statement was refused by the read-only guard or database; no state was changed",
+ postgres_read_failed: "Postgres read-only inspection failed; no state was inferred",
  configuration_conflict: "Both file and Postgres targets are configured; select exactly one backend before inspection",
  configuration_failed: "Store configuration could not be resolved safely; no backend was queried",
  missing_store: "Configured store does not exist; no empty healthy state was invented or created",
@@ -233,7 +259,7 @@ function unavailable(component: "sequences" | "webhooks", source: OpsHealthSourc
 		 : source.kind === "postgres"
 			 ? "postgres"
 			 : "unknown",
-	 availability: source.kind === "postgres" ? "unsupported" : "unavailable",
+	 availability: "unavailable",
 	 severity: "unknown",
 	 complete: false,
 	 truncated: code === "file_limit",
@@ -276,11 +302,12 @@ function project(raw: unknown, names: string[], limit: number) {
 function assertUnique(ids: string[]) {
 	if (new Set(ids).size !== ids.length) throw new HealthReadError("invalid_metadata");
 }
-function base(component: "sequences" | "webhooks", coverage: OpsHealthComponent["coverage"]): OpsHealthComponent {
+type HealthBackend = "file" | "postgres";
+function base(component: "sequences" | "webhooks", coverage: OpsHealthComponent["coverage"], backend: HealthBackend): OpsHealthComponent {
 	const truncated = coverage.some((entry) => entry.truncated);
 	return {
 		component,
-		backend: "file",
+		backend,
 		availability: "available",
 		severity: "healthy",
 		complete: !truncated,
@@ -332,12 +359,23 @@ export function summarizeOpsHealthSequence(raw: unknown, input: OpsHealthInput, 
 		["definitions", "enrollments", "workers"],
 		input.scan_limit,
 	);
+	return summarizeOpsHealthSequenceProjection(
+		selected,
+		coverage,
+		input,
+		now,
+		"file",
+	);
+}
+
+/** Shared sequence classifier for file and Postgres projections. */
+export function summarizeOpsHealthSequenceProjection(selected: Record<string, unknown>, coverage: OpsHealthCoverage[], input: OpsHealthInput, now: Date, backend: HealthBackend): OpsHealthComponent {
 	const data = sequenceProjectionSchema.parse(selected);
 	assertUnique(data.definitions.map((definition) => definition.id));
-	const component = base("sequences", coverage);
+	const component = base("sequences", coverage, backend);
 	const nowMs = now.getTime();
 	const health = buildSequenceRuntimeHealth(
-		"file",
+		backend,
 		data.definitions,
 		data.enrollments,
 		data.workers.filter((worker) => Date.parse(worker.heartbeatAt) <= nowMs),
@@ -431,13 +469,24 @@ export function summarizeOpsHealthWebhooks(raw: unknown, input: OpsHealthInput, 
 		["endpoints", "deliveries", "endpointRuntime", "workers"],
 		input.scan_limit,
 	);
+	return summarizeOpsHealthWebhookProjection(
+		selected,
+		coverage,
+		input,
+		now,
+		"file",
+	);
+}
+
+/** Shared webhook classifier for file and Postgres projections. */
+export function summarizeOpsHealthWebhookProjection(selected: Record<string, unknown>, coverage: OpsHealthCoverage[], input: OpsHealthInput, now: Date, backend: HealthBackend): OpsHealthComponent {
 	const data = webhookProjectionSchema.parse(selected);
 	assertUnique(data.endpoints.map((endpoint) => endpoint.id));
 	assertUnique(data.endpointRuntime.map((runtime) => runtime.endpointId));
-	const component = base("webhooks", coverage);
+	const component = base("webhooks", coverage, backend);
 	const nowMs = now.getTime();
 	const health = summarizeOutboundWebhookRuntimeHealth(
-		"file",
+		backend,
 		data.endpoints,
 		data.deliveries,
 		data.endpointRuntime,
@@ -540,6 +589,78 @@ function finish(component: OpsHealthComponent): OpsHealthComponent {
 	return component;
 }
 
+function laterClock(start: Date, current: Date): Date {
+	return Number.isFinite(current.getTime()) && current.getTime() > start.getTime()
+		? current
+		: start;
+}
+
+/**
+ * Inspect one Postgres-backed component in a single REPEATABLE READ, READ ONLY
+ * transaction: classify the schema first (never bootstrapping or migrating it),
+ * then read the bounded projection. Schema states and sanitized connection or
+ * timeout codes become `unknown` evidence; neither error text nor the
+ * connection string reaches the report.
+ */
+async function collectPostgresComponent(component: "sequences" | "webhooks", source: Extract<OpsHealthSource, { kind: "postgres" }>, input: OpsHealthInput, now: Date, context: OpsHealthContext): Promise<OpsHealthComponent> {
+	let client: PostgresReadOnlyClient;
+	try {
+		client = (context.createPostgresReadOnlyClient ?? createPostgresReadOnlyClient)({ connectionString: source.databaseUrl, maxConnections: 1 });
+	} catch (error) {
+		return unavailable(
+			component,
+			source,
+			classifyPostgresReadOnlyError(error).code,
+		);
+	}
+	try {
+		const outcome = await client.readOnly(async (transaction) => {
+			const schema = await inspectPostgresReadOnlySchemaInTransaction(transaction, component);
+			if (schema.state !== "ok") return { state: schema.state };
+			return {
+				state: "ok" as const,
+				projection: component === "sequences"
+					? await readOpsHealthPostgresSequences(transaction, input.scan_limit)
+					: await readOpsHealthPostgresWebhooks(transaction, input.scan_limit),
+			};
+		}, { consistentSnapshot: true });
+		if (outcome.projection === undefined) return unavailable(component, source, outcome.state);
+		// Without an explicit --at, classify against a clock read after the snapshot:
+		// a heartbeat written while the connection was being established must not
+		// look like a future (non-live) heartbeat.
+		const observedAt = input.at
+			? now
+			: laterClock(now, context.now?.() ?? new Date());
+		try {
+			return component === "sequences"
+				? summarizeOpsHealthSequenceProjection(
+						outcome.projection.selected,
+						outcome.projection.coverage,
+						input,
+						observedAt,
+						"postgres",
+					)
+				: summarizeOpsHealthWebhookProjection(
+						outcome.projection.selected,
+						outcome.projection.coverage,
+						input,
+						observedAt,
+						"postgres",
+					);
+		} catch {
+			return unavailable(component, source, "invalid_metadata");
+		}
+	} catch (error) {
+		return unavailable(
+			component,
+			source,
+			classifyPostgresReadOnlyError(error).code,
+		);
+	} finally {
+		await client.close().catch(() => undefined);
+	}
+}
+
 /** Collect components independently; unavailable/unsupported never means healthy and no source error text escapes. */
 export async function collectOpsHealth(context: OpsHealthContext, input: OpsHealthInput): Promise<OpsHealthReport> {
 	const now = input.at ? new Date(input.at) : (context.now?.() ?? new Date());
@@ -559,7 +680,7 @@ export async function collectOpsHealth(context: OpsHealthContext, input: OpsHeal
 				 "configuration_failed",
 			 );
 		 }
-		 if (source.kind === "postgres") return unavailable(component, source, "postgres_not_read_only");
+		 if (source.kind === "postgres") return collectPostgresComponent(component, source, input, now, context);
 		 if (source.kind === "conflict") return unavailable(component, source, "configuration_conflict");
 		 try {
 			 const raw = await readOpsHealthFile(source.path);
@@ -585,15 +706,16 @@ export async function collectOpsHealth(context: OpsHealthContext, input: OpsHeal
 	 truncated: components.some((component) => component.truncated),
 	 components,
 	 limitations: [
-		 "Scope is sequence and outbound-webhook file-state evidence, not SMTP/provider/Listmonk connectivity or actual delivery confirmation.",
+		 "Scope is sequence and outbound-webhook file or Postgres state evidence, not SMTP/provider/Listmonk connectivity or actual delivery confirmation.",
 		 "Due counts are scheduling candidates, not proof of runnable steps, valid pinned revisions, consent or future delivery.",
 		 "Each file is read independently without locks or a cross-store transaction; state may change immediately afterward. No recovery, sending, claim, schema initialization or sequence/receipt mutation occurs.",
-		 "Missing, invalid, oversized and unsupported Postgres evidence is unknown. Existing Postgres status methods bootstrap schema and are deliberately not called.",
+		 "Each Postgres store is read in its own REPEATABLE READ, READ ONLY transaction with statement and lock timeouts, never through the runtime repositories: no DDL, migration, advisory lock or row write occurs, and missing, outdated or unsupported schemas, unreachable servers and timeouts are unknown. There is no cross-store snapshot. Without --at, each Postgres component is classified at a clock read after its snapshot, which may be slightly later than checked_at.",
+		 "Missing, invalid and oversized file evidence is unknown.",
 		 "Metadata projections do not validate complete payloads or revision topology; a healthy report only describes the supported status evidence.",
 		 "Metadata-only projections omit subscriber identity/context, message/event bodies, endpoint URLs/secrets, worker IDs and raw error strings. Read-only adapters do not enqueue lifecycle events or audit writes.",
 		 "Counts from truncated prefixes are lower bounds. Source byte caps and per-collection scan limits are explicit; normal empty queues do not prove worker liveness.",
 		 "Webhook statuses do not expose a distinct ambiguous-send state; expired in-flight leases are uncertainty signals, not proof of remote delivery. Historical failed/stale records are flagged for inspection, not automatically repaired.",
-		 "Suggested actions only recheck bounded health or inspect the offline operation catalog. Legacy status commands are not suggested because another CLI configuration could initialize Postgres. No retry, replay, reset, reconcile, worker start or test-send action is executed or suggested.",
+		 "Suggested actions only recheck bounded health or inspect the offline operation catalog. Legacy status commands are not suggested because they open the runtime repositories, which bootstrap Postgres schema. No retry, replay, reset, reconcile, worker start or test-send action is executed or suggested.",
 	 ],
  };
 }

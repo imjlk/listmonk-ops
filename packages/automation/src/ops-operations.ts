@@ -867,7 +867,7 @@ export async function executeOpsHealthOperation(context: OpsOperationContext, in
 export const opsHealthOperation = defineOperation({
  id: "ops.health",
  title: "Inspect consolidated operations health",
- description: "Inspect bounded file-backed sequence and webhook evidence without recovery or remote mutations",
+ description: "Inspect bounded file or read-only Postgres sequence and webhook evidence without recovery or remote mutations",
  inputSchema: opsHealthInputSchema,
  outputSchema: opsHealthOutputSchema,
  safety: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
