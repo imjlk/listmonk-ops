@@ -1,5 +1,16 @@
 # @listmonk-ops/automation
 
+## 0.11.0 — 2026-11-26
+
+### Minor changes
+
+- [1ce6017](https://github.com/imjlk/listmonk-ops/commit/1ce60179236821ee75a42ddbe6222d735b0ee525) `ops health` (CLI `listmonk-cli ops health`, MCP `listmonk_ops_health`) now inspects Postgres-backed sequence and webhook stores instead of reporting them as unsupported. Each store is read through the internal read-only reader in one `REPEATABLE READ, READ ONLY` transaction with statement and lock timeouts: the schema is checked first, then only the columns the classifiers need (definition/endpoint IDs used for joins, status, enabled and circuit state, schedule/lease/heartbeat timestamps, and the enrollment jsonb `retryCount` key) are read with `LIMIT scan_limit` plus exact `count(*)` totals for coverage; IDs are not reported. The runtime repositories are never opened, so no DDL, migration, advisory or row lock, or row write happens (plain SELECTs still take ACCESS SHARE table locks). Without `--at`, Postgres components are classified at a clock read after their snapshot. Missing, outdated or unsupported schemas and unreachable, auth, timeout or permission failures are `unknown` with a sanitized code (for example `schema_outdated` or `postgres_timeout`) and never include the connection string. A dedicated read-only role (USAGE on `listmonk_ops`, SELECT on its tables) is recommended but not required. The `ops.health` operation spec text is updated to match. — Thanks @imjlk!
+
+### Patch changes
+
+- [231e714](https://github.com/imjlk/listmonk-ops/commit/231e7143cf4032d3c9d7b94870990814d3fe9213) Add an internal read-only Postgres inspection foundation for the sequence and webhook runtime schemas: reads run in `BEGIN READ ONLY` transactions with transaction-local statement and lock timeouts, schema state is classified as ok, schema_missing, schema_outdated or schema_unsupported without running DDL, migrations, row writes or advisory locks, and connection failures are reduced to fixed codes that never include the connection string. It is not exported or wired into any command yet; `ops health` and `sequences simulate` still refuse Postgres. — Thanks @imjlk!
+- Updated dependencies: operations@0.21.1
+
 ## 0.10.0 — 2026-11-09
 
 ### Minor changes
