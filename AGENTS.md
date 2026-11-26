@@ -237,10 +237,13 @@ and then runs MCP E2E. Keep the local commands aligned with `.github/workflows/c
 
 The Sampo release workflow (`sampo-release-publish.yml`) triggers on CI
 completion via `workflow_run` and only publishes when CI succeeds and the
-CI run originated from the same repository (not a fork). It also runs
-`bun run check` and `bun run test` internally before publishing. A manual
-`workflow_dispatch` can bypass the CI-success gate but the internal
-checks still run.
+CI run originated from the same repository (not a fork). When it opens or
+refreshes the `sampo/release` PR, it also calls the `CI` workflow on that
+commit and posts the `build-and-test` and `local-stack-smoke` checks there,
+because a PR created with the default `GITHUB_TOKEN` does not reliably
+trigger `pull_request` workflows. It also runs `bun run check` and
+`bun run test` internally before publishing. A manual `workflow_dispatch`
+can bypass the CI-success gate but the internal checks still run.
 
 ## Documentation and generated artifacts
 

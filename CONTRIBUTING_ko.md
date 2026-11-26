@@ -73,8 +73,13 @@ PR 검증:
 2. 대기 중인 changeset이 있으면 Sampo가 버전 변경과 changelog를 담은
    `sampo/release` PR("chore(release): publish packages")을 만들거나 갱신합니다.
    이 단계에서는 아무것도 배포하지 않습니다.
-3. 모인 변경을 배포할 준비가 되면 릴리즈 PR을 머지합니다.
-4. 그 머지의 CI가 성공하면 워크플로가 워크스페이스를 빌드하고
+3. 같은 워크플로가 이어서 그 릴리즈 브랜치 커밋에 `CI` 워크플로를 호출하고,
+   `build-and-test`와 `local-stack-smoke` 체크를 해당 커밋에 게시합니다.
+   기본 `GITHUB_TOKEN`으로 열거나 갱신한 PR은 `pull_request` 워크플로를
+   신뢰성 있게 시작하지 않기 때문에, 이 단계는 `pull_request` 이벤트에
+   의존하지 않습니다.
+4. 그 체크가 통과하고 모인 변경을 배포할 준비가 되면 릴리즈 PR을 머지합니다.
+5. 그 머지의 CI가 성공하면 워크플로가 워크스페이스를 빌드하고
    `bun run check`와 `bun run test`를 실행한 뒤, OIDC trusted publishing과
    provenance로 npm 패키지를 배포하고 패키지 버전 태그를 push합니다.
 

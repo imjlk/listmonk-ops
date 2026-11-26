@@ -73,8 +73,14 @@ After a merge to `main`:
 2. While changesets are pending, Sampo opens or refreshes the `sampo/release`
    PR ("chore(release): publish packages") with the version bumps and
    changelogs. Nothing is published at this step.
-3. Merge the release PR when the accumulated changes are ready to ship.
-4. After CI succeeds on that merge, the workflow builds the workspaces, runs
+3. The same workflow then calls the `CI` workflow on that release-branch
+   commit and posts the `build-and-test` and `local-stack-smoke` checks on
+   it. This does not depend on a `pull_request` event: a PR opened or
+   updated with the default `GITHUB_TOKEN` does not reliably start other
+   workflows.
+4. Merge the release PR when those checks have passed and the accumulated
+   changes are ready to ship.
+5. After CI succeeds on that merge, the workflow builds the workspaces, runs
    `bun run check` and `bun run test`, publishes the npm packages with OIDC
    trusted publishing and provenance, and pushes the package version tags.
 
