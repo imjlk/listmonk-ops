@@ -356,7 +356,10 @@ describe("sequence simulation against a real Postgres database", () => {
 	postgresTest("a fresh database is a schema_missing refusal and simulation creates nothing", async () => {
 		const error = await invokeSequenceSimulateOperation({ simulationSource: source() }, { id: definitionId, at }).catch((caught: unknown) => caught);
 		expect(String((error as Error).message)).toContain("(schema_missing)");
-		expect(String((error as Error).message)).not.toContain(new URL(isolatedUrl).password || "\u0000");
+		// The CI password ("listmonk") also appears in product names, so assert on the URL itself.
+		expect(String((error as Error).message)).not.toContain(isolatedUrl);
+		expect(String((error as Error).message)).not.toContain("://");
+		expect(String((error as Error).message)).not.toContain(databaseName);
 		expect((await snapshot(direct!)).namespaces).toEqual([]);
 	});
 
