@@ -6,6 +6,7 @@ import {
 	sequenceSimulationOutputSchema,
 	MAX_SEQUENCE_SIMULATION_STEPS,
 } from "./sequence-simulator";
+import { readPostgresSequenceSimulationSnapshot } from "./sequence-simulation-postgres";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	defineOperation,
@@ -43,7 +44,11 @@ import {
 	runSequenceTick,
 	type SequenceExecutionContext,
 } from "./sequence-engine";
-import { getSequenceRepositoryFromEnvironment } from "./sequence-runtime";
+import {
+	getSequenceRepositoryFromEnvironment,
+	resolveSequenceSimulationSource,
+	type SequenceSimulationSource,
+} from "./sequence-runtime";
 import {
 	createSequenceDefinition,
 	createSequenceEnrollment,
@@ -61,6 +66,12 @@ import {
 
 export interface SequenceOperationContext {
 	repository?: SequenceRepository;
+	/**
+	 * Read source for `sequences.simulate` by ID. Takes precedence over
+	 * `repository`; when both are absent it is resolved from the environment
+	 * without constructing a Postgres runtime repository.
+	 */
+	simulationSource?: SequenceSimulationSource;
 	client?: Pick<ListmonkClient, "subscriber" | "transactional"> & Partial<Pick<ListmonkClient, "list">>;
 	idempotencyStore?: TransactionalIdempotencyStore;
 	hashPayload?: (serialized: string) => string;
@@ -1064,9 +1075,22 @@ export const sequenceListOperation = defineOperation({
 });
 export async function executeSequenceSimulateOperation(context: SequenceOperationContext, input: z.output<typeof sequenceSimulateInputSchema>) {
 	const snapshot = input.steps
-  ? { steps: validateSequenceSteps(input.steps.map(toInternalStep)) }
-  : await readSequenceSimulationSnapshot(repository(context), input.id!, input.enrollment_id);
+		? { steps: validateSequenceSteps(input.steps.map(toInternalStep)) }
+		: await readSimulationSnapshot(context, input.id!, input.enrollment_id);
 	return simulateSequenceSnapshot(snapshot, input);
+}
+
+function simulationSource(context: SequenceOperationContext): SequenceSimulationSource {
+	if (context.simulationSource) return context.simulationSource;
+	if (context.repository) return { kind: "repository", repository: context.repository };
+	return resolveSequenceSimulationSource();
+}
+
+async function readSimulationSnapshot(context: SequenceOperationContext, id: string, enrollmentId?: string) {
+	const source = simulationSource(context);
+	return source.kind === "postgres"
+		? readPostgresSequenceSimulationSnapshot(source, id, enrollmentId)
+		: readSequenceSimulationSnapshot(source.repository, id, enrollmentId);
 }
 
 export const sequenceSimulateOperation = defineOperation({

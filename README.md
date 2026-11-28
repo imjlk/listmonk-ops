@@ -401,10 +401,22 @@ MCP `listmonk_sequences_simulate` shares the same inputs/results: exactly one of
 `id` or `steps`, required timezone-bearing `at`, optional `enrollment_id`, `context`,
 `subscriber`, `list_policies`, and `max_steps` (default 100, maximum 500). Steps use
 `sequences create` syntax. `enrollment_id` requires `id` and forbids context overrides.
-No enrollment is created. Definition/enrollment references currently support the
-**file backend only**: Postgres repository reads initialize schema, so reference
-simulation refuses that backend before querying it. Supply an explicit `steps`
-snapshot for offline simulation instead. Existing redacted `sequences get` output
+No enrollment is created. Definition/enrollment references work with both backends.
+With `LISTMONK_OPS_SEQUENCE_DATABASE_URL`, simulation **never** opens the runtime
+repository (it bootstraps schema and takes advisory locks). It uses one connection
+and one `REPEATABLE READ, READ ONLY` transaction with 5 s statement / 1 s lock
+timeouts: it checks the `listmonk_ops` tables and stored schema version, then
+selects only the `definition` (and, with `enrollment_id`, `enrollment`) jsonb
+document by primary key, refusing documents over 4 MiB in SQL. Documents are parsed
+exactly as the runtime repository parses them, so results match the file backend for
+the same data. No DDL, migration, advisory or row lock, or row write is issued; plain
+`SELECT`s still take normal `ACCESS SHARE` table locks. A missing (`schema_missing`),
+older (`schema_outdated`) or newer (`schema_unsupported`) schema, and unreachable,
+auth, timeout or permission failures (`postgres_unreachable`, `postgres_auth_failed`,
+`postgres_timeout`, `postgres_permission_denied`, …) are refused with only that
+sanitized code, never the connection string or server error text. The read-only role
+recommended for `ops health` (USAGE on `listmonk_ops`, SELECT on its tables) is enough.
+Explicit `steps` snapshots never touch either backend. Existing redacted `sequences get` output
 contains fingerprints, not executable steps: retain your original step definition;
 do not treat those summaries as step snapshots.
 

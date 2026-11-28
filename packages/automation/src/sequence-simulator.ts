@@ -230,29 +230,52 @@ export async function simulateSequenceSnapshot(snapshot: SequenceSimulationSnaps
 	return result;
 }
 
-/** Only file repository reads are supported: Postgres read methods bootstrap schema and are not read-only. */
-export async function readSequenceSimulationSnapshot(repository: Pick<SequenceRepository, "kind" | "getDefinition" | "getEnrollment">, id: string, enrollmentId?: string): Promise<SequenceSimulationSnapshot> {
-	if (repository.kind !== "file") throw new Error("Reference simulation supports file repositories only; use an explicit steps snapshot for offline Postgres simulation");
+const SNAPSHOT_READ_FAILURE =
+	"Unable to read matching sequence simulation snapshots; verify IDs and revision history";
+
+/**
+ * Select the pinned (or current) revision from already-read records. Shared by
+ * the file and read-only Postgres sources so both yield identical snapshots.
+ */
+export function selectSequenceSimulationSnapshot(
+	definition: SequenceDefinition,
+	enrollment: SequenceEnrollment | undefined,
+	id: string,
+): SequenceSimulationSnapshot {
 	try {
-		const enrollment = enrollmentId
-			? await repository.getEnrollment(enrollmentId)
-			: undefined;
 		if (enrollment && enrollment.sequenceId !== id) throw new Error("Sequence simulation enrollment identity mismatch");
-		const definition = await repository.getDefinition(id);
 		if (definition.id !== id) throw new Error("Sequence simulation definition identity mismatch");
 		const revision = definition.revisions.find(
-		(item) => item.revision === (enrollment?.revision ?? definition.currentRevision),
-	);
+			(item) => item.revision === (enrollment?.revision ?? definition.currentRevision),
+		);
 		if (!revision) throw new Error("Sequence simulation pinned revision is missing");
-  // Return only the selected revision; do not copy unrelated history into the bounded simulation.
+		// Return only the selected revision; do not copy unrelated history into the bounded simulation.
 		return {
 			steps: revision.steps,
 			definition: { ...definition, revisions: [] },
 			enrollment,
 		};
 	} catch {
-		throw new Error(
-		"Unable to read matching sequence simulation snapshots; verify IDs and revision history",
-	);
+		throw new Error(SNAPSHOT_READ_FAILURE);
 	}
+}
+
+/**
+ * Repository reads are only used for file repositories: Postgres repository
+ * read methods bootstrap schema, so Postgres state is read through
+ * `readPostgresSequenceSimulationSnapshot` instead.
+ */
+export async function readSequenceSimulationSnapshot(repository: Pick<SequenceRepository, "kind" | "getDefinition" | "getEnrollment">, id: string, enrollmentId?: string): Promise<SequenceSimulationSnapshot> {
+	if (repository.kind !== "file") throw new Error("Repository-based simulation supports file repositories only; Postgres sequence state is read through the read-only Postgres reader (LISTMONK_OPS_SEQUENCE_DATABASE_URL)");
+	let definition: SequenceDefinition;
+	let enrollment: SequenceEnrollment | undefined;
+	try {
+		enrollment = enrollmentId
+			? await repository.getEnrollment(enrollmentId)
+			: undefined;
+		definition = await repository.getDefinition(id);
+	} catch {
+		throw new Error(SNAPSHOT_READ_FAILURE);
+	}
+	return selectSequenceSimulationSnapshot(definition, enrollment, id);
 }

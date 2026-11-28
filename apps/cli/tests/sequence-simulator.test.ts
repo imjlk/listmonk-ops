@@ -8,7 +8,7 @@ const cliDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const directory = mkdtempSync(join(tmpdir(), "sequence-simulator-cli-"));
 const store = join(directory, "must-not-exist.json");
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
-async function run(args: string[]) {
+async function run(args: string[], env: Record<string, string> = {}) {
 	const child = Bun.spawn(
 		[
 			"bun",
@@ -30,6 +30,7 @@ async function run(args: string[]) {
 				LISTMONK_API_URL: "http://unused.invalid/api",
 				LISTMONK_USERNAME: "",
 				LISTMONK_API_TOKEN: "",
+				...env,
 			},
 			stdout: "pipe",
 			stderr: "pipe",
@@ -75,6 +76,20 @@ describe("sequence simulator CLI", () => {
 			expect(result.code).not.toBe(0);
 			expect(result.stdout + result.stderr).not.toContain("private-json-secret");
 		}
+		expect(existsSync(store)).toBe(false);
+	}, 15000);
+	test("--id with a Postgres store uses the read-only reader and refuses unreachable servers without leaking the URL", async () => {
+		const result = await run(
+			["--at", "2026-01-01T00:00:00Z", "--id", "11111111-1111-4111-8111-111111111111"],
+			{
+				LISTMONK_OPS_SEQUENCE_STORE: "",
+				LISTMONK_OPS_SEQUENCE_DATABASE_URL: "postgres://private-user:private-password@127.0.0.1:1/private",
+			},
+		);
+		expect(result.code).not.toBe(0);
+		expect(result.stdout + result.stderr).toContain("postgres_unreachable");
+		expect(result.stdout + result.stderr).not.toContain("private-password");
+		expect(result.stdout + result.stderr).not.toContain("private-user");
 		expect(existsSync(store)).toBe(false);
 	}, 15000);
 });

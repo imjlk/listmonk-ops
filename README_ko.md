@@ -391,9 +391,21 @@ MCP `listmonk_sequences_simulate`도 같은 입력/결과를 사용합니다. `i
 하나, 시간대가 포함된 필수 `at`, 선택적인 `enrollment_id`, `context`, `subscriber`,
 `list_policies`, `max_steps`(기본 100, 최대 500)를 받습니다. 단계는 `sequences create`
 문법입니다. `enrollment_id`에는 `id`가 필요하고 context 재정의를 허용하지 않습니다.
-등록은 생성하지 않습니다. 정의/등록 참조는 현재 **파일 백엔드만** 지원합니다.
-Postgres 조회 메서드는 스키마를 초기화하므로 DB 조회 전에 거부합니다. 오프라인
-시뮬레이션에는 명시적인 `steps` 스냅샷을 사용하세요. 기존 `sequences get`은 본문이
+등록은 생성하지 않습니다. 정의/등록 참조는 두 백엔드 모두 지원합니다.
+`LISTMONK_OPS_SEQUENCE_DATABASE_URL`을 쓰면 런타임 저장소(스키마 초기화와 advisory
+lock 수행)를 **절대** 열지 않고, 연결 하나로 `REPEATABLE READ, READ ONLY` 트랜잭션
+하나를 엽니다(statement 5초 / lock 1초 타임아웃). `listmonk_ops` 테이블과 저장된
+스키마 버전을 확인한 뒤 기본 키로 `definition`(`enrollment_id`가 있으면 `enrollment`)
+jsonb 문서만 조회하며, 4 MiB를 넘는 문서는 SQL 단계에서 거부합니다. 문서를 런타임
+저장소와 똑같이 해석하므로 같은 데이터라면 파일 백엔드와 결과가 같습니다. DDL,
+마이그레이션, advisory·행 잠금, 행 쓰기를 실행하지 않습니다(일반 `SELECT`의
+`ACCESS SHARE` 테이블 잠금은 발생). 스키마 누락(`schema_missing`), 구버전
+(`schema_outdated`), 신버전(`schema_unsupported`)과 연결·인증·타임아웃·권한 실패
+(`postgres_unreachable`, `postgres_auth_failed`, `postgres_timeout`,
+`postgres_permission_denied` 등)는 정제된 코드만 담아 거부하며 연결 문자열이나 서버
+오류 문구는 포함하지 않습니다. `ops health`용 권장 읽기 전용 역할(`listmonk_ops`
+USAGE, 테이블 SELECT)로 충분합니다. 명시적인 `steps` 스냅샷은 어느 백엔드에도
+접근하지 않습니다. 기존 `sequences get`은 본문이
 아닌 지문을 반환하므로 실행 단계로 사용할 수 없습니다. 원본 단계 정의를 보관하세요.
 
 엔진이 실제 지원하는 `condition`(`equals`, `not_equals`, `exists`), `wait`,

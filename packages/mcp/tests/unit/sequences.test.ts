@@ -233,3 +233,26 @@ test("simulator is a read-only snapshot tool that never touches repository or Li
 		outcome: "completed_path",
 	});
 });
+
+test("simulator reads Postgres references through the read-only source, not the runtime repository", async () => {
+	const { executeSequenceTools } = await import("../../src/handlers/sequences");
+	const forbidden = new Proxy(
+		{},
+		{
+			get() {
+				throw new Error("State or network capability touched");
+			},
+		},
+	);
+	const result = await executeSequenceTools(
+		{ method: "tools/call", params: { name: "listmonk_sequences_simulate", arguments: { at: "2026-01-01T00:00:00Z", id: "11111111-1111-4111-8111-111111111111" } } },
+		forbidden as ListmonkClient,
+		{
+			repository: forbidden as SequenceRepository,
+			simulationSource: { kind: "postgres", databaseUrl: "postgres://private-user:private-password@127.0.0.1:1/private" },
+		},
+	).catch((error: unknown) => ({ isError: true, content: [{ type: "text", text: String((error as Error).message) }] }));
+	const text = JSON.stringify(result);
+	expect(text).toContain("postgres_unreachable");
+	expect(text).not.toContain("private-password");
+});

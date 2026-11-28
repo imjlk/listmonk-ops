@@ -10790,7 +10790,7 @@
       },
       "retry": {
         "kind": "safe",
-        "reason": "The simulator reads explicit snapshots or file-backed state without claiming or mutating work."
+        "reason": "The simulator reads explicit snapshots, file-backed state or read-only Postgres state without claiming or mutating work."
       },
       "since": "0.10.0",
       "stability": "experimental"
