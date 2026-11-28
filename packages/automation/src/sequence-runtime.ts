@@ -8,6 +8,7 @@ import {
 	createPostgresSequenceRepository,
 	type PostgresSequenceRepositoryOptions,
 } from "./sequence-postgres";
+import type { PostgresSequenceSimulationSource } from "./sequence-simulation-postgres";
 
 export const SEQUENCE_DATABASE_URL_ENV =
 	"LISTMONK_OPS_SEQUENCE_DATABASE_URL";
@@ -88,4 +89,40 @@ export async function closeSequenceRuntimeRepositories(): Promise<void> {
 			"Failed to close one or more sequence repositories",
 		);
 	}
+}
+
+/**
+ * Where `sequences simulate --id` reads state from. Postgres is a connection
+ * string for the read-only reader, never a runtime repository: constructing
+ * or using one would bootstrap schema and take advisory locks.
+ */
+export type SequenceSimulationSource =
+	| {
+			kind: "repository";
+			repository: Pick<SequenceRepository, "kind" | "getDefinition" | "getEnrollment">;
+	  }
+	| PostgresSequenceSimulationSource;
+
+/** Resolve the simulation source with the same precedence/conflict rules as the runtime repository. */
+export function resolveSequenceSimulationSource(
+	options: Pick<SequenceRuntimeOptions, "path" | "databaseUrl"> = {},
+): SequenceSimulationSource {
+	const path =
+		options.path ??
+		(process.env[SEQUENCE_STORE_PATH_ENV]?.trim()
+			? getSequenceStorePath()
+			: undefined);
+	const databaseUrl =
+		options.databaseUrl ??
+		(process.env[SEQUENCE_DATABASE_URL_ENV]?.trim() || undefined);
+	if (path && databaseUrl) {
+		throw new TypeError(
+			`Configure only one of ${SEQUENCE_STORE_PATH_ENV} or ${SEQUENCE_DATABASE_URL_ENV}`,
+		);
+	}
+	if (databaseUrl) return { kind: "postgres", databaseUrl };
+	return {
+		kind: "repository",
+		repository: createFileSequenceRepository(path ?? getSequenceStorePath()),
+	};
 }

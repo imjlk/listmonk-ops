@@ -22,5 +22,11 @@ export * from "./webhook-operations";
 export * from "./ops-operations";
 
 export * from "./sequence-simulator";
+export {
+	MAX_SEQUENCE_SIMULATION_RECORD_BYTES,
+	type PostgresSequenceSimulationSource,
+	SequenceSimulationSourceError,
+	type SequenceSimulationSourceErrorCode,
+} from "./sequence-simulation-postgres";
 export * from "./campaign-review";
 export * from "./ops-health";

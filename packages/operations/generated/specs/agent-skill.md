@@ -476,7 +476,7 @@ Prerequisites: none
 
 Verify with: none
 
-Retry guidance: Retry with the same snapshots and clock for deterministic results; refreshed file state may change the explanation.
+Retry guidance: Retry with the same snapshots and clock for deterministic results; refreshed file or Postgres state may change the explanation. Postgres schema or connection refusals carry a sanitized code and change no state.
 
 ## Validate sequence definition (`sequences.validate`)
 

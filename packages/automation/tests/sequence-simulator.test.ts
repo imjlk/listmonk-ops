@@ -228,7 +228,7 @@ describe("fixed-clock no-send sequence simulator", () => {
   }
   expect(calls).toEqual([]);
  });
- test("Postgres references fail before initializing/reading; explicit steps ignore repositories entirely", async () => {
+ test("Postgres runtime repositories are never read (the read-only reader is used instead); explicit steps ignore repositories entirely", async () => {
   const { value, calls } = repository(definition([stop]));
   const pg = { kind: "postgres", getDefinition: value.getDefinition, getEnrollment: value.getEnrollment } as const;
   await expect(readSequenceSimulationSnapshot(pg, id)).rejects.toThrow("file repositories only");

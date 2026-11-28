@@ -96,7 +96,7 @@ const simulateCommand = defineCommand({
  name: "simulate", operationId: "sequences.simulate",
  description: "Explain a bounded no-send snapshot path at an explicit clock",
  options: {
-  id: option(z.uuid().optional(), { description: "File-backed sequence ID; use this or --steps" }),
+  id: option(z.uuid().optional(), { description: "Stored sequence ID (file store or read-only Postgres); use this or --steps" }),
   "enrollment-id": option(z.uuid().optional(), { description: "Existing enrollment pinned revision/context; requires --id" }),
   steps: option(z.string().optional(), { description: "Offline JSON step array using sequences create syntax; no repository access" }),
   at: option(z.iso.datetime({ offset: true }), { description: "Required fixed ISO clock with timezone" }),

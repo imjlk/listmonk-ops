@@ -19,6 +19,7 @@ test("CI reuses the full build without removing binary or integration coverage",
 	expect(workflow).toContain("sequence-postgres.test.ts");
 	expect(workflow).toContain("postgres-readonly.test.ts");
 	expect(workflow).toContain("ops-health-postgres.test.ts");
+	expect(workflow).toContain("sequence-simulation-postgres.test.ts");
 	expect(workflow).toContain('LISTMONK_OPS_REQUIRE_POSTGRES_TESTS: "1"');
 	expect(workflow).toContain("bun run test:e2e");
 	expect(workflow).toContain(

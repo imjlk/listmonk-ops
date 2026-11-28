@@ -10,6 +10,7 @@ import {
 	enqueueSuccessfulOperationLifecycleEvents,
 	getOutboundWebhookStoreOptionsFromEnvironment,
 	getSequenceRepositoryFromEnvironment,
+	resolveSequenceSimulationSource,
 	resolveOpsHealthSource,
 	recordOperationAuditWithLifecycle,
 	type OutboundWebhookStoreOptions,
@@ -296,6 +297,11 @@ export class ListmonkMCPServer {
 		this.transactionalStore = sequenceRepository.idempotencyStore;
 		this.sequenceHandler = createSequenceToolsHandler({
 			repository: sequenceRepository,
+			// Simulation reads Postgres through the read-only reader, never this repository.
+			simulationSource: resolveSequenceSimulationSource({
+				path: config.sequenceStorePath,
+				databaseUrl: config.sequenceDatabaseUrl,
+			}),
 			target: {
 				baseUrl: this.baseUrl,
 				username: this.username,
